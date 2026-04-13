@@ -1,0 +1,295 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding-bottom: 80px; /* room for sticky rank bar */
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-size: var(--text-4xl);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.seasonBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-end;
+  min-width: 260px;
+}
+
+.seasonTitle {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.progressTrack {
+  width: 260px;
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--podium-gold);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.seasonCaption {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tabs {
+  display: inline-flex;
+  gap: var(--space-1);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-1);
+  align-self: center;
+}
+
+.tab {
+  padding: var(--space-2) var(--space-5);
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tabActive {
+  background: var(--bg-elevated);
+  color: var(--accent-primary);
+}
+
+/* ---- Podium ---- */
+
+.podium {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.podiumSkeleton {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.podiumCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  text-align: center;
+  border-width: 2px;
+}
+
+.podiumFirst {
+  padding: var(--space-8) var(--space-6);
+  transform: translateY(-8px);
+}
+
+.gold {
+  border-color: var(--podium-gold);
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.25), var(--shadow-card);
+}
+.gold .podiumRank { color: var(--podium-gold); }
+
+.silver {
+  border-color: var(--podium-silver);
+  box-shadow: 0 0 20px rgba(192, 192, 192, 0.15), var(--shadow-card);
+}
+.silver .podiumRank { color: var(--podium-silver); }
+
+.bronze {
+  border-color: var(--podium-bronze);
+  box-shadow: 0 0 20px rgba(205, 127, 50, 0.18), var(--shadow-card);
+}
+.bronze .podiumRank { color: var(--podium-bronze); }
+
+.podiumRank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.podiumName {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.podiumStats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.podiumRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: var(--space-1) 0;
+}
+
+.podiumLabel {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.podiumValue {
+  color: var(--text-primary);
+}
+
+/* ---- Table cells ---- */
+
+.rankCell {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.table {
+  /* inherits from DataTable */
+}
+
+/* ---- Season rewards ---- */
+
+.rewards {
+  padding: var(--space-6);
+}
+
+.rewardsHeading {
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-5);
+  text-align: center;
+}
+
+.rewardsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.rewardItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.rewardIcon {
+  font-size: var(--text-2xl);
+}
+
+.rewardLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ---- Sticky rank ---- */
+
+.stickyRank {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--space-4) var(--space-6);
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: center;
+  z-index: 30;
+}
+
+@media (min-width: 1024px) {
+  .stickyRank {
+    left: 240px; /* match NavShell sidebar */
+  }
+}
+
+@media (max-width: 1024px) {
+  .title { font-size: var(--text-3xl); }
+  .podium,
+  .podiumSkeleton { grid-template-columns: 1fr 1fr 1fr; }
+  .podiumFirst { transform: none; padding: var(--space-6); }
+}
+
+@media (max-width: 768px) {
+  .header { flex-direction: column; align-items: stretch; }
+  .seasonBlock { align-items: flex-start; }
+  .progressTrack { width: 100%; }
+  .podium,
+  .podiumSkeleton { grid-template-columns: 1fr; }
+  .rewardsGrid { grid-template-columns: 1fr; }
+}

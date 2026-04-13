@@ -1,0 +1,112 @@
+.button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-weight: var(--font-semibold);
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading {
+  cursor: wait;
+}
+
+/* ---- Variants ---- */
+
+.primary {
+  background: var(--accent-primary);
+  color: #000;
+}
+.primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: scale(1.02);
+}
+
+.secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+}
+.secondary:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.danger {
+  background: var(--accent-error);
+  color: #000;
+}
+.danger:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: scale(1.02);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+}
+.ghost:hover:not(:disabled) {
+  color: var(--accent-primary);
+}
+
+/* ---- Sizes ---- */
+
+.sm {
+  font-size: var(--text-xs);
+  padding: var(--space-2) var(--space-3);
+  min-height: 32px;
+}
+.md {
+  font-size: var(--text-sm);
+  padding: var(--space-3) var(--space-5);
+  min-height: 40px;
+}
+.lg {
+  font-size: var(--text-base);
+  padding: var(--space-4) var(--space-6);
+  min-height: 48px;
+}
+
+/* ---- Loading spinner ---- */
+
+.spinner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: var(--radius-full);
+  animation: btnSpin 0.6s linear infinite;
+}
+
+.hiddenLabel {
+  visibility: hidden;
+}
+
+@keyframes btnSpin {
+  to { transform: rotate(360deg); }
+}

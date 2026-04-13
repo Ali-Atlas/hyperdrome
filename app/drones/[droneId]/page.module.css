@@ -1,0 +1,318 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  width: fit-content;
+}
+
+.back:hover {
+  color: var(--accent-primary);
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.main {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* ---- Left panel ---- */
+
+.leftPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.droneImageWrap {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  box-shadow: var(--glow-teal);
+  animation: droneHover 4s var(--ease-in-out) infinite;
+}
+
+.droneSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.droneHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.droneName {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.droneMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ownerLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.quickStats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.quickStats div {
+  text-align: left;
+}
+
+.quickStats dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.quickStats dd {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--accent-primary);
+  margin: var(--space-1) 0 0;
+}
+
+.skinBlock {
+  border-top: 1px solid var(--border-default);
+  padding-top: var(--space-4);
+}
+
+.skinLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-2);
+}
+
+.skinValue {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  padding: var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* ---- Right panel ---- */
+
+.rightPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.statHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.sectionHeading {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.availablePoints {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.availableValue {
+  color: var(--accent-primary);
+  font-weight: var(--font-bold);
+  font-size: var(--text-lg);
+}
+
+.statList {
+  display: flex;
+  flex-direction: column;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-default);
+  flex-wrap: wrap;
+}
+
+.buttonGroup {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.perfBlock {
+  border-top: 1px solid var(--border-default);
+  padding-top: var(--space-4);
+}
+
+.perfHeading {
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-3);
+}
+
+.perfGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.perfCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.perfColLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: var(--font-semibold);
+}
+
+.tone-optimal { color: var(--accent-primary); }
+.tone-moderate { color: var(--text-secondary); }
+.tone-poor { color: var(--accent-error); }
+
+.perfChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.perfEmpty {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.perfChip {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+
+.chip-optimal {
+  background: rgba(3, 218, 198, 0.15);
+  color: var(--accent-primary);
+  border-color: rgba(3, 218, 198, 0.3);
+}
+.chip-moderate {
+  background: rgba(160, 160, 160, 0.15);
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}
+.chip-poor {
+  background: rgba(207, 102, 121, 0.15);
+  color: var(--accent-error);
+  border-color: rgba(207, 102, 121, 0.3);
+}
+
+/* ---- History ---- */
+
+.historyCard {
+  padding: var(--space-6);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.win {
+  color: var(--accent-primary);
+  font-weight: var(--font-semibold);
+  font-family: var(--font-mono);
+}
+
+.loss {
+  color: var(--accent-error);
+  font-weight: var(--font-semibold);
+  font-family: var(--font-mono);
+}
+
+.error {
+  font-family: var(--font-body);
+  color: var(--accent-error);
+}
+
+/* ---- Breakpoints ---- */
+
+@media (max-width: 1024px) {
+  .main {
+    grid-template-columns: 1fr;
+  }
+  .title { font-size: var(--text-2xl); }
+}
+
+@media (max-width: 768px) {
+  .quickStats { grid-template-columns: 1fr; }
+  .perfGrid { grid-template-columns: 1fr; }
+  .actions { flex-direction: column; align-items: stretch; }
+  .buttonGroup { width: 100%; }
+  .buttonGroup button { flex: 1; }
+}
