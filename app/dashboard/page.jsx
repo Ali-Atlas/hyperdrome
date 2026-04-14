@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
-import { cn } from '@/lib/utils';
+import { cn, getLevelColor } from '@/lib/utils';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from '@/hooks/useSession';
@@ -143,7 +143,10 @@ export default function DashboardPage() {
                     <span className={styles.droneName}>
                       {spotlightDrone.name}
                     </span>
-                    <span className={styles.droneLevel}>
+                    <span
+                      className={styles.droneLevel}
+                      style={{ color: getLevelColor(spotlightDrone.level) }}
+                    >
                       Level {spotlightDrone.level}
                     </span>
                   </div>
