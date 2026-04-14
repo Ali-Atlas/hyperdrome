@@ -265,6 +265,7 @@ export default function DashboardPage() {
                   const ts = new Date(r.createdAt).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
+                    hour12: false,
                   });
                   return (
                     <Link
@@ -273,11 +274,17 @@ export default function DashboardPage() {
                       className={styles.feedRow}
                     >
                       <span className={styles.feedTime}>{ts}</span>
-                      <span className={styles.feedText}>
-                        <span className={styles.feedWinner}>
-                          {winner?.name ?? '—'}
-                        </span>{' '}
-                        beat {loser?.name ?? '—'} on {r.track?.name ?? '—'}
+                      <span className={styles.feedSep}>|</span>
+                      <span className={styles.feedDrone}>
+                        {winner?.name ?? '—'}
+                      </span>
+                      <span className={styles.feedWord}>beat</span>
+                      <span className={styles.feedDrone}>
+                        {loser?.name ?? '—'}
+                      </span>
+                      <span className={styles.feedWord}>on</span>
+                      <span className={styles.feedTrack}>
+                        {r.track?.name ?? '—'}
                       </span>
                     </Link>
                   );
