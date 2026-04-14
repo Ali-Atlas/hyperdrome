@@ -293,6 +293,7 @@ function DroneManagementView({ drone, onReload }) {
       <div className={styles.page}>
         <div className={styles.main}>
           <Card className={styles.leftPanel}>
+            <h2 className={styles.sectionHeading}>Drone</h2>
             <div className={styles.leftInner}>
               <div className={styles.droneImageWrap}>
                 <DroneImage drone={drone} />
@@ -393,7 +394,7 @@ function DroneManagementView({ drone, onReload }) {
               <div className={styles.buttonGroup}>
                 <Button
                   variant="secondary"
-                  size="md"
+                  size="sm"
                   onClick={reset}
                   disabled={!hasChanges || saving}
                 >
@@ -401,7 +402,7 @@ function DroneManagementView({ drone, onReload }) {
                 </Button>
                 <Button
                   variant="primary"
-                  size="lg"
+                  size="sm"
                   onClick={save}
                   disabled={!hasChanges}
                   loading={saving}
