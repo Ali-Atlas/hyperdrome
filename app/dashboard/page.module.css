@@ -184,11 +184,11 @@
 .spotlightBody {
   display: grid;
   gap: var(--space-3) var(--space-4);
-  grid-template-columns: minmax(0, 35%) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
   grid-template-areas:
     "top   top"
-    "image meta"
-    "stats stats";
+    "image stats"
+    "meta  stats";
 }
 
 .spotlightTopRow {
@@ -318,13 +318,10 @@
 
 .spotlightStats {
   grid-area: stats;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: repeat(5, auto);
-  grid-auto-flow: column;
-  gap: 6px var(--space-6);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
 }
 
 /* ==========================================================================
@@ -471,22 +468,6 @@
   .feedList {
     max-height: 280px;
   }
-
-  /* Tablet spotlight: top row, image | meta, stats 2-col below */
-  .spotlightBody {
-    grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
-    grid-template-areas:
-      "top   top"
-      "image meta"
-      "stats stats";
-  }
-
-  .spotlightStats {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: repeat(5, auto);
-    grid-auto-flow: column;
-    gap: 6px var(--space-4);
-  }
 }
 
 @media (max-width: 768px) {
@@ -509,12 +490,6 @@
 
   .spotlightImage {
     aspect-ratio: 4 / 3;
-  }
-
-  .spotlightStats {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
   }
 
   .spotlightTopRow {
