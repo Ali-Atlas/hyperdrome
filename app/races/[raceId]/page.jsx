@@ -133,12 +133,26 @@ export default function RaceDetailPage({ params }) {
               {race.timeOfDay}
             </span>
             <span className={styles.pointsChip}>
-              +{race.pointsAwarded} pts
+              {race.pointsAwarded} pts
             </span>
           </div>
         </header>
 
-        {/* ---- Track card (full-width hero image) ---- */}
+        {/* ---- Drone cards first ---- */}
+        <div className={styles.droneGrid}>
+          <DroneCard
+            drone={race.drone1}
+            isWinner={race.drone1Id === winnerId}
+            time={race.drone1Time}
+          />
+          <DroneCard
+            drone={race.drone2}
+            isWinner={race.drone2Id === winnerId}
+            time={race.drone2Time}
+          />
+        </div>
+
+        {/* ---- Track card below drones ---- */}
         <Card className={styles.trackCard}>
           <div className={styles.trackImage} aria-label="Track visualization">
             <TrackSvg track={race.track} />
@@ -159,20 +173,6 @@ export default function RaceDetailPage({ params }) {
             </div>
           </div>
         </Card>
-
-        {/* ---- Two drone cards below ---- */}
-        <div className={styles.droneGrid}>
-          <DroneCard
-            drone={race.drone1}
-            isWinner={race.drone1Id === winnerId}
-            time={race.drone1Time}
-          />
-          <DroneCard
-            drone={race.drone2}
-            isWinner={race.drone2Id === winnerId}
-            time={race.drone2Time}
-          />
-        </div>
 
         {/* ---- Race log (collapsible) ---- */}
         <Card className={styles.logCard}>
@@ -289,63 +289,142 @@ function DroneCard({ drone, isWinner, time }) {
 }
 
 function TrackSvg({ track }) {
-  // Placeholder: a stylized racing line that roughly represents the track
-  const straights = track?.straights ?? 5;
-  const turns = track?.turns ?? 5;
+  // Procedural racing-circuit outline based on track turn count. Each track id
+  // gets a deterministic variant so different tracks look different.
+  const turns = track?.turns ?? 6;
+  const seed = hashString(track?.id ?? track?.name ?? 'track');
+  const path = buildCircuit(turns, seed);
+
   return (
     <svg
-      viewBox="0 0 800 300"
+      viewBox="0 0 800 200"
       xmlns="http://www.w3.org/2000/svg"
-      preserveAspectRatio="xMidYMid slice"
+      preserveAspectRatio="xMidYMid meet"
     >
       <defs>
         <linearGradient id="trackBg" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0" stopColor="#03DAC6" stopOpacity="0.08" />
-          <stop offset="0.5" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#BB86FC" stopOpacity="0.06" />
+          <stop offset="0" stopColor="#03DAC6" stopOpacity="0.05" />
+          <stop offset="1" stopColor="#BB86FC" stopOpacity="0.04" />
         </linearGradient>
-        <linearGradient id="trackLine" x1="0" x2="1">
-          <stop offset="0" stopColor="#03DAC6" stopOpacity="0.4" />
-          <stop offset="0.5" stopColor="#03DAC6" stopOpacity="1" />
-          <stop offset="1" stopColor="#03DAC6" stopOpacity="0.4" />
-        </linearGradient>
+        <pattern
+          id="trackGrid"
+          width="40"
+          height="40"
+          patternUnits="userSpaceOnUse"
+        >
+          <path
+            d="M 40 0 L 0 0 0 40"
+            fill="none"
+            stroke="#03DAC6"
+            strokeOpacity="0.06"
+            strokeWidth="1"
+          />
+        </pattern>
+        <pattern
+          id="startFinish"
+          width="10"
+          height="10"
+          patternUnits="userSpaceOnUse"
+        >
+          <rect width="5" height="5" x="0" y="0" fill="#ffffff" />
+          <rect width="5" height="5" x="5" y="5" fill="#ffffff" />
+        </pattern>
       </defs>
-      <rect width="800" height="300" fill="url(#trackBg)" />
-      {/* Grid hint lines */}
-      {Array.from({ length: 8 }).map((_, i) => (
-        <line
-          key={`g${i}`}
-          x1={100 * i}
-          y1="0"
-          x2={100 * i}
-          y2="300"
-          stroke="#03DAC6"
-          strokeOpacity="0.05"
-        />
-      ))}
-      {/* Stylized track path */}
+
+      <rect width="800" height="200" fill="url(#trackBg)" />
+      <rect width="800" height="200" fill="url(#trackGrid)" />
+
+      {/* Tarmac outline (thicker, darker) */}
       <path
-        d="M40,150 Q140,80 240,150 T440,150 T640,150 T760,150"
+        d={path}
         fill="none"
-        stroke="url(#trackLine)"
-        strokeWidth="4"
+        stroke="#1a1a1a"
+        strokeWidth="26"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      {/* Start/finish markers */}
-      <circle cx="40" cy="150" r="8" fill="#03DAC6" />
-      <circle cx="760" cy="150" r="8" fill="#FFD700" />
-      {/* Meta text */}
-      <text
-        x="40"
-        y="270"
-        fill="#03DAC6"
-        fontFamily="JetBrains Mono, monospace"
-        fontSize="14"
-        letterSpacing="2"
-      >
-        {`${straights} STRAIGHTS  ·  ${turns} TURNS`}
-      </text>
+      {/* Racing line */}
+      <path
+        d={path}
+        fill="none"
+        stroke="#03DAC6"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity="0.9"
+      />
+      {/* Start/finish marker at the starting point */}
+      <rect
+        x="58"
+        y="88"
+        width="10"
+        height="28"
+        fill="url(#startFinish)"
+        stroke="#03DAC6"
+        strokeWidth="1"
+      />
     </svg>
   );
+}
+
+function hashString(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function buildCircuit(turns, seed) {
+  // Build a rounded-rectangle circuit with extra internal chicanes based on
+  // the turn count. Deterministic via seed.
+  const rand = mulberry32(seed);
+  const margin = 60;
+  const w = 800;
+  const h = 200;
+  const r = 40 + Math.floor(rand() * 20);
+
+  const x1 = margin;
+  const y1 = margin;
+  const x2 = w - margin;
+  const y2 = h - margin;
+
+  // Base circuit is a rounded rectangle with corners (4 corners).
+  // Additional turns add chicanes along the top straight.
+  const extraTurns = Math.max(0, turns - 4);
+  const chicaneCount = Math.min(extraTurns, 5);
+
+  let path = `M ${x1 + r} ${y1}`;
+  // Top straight with optional chicanes
+  if (chicaneCount > 0) {
+    const topLen = x2 - r - (x1 + r);
+    const step = topLen / (chicaneCount + 1);
+    for (let i = 1; i <= chicaneCount; i += 1) {
+      const cx = x1 + r + step * i;
+      const jog = 18 * (i % 2 === 0 ? 1 : -1);
+      path += ` Q ${cx - step / 3} ${y1 + jog} ${cx} ${y1}`;
+      path += ` T ${cx + step / 3} ${y1}`;
+    }
+  }
+  path += ` L ${x2 - r} ${y1}`;
+  path += ` Q ${x2} ${y1} ${x2} ${y1 + r}`;
+  path += ` L ${x2} ${y2 - r}`;
+  path += ` Q ${x2} ${y2} ${x2 - r} ${y2}`;
+  path += ` L ${x1 + r} ${y2}`;
+  path += ` Q ${x1} ${y2} ${x1} ${y2 - r}`;
+  path += ` L ${x1} ${y1 + r}`;
+  path += ` Q ${x1} ${y1} ${x1 + r} ${y1}`;
+  path += ' Z';
+  return path;
+}
+
+function mulberry32(a) {
+  return function rand() {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 

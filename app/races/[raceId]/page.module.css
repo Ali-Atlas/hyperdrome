@@ -1,7 +1,7 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .back {
@@ -40,7 +40,7 @@
 
 @media (max-width: 768px) {
   .title {
-    font-size: var(--text-lg);
+    font-size: var(--text-xl);
   }
 }
 
@@ -103,14 +103,16 @@
 .trackImage {
   position: relative;
   width: 100%;
-  aspect-ratio: 2 / 1;
-  background: linear-gradient(
-    135deg,
-    rgba(3, 218, 198, 0.04) 0%,
-    var(--bg-elevated) 50%,
-    rgba(187, 134, 252, 0.04) 100%
-  );
+  height: 140px;
+  background:
+    radial-gradient(
+      ellipse at 50% 40%,
+      rgba(3, 218, 198, 0.08) 0%,
+      transparent 65%
+    ),
+    var(--bg-elevated);
   border-bottom: 1px solid var(--border-default);
+  overflow: hidden;
 }
 
 .trackImage svg {
@@ -122,23 +124,23 @@
 }
 
 .trackInfo {
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .trackHead {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: var(--space-4);
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .trackName {
   font-family: var(--font-heading);
-  font-size: var(--text-2xl);
+  font-size: var(--text-base);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   margin: 0;
@@ -148,9 +150,9 @@
 
 .trackDifficulty {
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--accent-primary);
-  padding: var(--space-2) var(--space-3);
+  padding: 4px 10px;
   background: rgba(3, 218, 198, 0.1);
   border: 1px solid rgba(3, 218, 198, 0.3);
   border-radius: var(--radius-sm);
@@ -160,14 +162,14 @@
 
 .trackStats {
   display: flex;
-  gap: var(--space-8);
+  gap: var(--space-6);
   flex-wrap: wrap;
 }
 
 .trackStatItem {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .trackStatLabel {
@@ -175,15 +177,21 @@
   font-size: var(--text-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
 }
 
 .trackStatValue {
   font-family: var(--font-mono);
-  font-size: var(--text-lg);
+  font-size: var(--text-sm);
   color: var(--text-primary);
   font-weight: var(--font-bold);
   text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .trackImage {
+    height: 110px;
+  }
 }
 
 /* ==========================================================================
@@ -218,21 +226,45 @@
 
 .winnerCard {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 32px rgba(3, 218, 198, 0.2);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(3, 218, 198, 0.08) 0%,
+      transparent 60%
+    ),
+    var(--bg-card);
+  box-shadow:
+    0 0 0 1px var(--accent-primary),
+    0 0 40px rgba(3, 218, 198, 0.25);
+}
+
+.winnerCard .droneImageFrame {
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(3, 218, 198, 0.18) 0%,
+      rgba(3, 218, 198, 0.04) 50%,
+      transparent 75%
+    ),
+    var(--bg-card);
+}
+
+.winnerCard .droneImg {
+  filter: drop-shadow(0 0 20px rgba(3, 218, 198, 0.5));
 }
 
 .winnerBadge {
   position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
+  top: var(--space-2);
+  right: var(--space-2);
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
+  gap: 4px;
+  padding: 3px 8px;
   background: var(--accent-primary);
   color: #000;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 10px;
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -241,16 +273,15 @@
 }
 
 .droneImageFrame {
-  padding: var(--space-5);
-  min-height: 200px;
+  padding: var(--space-4);
+  min-height: 160px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(
     135deg,
-    rgba(3, 218, 198, 0.04) 0%,
-    var(--bg-card) 50%,
-    rgba(3, 218, 198, 0.02) 100%
+    rgba(3, 218, 198, 0.03) 0%,
+    var(--bg-card) 60%
   );
   border-bottom: 1px solid var(--border-default);
 }
@@ -258,34 +289,38 @@
 .droneImg {
   display: block;
   width: 100%;
-  max-width: 240px;
+  max-width: 200px;
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 0 12px rgba(3, 218, 198, 0.25));
+  filter: drop-shadow(0 0 10px rgba(3, 218, 198, 0.2));
 }
 
 .droneBody {
-  padding: var(--space-5);
+  padding: var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .droneHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .droneName {
   font-family: var(--font-heading);
-  font-size: var(--text-xl);
+  font-size: var(--text-base);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .droneOwner {
@@ -298,15 +333,15 @@
 
 .droneMeta {
   display: flex;
-  gap: var(--space-6);
-  padding-top: var(--space-3);
+  gap: var(--space-4);
+  padding-top: var(--space-2);
   border-top: 1px solid var(--border-default);
 }
 
 .droneMeta > span {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .metaLabel {
@@ -319,7 +354,7 @@
 
 .metaValue {
   font-family: var(--font-mono);
-  font-size: var(--text-lg);
+  font-size: var(--text-sm);
   color: var(--text-primary);
   font-weight: var(--font-bold);
 }
@@ -339,12 +374,12 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-3) var(--space-4);
   background: transparent;
   border: none;
   color: var(--text-primary);
   font-family: var(--font-heading);
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   font-weight: var(--font-semibold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -431,12 +466,6 @@
 @media (max-width: 900px) {
   .droneGrid {
     grid-template-columns: 1fr;
-  }
-  .title {
-    font-size: var(--text-2xl);
-  }
-  .trackName {
-    font-size: var(--text-xl);
   }
   .header {
     flex-direction: column;
