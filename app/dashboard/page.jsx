@@ -7,6 +7,8 @@ import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import StatBar from '@/components/ui/StatBar';
+import btnStyles from '@/components/ui/Button/Button.module.css';
+import { cn } from '@/lib/utils';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from '@/hooks/useSession';
@@ -235,7 +237,11 @@ export default function DashboardPage() {
                     )}
                     <Link
                       href={`/drones/${spotlightDrone.id}`}
-                      className={styles.manageLink}
+                      className={cn(
+                        btnStyles.button,
+                        btnStyles.primary,
+                        btnStyles.sm,
+                      )}
                     >
                       Manage Drone
                     </Link>
