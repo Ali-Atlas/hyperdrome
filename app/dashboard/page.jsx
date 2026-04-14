@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
+import StatBar from '@/components/ui/StatBar';
 import btnStyles from '@/components/ui/Button/Button.module.css';
 import { cn } from '@/lib/utils';
 import EmptyState from '@/components/ui/EmptyState';
@@ -28,6 +29,42 @@ const SPOTLIGHT_STATS = [
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
+
+function formatRemaining(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+}
+
+function NextRacePill({ targetDate, paused }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (paused || !targetDate) return undefined;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [paused, targetDate]);
+
+  if (paused) {
+    return (
+      <span className={styles.nextRace}>
+        <span className={styles.nextLabel}>Next race</span>
+        <span className={styles.nextValuePaused}>Paused</span>
+      </span>
+    );
+  }
+  if (!targetDate) return null;
+  const remaining = new Date(targetDate).getTime() - now;
+  return (
+    <span className={styles.nextRace}>
+      <span className={styles.nextLabel}>Next race</span>
+      <span className={styles.nextValue}>{formatRemaining(remaining)}</span>
+    </span>
+  );
+}
 
 /* -------------------------------------------------------------------------- */
 /* Page                                                                       */
@@ -133,11 +170,13 @@ export default function DashboardPage() {
   return (
     <NavShell>
       <div className={styles.page}>
+        {/* ---- Top header: welcome + compact meta ---- */}
         <header className={styles.welcome}>
           <h1 className={styles.hello}>
-            {user?.username ?? 'Player'}
+            Welcome back, {user?.username ?? 'Player'}
           </h1>
           <div className={styles.welcomeMeta}>
+            <NextRacePill targetDate={nextRaceAt} paused={racingPaused} />
             <span className={styles.points}>
               <span className={styles.pointsLabel}>Points</span>
               <span className={styles.pointsValue}>
@@ -147,67 +186,55 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <div className={styles.grid}>
-          {/* ---- LEFT COLUMN ---- */}
-          <div className={styles.leftCol}>
-            <Card className={styles.spotlight}>
-              <div className={styles.spotlightHeader}>
-                <span className={styles.spotlightLabel}>
-                  Active Drone Spotlight
-                </span>
-                {canCycle && (
-                  <div className={styles.navCluster}>
-                    <button
-                      type="button"
-                      className={styles.navBtn}
-                      onClick={goPrev}
-                      aria-label="Previous drone"
-                    >
-                      <ChevronLeft size={14} />
-                    </button>
-                    <span className={styles.navCounter}>
-                      {spotlightIndex + 1}/{activeDrones.length}
-                    </span>
-                    <button
-                      type="button"
-                      className={styles.navBtn}
-                      onClick={goNext}
-                      aria-label="Next drone"
-                    >
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
-                )}
-              </div>
+        {/* ---- Quick stats strip (thin horizontal row) ---- */}
+        <div className={styles.quickStats}>
+          <QuickStat label="Total Races" value={myStats?.totalRaces ?? 0} />
+          <QuickStat label="Win Rate" value={userWinRate} />
+          <QuickStat label="Streak" value={currentStreak} />
+          <QuickStat
+            label="Rank"
+            value={myStats?.rank ? `#${myStats.rank}` : '—'}
+          />
+        </div>
 
-              {loading ? (
-                <Skeleton variant="card" height={220} />
-              ) : spotlightDrone ? (
-                <>
-                  <div className={styles.spotlightBody}>
-                    <div className={styles.spotlightImage}>
-                      <img
-                        src={spotlightDrone.imageUrl || '/drones/default.png'}
-                        alt={spotlightDrone.name}
-                      />
-                    </div>
-                    <div className={styles.spotlightStats}>
-                      {SPOTLIGHT_STATS.map(([key, label]) => (
-                        <StatRow
-                          key={key}
-                          label={label}
-                          value={spotlightDrone[key] ?? 0}
-                        />
-                      ))}
-                    </div>
+        {/* ---- Main grid: spotlight + live feed ---- */}
+        <div className={styles.grid}>
+          <Card className={styles.spotlight}>
+            {loading ? (
+              <Skeleton variant="card" height={220} />
+            ) : spotlightDrone ? (
+              <div className={styles.spotlightBody}>
+                <div className={styles.spotlightTopRow}>
+                  <div className={styles.spotlightTitleGroup}>
+                    <span className={styles.droneName}>
+                      {spotlightDrone.name}
+                    </span>
+                    <Badge variant="level" value={spotlightDrone.level} />
                   </div>
-                  <div className={styles.spotlightFooter}>
-                    <div className={styles.spotlightNameBlock}>
-                      <span className={styles.spotlightDroneName}>
-                        {spotlightDrone.name}
-                      </span>
-                      <Badge variant="level" value={spotlightDrone.level} />
-                    </div>
+                  <div className={styles.spotlightTopRight}>
+                    {canCycle && (
+                      <div className={styles.navCluster}>
+                        <button
+                          type="button"
+                          className={styles.navBtn}
+                          onClick={goPrev}
+                          aria-label="Previous drone"
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                        <span className={styles.navCounter}>
+                          {spotlightIndex + 1}/{activeDrones.length}
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.navBtn}
+                          onClick={goNext}
+                          aria-label="Next drone"
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                    )}
                     <Link
                       href={`/drones/${spotlightDrone.id}`}
                       className={cn(
@@ -219,151 +246,143 @@ export default function DashboardPage() {
                       Manage Drone
                     </Link>
                   </div>
-                </>
-              ) : (
-                <EmptyState
-                  title="No active drone"
-                  description="Activate a drone from My Drones to enter the next race."
-                  actionLabel="Go to My Drones"
-                  onAction={() => window.location.assign('/drones')}
-                />
-              )}
-            </Card>
-
-            <Card className={styles.results}>
-              <h2 className={styles.sectionHeading}>Your Recent Results</h2>
-              {loading ? (
-                <Skeleton variant="text" count={5} />
-              ) : recentRaces.length === 0 ? (
-                <p className={styles.empty}>
-                  No races yet. Activate a drone and wait for the next race
-                  block.
-                </p>
-              ) : (
-                <div className={styles.resultsTable}>
-                  <div className={styles.resultsHeader}>
-                    <span>Opponent</span>
-                    <span>Track</span>
-                    <span>Result</span>
-                    <span className={styles.alignRight}>Points</span>
-                  </div>
-                  {recentRaces.map((r) => {
-                    const myDroneIds = new Set(myDrones.map((d) => d.id));
-                    const opp = myDroneIds.has(r.drone1Id)
-                      ? r.drone2
-                      : r.drone1;
-                    const won = myDroneIds.has(r.winnerDroneId);
-                    return (
-                      <Link
-                        key={r.id}
-                        href={`/races/${r.id}`}
-                        className={styles.resultsRow}
-                      >
-                        <span>{opp?.name ?? '—'}</span>
-                        <span>{r.track?.name ?? '—'}</span>
-                        <span
-                          className={
-                            won ? styles.resultWin : styles.resultLoss
-                          }
-                        >
-                          {won ? 'WIN' : 'LOSS'}
-                        </span>
-                        <span
-                          className={`${styles.mono} ${styles.alignRight}`}
-                        >
-                          {won ? `+${r.pointsAwarded}` : '—'}
-                        </span>
-                      </Link>
-                    );
-                  })}
                 </div>
+
+                <div className={styles.spotlightImage}>
+                  <img
+                    src={spotlightDrone.imageUrl || '/drones/default.png'}
+                    alt={spotlightDrone.name}
+                  />
+                </div>
+
+                <div className={styles.spotlightMeta}>
+                  <dl className={styles.spotlightKpiGrid}>
+                    <div className={styles.kpiCell}>
+                      <dt>Races</dt>
+                      <dd>{spotlightDrone.totalRaces}</dd>
+                    </div>
+                    <div className={styles.kpiCell}>
+                      <dt>Win Rate</dt>
+                      <dd>{droneWinRate}</dd>
+                    </div>
+                    <div className={styles.kpiCell}>
+                      <dt>Record</dt>
+                      <dd>
+                        {spotlightDrone.wins}W / {spotlightDrone.losses}L
+                      </dd>
+                    </div>
+                    <div className={styles.kpiCell}>
+                      <dt>ELO</dt>
+                      <dd>{spotlightDrone.eloRating}</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <div className={styles.spotlightStats}>
+                  {SPOTLIGHT_STATS.map(([key, label]) => (
+                    <StatBar
+                      key={key}
+                      label={label}
+                      value={spotlightDrone[key]}
+                      maxValue={100}
+                      size="sm"
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <EmptyState
+                title="No active drone"
+                description="Activate a drone from My Drones to enter the next race."
+                actionLabel="Go to My Drones"
+                onAction={() => window.location.assign('/drones')}
+              />
+            )}
+          </Card>
+
+          <Card className={styles.liveFeed}>
+            <h2 className={styles.sectionHeading}>Live Race Feed</h2>
+            <div className={styles.feedList}>
+              {loading ? (
+                <Skeleton variant="text" count={6} />
+              ) : liveFeed.length === 0 ? (
+                <p className={styles.empty}>No recent races.</p>
+              ) : (
+                liveFeed.map((r) => {
+                  const winner =
+                    r.winnerDroneId === r.drone1Id ? r.drone1 : r.drone2;
+                  const loser =
+                    r.winnerDroneId === r.drone1Id ? r.drone2 : r.drone1;
+                  const ts = new Date(r.createdAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
+                  return (
+                    <Link
+                      key={r.id}
+                      href={`/races/${r.id}`}
+                      className={styles.feedRow}
+                    >
+                      <span className={styles.feedTime}>{ts}</span>
+                      <span className={styles.feedText}>
+                        <span className={styles.feedWinner}>
+                          {winner?.name ?? '—'}
+                        </span>{' '}
+                        beat {loser?.name ?? '—'} on {r.track?.name ?? '—'}
+                      </span>
+                    </Link>
+                  );
+                })
               )}
-            </Card>
-          </div>
-
-          {/* ---- RIGHT COLUMN ---- */}
-          <div className={styles.rightCol}>
-            <Card className={styles.liveFeed}>
-              <h2 className={styles.sectionHeading}>Live Race Feed</h2>
-              <div className={styles.feedList}>
-                {loading ? (
-                  <Skeleton variant="text" count={6} />
-                ) : liveFeed.length === 0 ? (
-                  <p className={styles.empty}>No recent races.</p>
-                ) : (
-                  liveFeed.map((r) => {
-                    const winner =
-                      r.winnerDroneId === r.drone1Id ? r.drone1 : r.drone2;
-                    const loser =
-                      r.winnerDroneId === r.drone1Id ? r.drone2 : r.drone1;
-                    const ts = new Date(r.createdAt).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
-                    return (
-                      <Link
-                        key={r.id}
-                        href={`/races/${r.id}`}
-                        className={styles.feedRow}
-                      >
-                        <span className={styles.feedTime}>{ts}</span>
-                        <span className={styles.feedText}>
-                          <span className={styles.feedWinner}>
-                            {winner?.name ?? '—'}
-                          </span>{' '}
-                          beat {loser?.name ?? '—'} on {r.track?.name ?? '—'}
-                        </span>
-                      </Link>
-                    );
-                  })
-                )}
-              </div>
-            </Card>
-
-            <NextRaceCountdown
-              targetDate={nextRaceAt}
-              paused={racingPaused}
-            />
-
-            <Card className={styles.quickStatsCard}>
-              <h2 className={styles.sectionHeading}>Quick Stats</h2>
-              <div className={styles.quickStatsGrid}>
-                <QuickStat
-                  label="Total Races"
-                  value={myStats?.totalRaces ?? 0}
-                />
-                <QuickStat label="Win Rate" value={userWinRate} />
-                <QuickStat label="Streak" value={currentStreak} />
-                <QuickStat
-                  label="Rank"
-                  value={myStats?.rank ? `#${myStats.rank}` : '—'}
-                />
-              </div>
-            </Card>
-          </div>
+            </div>
+          </Card>
         </div>
+
+        {/* ---- Recent results (full width) ---- */}
+        <Card className={styles.results}>
+          <h2 className={styles.sectionHeading}>Your Recent Results</h2>
+          {loading ? (
+            <Skeleton variant="text" count={5} />
+          ) : recentRaces.length === 0 ? (
+            <p className={styles.empty}>
+              No races yet. Activate a drone and wait for the next race block.
+            </p>
+          ) : (
+            <div className={styles.resultsTable}>
+              <div className={styles.resultsHeader}>
+                <span>Opponent</span>
+                <span>Track</span>
+                <span>Result</span>
+                <span className={styles.alignRight}>Points</span>
+              </div>
+              {recentRaces.map((r) => {
+                const myDroneIds = new Set(myDrones.map((d) => d.id));
+                const opp = myDroneIds.has(r.drone1Id) ? r.drone2 : r.drone1;
+                const won = myDroneIds.has(r.winnerDroneId);
+                return (
+                  <Link
+                    key={r.id}
+                    href={`/races/${r.id}`}
+                    className={styles.resultsRow}
+                  >
+                    <span>{opp?.name ?? '—'}</span>
+                    <span>{r.track?.name ?? '—'}</span>
+                    <span
+                      className={won ? styles.resultWin : styles.resultLoss}
+                    >
+                      {won ? 'WIN' : 'LOSS'}
+                    </span>
+                    <span className={`${styles.mono} ${styles.alignRight}`}>
+                      {won ? `+${r.pointsAwarded}` : '—'}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </Card>
       </div>
     </NavShell>
-  );
-}
-
-function StatRow({ label, value, max = 100 }) {
-  const cells = 10;
-  const filled = Math.max(0, Math.min(cells, Math.round((value / max) * cells)));
-  return (
-    <div className={styles.statRow}>
-      <span className={styles.statRowLabel}>{label}</span>
-      <div className={styles.statRowBar}>
-        {Array.from({ length: cells }).map((_, i) => (
-          <span
-            key={i}
-            className={`${styles.statCell} ${
-              i < filled ? styles.statCellFilled : ''
-            }`}
-          />
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -373,54 +392,5 @@ function QuickStat({ label, value }) {
       <span className={styles.quickValue}>{value}</span>
       <span className={styles.quickLabel}>{label}</span>
     </div>
-  );
-}
-
-function NextRaceCountdown({ targetDate, paused }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (paused || !targetDate) return undefined;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [paused, targetDate]);
-
-  const remaining = targetDate
-    ? Math.max(0, new Date(targetDate).getTime() - now)
-    : 0;
-  const total = Math.floor(remaining / 1000);
-  const days = Math.floor(total / 86400);
-  const hours = Math.floor((total % 86400) / 3600);
-  const mins = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-  const pad = (n) => String(n).padStart(2, '0');
-
-  return (
-    <Card className={styles.countdownCard}>
-      <h2 className={styles.sectionHeading}>Next Race Countdown</h2>
-      {paused ? (
-        <div className={styles.countdownPaused}>Paused</div>
-      ) : !targetDate ? (
-        <div className={styles.countdownPaused}>—</div>
-      ) : (
-        <>
-          <div className={styles.countdownClock}>
-            <span className={styles.countdownUnit}>{pad(days)}</span>
-            <span className={styles.countdownColon}>:</span>
-            <span className={styles.countdownUnit}>{pad(hours)}</span>
-            <span className={styles.countdownColon}>:</span>
-            <span className={styles.countdownUnit}>{pad(mins)}</span>
-            <span className={styles.countdownColon}>:</span>
-            <span className={styles.countdownUnit}>{pad(secs)}</span>
-          </div>
-          <div className={styles.countdownLabels}>
-            <span>DD</span>
-            <span>HH</span>
-            <span>MM</span>
-            <span>SS</span>
-          </div>
-          <div className={styles.countdownTagline}>Until Next Race</div>
-        </>
-      )}
-    </Card>
   );
 }
