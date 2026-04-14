@@ -347,10 +347,10 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          {/* ---- Row 2 col 2: Countdown ---- */}
+          {/* ---- Row 2 col 2: Countdown (no header row, inline title) ---- */}
           <Card className={cn(styles.countdownCard, styles.areaCountdown)}>
-            <h2 className={styles.sectionHeading}>Next Race Countdown</h2>
             <div className={styles.cardBody}>
+              <h2 className={styles.countdownHeading}>Next Race Countdown</h2>
               <NextRaceCountdown
                 targetDate={nextRaceAt}
                 paused={racingPaused}
@@ -447,8 +447,11 @@ function NextRaceCountdown({ targetDate, paused }) {
       </div>
       <div className={styles.countdownLabels}>
         <span>DD</span>
+        <span className={styles.countdownLabelsSpacer}>:</span>
         <span>HH</span>
+        <span className={styles.countdownLabelsSpacer}>:</span>
         <span>MM</span>
+        <span className={styles.countdownLabelsSpacer}>:</span>
         <span>SS</span>
       </div>
       <div className={styles.countdownTagline}>Seconds Until Race</div>
