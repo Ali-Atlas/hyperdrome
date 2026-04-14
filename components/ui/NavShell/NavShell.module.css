@@ -50,8 +50,7 @@
   font-weight: var(--font-medium);
   color: var(--text-secondary);
   border-radius: var(--radius-md);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.01em;
   transition: all var(--duration-normal) var(--ease-out);
 }
 
