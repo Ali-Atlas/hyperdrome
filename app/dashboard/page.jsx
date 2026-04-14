@@ -437,22 +437,25 @@ function NextRaceCountdown({ targetDate, paused }) {
           paused && styles.countdownClockPaused,
         )}
       >
-        <span className={styles.countdownUnit}>{pad(days)}</span>
+        <div className={styles.countdownGroup}>
+          <span className={styles.countdownUnit}>{pad(days)}</span>
+          <span className={styles.countdownLabel}>DD</span>
+        </div>
         <span className={styles.countdownColon}>:</span>
-        <span className={styles.countdownUnit}>{pad(hours)}</span>
+        <div className={styles.countdownGroup}>
+          <span className={styles.countdownUnit}>{pad(hours)}</span>
+          <span className={styles.countdownLabel}>HH</span>
+        </div>
         <span className={styles.countdownColon}>:</span>
-        <span className={styles.countdownUnit}>{pad(mins)}</span>
+        <div className={styles.countdownGroup}>
+          <span className={styles.countdownUnit}>{pad(mins)}</span>
+          <span className={styles.countdownLabel}>MM</span>
+        </div>
         <span className={styles.countdownColon}>:</span>
-        <span className={styles.countdownUnit}>{pad(secs)}</span>
-      </div>
-      <div className={styles.countdownLabels}>
-        <span>DD</span>
-        <span className={styles.countdownLabelsSpacer}>:</span>
-        <span>HH</span>
-        <span className={styles.countdownLabelsSpacer}>:</span>
-        <span>MM</span>
-        <span className={styles.countdownLabelsSpacer}>:</span>
-        <span>SS</span>
+        <div className={styles.countdownGroup}>
+          <span className={styles.countdownUnit}>{pad(secs)}</span>
+          <span className={styles.countdownLabel}>SS</span>
+        </div>
       </div>
       <div className={styles.countdownTagline}>
         {paused ? 'Racing Paused' : 'Seconds Until Race'}

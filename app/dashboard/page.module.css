@@ -432,74 +432,68 @@
 
 .countdownClock {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: center;
-  gap: 4px;
+  gap: 2px;
   font-family: var(--font-mono);
-  font-size: var(--text-3xl);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   letter-spacing: 0.04em;
 }
 
-.countdownClockPaused .countdownUnit,
-.countdownClockPaused {
+.countdownClockPaused .countdownUnit {
   color: #5A5A5A;
 }
 
+.countdownGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
 .countdownUnit {
-  min-width: 48px;
-  text-align: center;
+  font-size: var(--text-3xl);
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.countdownLabel {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: var(--font-medium);
 }
 
 .countdownColon {
+  font-size: var(--text-3xl);
   color: var(--text-tertiary);
-  min-width: 12px;
-  text-align: center;
-}
-
-.countdownLabels {
-  display: flex;
-  justify-content: center;
-  gap: 4px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-top: var(--space-1);
-}
-
-.countdownLabels > span {
-  min-width: 48px;
-  text-align: center;
-}
-
-.countdownLabelsSpacer {
-  min-width: 12px;
-  visibility: hidden;
+  line-height: 1;
+  padding: 0 2px;
 }
 
 .countdownTagline {
+  position: relative;
   text-align: center;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 10px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   padding-top: var(--space-3);
   margin-top: var(--space-3);
-  border-top: 1px solid #3F3F3F;
 }
 
-.countdownPaused {
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: var(--space-4) 0;
+.countdownTagline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 1px;
+  background: #3F3F3F;
 }
 
 /* ==========================================================================

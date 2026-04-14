@@ -57,9 +57,11 @@ export default function NavShell({ children }) {
   const renderUserArea = () =>
     user ? (
       <div className={styles.userArea}>
-        <div className={styles.username}>{user.username ?? user.email}</div>
+        <div className={styles.username}>
+          {user.username ?? user.email}
+        </div>
         <div className={styles.points}>
-          {(user.points ?? 0).toLocaleString()} pts
+          POINTS: {(user.points ?? 0).toLocaleString()}
         </div>
         <button
           type="button"
@@ -67,7 +69,7 @@ export default function NavShell({ children }) {
           onClick={onSignOut}
         >
           <LogOut size={14} aria-hidden="true" />
-          Sign out
+          <span>Sign Out</span>
         </button>
       </div>
     ) : (
@@ -101,9 +103,17 @@ export default function NavShell({ children }) {
         <Link href="/dashboard" className={styles.mobileLogo}>
           Drone Manager
         </Link>
-        <div className={styles.mobilePoints}>
-          {user ? `${(user.points ?? 0).toLocaleString()} pts` : ''}
-        </div>
+        {user && (
+          <div className={styles.mobileUser}>
+            <span className={styles.mobileUsername}>
+              {user.username ?? user.email}
+            </span>
+            <span className={styles.mobileSep}>|</span>
+            <span className={styles.mobilePoints}>
+              POINTS: {(user.points ?? 0).toLocaleString()}
+            </span>
+          </div>
+        )}
       </header>
 
       {/* Mobile drawer */}

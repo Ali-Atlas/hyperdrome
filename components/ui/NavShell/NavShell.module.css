@@ -80,39 +80,58 @@
   gap: var(--space-1);
 }
 
+.userArea {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .username {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: var(--font-semibold);
-  color: var(--text-primary);
+  color: #F0F0F0;
+  letter-spacing: 0.01em;
 }
 
 .points {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--accent-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: #F0F0F0;
+  letter-spacing: 0.01em;
 }
 
 .signIn,
 .signOut {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  margin-top: var(--space-3);
   background: transparent;
-  border: none;
   color: var(--text-secondary);
   font-family: var(--font-body);
   font-size: var(--text-xs);
+  font-weight: var(--font-medium);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   cursor: pointer;
-  margin-top: var(--space-2);
+  border: 1px solid #3F3F3F;
+  border-radius: var(--radius-sm);
+  width: fit-content;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
 }
 
 .signIn:hover,
 .signOut:hover {
   color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  background: rgba(3, 218, 198, 0.08);
 }
 
 /* ---- Mobile top bar ---- */
@@ -156,12 +175,37 @@
   letter-spacing: 0.05em;
 }
 
+.mobileUser {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mobileUsername {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: #F0F0F0;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobileSep {
+  color: #3F3F3F;
+  flex-shrink: 0;
+}
+
 .mobilePoints {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--accent-primary);
-  min-width: 60px;
-  text-align: right;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: #F0F0F0;
+  letter-spacing: 0.01em;
+  flex-shrink: 0;
 }
 
 /* ---- Mobile drawer ---- */
