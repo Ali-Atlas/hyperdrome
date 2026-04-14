@@ -5,15 +5,17 @@
 }
 
 /* ==========================================================================
- * Top header — welcome + compact meta (next race + points)
+ * Top header — username + points
  * ========================================================================== */
 
 .welcome {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-4);
   flex-wrap: wrap;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .hello {
@@ -32,7 +34,6 @@
   gap: var(--space-5);
 }
 
-.nextRace,
 .points {
   display: inline-flex;
   align-items: baseline;
@@ -43,76 +44,33 @@
   letter-spacing: 0.05em;
 }
 
-.nextLabel,
 .pointsLabel {
   color: var(--text-secondary);
   font-size: var(--text-xs);
 }
 
-.nextValue,
 .pointsValue {
   color: var(--accent-primary);
   font-weight: var(--font-bold);
 }
 
-.nextValuePaused {
-  color: var(--text-tertiary);
-  font-weight: var(--font-bold);
-}
-
 /* ==========================================================================
- * Quick stats strip — thin horizontal row
- * ========================================================================== */
-
-.quickStats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0;
-  padding: 0;
-  background: var(--bg-card);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.quickItem {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: var(--space-3) var(--space-4);
-  border-right: 1px solid var(--border-default);
-}
-
-.quickItem:last-child {
-  border-right: none;
-}
-
-.quickValue {
-  font-family: var(--font-mono);
-  font-size: var(--text-base);
-  color: var(--text-primary);
-  font-weight: var(--font-bold);
-  line-height: 1;
-}
-
-.quickLabel {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* ==========================================================================
- * Main grid — spotlight + live feed
+ * Main 2-column grid
  * ========================================================================== */
 
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   gap: var(--space-4);
-  align-items: stretch;
+  align-items: start;
+}
+
+.leftCol,
+.rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 /* ==========================================================================
@@ -124,6 +82,21 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.spotlightHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.spotlightLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
 .sectionHeading {
@@ -143,8 +116,8 @@
 }
 
 .navBtn {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -160,107 +133,34 @@
 .navBtn:hover:not(:disabled) {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
-  background: rgba(3, 218, 198, 0.08);
-}
-
-.navBtn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
 }
 
 .navCounter {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
-/* ---- Spotlight body: 3-state responsive layout ----
-   Desktop ≥1440px: top-row, image | meta side by side, stats full width below
-   Tablet 768-1439: top-row, image | meta side by side, stats 2-col below
-   Mobile <768:     top-row, image full, meta 2x2, stats single col          */
+/* ---- Spotlight body: image left, stat rows right ---- */
 
 .spotlightBody {
   display: grid;
-  gap: var(--space-3) var(--space-4);
-  grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
-  grid-template-areas:
-    "top   top"
-    "image stats"
-    "meta  stats";
-}
-
-.spotlightTopRow {
-  grid-area: top;
-  display: flex;
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  gap: var(--space-4);
   align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.spotlightTitleGroup {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.spotlightTopRight {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-
-.droneName {
-  font-family: var(--font-heading);
-  font-size: var(--text-base);
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.manageLink {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  background: transparent;
-  border: 1px solid rgba(3, 218, 198, 0.4);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--accent-primary);
-  text-decoration: none;
-  white-space: nowrap;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
-}
-
-.manageLink:hover {
-  background: rgba(3, 218, 198, 0.08);
-  border-color: var(--accent-primary);
 }
 
 .spotlightImage {
-  grid-area: image;
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 11;
-  padding: 10px;
+  aspect-ratio: 1 / 1;
+  padding: 14px;
   background:
     radial-gradient(
       ellipse at center,
-      rgba(3, 218, 198, 0.22) 0%,
-      rgba(3, 218, 198, 0.06) 45%,
-      transparent 72%
+      rgba(3, 218, 198, 0.28) 0%,
+      rgba(3, 218, 198, 0.08) 45%,
+      transparent 75%
     ),
     var(--bg-elevated);
   border: 1px solid var(--border-subtle);
@@ -274,65 +174,83 @@
   height: 100%;
   object-fit: contain;
   animation: droneHover 4s var(--ease-in-out) infinite;
-  filter: drop-shadow(0 0 12px rgba(3, 218, 198, 0.25));
-}
-
-.spotlightMeta {
-  grid-area: meta;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-}
-
-.spotlightKpiGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px 16px;
-  margin: 0;
-}
-
-.kpiCell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.kpiCell dt {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 0;
-}
-
-.kpiCell dd {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--text-primary);
-  font-weight: var(--font-semibold);
-  margin: 0;
+  filter: drop-shadow(0 0 14px rgba(3, 218, 198, 0.4));
 }
 
 .spotlightStats {
-  grid-area: stats;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   gap: 6px;
-  min-height: 0;
-  overflow-y: auto;
+  min-width: 0;
 }
 
-.spotlightStats::-webkit-scrollbar {
-  width: 6px;
+/* Stat row: label + cell-style bar */
+.statRow {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
 }
 
-.spotlightStats::-webkit-scrollbar-thumb {
-  background: var(--border-default);
-  border-radius: 3px;
+.statRowLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statRowBar {
+  display: flex;
+  gap: 3px;
+}
+
+.statCell {
+  flex: 1;
+  height: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1px;
+}
+
+.statCellFilled {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 4px rgba(3, 218, 198, 0.45);
+}
+
+/* ---- Spotlight footer: name + manage button ---- */
+
+.spotlightFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+}
+
+.spotlightNameBlock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.spotlightDroneName {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 /* ==========================================================================
@@ -352,7 +270,7 @@
   flex-direction: column;
   gap: 2px;
   overflow-y: auto;
-  max-height: 360px;
+  max-height: 320px;
 }
 
 .feedRow {
@@ -360,7 +278,7 @@
   gap: var(--space-3);
   padding: 6px var(--space-2);
   border-radius: var(--radius-sm);
-  font-family: var(--font-body);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
   transition: background var(--duration-normal) var(--ease-out);
@@ -371,7 +289,6 @@
 }
 
 .feedTime {
-  font-family: var(--font-mono);
   color: var(--text-tertiary);
   min-width: 38px;
   flex-shrink: 0;
@@ -390,11 +307,126 @@
 }
 
 /* ==========================================================================
- * Recent results (full-width below grid)
+ * Next race countdown card
+ * ========================================================================== */
+
+.countdownCard {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.countdownClock {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+  letter-spacing: 0.05em;
+  padding: var(--space-2) 0;
+}
+
+.countdownUnit {
+  min-width: 1.6em;
+  text-align: center;
+}
+
+.countdownColon {
+  color: var(--text-tertiary);
+  padding: 0 2px;
+}
+
+.countdownLabels {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-align: center;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.countdownTagline {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-default);
+}
+
+.countdownPaused {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: var(--space-4) 0;
+}
+
+/* ==========================================================================
+ * Quick stats card (right column bottom)
+ * ========================================================================== */
+
+.quickStatsCard {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.quickStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-1);
+}
+
+.quickItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-2);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.quickValue {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+  line-height: 1;
+}
+
+.quickLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+/* ==========================================================================
+ * Recent results
  * ========================================================================== */
 
 .results {
   padding: var(--space-4);
+}
+
+.results .sectionHeading {
+  margin-bottom: var(--space-3);
 }
 
 .resultsTable {
@@ -471,13 +503,9 @@
  * Breakpoints
  * ========================================================================== */
 
-/* Outer grid: spotlight + liveFeed side-by-side only on wide desktop */
-@media (max-width: 1439px) {
+@media (max-width: 1100px) {
   .grid {
     grid-template-columns: 1fr;
-  }
-  .feedList {
-    max-height: 280px;
   }
 }
 
@@ -488,83 +516,33 @@
   .sectionHeading {
     font-size: var(--text-sm);
   }
+  .countdownClock {
+    font-size: var(--text-2xl);
+  }
 
-  /* Mobile spotlight: fully stacked */
   .spotlightBody {
     grid-template-columns: 1fr;
-    grid-template-areas:
-      "top"
-      "image"
-      "meta"
-      "stats";
   }
-
   .spotlightImage {
-    aspect-ratio: 4 / 3;
+    max-width: 220px;
+    margin: 0 auto;
   }
-
-  .spotlightTopRow {
+  .statRow {
+    grid-template-columns: 80px minmax(0, 1fr);
+  }
+  .spotlightFooter {
+    flex-direction: column;
+    align-items: stretch;
     gap: var(--space-2);
   }
-}
-
-@media (max-width: 768px) {
-  /* Welcome header: keep name + next race + points on one row, allow wrap */
-  .welcome {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-2) var(--space-3);
-  }
-  .welcomeMeta {
-    gap: var(--space-3);
-    margin-left: auto;
-  }
-  .nextRace,
-  .points {
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-  }
-  .nextLabel,
-  .pointsLabel {
-    font-size: 10px;
-  }
-  .nextValue,
-  .pointsValue {
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    font-weight: var(--font-semibold);
-  }
-  .nextValuePaused {
-    font-size: var(--text-xs);
-  }
-
-  /* Compact quick stats strip */
-  .quickItem {
-    padding: 8px 6px;
-    gap: 1px;
-  }
-  .quickValue {
-    font-size: var(--text-base);
-  }
-  .quickLabel {
-    font-size: 10px;
+  .spotlightNameBlock {
+    justify-content: space-between;
   }
 }
 
 @media (max-width: 600px) {
-  .quickStats {
+  .quickStatsGrid {
     grid-template-columns: repeat(2, 1fr);
-  }
-  .quickItem {
-    border-right: none;
-    border-bottom: 1px solid var(--border-default);
-  }
-  .quickItem:nth-child(odd) {
-    border-right: 1px solid var(--border-default);
-  }
-  .quickItem:nth-last-child(-n+2) {
-    border-bottom: none;
   }
   .resultsHeader,
   .resultsRow {
