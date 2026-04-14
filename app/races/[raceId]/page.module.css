@@ -90,7 +90,7 @@
 }
 
 /* ==========================================================================
- * Track card (full-width 2:1 hero image)
+ * Track card — header above, full-width hero image below
  * ========================================================================== */
 
 .trackCard {
@@ -100,52 +100,51 @@
   border: 1px solid var(--border-default);
 }
 
-.trackImage {
-  position: relative;
-  width: 100%;
-  height: 140px;
-  background:
-    radial-gradient(
-      ellipse at 50% 40%,
-      rgba(3, 218, 198, 0.08) 0%,
-      transparent 65%
-    ),
-    var(--bg-elevated);
-  border-bottom: 1px solid var(--border-default);
-  overflow: hidden;
-}
-
-.trackImage svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.trackInfo {
-  padding: var(--space-3) var(--space-4);
+.trackHeader {
+  padding: var(--space-4) var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+  background: linear-gradient(
+    180deg,
+    rgba(3, 218, 198, 0.04) 0%,
+    transparent 100%
+  );
 }
 
-.trackHead {
+.trackTitleRow {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
 }
 
+.trackTitleLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.trackLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
 .trackName {
   font-family: var(--font-heading);
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+  line-height: 1.1;
 }
 
 .trackDifficulty {
@@ -158,39 +157,94 @@
   border-radius: var(--radius-sm);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .trackStats {
   display: flex;
-  gap: var(--space-6);
+  align-items: center;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .trackStatItem {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .trackStatLabel {
-  font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .trackStatValue {
-  font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--text-primary);
   font-weight: var(--font-bold);
-  text-transform: uppercase;
+}
+
+.trackStatDivider {
+  width: 1px;
+  height: 14px;
+  background: var(--border-default);
+  flex-shrink: 0;
+}
+
+.trackImage {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  background-color: var(--bg-elevated);
+  background-image:
+    radial-gradient(
+      ellipse at 50% 40%,
+      rgba(3, 218, 198, 0.1) 0%,
+      transparent 70%
+    ),
+    linear-gradient(
+      135deg,
+      rgba(3, 218, 198, 0.04) 0%,
+      rgba(187, 134, 252, 0.04) 100%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 39px,
+      rgba(3, 218, 198, 0.05) 39px,
+      rgba(3, 218, 198, 0.05) 40px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 39px,
+      rgba(3, 218, 198, 0.05) 39px,
+      rgba(3, 218, 198, 0.05) 40px
+    );
+  overflow: hidden;
+}
+
+.trackImage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 @media (max-width: 768px) {
+  .trackHeader {
+    padding: var(--space-3) var(--space-4);
+  }
+  .trackName {
+    font-size: var(--text-base);
+  }
   .trackImage {
-    height: 110px;
+    height: 200px;
   }
 }
 
@@ -200,8 +254,9 @@
 
 .droneGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr);
   gap: var(--space-4);
+  align-items: start;
 }
 
 .droneLink {
@@ -224,33 +279,11 @@
   box-shadow: 0 0 24px rgba(3, 218, 198, 0.1);
 }
 
-.winnerCard {
+.droneCard.winnerCard {
   border-color: var(--accent-primary);
-  background:
-    linear-gradient(
-      135deg,
-      rgba(3, 218, 198, 0.08) 0%,
-      transparent 60%
-    ),
-    var(--bg-card);
   box-shadow:
     0 0 0 1px var(--accent-primary),
-    0 0 40px rgba(3, 218, 198, 0.25);
-}
-
-.winnerCard .droneImageFrame {
-  background:
-    radial-gradient(
-      ellipse at center,
-      rgba(3, 218, 198, 0.18) 0%,
-      rgba(3, 218, 198, 0.04) 50%,
-      transparent 75%
-    ),
-    var(--bg-card);
-}
-
-.winnerCard .droneImg {
-  filter: drop-shadow(0 0 20px rgba(3, 218, 198, 0.5));
+    0 0 32px rgba(3, 218, 198, 0.3);
 }
 
 .winnerBadge {
@@ -463,7 +496,16 @@
  * Breakpoints
  * ========================================================================== */
 
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
+  .droneGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .logCard {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
   .droneGrid {
     grid-template-columns: 1fr;
   }

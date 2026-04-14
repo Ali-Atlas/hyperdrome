@@ -138,7 +138,7 @@ export default function RaceDetailPage({ params }) {
           </div>
         </header>
 
-        {/* ---- Drone cards first ---- */}
+        {/* ---- Drone cards + race log on one row (web) ---- */}
         <div className={styles.droneGrid}>
           <DroneCard
             drone={race.drone1}
@@ -150,82 +150,88 @@ export default function RaceDetailPage({ params }) {
             isWinner={race.drone2Id === winnerId}
             time={race.drone2Time}
           />
+
+          {/* ---- Race log (collapsible) ---- */}
+          <Card className={styles.logCard}>
+            <button
+              type="button"
+              className={styles.logToggle}
+              onClick={() => setLogOpen((v) => !v)}
+              aria-expanded={logOpen}
+            >
+              <span>Race Log</span>
+              <ChevronDown
+                size={18}
+                className={logOpen ? styles.logChevronOpen : styles.logChevron}
+              />
+            </button>
+            {logOpen && (
+              <div className={styles.logTable}>
+                <div className={styles.logHeader}>
+                  <span>#</span>
+                  <span>Segment</span>
+                  <span className={styles.alignRight}>
+                    {race.drone1?.name ?? 'Drone 1'}
+                  </span>
+                  <span className={styles.alignRight}>
+                    {race.drone2?.name ?? 'Drone 2'}
+                  </span>
+                  <span className={styles.alignCenter}>Lead</span>
+                </div>
+                {(race.raceLog ?? []).map((seg) => {
+                  const lead = seg.drone1Time <= seg.drone2Time ? 1 : 2;
+                  return (
+                    <div key={seg.segment} className={styles.logRow}>
+                      <span className={styles.mono}>{seg.segment}</span>
+                      <span className={styles.segType}>{seg.type}</span>
+                      <span className={`${styles.mono} ${styles.alignRight}`}>
+                        {Number(seg.drone1Time).toFixed(2)}s
+                      </span>
+                      <span className={`${styles.mono} ${styles.alignRight}`}>
+                        {Number(seg.drone2Time).toFixed(2)}s
+                      </span>
+                      <span
+                        className={`${styles.alignCenter} ${
+                          lead === 1 ? styles.lead1 : styles.lead2
+                        }`}
+                      >
+                        {lead === 1 ? '◀' : '▶'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
         </div>
 
         {/* ---- Track card below drones ---- */}
         <Card className={styles.trackCard}>
-          <div className={styles.trackImage} aria-label="Track visualization">
-            <TrackSvg track={race.track} />
-          </div>
-          <div className={styles.trackInfo}>
-            <div className={styles.trackHead}>
-              <h2 className={styles.trackName}>
-                {race.track?.name ?? 'Unknown track'}
-              </h2>
+          <div className={styles.trackHeader}>
+            <div className={styles.trackTitleRow}>
+              <div className={styles.trackTitleLeft}>
+                <span className={styles.trackLabel}>Track</span>
+                <h2 className={styles.trackName}>
+                  {race.track?.name ?? 'Unknown track'}
+                </h2>
+              </div>
               <div className={styles.trackDifficulty}>
-                Difficulty {race.track?.difficulty}/5
+                Difficulty {race.track?.difficulty ?? '?'}/5
               </div>
             </div>
             <div className={styles.trackStats}>
               <TrackStat label="Straights" value={race.track?.straights ?? 0} />
+              <TrackStatDivider />
               <TrackStat label="Turns" value={race.track?.turns ?? 0} />
+              <TrackStatDivider />
               <TrackStat label="Length" value={race.track?.length ?? '—'} />
             </div>
           </div>
+          <div className={styles.trackImage} aria-label="Track visualization">
+            <TrackSvg track={race.track} />
+          </div>
         </Card>
 
-        {/* ---- Race log (collapsible) ---- */}
-        <Card className={styles.logCard}>
-          <button
-            type="button"
-            className={styles.logToggle}
-            onClick={() => setLogOpen((v) => !v)}
-            aria-expanded={logOpen}
-          >
-            <span>Race Log</span>
-            <ChevronDown
-              size={18}
-              className={logOpen ? styles.logChevronOpen : styles.logChevron}
-            />
-          </button>
-          {logOpen && (
-            <div className={styles.logTable}>
-              <div className={styles.logHeader}>
-                <span>#</span>
-                <span>Segment</span>
-                <span className={styles.alignRight}>
-                  {race.drone1?.name ?? 'Drone 1'}
-                </span>
-                <span className={styles.alignRight}>
-                  {race.drone2?.name ?? 'Drone 2'}
-                </span>
-                <span className={styles.alignCenter}>Lead</span>
-              </div>
-              {(race.raceLog ?? []).map((seg) => {
-                const lead = seg.drone1Time <= seg.drone2Time ? 1 : 2;
-                return (
-                  <div key={seg.segment} className={styles.logRow}>
-                    <span className={styles.mono}>{seg.segment}</span>
-                    <span className={styles.segType}>{seg.type}</span>
-                    <span className={`${styles.mono} ${styles.alignRight}`}>
-                      {Number(seg.drone1Time).toFixed(2)}s
-                    </span>
-                    <span className={`${styles.mono} ${styles.alignRight}`}>
-                      {Number(seg.drone2Time).toFixed(2)}s
-                    </span>
-                    <span
-                      className={`${styles.alignCenter} ${
-                        lead === 1 ? styles.lead1 : styles.lead2
-                      }`}
-                    >
-                      {lead === 1 ? '◀' : '▶'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
       </div>
     </NavShell>
   );
@@ -238,6 +244,10 @@ function TrackStat({ label, value }) {
       <span className={styles.trackStatValue}>{value}</span>
     </div>
   );
+}
+
+function TrackStatDivider() {
+  return <span className={styles.trackStatDivider} aria-hidden="true" />;
 }
 
 function DroneCard({ drone, isWinner, time }) {
@@ -302,24 +312,6 @@ function TrackSvg({ track }) {
       preserveAspectRatio="xMidYMid meet"
     >
       <defs>
-        <linearGradient id="trackBg" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0" stopColor="#03DAC6" stopOpacity="0.05" />
-          <stop offset="1" stopColor="#BB86FC" stopOpacity="0.04" />
-        </linearGradient>
-        <pattern
-          id="trackGrid"
-          width="40"
-          height="40"
-          patternUnits="userSpaceOnUse"
-        >
-          <path
-            d="M 40 0 L 0 0 0 40"
-            fill="none"
-            stroke="#03DAC6"
-            strokeOpacity="0.06"
-            strokeWidth="1"
-          />
-        </pattern>
         <pattern
           id="startFinish"
           width="10"
@@ -328,18 +320,26 @@ function TrackSvg({ track }) {
         >
           <rect width="5" height="5" x="0" y="0" fill="#ffffff" />
           <rect width="5" height="5" x="5" y="5" fill="#ffffff" />
+          <rect width="5" height="5" x="5" y="0" fill="#1a1a1a" />
+          <rect width="5" height="5" x="0" y="5" fill="#1a1a1a" />
         </pattern>
       </defs>
-
-      <rect width="800" height="200" fill="url(#trackBg)" />
-      <rect width="800" height="200" fill="url(#trackGrid)" />
 
       {/* Tarmac outline (thicker, darker) */}
       <path
         d={path}
         fill="none"
+        stroke="#0d0d0d"
+        strokeWidth="30"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Kerb/edge highlight */}
+      <path
+        d={path}
+        fill="none"
         stroke="#1a1a1a"
-        strokeWidth="26"
+        strokeWidth="22"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -351,14 +351,14 @@ function TrackSvg({ track }) {
         strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeOpacity="0.9"
+        strokeOpacity="0.95"
       />
-      {/* Start/finish marker at the starting point */}
+      {/* Start/finish marker */}
       <rect
-        x="58"
-        y="88"
+        x="56"
+        y="83"
         width="10"
-        height="28"
+        height="34"
         fill="url(#startFinish)"
         stroke="#03DAC6"
         strokeWidth="1"
