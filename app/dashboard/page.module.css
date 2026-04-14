@@ -38,19 +38,35 @@
 }
 
 /* ==========================================================================
- * Shared section heading (silver text + silver full-width divider)
+ * Shared section heading (lighter silver text + silver full-width divider)
  * ========================================================================== */
 
 .sectionHeading {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
-  color: #6B6B6B;
+  color: #A0A0A0;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin: 0;
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid #6B6B6B;
+}
+
+/* When a heading shares its row with an aside (nav cluster), use a wrapper
+   so the heading keeps its padding and the divider spans the full width.  */
+.sectionHeadingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-4) 0 0;
+  border-bottom: 1px solid #6B6B6B;
+}
+
+.sectionHeadingRow .sectionHeading {
+  border-bottom: none;
+  flex: 1;
 }
 
 .cardBody {
@@ -68,29 +84,16 @@
   border-color: #6B6B6B;
 }
 
-/* Top row: name + level (left) · nav + manage link (right) — full-bleed */
-.spotlightTopRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid #6B6B6B;
-}
-
-.droneNameBlock {
+/* Drone name + level overlay at the top-left corner of the drone image */
+.droneNameOverlay {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
-}
-
-.spotlightTopRight {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-shrink: 0;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .droneName {
@@ -100,11 +103,8 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--text-primary);
-  line-height: 1.1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
+  line-height: 1.05;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
 }
 
 .droneLevel {
@@ -112,27 +112,7 @@
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-}
-
-.manageTopLink {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--accent-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  text-decoration: none;
-  padding: 4px 10px;
-  border: 1px solid rgba(3, 218, 198, 0.4);
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
-}
-
-.manageTopLink:hover {
-  background: rgba(3, 218, 198, 0.08);
-  border-color: var(--accent-primary);
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
 }
 
 .navCluster {
@@ -167,7 +147,7 @@
   color: var(--text-secondary);
 }
 
-/* Main body: image+KPI (left 50%) | stats (right 50%), stats stretch */
+/* Main body: image+meta (left 50%) | stats+manage btn (right 50%) */
 .spotlightMain {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -179,7 +159,8 @@
 .spotlightLeft {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  align-items: center;
   min-width: 0;
 }
 
@@ -201,34 +182,58 @@
   animation: droneHover 4s var(--ease-in-out) infinite;
 }
 
+/* Right column: stats stretch + manage button pinned at bottom */
+.spotlightRight {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+.spotlightRight .spotlightStats {
+  flex: 1;
+}
+
+.manageBtn {
+  width: 100%;
+  box-shadow:
+    0 0 16px rgba(3, 218, 198, 0.35),
+    0 0 32px rgba(3, 218, 198, 0.2);
+}
+
+/* Meta list centered under the drone image. Block is centered, each row
+   keeps "Label  value" left-aligned inline if there's room. */
 .spotlightKpiGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin: 0;
+  text-align: left;
 }
 
 .kpiCell {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .kpiCell dt {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-weight: var(--font-semibold);
   margin: 0;
 }
 
 .kpiCell dd {
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--text-primary);
-  font-weight: var(--font-semibold);
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
   margin: 0;
 }
 

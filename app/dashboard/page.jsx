@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
+import btnStyles from '@/components/ui/Button/Button.module.css';
 import { cn, getLevelColor } from '@/lib/utils';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
@@ -134,85 +135,84 @@ export default function DashboardPage() {
         <div className={styles.grid}>
           {/* ---- Row 1 col 1: Spotlight ---- */}
           <Card className={cn(styles.spotlight, styles.areaSpotlight)}>
+            <div className={styles.sectionHeadingRow}>
+              <h2 className={styles.sectionHeading}>
+                Active Drone Spotlight
+              </h2>
+              {canCycle && (
+                <div className={styles.navCluster}>
+                  <button
+                    type="button"
+                    className={styles.navBtn}
+                    onClick={goPrev}
+                    aria-label="Previous drone"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className={styles.navCounter}>
+                    {spotlightIndex + 1}/{activeDrones.length}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.navBtn}
+                    onClick={goNext}
+                    aria-label="Next drone"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+
             {loading ? (
-              <Skeleton variant="card" height={220} />
+              <div className={styles.cardBody}>
+                <Skeleton variant="card" height={220} />
+              </div>
             ) : spotlightDrone ? (
-              <>
-                <div className={styles.spotlightTopRow}>
-                  <div className={styles.droneNameBlock}>
-                    <span className={styles.droneName}>
-                      {spotlightDrone.name}
-                    </span>
-                    <span
-                      className={styles.droneLevel}
-                      style={{ color: getLevelColor(spotlightDrone.level) }}
-                    >
-                      Level {spotlightDrone.level}
-                    </span>
+              <div className={styles.spotlightMain}>
+                <div className={styles.spotlightLeft}>
+                  <div className={styles.spotlightImage}>
+                    <div className={styles.droneNameOverlay}>
+                      <span className={styles.droneName}>
+                        {spotlightDrone.name}
+                      </span>
+                      <span
+                        className={styles.droneLevel}
+                        style={{
+                          color: getLevelColor(spotlightDrone.level),
+                        }}
+                      >
+                        Level {spotlightDrone.level}
+                      </span>
+                    </div>
+                    <img
+                      src={spotlightDrone.imageUrl || '/drones/default.png'}
+                      alt={spotlightDrone.name}
+                    />
                   </div>
-                  <div className={styles.spotlightTopRight}>
-                    {canCycle && (
-                      <div className={styles.navCluster}>
-                        <button
-                          type="button"
-                          className={styles.navBtn}
-                          onClick={goPrev}
-                          aria-label="Previous drone"
-                        >
-                          <ChevronLeft size={14} />
-                        </button>
-                        <span className={styles.navCounter}>
-                          {spotlightIndex + 1}/{activeDrones.length}
-                        </span>
-                        <button
-                          type="button"
-                          className={styles.navBtn}
-                          onClick={goNext}
-                          aria-label="Next drone"
-                        >
-                          <ChevronRight size={14} />
-                        </button>
-                      </div>
-                    )}
-                    <Link
-                      href={`/drones/${spotlightDrone.id}`}
-                      className={styles.manageTopLink}
-                    >
-                      Manage Drone
-                    </Link>
-                  </div>
+                  <dl className={styles.spotlightKpiGrid}>
+                    <div className={styles.kpiCell}>
+                      <dt>Races</dt>
+                      <dd>{spotlightDrone.totalRaces}</dd>
+                    </div>
+                    <div className={styles.kpiCell}>
+                      <dt>Win Rate</dt>
+                      <dd>{droneWinRate}</dd>
+                    </div>
+                    <div className={styles.kpiCell}>
+                      <dt>Record</dt>
+                      <dd>
+                        {spotlightDrone.wins}W / {spotlightDrone.losses}L
+                      </dd>
+                    </div>
+                    <div className={styles.kpiCell}>
+                      <dt>ELO</dt>
+                      <dd>{spotlightDrone.eloRating}</dd>
+                    </div>
+                  </dl>
                 </div>
 
-                <div className={styles.spotlightMain}>
-                  <div className={styles.spotlightLeft}>
-                    <div className={styles.spotlightImage}>
-                      <img
-                        src={spotlightDrone.imageUrl || '/drones/default.png'}
-                        alt={spotlightDrone.name}
-                      />
-                    </div>
-                    <dl className={styles.spotlightKpiGrid}>
-                      <div className={styles.kpiCell}>
-                        <dt>Races</dt>
-                        <dd>{spotlightDrone.totalRaces}</dd>
-                      </div>
-                      <div className={styles.kpiCell}>
-                        <dt>Win Rate</dt>
-                        <dd>{droneWinRate}</dd>
-                      </div>
-                      <div className={styles.kpiCell}>
-                        <dt>Record</dt>
-                        <dd>
-                          {spotlightDrone.wins}W / {spotlightDrone.losses}L
-                        </dd>
-                      </div>
-                      <div className={styles.kpiCell}>
-                        <dt>ELO</dt>
-                        <dd>{spotlightDrone.eloRating}</dd>
-                      </div>
-                    </dl>
-                  </div>
-
+                <div className={styles.spotlightRight}>
                   <div className={styles.spotlightStats}>
                     {SPOTLIGHT_STATS.map(([key, label]) => (
                       <StatRow
@@ -222,15 +222,28 @@ export default function DashboardPage() {
                       />
                     ))}
                   </div>
+                  <Link
+                    href={`/drones/${spotlightDrone.id}`}
+                    className={cn(
+                      btnStyles.button,
+                      btnStyles.primary,
+                      btnStyles.sm,
+                      styles.manageBtn,
+                    )}
+                  >
+                    Manage Drone
+                  </Link>
                 </div>
-              </>
+              </div>
             ) : (
-              <EmptyState
-                title="No active drone"
-                description="Activate a drone from My Drones to enter the next race."
-                actionLabel="Go to My Drones"
-                onAction={() => window.location.assign('/drones')}
-              />
+              <div className={styles.cardBody}>
+                <EmptyState
+                  title="No active drone"
+                  description="Activate a drone from My Drones to enter the next race."
+                  actionLabel="Go to My Drones"
+                  onAction={() => window.location.assign('/drones')}
+                />
+              </div>
             )}
           </Card>
 
@@ -363,7 +376,7 @@ export default function DashboardPage() {
 }
 
 function StatRow({ label, value, max = 100 }) {
-  const slots = 50;
+  const slots = 10;
   const filled = Math.max(0, Math.min(slots, Math.round((value / max) * slots)));
   const empty = slots - filled;
   return (
