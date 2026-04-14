@@ -221,10 +221,10 @@ export default function MarketplacePage() {
           </div>
           <Button
             variant="primary"
-            size="lg"
+            size="sm"
             onClick={() => setListModal(true)}
           >
-            <Plus size={18} /> List Item
+            <Plus size={14} /> List Item
           </Button>
         </header>
 
@@ -375,8 +375,6 @@ export default function MarketplacePage() {
               <EmptyState
                 title="No listings yet"
                 description="Be the first to list a drone or skin for sale."
-                actionLabel="List Item"
-                onAction={() => setListModal(true)}
               />
             ) : (
               <div className={styles.grid}>

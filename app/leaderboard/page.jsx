@@ -311,25 +311,24 @@ export default function LeaderboardPage() {
         {/* ---- Season rewards (mobile-first order, CSS reorders on desktop) ---- */}
         <div className={styles.rewardsMobile}>{rewards}</div>
 
-        {/* ---- Search + table ---- */}
-        <div className={styles.tableToolbar}>
-          <div className={styles.searchWrap}>
-            <Search size={14} className={styles.searchIcon} aria-hidden="true" />
+        {/* ---- Table (search integrated as header bar) ---- */}
+        <div className={styles.tableWrap}>
+          <div className={styles.tableSearchBar}>
+            <Search
+              size={14}
+              className={styles.tableSearchIcon}
+              aria-hidden="true"
+            />
             <input
               type="search"
-              className={styles.searchInput}
+              className={styles.tableSearchInput}
               placeholder={
-                tab === 'players'
-                  ? 'Search player...'
-                  : 'Search drone...'
+                tab === 'players' ? 'Search player...' : 'Search drone...'
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-        </div>
-
-        <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>

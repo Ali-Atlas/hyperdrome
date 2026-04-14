@@ -472,6 +472,33 @@
   }
   .filters {
     position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+  }
+  .filterHeading {
+    flex-basis: 100%;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .filterGroup {
+    flex: 1 1 150px;
+    min-width: 130px;
+    gap: 4px;
+  }
+  .rangeRow {
+    gap: 6px;
+  }
+  .rangeInput,
+  .select {
+    padding: 4px 8px;
+    min-height: 32px;
+    font-size: var(--text-xs);
+  }
+  .filterLabel {
+    font-size: 10px;
   }
 }
 
@@ -489,5 +516,16 @@
   }
   .historyRow {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+  .filterGroup {
+    flex: 1 1 100%;
   }
 }

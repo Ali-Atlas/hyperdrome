@@ -187,7 +187,7 @@
 
 .spotlightBody {
   display: grid;
-  grid-template-columns: minmax(0, 42%) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 44%) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: stretch;
 }
@@ -202,7 +202,10 @@
 .spotlightImage {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  max-width: 260px;
+  aspect-ratio: 16 / 11;
+  margin: 0 auto;
+  padding: 10px;
   background:
     radial-gradient(
       ellipse at center,
@@ -220,56 +223,103 @@
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   animation: droneHover 4s var(--ease-in-out) infinite;
+  filter: drop-shadow(0 0 12px rgba(3, 218, 198, 0.25));
 }
 
 .spotlightIdentity {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .spotlightNameLine {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
   gap: var(--space-2);
-  flex-wrap: wrap;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .droneName {
   font-family: var(--font-heading);
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .droneLv {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--accent-primary);
+  font-size: 11px;
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  flex-shrink: 0;
 }
 
-.spotlightOwner {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.spotlightKpiGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  margin: 0;
 }
 
-.spotlightKpiLine {
+.kpiCell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kpiCell dt {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: 10px;
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  line-height: 1.5;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.kpiCell dd {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+  margin: 0;
+}
+
+.manageLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 12px;
+  margin-top: var(--space-1);
+  background: rgba(3, 218, 198, 0.08);
+  border: 1px solid rgba(3, 218, 198, 0.35);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.manageLink:hover {
+  background: rgba(3, 218, 198, 0.15);
+  border-color: var(--accent-primary);
 }
 
 .spotlightStats {

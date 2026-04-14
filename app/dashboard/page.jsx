@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
 import StatBar from '@/components/ui/StatBar';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
@@ -251,18 +250,32 @@ export default function DashboardPage() {
                         LVL {spotlightDrone.level}
                       </span>
                     </div>
-                    <div className={styles.spotlightOwner}>
-                      Owner: {user?.username ?? '—'}
-                    </div>
-                    <div className={styles.spotlightKpiLine}>
-                      {spotlightDrone.totalRaces} races · {droneWinRate} WR · W
-                      {spotlightDrone.wins} / L{spotlightDrone.losses} · ELO{' '}
-                      {spotlightDrone.eloRating}
-                    </div>
-                    <Link href={`/drones/${spotlightDrone.id}`}>
-                      <Button variant="secondary" size="sm">
-                        Manage Drone
-                      </Button>
+                    <dl className={styles.spotlightKpiGrid}>
+                      <div className={styles.kpiCell}>
+                        <dt>Races</dt>
+                        <dd>{spotlightDrone.totalRaces}</dd>
+                      </div>
+                      <div className={styles.kpiCell}>
+                        <dt>Win Rate</dt>
+                        <dd>{droneWinRate}</dd>
+                      </div>
+                      <div className={styles.kpiCell}>
+                        <dt>Record</dt>
+                        <dd>
+                          {spotlightDrone.wins}W / {spotlightDrone.losses}L
+                        </dd>
+                      </div>
+                      <div className={styles.kpiCell}>
+                        <dt>ELO</dt>
+                        <dd>{spotlightDrone.eloRating}</dd>
+                      </div>
+                    </dl>
+                    <Link
+                      href={`/drones/${spotlightDrone.id}`}
+                      className={styles.manageLink}
+                    >
+                      Manage Drone
+                      <ChevronRight size={14} aria-hidden="true" />
                     </Link>
                   </div>
                 </div>
