@@ -37,15 +37,6 @@ export default function DronesPage() {
   return (
     <NavShell>
       <div className={styles.page}>
-        <header className={styles.header}>
-          <h1 className={styles.title}>My Drones</h1>
-          <p className={styles.subtitle}>
-            {loading
-              ? 'Loading…'
-              : `${drones.length} drone${drones.length === 1 ? '' : 's'} in garage`}
-          </p>
-        </header>
-
         {loading ? (
           <div className={styles.grid}>
             <Skeleton variant="card" height={340} />

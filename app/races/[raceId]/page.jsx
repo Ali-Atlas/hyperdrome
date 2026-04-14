@@ -93,9 +93,6 @@ export default function RaceDetailPage({ params }) {
     return (
       <NavShell>
         <div className={styles.page}>
-          <Link href="/races" className={styles.back}>
-            <ArrowLeft size={16} /> Back to races
-          </Link>
           <p className={styles.error}>{error || 'Race not found'}</p>
         </div>
       </NavShell>
@@ -110,34 +107,6 @@ export default function RaceDetailPage({ params }) {
   return (
     <NavShell>
       <div className={styles.page}>
-        <Link href="/races" className={styles.back}>
-          <ArrowLeft size={16} /> Back to races
-        </Link>
-
-        {/* ---- Header ---- */}
-        <header className={styles.header}>
-          <div>
-            <h1 className={styles.title}>
-              Race #{race.id.slice(-8).toUpperCase()}
-            </h1>
-            <p className={styles.meta}>
-              {new Date(race.createdAt).toLocaleString()}
-            </p>
-          </div>
-          <div className={styles.conditions}>
-            <span className={styles.conditionChip}>
-              <WeatherIcon size={16} />
-              {race.weather.replace('_', ' ')}
-            </span>
-            <span className={styles.conditionChip}>
-              <TimeIcon size={16} />
-              {race.timeOfDay}
-            </span>
-            <span className={styles.pointsChip}>
-              {race.pointsAwarded} pts
-            </span>
-          </div>
-        </header>
 
         <div className={styles.raceLayout}>
           <div className={styles.drone1Slot}>

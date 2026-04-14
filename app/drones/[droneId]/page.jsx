@@ -144,9 +144,6 @@ export default function DroneDetailPage({ params }) {
     return (
       <NavShell>
         <div className={styles.page}>
-          <Link href="/drones" className={styles.back}>
-            <ArrowLeft size={16} /> Back
-          </Link>
           <p className={styles.error}>{error || 'Drone not found'}</p>
         </div>
       </NavShell>
@@ -294,11 +291,6 @@ function DroneManagementView({ drone, onReload }) {
   return (
     <NavShell>
       <div className={styles.page}>
-        <Link href="/drones" className={styles.back}>
-          <ArrowLeft size={16} /> Back to My Drones
-        </Link>
-        <h1 className={styles.title}>Drone Management</h1>
-
         <div className={styles.main}>
           <Card className={styles.leftPanel}>
             <div className={styles.leftInner}>
@@ -479,10 +471,6 @@ function PublicDroneProfile({ drone, listing }) {
   return (
     <NavShell>
       <div className={styles.page}>
-        <Link href="/" className={styles.back}>
-          <ArrowLeft size={16} /> Back
-        </Link>
-
         <Card className={styles.publicHeroCard}>
           <div className={styles.publicHeroImage}>
             <DroneImage drone={drone} />

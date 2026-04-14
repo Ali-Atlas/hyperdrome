@@ -256,26 +256,6 @@ export default function LeaderboardPage() {
   return (
     <NavShell>
       <div className={styles.page}>
-        <header className={styles.header}>
-          <h1 className={styles.title}>Leaderboard</h1>
-          {season && (
-            <div className={styles.seasonBlock}>
-              <div className={styles.seasonTitle}>
-                Season {season.seasonNumber} · {daysRemaining(season.endDate)}d
-                left
-              </div>
-              <div className={styles.progressTrack}>
-                <div
-                  className={styles.progressFill}
-                  style={{
-                    width: `${seasonProgress(season.startDate, season.endDate)}%`,
-                  }}
-                />
-              </div>
-            </div>
-          )}
-        </header>
-
         <div className={styles.tabs} role="tablist">
           <button
             type="button"

@@ -209,26 +209,8 @@ export default function MarketplacePage() {
   return (
     <NavShell>
       <div className={styles.page}>
-        <header className={styles.header}>
-          <div>
-            <h1 className={styles.title}>Marketplace</h1>
-            <p className={styles.balance}>
-              Your balance:{' '}
-              <span className={styles.balanceValue}>
-                {(user?.points ?? 0).toLocaleString()} pts
-              </span>
-            </p>
-          </div>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setListModal(true)}
-          >
-            <Plus size={14} /> List Item
-          </Button>
-        </header>
-
-        <div className={styles.tabs} role="tablist">
+        <div className={styles.toolbarRow}>
+          <div className={styles.tabs} role="tablist">
           <button
             type="button"
             role="tab"
@@ -247,6 +229,14 @@ export default function MarketplacePage() {
           >
             Skins
           </button>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setListModal(true)}
+          >
+            <Plus size={14} /> List Item
+          </Button>
         </div>
 
         <div className={styles.body}>

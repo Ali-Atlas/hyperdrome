@@ -325,38 +325,6 @@ export default function RacesPage() {
   return (
     <NavShell>
       <div className={styles.page}>
-        <header className={styles.header}>
-          <div>
-            <h1 className={styles.title}>Race Results</h1>
-            <p className={styles.subtitle}>
-              Total Races: {data.total.toLocaleString()} · Showing Recent
-            </p>
-          </div>
-          <div
-            className={`${styles.liveBox} ${racingPaused ? styles.liveBoxPaused : ''}`}
-          >
-            <div
-              className={`${styles.liveIndicator} ${racingPaused ? styles.liveIndicatorPaused : ''}`}
-            >
-              <span
-                className={`${styles.liveDot} ${racingPaused ? styles.liveDotPaused : ''}`}
-              />
-              {racingPaused
-                ? 'Racing Paused'
-                : `Live Now · ${filteredItems.length}`}
-            </div>
-            {racingPaused ? (
-              <div className={styles.pausedLabel}>Next block · Paused</div>
-            ) : nextRaceAt ? (
-              <CountdownTimer
-                targetDate={nextRaceAt}
-                label="Next"
-                expiredLabel="Running..."
-              />
-            ) : null}
-          </div>
-        </header>
-
         <FilterBar
           filters={filterDefs}
           values={filters}
