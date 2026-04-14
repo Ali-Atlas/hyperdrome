@@ -419,14 +419,9 @@ function NextRaceCountdown({ targetDate, paused }) {
     return () => clearInterval(id);
   }, [paused, targetDate]);
 
-  if (paused) {
-    return <div className={styles.countdownPaused}>Racing Paused</div>;
-  }
-  if (!targetDate) {
-    return <div className={styles.countdownPaused}>—</div>;
-  }
-
-  const remaining = Math.max(0, new Date(targetDate).getTime() - now);
+  const remaining = targetDate
+    ? Math.max(0, new Date(targetDate).getTime() - now)
+    : 0;
   const total = Math.floor(remaining / 1000);
   const days = Math.floor(total / 86400);
   const hours = Math.floor((total % 86400) / 3600);
@@ -436,7 +431,12 @@ function NextRaceCountdown({ targetDate, paused }) {
 
   return (
     <>
-      <div className={styles.countdownClock}>
+      <div
+        className={cn(
+          styles.countdownClock,
+          paused && styles.countdownClockPaused,
+        )}
+      >
         <span className={styles.countdownUnit}>{pad(days)}</span>
         <span className={styles.countdownColon}>:</span>
         <span className={styles.countdownUnit}>{pad(hours)}</span>
@@ -454,7 +454,9 @@ function NextRaceCountdown({ targetDate, paused }) {
         <span className={styles.countdownLabelsSpacer}>:</span>
         <span>SS</span>
       </div>
-      <div className={styles.countdownTagline}>Seconds Until Race</div>
+      <div className={styles.countdownTagline}>
+        {paused ? 'Racing Paused' : 'Seconds Until Race'}
+      </div>
     </>
   );
 }

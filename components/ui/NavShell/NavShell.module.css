@@ -195,6 +195,40 @@
   margin-bottom: var(--space-6);
 }
 
+/* ---- Desktop top bar (username + points right-aligned) ---- */
+
+.topBar {
+  display: none;
+}
+
+.topBarRight {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+.topUsername {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: #F0F0F0;
+  letter-spacing: 0.01em;
+}
+
+.topSep {
+  color: #3F3F3F;
+  font-size: var(--text-lg);
+}
+
+.topPoints {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: #F0F0F0;
+  letter-spacing: 0.01em;
+}
+
 /* ---- Main content ---- */
 
 .main {
@@ -211,9 +245,22 @@
   .mobileBar {
     display: none;
   }
+  .topBar {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 240px;
+    right: 0;
+    height: 56px;
+    padding: 0 var(--space-8);
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-default);
+    z-index: 9;
+  }
   .main {
     margin-left: 240px;
-    padding: var(--space-8);
+    padding: calc(56px + var(--space-6)) var(--space-8) var(--space-8);
   }
 }
 

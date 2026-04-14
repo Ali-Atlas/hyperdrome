@@ -95,6 +95,7 @@
   flex-direction: column;
   gap: 2px;
   align-self: flex-start;
+  width: 100%;
 }
 
 .droneName {
@@ -173,6 +174,7 @@
   border: none;
   border-radius: 0;
   overflow: visible;
+  align-self: center;
 }
 
 .spotlightImage img {
@@ -210,20 +212,17 @@
     0 0 36px rgba(3, 218, 198, 0.45);
 }
 
-/* Meta: 2x2 grid beneath the drone image. Per-cell grid so values
-   line up in the same column within each cell (vertically aligned). */
+/* Meta: 2x2 grid beneath the drone image, centered horizontally. */
 .spotlightKpiGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px var(--space-4);
+  grid-template-columns: auto auto;
+  gap: 6px var(--space-5);
   margin: 0;
-  width: 100%;
-  max-width: 280px;
+  align-self: center;
 }
 
 .kpiCell {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  display: flex;
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
@@ -242,7 +241,7 @@
 
 .kpiCell dd {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   font-weight: var(--font-medium);
   margin: 0;
@@ -380,10 +379,6 @@
   background: rgba(3, 218, 198, 0.12);
 }
 
-.feedRow:hover .feedTrack {
-  color: var(--accent-primary);
-}
-
 .feedTime {
   color: var(--text-secondary);
   flex-shrink: 0;
@@ -443,6 +438,11 @@
   font-weight: var(--font-bold);
   color: var(--text-primary);
   letter-spacing: 0.04em;
+}
+
+.countdownClockPaused .countdownUnit,
+.countdownClockPaused {
+  color: #5A5A5A;
 }
 
 .countdownUnit {

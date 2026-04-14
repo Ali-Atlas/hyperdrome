@@ -88,6 +88,21 @@ export default function NavShell({ children }) {
         <div className={styles.sidebarFooter}>{renderUserArea()}</div>
       </aside>
 
+      {/* Desktop top bar — username + points right-aligned */}
+      {user && (
+        <header className={styles.topBar}>
+          <div className={styles.topBarRight}>
+            <span className={styles.topUsername}>
+              {user.username ?? user.email}
+            </span>
+            <span className={styles.topSep}>|</span>
+            <span className={styles.topPoints}>
+              POINTS: {(user.points ?? 0).toLocaleString()}
+            </span>
+          </div>
+        </header>
+      )}
+
       {/* Mobile top bar */}
       <header className={styles.mobileBar}>
         <button
