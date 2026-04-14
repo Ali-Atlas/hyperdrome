@@ -196,43 +196,45 @@ export default function RaceDetailPage({ params }) {
                 className={logOpen ? styles.logChevronOpen : styles.logChevron}
               />
             </button>
-            {logOpen && (
-              <div className={styles.logTable}>
-                <div className={styles.logHeader}>
-                  <span>#</span>
-                  <span>Segment</span>
-                  <span className={styles.alignRight}>
-                    {race.drone1?.name ?? 'Drone 1'}
-                  </span>
-                  <span className={styles.alignRight}>
-                    {race.drone2?.name ?? 'Drone 2'}
-                  </span>
-                  <span className={styles.alignCenter}>Lead</span>
-                </div>
-                {(race.raceLog ?? []).map((seg) => {
-                  const lead = seg.drone1Time <= seg.drone2Time ? 1 : 2;
-                  return (
-                    <div key={seg.segment} className={styles.logRow}>
-                      <span className={styles.mono}>{seg.segment}</span>
-                      <span className={styles.segType}>{seg.type}</span>
-                      <span className={`${styles.mono} ${styles.alignRight}`}>
-                        {Number(seg.drone1Time).toFixed(2)}s
-                      </span>
-                      <span className={`${styles.mono} ${styles.alignRight}`}>
-                        {Number(seg.drone2Time).toFixed(2)}s
-                      </span>
-                      <span
-                        className={`${styles.alignCenter} ${
-                          lead === 1 ? styles.lead1 : styles.lead2
-                        }`}
-                      >
-                        {lead === 1 ? '◀' : '▶'}
-                      </span>
-                    </div>
-                  );
-                })}
+            <div
+              className={`${styles.logTable} ${
+                !logOpen ? styles.logTableHidden : ''
+              }`}
+            >
+              <div className={styles.logHeader}>
+                <span>#</span>
+                <span>Segment</span>
+                <span className={styles.alignRight}>
+                  {race.drone1?.name ?? 'Drone 1'}
+                </span>
+                <span className={styles.alignRight}>
+                  {race.drone2?.name ?? 'Drone 2'}
+                </span>
+                <span className={styles.alignCenter}>Lead</span>
               </div>
-            )}
+              {(race.raceLog ?? []).map((seg) => {
+                const lead = seg.drone1Time <= seg.drone2Time ? 1 : 2;
+                return (
+                  <div key={seg.segment} className={styles.logRow}>
+                    <span className={styles.mono}>{seg.segment}</span>
+                    <span className={styles.segType}>{seg.type}</span>
+                    <span className={`${styles.mono} ${styles.alignRight}`}>
+                      {Number(seg.drone1Time).toFixed(2)}s
+                    </span>
+                    <span className={`${styles.mono} ${styles.alignRight}`}>
+                      {Number(seg.drone2Time).toFixed(2)}s
+                    </span>
+                    <span
+                      className={`${styles.alignCenter} ${
+                        lead === 1 ? styles.lead1 : styles.lead2
+                      }`}
+                    >
+                      {lead === 1 ? '◀' : '▶'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </Card>
         </div>
 

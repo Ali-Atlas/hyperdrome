@@ -144,6 +144,7 @@
 .trackStats {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-3);
   flex-wrap: wrap;
 }
@@ -231,6 +232,40 @@
 
 .raceLayout .logCard {
   grid-area: log;
+  align-self: stretch;
+  height: 100%;
+}
+
+@media (min-width: 1201px) {
+  .raceLayout .logCard {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .raceLayout .logToggle {
+    cursor: default;
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+  .raceLayout .logChevron,
+  .raceLayout .logChevronOpen {
+    display: none;
+  }
+  .raceLayout .logTable {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+  .raceLayout .logTableHidden {
+    display: block;
+  }
+}
+
+@media (max-width: 1200px) {
+  .logTableHidden {
+    display: none;
+  }
 }
 
 .droneLink {
