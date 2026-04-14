@@ -1,5 +1,9 @@
+import { eq } from 'drizzle-orm';
+import { db, schema } from '@/lib/db';
 import { runRaceCycle } from '@/services/race.service.js';
 import { ok, fail } from '@/lib/api/response.js';
+
+const { adminConfig } = schema;
 
 /**
  * Scheduled race cycle runner.
@@ -7,6 +11,10 @@ import { ok, fail } from '@/lib/api/response.js';
  *
  * Accepts either `Authorization: Bearer <secret>` (Vercel cron default)
  * or `x-cron-secret: <secret>` (our own scripts).
+ *
+ * Short-circuits when the `racing_enabled` admin_config row is not truthy —
+ * the cron endpoint will return `{ message: 'Racing is paused' }` without
+ * running any races. Flip the config flag via the admin panel to go live.
  */
 async function handler(request) {
   const expected = process.env.CRON_SECRET;
@@ -21,6 +29,22 @@ async function handler(request) {
       : null;
   if (providedBearer !== expected && custom !== expected) {
     return fail('Unauthorized', 401);
+  }
+
+  // Master kill-switch — check the admin_config flag before doing anything
+  try {
+    const [flag] = await db
+      .select()
+      .from(adminConfig)
+      .where(eq(adminConfig.key, 'racing_enabled'))
+      .limit(1);
+    const enabled = flag?.value === 'true';
+    if (!enabled) {
+      return ok({ message: 'Racing is paused', racingEnabled: false });
+    }
+  } catch (err) {
+    console.error('[api/races/run] failed to check racing_enabled flag:', err);
+    return fail('Failed to read racing flag', 500);
   }
 
   try {

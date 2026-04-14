@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import {
   Wrench,
   Zap,
@@ -10,6 +11,7 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
+import { auth } from '@/lib/auth';
 import ScrollReveal from '@/components/util/ScrollReveal';
 import styles from './page.module.css';
 
@@ -29,7 +31,7 @@ const HOW_STEPS = [
   {
     num: '01',
     title: 'Build Your Drone.',
-    description: 'Optimize performance stats using tokenized parts.',
+    description: 'Optimize performance stats to dominate the competition.',
     Icon: Wrench,
   },
   {
@@ -84,7 +86,13 @@ const FEATURES = [
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  // Logged-in users never see the marketing page — bounce straight to dashboard.
+  const session = await auth();
+  if (session?.user) {
+    redirect('/dashboard');
+  }
+
   return (
     <div className={styles.page}>
       {/* ---- Nav ---- */}
@@ -143,7 +151,7 @@ export default function LandingPage() {
               {HOW_STEPS.map(({ num, title, description, Icon }, idx) => (
                 <div key={num} className={styles.stepWrap}>
                   <article className={styles.step}>
-                    <div className={styles.stepLabel}>Step {num.replace(/^0/, '')}:</div>
+                    <div className={styles.stepLabel}>Step {num}</div>
                     <h3 className={styles.stepTitle}>{title}</h3>
                     <div className={styles.stepIcon}>
                       <Icon size={48} strokeWidth={1.5} />

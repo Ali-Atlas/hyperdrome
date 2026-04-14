@@ -50,21 +50,23 @@
   font-weight: var(--font-medium);
   color: var(--text-secondary);
   border-radius: var(--radius-md);
-  border-left: 3px solid transparent;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: all var(--duration-normal) var(--ease-out);
 }
 
 .link:hover {
   color: var(--text-primary);
-  background: var(--bg-elevated);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .linkActive {
   color: var(--accent-primary);
-  border-left-color: var(--accent-primary);
-  background: var(--bg-elevated);
+  background: rgba(3, 218, 198, 0.12);
+}
+
+.linkActive:hover {
+  background: rgba(3, 218, 198, 0.16);
 }
 
 .sidebarFooter {

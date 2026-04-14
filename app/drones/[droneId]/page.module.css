@@ -1,19 +1,20 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .back {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 6px;
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   width: fit-content;
+  transition: color var(--duration-normal) var(--ease-out);
 }
 
 .back:hover {
@@ -22,130 +23,243 @@
 
 .title {
   font-family: var(--font-heading);
-  font-size: var(--text-3xl);
+  font-size: var(--text-2xl);
   font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: var(--text-primary);
   margin: 0;
+  letter-spacing: 0.01em;
 }
 
 .main {
   display: grid;
-  grid-template-columns: 2fr 3fr;
-  gap: var(--space-5);
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
 }
 
-/* ---- Left panel ---- */
+@media (max-width: 1100px) {
+  .main {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* ==========================================================================
+ * Left panel — metadata LEFT, drone image RIGHT (side by side inside card)
+ * ========================================================================== */
 
 .leftPanel {
+  padding: var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+}
+
+.leftInner {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-6);
+  flex: 1;
+  min-height: 0;
 }
 
 .droneImageWrap {
-  background: var(--bg-elevated);
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(
+      ellipse 65% 55% at 50% 50%,
+      rgba(3, 218, 198, 0.2) 0%,
+      rgba(3, 218, 198, 0.05) 42%,
+      transparent 72%
+    ),
+    var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: var(--space-6);
-  box-shadow: var(--glow-teal);
-  animation: droneHover 4s var(--ease-in-out) infinite;
+  overflow: hidden;
 }
 
-.droneSvg {
+.droneImg {
   display: block;
-  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
   height: auto;
+  object-fit: contain;
+  animation: droneHover 4s var(--ease-in-out) infinite;
+  filter: drop-shadow(0 0 16px rgba(3, 218, 198, 0.25));
 }
 
-.droneHeader {
+.metaCol {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.metaTop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .droneName {
   font-family: var(--font-heading);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-}
-
-.droneMeta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.ownerLabel {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.quickStats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
-  margin: 0;
-}
-
-.quickStats div {
-  text-align: left;
-}
-
-.quickStats dt {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.quickStats dd {
-  font-family: var(--font-mono);
   font-size: var(--text-lg);
-  color: var(--accent-primary);
-  margin: var(--space-1) 0 0;
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.15;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metaLine {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metaSep {
+  color: var(--text-tertiary);
+}
+
+.metaLevel {
+  font-weight: var(--font-bold);
+}
+
+.metaOwner {
+  color: var(--text-secondary);
+}
+
+.kpiLine {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.kpiLine > span {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.kpiLabel {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--text-xs);
+}
+
+.kpiValue {
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
 }
 
 .skinBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: var(--space-3);
   border-top: 1px solid var(--border-default);
-  padding-top: var(--space-4);
+}
+
+.skinHeader {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .skinLabel {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: #ffffff;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: var(--space-2);
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
 }
 
-.skinValue {
-  font-family: var(--font-body);
+.skinSelected {
+  font-family: var(--font-heading);
   font-size: var(--text-base);
-  color: var(--text-primary);
-  padding: var(--space-3);
+  font-weight: var(--font-bold);
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.1;
+  text-shadow:
+    0 0 12px rgba(255, 255, 255, 0.75),
+    0 0 24px rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.skinSelect {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  cursor: pointer;
+  min-height: 36px;
+  transition: all var(--duration-normal) var(--ease-out);
 }
 
-/* ---- Right panel ---- */
+.skinSelect:hover {
+  border-color: var(--accent-primary);
+}
+
+.skinSelect svg {
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+ * Right panel — stat editor
+ * ========================================================================== */
 
 .rightPanel {
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6);
+  gap: var(--space-3);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .statHeader {
@@ -153,44 +267,96 @@
   justify-content: space-between;
   align-items: baseline;
   gap: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .sectionHeading {
   font-family: var(--font-heading);
-  font-size: var(--text-xl);
+  font-size: var(--text-base);
   font-weight: var(--font-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: var(--text-primary);
   margin: 0;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: var(--text-xl);
+  }
+  .sectionHeading {
+    font-size: var(--text-sm);
+  }
+  .droneName {
+    font-size: var(--text-base);
+  }
+  .skinSelect {
+    font-size: var(--text-xs);
+  }
 }
 
 .availablePoints {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .availableValue {
+  font-family: var(--font-mono);
   color: var(--accent-primary);
   font-weight: var(--font-bold);
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
+  margin-left: var(--space-1);
 }
 
 .statList {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
+
+.statList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.statList::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+
+/* ==========================================================================
+ * Actions row — toggle + note + buttons on one line
+ * ========================================================================== */
 
 .actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-default);
-  flex-wrap: wrap;
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-2);
+}
+
+.activeBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activeNote {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .buttonGroup {
@@ -198,85 +364,119 @@
   gap: var(--space-3);
 }
 
-.perfBlock {
-  border-top: 1px solid var(--border-default);
-  padding-top: var(--space-4);
+/* ==========================================================================
+ * Race profile card
+ * ========================================================================== */
+
+.raceProfileCard {
+  padding: var(--space-5);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
 }
 
-.perfHeading {
-  font-family: var(--font-heading);
-  font-size: var(--text-lg);
-  font-weight: var(--font-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 var(--space-3);
+.raceProfileCard .sectionHeading {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
 }
 
-.perfGrid {
+.raceProfileGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
-.perfCol {
+.raceProfileCol {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
-.perfColLabel {
+.raceProfileColLabel {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: var(--font-semibold);
+  letter-spacing: 0.1em;
+  font-weight: var(--font-bold);
 }
 
-.tone-optimal { color: var(--accent-primary); }
-.tone-moderate { color: var(--text-secondary); }
-.tone-poor { color: var(--accent-error); }
+.tone-optimal {
+  color: var(--accent-primary);
+}
+.tone-moderate {
+  color: var(--text-secondary);
+}
+.tone-poor {
+  color: var(--accent-error);
+}
 
-.perfChips {
+.raceProfileChips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
 }
 
-.perfEmpty {
+.raceProfileEmpty {
   color: var(--text-tertiary);
   font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
 
-.perfChip {
-  padding: var(--space-1) var(--space-2);
+.raceProfileChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px var(--space-3);
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-weight: var(--font-medium);
+  letter-spacing: 0.02em;
   border: 1px solid transparent;
+  white-space: nowrap;
 }
 
 .chip-optimal {
-  background: rgba(3, 218, 198, 0.15);
+  background: rgba(3, 218, 198, 0.12);
   color: var(--accent-primary);
   border-color: rgba(3, 218, 198, 0.3);
 }
+.chip-optimal svg {
+  color: var(--accent-primary);
+}
+
 .chip-moderate {
-  background: rgba(160, 160, 160, 0.15);
+  background: rgba(160, 160, 160, 0.1);
   color: var(--text-secondary);
   border-color: var(--border-subtle);
 }
+.chip-moderate svg {
+  color: var(--text-secondary);
+}
+
 .chip-poor {
-  background: rgba(207, 102, 121, 0.15);
+  background: rgba(207, 102, 121, 0.1);
   color: var(--accent-error);
   border-color: rgba(207, 102, 121, 0.3);
 }
+.chip-poor svg {
+  color: var(--accent-error);
+}
 
-/* ---- History ---- */
+/* ==========================================================================
+ * Race history card
+ * ========================================================================== */
 
 .historyCard {
-  padding: var(--space-6);
+  padding: var(--space-5);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+}
+
+.historyCard .sectionHeading {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .mono {
@@ -285,13 +485,13 @@
 
 .win {
   color: var(--accent-primary);
-  font-weight: var(--font-semibold);
+  font-weight: var(--font-bold);
   font-family: var(--font-mono);
 }
 
 .loss {
   color: var(--accent-error);
-  font-weight: var(--font-semibold);
+  font-weight: var(--font-bold);
   font-family: var(--font-mono);
 }
 
@@ -300,19 +500,211 @@
   color: var(--accent-error);
 }
 
-/* ---- Breakpoints ---- */
+/* ==========================================================================
+ * Public drone profile (non-owner / unauth viewer)
+ * ========================================================================== */
 
-@media (max-width: 1024px) {
-  .main {
+.publicHeroCard {
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 0;
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+}
+
+.publicHeroImage {
+  padding: var(--space-8);
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    rgba(3, 218, 198, 0.06) 0%,
+    var(--bg-card) 50%,
+    rgba(3, 218, 198, 0.03) 100%
+  );
+  border-right: 1px solid var(--border-default);
+}
+
+.publicHeroImage img {
+  max-width: 320px;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  animation: droneHover 4s var(--ease-in-out) infinite;
+  filter: drop-shadow(0 0 32px rgba(3, 218, 198, 0.4));
+}
+
+.publicHeroInfo {
+  padding: var(--space-8) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.publicName {
+  font-family: var(--font-heading);
+  font-size: var(--text-4xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.publicMetaLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.ownerLink {
+  color: var(--accent-primary);
+  text-decoration: none;
+  transition: filter var(--duration-normal) var(--ease-out);
+}
+
+.ownerLink:hover {
+  filter: brightness(1.2);
+}
+
+.publicKpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.publicKpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.publicKpiLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.publicKpiValue {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+}
+
+.buyButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  background: var(--accent-primary);
+  color: #000;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  width: fit-content;
+  transition: all var(--duration-normal) var(--ease-out);
+  box-shadow: 0 0 24px rgba(3, 218, 198, 0.25);
+}
+
+.buyButton:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+.buyPrice {
+  font-family: var(--font-mono);
+  font-weight: var(--font-bold);
+  margin-left: var(--space-1);
+}
+
+.publicStatsCard {
+  padding: var(--space-5);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+}
+
+.publicStatsCard .sectionHeading {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.publicStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4) var(--space-6);
+}
+
+.raceLink {
+  font-family: var(--font-mono);
+  color: var(--accent-primary);
+  transition: filter var(--duration-normal) var(--ease-out);
+}
+
+.raceLink:hover {
+  filter: brightness(1.2);
+}
+
+@media (max-width: 900px) {
+  .publicHeroCard {
     grid-template-columns: 1fr;
   }
-  .title { font-size: var(--text-2xl); }
+  .publicHeroImage {
+    border-right: none;
+    border-bottom: 1px solid var(--border-default);
+    min-height: 240px;
+  }
+  .publicStatsGrid {
+    grid-template-columns: 1fr;
+  }
+  .publicName {
+    font-size: var(--text-3xl);
+  }
+}
+
+/* ==========================================================================
+ * Breakpoints
+ * ========================================================================== */
+
+@media (max-width: 600px) {
+  .leftInner {
+    grid-template-columns: 1fr;
+  }
+  .droneImageWrap {
+    aspect-ratio: 4 / 3;
+  }
 }
 
 @media (max-width: 768px) {
-  .quickStats { grid-template-columns: 1fr; }
-  .perfGrid { grid-template-columns: 1fr; }
-  .actions { flex-direction: column; align-items: stretch; }
-  .buttonGroup { width: 100%; }
-  .buttonGroup button { flex: 1; }
+  .kpiLine {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .buttonGroup {
+    width: 100%;
+  }
+  .buttonGroup > * {
+    flex: 1;
+  }
+  .raceProfileGrid {
+    grid-template-columns: 1fr;
+  }
 }

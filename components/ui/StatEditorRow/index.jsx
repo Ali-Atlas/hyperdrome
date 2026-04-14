@@ -2,12 +2,16 @@
 
 import { Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import StatBar from '../StatBar';
 import styles from './StatEditorRow.module.css';
+
+const SEGMENTS = 5;
 
 /**
  * One stat row for the drone management screen.
- * Parent owns the current/base/cost math — this component just renders it.
+ * Renders name + value + minus + delta + plus + 5-tier segmented blocks.
+ * Highlights itself with a teal-tinted fill when there's a pending delta
+ * (no left-border accent — uses background + full border per design rule).
+ *
  * @param {object} props
  * @param {string} props.statName
  * @param {number} props.currentValue
@@ -35,45 +39,53 @@ export default function StatEditorRow({
   const minusDisabled = currentValue <= baseValue;
   const hasDelta = currentValue > baseValue;
 
+  const filled = Math.max(
+    0,
+    Math.min(SEGMENTS, Math.round((currentValue / maxValue) * SEGMENTS)),
+  );
+
   return (
-    <div className={cn(styles.row, className)}>
-      <div className={styles.header}>
-        <span className={styles.label}>{statName}</span>
-        <div className={styles.controls}>
-          <button
-            type="button"
-            className={styles.btn}
-            disabled={minusDisabled}
-            onClick={onDecrement}
-            aria-label={`Decrease ${statName}`}
-          >
-            <Minus size={14} />
-          </button>
-          <span className={styles.value}>{currentValue}</span>
-          <button
-            type="button"
-            className={styles.btn}
-            disabled={plusDisabled}
-            onClick={onIncrement}
-            aria-label={`Increase ${statName}`}
-          >
-            <Plus size={14} />
-          </button>
-          <span className={styles.cost}>
-            {plusDisabled && currentValue >= maxValue
-              ? '(max)'
-              : `(cost ${costToUpgrade})`}
+    <div className={cn(styles.row, hasDelta && styles.rowEdited, className)}>
+      <span className={styles.name}>{statName}</span>
+
+      <span className={styles.value}>{currentValue}</span>
+
+      <button
+        type="button"
+        className={styles.btn}
+        disabled={minusDisabled}
+        onClick={onDecrement}
+        aria-label={`Decrease ${statName}`}
+      >
+        <Minus size={14} strokeWidth={2.5} />
+      </button>
+
+      <span className={styles.deltaSlot}>
+        {hasDelta && (
+          <span className={styles.delta}>
+            {baseValue} <span className={styles.arrow}>→</span> {currentValue}
           </span>
-        </div>
+        )}
+      </span>
+
+      <button
+        type="button"
+        className={styles.btn}
+        disabled={plusDisabled}
+        onClick={onIncrement}
+        aria-label={`Increase ${statName}`}
+      >
+        <Plus size={14} strokeWidth={2.5} />
+      </button>
+
+      <div className={styles.segments} aria-hidden="true">
+        {Array.from({ length: SEGMENTS }).map((_, i) => (
+          <span
+            key={i}
+            className={cn(styles.segment, i < filled && styles.segmentFilled)}
+          />
+        ))}
       </div>
-
-      <StatBar value={currentValue} maxValue={maxValue} size="sm" />
-
-      {hasDelta && (
-        <span className={styles.delta}>
-          {baseValue} → {currentValue}
-        </span>
-      )}
     </div>
   );
 }

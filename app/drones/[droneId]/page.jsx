@@ -2,16 +2,33 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronDown,
+  Sun,
+  Moon,
+  Cloud,
+  CloudRain,
+  CloudDrizzle,
+  Wind,
+  Timer,
+  RotateCcw,
+  Zap,
+  Flag,
+  ShoppingCart,
+} from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
+import StatBar from '@/components/ui/StatBar';
 import StatEditorRow from '@/components/ui/StatEditorRow';
 import Toggle from '@/components/ui/Toggle';
 import Button from '@/components/ui/Button';
 import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import { useSession } from '@/hooks/useSession';
+import { getLevelColor } from '@/lib/utils';
 import {
   STAT_KEYS,
   calculateStatUpgradeCost,
@@ -46,18 +63,31 @@ const SNAKE_KEYS = {
   consistency: 'consistency',
 };
 
+const CONDITION_ICONS = {
+  'Clear Day': Sun,
+  'Night Racing': Moon,
+  Rain: CloudDrizzle,
+  'Heavy Wind': Wind,
+  'Long Tracks': Timer,
+  'Technical Turns': RotateCcw,
+  'Straight Lines': Zap,
+  'Close Finishes': Flag,
+};
+
 function pickStats(drone) {
   return Object.fromEntries(STAT_KEYS.map((k) => [k, drone[k] ?? 1]));
 }
 
+/* ==========================================================================
+ * Top-level page — loads drone + listing, routes to management or public view
+ * ========================================================================== */
+
 export default function DroneDetailPage({ params }) {
   const { droneId } = use(params);
-  const { showToast } = useToast();
+  const { user, status } = useSession();
   const [drone, setDrone] = useState(null);
-  const [editedStats, setEditedStats] = useState(null);
+  const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [togglePending, setTogglePending] = useState(false);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
@@ -68,7 +98,6 @@ export default function DroneDetailPage({ params }) {
         setError(body?.error || 'Failed to load drone');
       } else {
         setDrone(body.data);
-        setEditedStats(pickStats(body.data));
       }
     } catch (err) {
       setError(String(err));
@@ -77,63 +106,119 @@ export default function DroneDetailPage({ params }) {
     }
   }, [droneId]);
 
+  const loadListing = useCallback(async () => {
+    try {
+      const res = await fetch('/api/marketplace?item_type=drone&limit=100');
+      const body = await res.json();
+      if (body?.data?.items) {
+        const found = body.data.items.find(
+          (l) => l.droneId === droneId && l.status === 'active',
+        );
+        setListing(found ?? null);
+      }
+    } catch {
+      /* silently ignore listing fetch failures */
+    }
+  }, [droneId]);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadListing();
+  }, [load, loadListing]);
 
-  const baseStats = useMemo(() => (drone ? pickStats(drone) : null), [drone]);
-  const level = drone?.level ?? 1;
+  if (loading || status === 'loading') {
+    return (
+      <NavShell>
+        <div className={styles.page}>
+          <Skeleton variant="text" width="40%" />
+          <div className={styles.main}>
+            <Skeleton variant="card" height={520} />
+            <Skeleton variant="card" height={520} />
+          </div>
+        </div>
+      </NavShell>
+    );
+  }
+
+  if (error || !drone) {
+    return (
+      <NavShell>
+        <div className={styles.page}>
+          <Link href="/drones" className={styles.back}>
+            <ArrowLeft size={16} /> Back
+          </Link>
+          <p className={styles.error}>{error || 'Drone not found'}</p>
+        </div>
+      </NavShell>
+    );
+  }
+
+  const isOwner = Boolean(user?.id && drone.userId === user.id);
+
+  if (isOwner) {
+    return <DroneManagementView drone={drone} onReload={load} />;
+  }
+  return <PublicDroneProfile drone={drone} listing={listing} />;
+}
+
+/* ==========================================================================
+ * Management view — owner-only. Stat editor, race profile, history.
+ * ========================================================================== */
+
+function DroneManagementView({ drone, onReload }) {
+  const { showToast } = useToast();
+  const [editedStats, setEditedStats] = useState(() => pickStats(drone));
+  const [saving, setSaving] = useState(false);
+  const [togglePending, setTogglePending] = useState(false);
+
+  useEffect(() => {
+    setEditedStats(pickStats(drone));
+  }, [drone]);
+
+  const baseStats = useMemo(() => pickStats(drone), [drone]);
+  const level = drone.level ?? 1;
   const cap = useMemo(() => calculatePerStatCap(level), [level]);
   const tsb = useMemo(() => calculateTSB(level), [level]);
 
-  const totalCost = useMemo(() => {
-    if (!baseStats || !editedStats) return 0;
-    return STAT_KEYS.reduce(
-      (sum, key) =>
-        sum + calculateTotalUpgradeCost(baseStats[key], editedStats[key]),
-      0,
-    );
-  }, [baseStats, editedStats]);
+  const totalCost = useMemo(
+    () =>
+      STAT_KEYS.reduce(
+        (sum, key) =>
+          sum + calculateTotalUpgradeCost(baseStats[key], editedStats[key]),
+        0,
+      ),
+    [baseStats, editedStats],
+  );
 
   const currentSum = useMemo(
-    () =>
-      editedStats
-        ? STAT_KEYS.reduce((s, k) => s + (editedStats[k] ?? 0), 0)
-        : 0,
+    () => STAT_KEYS.reduce((s, k) => s + (editedStats[k] ?? 0), 0),
     [editedStats],
   );
 
-  const availablePoints = (drone?.unspentPoints ?? 0) - totalCost;
+  const availablePoints = (drone.unspentPoints ?? 0) - totalCost;
   const hasChanges = totalCost > 0;
 
   const increment = (key) => {
     setEditedStats((prev) => {
-      if (!prev) return prev;
       const current = prev[key];
       if (current >= cap) return prev;
-      const nextValue = current + 1;
-      // Prevent going beyond TSB
       if (currentSum + 1 > tsb) return prev;
       const nextCost = calculateStatUpgradeCost(current);
       if (availablePoints < nextCost) return prev;
-      return { ...prev, [key]: nextValue };
+      return { ...prev, [key]: current + 1 };
     });
   };
 
   const decrement = (key) => {
     setEditedStats((prev) => {
-      if (!prev || !baseStats) return prev;
       if (prev[key] <= baseStats[key]) return prev;
       return { ...prev, [key]: prev[key] - 1 };
     });
   };
 
-  const reset = () => {
-    if (baseStats) setEditedStats(baseStats);
-  };
+  const reset = () => setEditedStats(baseStats);
 
   const save = async () => {
-    if (!drone || !editedStats || !baseStats) return;
     setSaving(true);
     try {
       const changes = {};
@@ -152,7 +237,7 @@ export default function DroneDetailPage({ params }) {
         showToast(body?.error || 'Save failed', 'error');
       } else {
         showToast('Stats saved', 'success');
-        await load();
+        await onReload();
       }
     } catch (err) {
       showToast(String(err), 'error');
@@ -162,7 +247,6 @@ export default function DroneDetailPage({ params }) {
   };
 
   const toggleActive = async (next) => {
-    if (!drone) return;
     setTogglePending(true);
     try {
       const res = await fetch(`/api/drones/${drone.id}/toggle`, {
@@ -175,7 +259,7 @@ export default function DroneDetailPage({ params }) {
         showToast(body?.error || 'Toggle failed', 'error');
       } else {
         showToast(next ? 'Drone activated' : 'Drone deactivated', 'success');
-        await load();
+        await onReload();
       }
     } catch (err) {
       showToast(String(err), 'error');
@@ -185,43 +269,21 @@ export default function DroneDetailPage({ params }) {
   };
 
   const performance = useMemo(
-    () => (editedStats ? analyzeDronePerformance(editedStats) : null),
+    () => analyzeDronePerformance(editedStats),
     [editedStats],
   );
 
-  if (loading) {
-    return (
-      <NavShell>
-        <div className={styles.page}>
-          <Skeleton variant="text" width="40%" />
-          <div className={styles.main}>
-            <Skeleton variant="card" height={520} />
-            <Skeleton variant="card" height={520} />
-          </div>
-        </div>
-      </NavShell>
-    );
-  }
-
-  if (error || !drone || !baseStats || !editedStats) {
-    return (
-      <NavShell>
-        <div className={styles.page}>
-          <Link href="/drones" className={styles.back}>
-            <ArrowLeft size={16} /> Back
-          </Link>
-          <p className={styles.error}>{error || 'Drone not found'}</p>
-        </div>
-      </NavShell>
-    );
-  }
+  const winRate =
+    drone.totalRaces > 0
+      ? ((drone.wins / drone.totalRaces) * 100).toFixed(1) + '%'
+      : '—';
 
   const raceRows = (drone.recentRaces ?? []).map((r) => {
     const isDrone1 = r.drone1Id === drone.id;
     const won = r.winnerDroneId === drone.id;
     return {
       id: r.id,
-      opponentId: isDrone1 ? r.drone2Id : r.drone1Id,
+      opponent: isDrone1 ? r.drone2Id : r.drone1Id,
       trackName: r.track?.name ?? '—',
       conditions: `${r.weather} / ${r.timeOfDay}`,
       result: won ? 'WIN' : 'LOSS',
@@ -238,53 +300,71 @@ export default function DroneDetailPage({ params }) {
         <h1 className={styles.title}>Drone Management</h1>
 
         <div className={styles.main}>
-          {/* ---- Left panel ---- */}
           <Card className={styles.leftPanel}>
-            <div className={styles.droneImageWrap}>
-              <DroneSvg />
-            </div>
-            <div className={styles.droneHeader}>
-              <h2 className={styles.droneName}>{drone.name}</h2>
-              <div className={styles.droneMeta}>
-                <Badge variant="level" value={drone.level} />
-                <span className={styles.ownerLabel}>
-                  Owner: {drone.owner?.username ?? '—'}
-                </span>
+            <div className={styles.leftInner}>
+              <div className={styles.droneImageWrap}>
+                <DroneImage drone={drone} />
               </div>
-            </div>
-            <dl className={styles.quickStats}>
-              <div>
-                <dt>Total Races</dt>
-                <dd>{drone.totalRaces}</dd>
-              </div>
-              <div>
-                <dt>Win Rate</dt>
-                <dd>
-                  {drone.totalRaces > 0
-                    ? ((drone.wins / drone.totalRaces) * 100).toFixed(1) + '%'
-                    : '—'}
-                </dd>
-              </div>
-              <div>
-                <dt>ELO</dt>
-                <dd>{drone.eloRating}</dd>
-              </div>
-            </dl>
-            <div className={styles.skinBlock}>
-              <div className={styles.skinLabel}>Skin Equipped</div>
-              <div className={styles.skinValue}>
-                {drone.appliedSkin?.name ?? 'None'}
+
+              <div className={styles.metaCol}>
+                <div className={styles.metaTop}>
+                  <div className={styles.droneName}>{drone.name}</div>
+                  <div className={styles.metaLine}>
+                    <span
+                      className={styles.metaLevel}
+                      style={{ color: getLevelColor(drone.level) }}
+                    >
+                      Lv {drone.level}
+                    </span>
+                    <span className={styles.metaSep}>·</span>
+                    <span className={styles.metaOwner}>
+                      {drone.owner?.username ?? '—'}
+                    </span>
+                  </div>
+                  <div className={styles.kpiLine}>
+                    <span>
+                      <span className={styles.kpiLabel}>Races</span>
+                      <span className={styles.kpiValue}>
+                        {drone.totalRaces}
+                      </span>
+                    </span>
+                    <span>
+                      <span className={styles.kpiLabel}>Win Rate</span>
+                      <span className={styles.kpiValue}>{winRate}</span>
+                    </span>
+                    <span>
+                      <span className={styles.kpiLabel}>ELO</span>
+                      <span className={styles.kpiValue}>{drone.eloRating}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className={styles.skinBlock}>
+                  <div className={styles.skinHeader}>
+                    <span className={styles.skinLabel}>Skins</span>
+                    {drone.appliedSkin?.name && (
+                      <span className={styles.skinSelected}>
+                        {drone.appliedSkin.name}
+                      </span>
+                    )}
+                  </div>
+                  <button type="button" className={styles.skinSelect}>
+                    <span>{drone.appliedSkin?.name ?? 'None'}</span>
+                    <ChevronDown size={14} aria-hidden="true" />
+                  </button>
+                </div>
               </div>
             </div>
           </Card>
 
-          {/* ---- Right panel ---- */}
           <Card className={styles.rightPanel}>
             <div className={styles.statHeader}>
               <h2 className={styles.sectionHeading}>Stat Editor</h2>
               <div className={styles.availablePoints}>
                 Available Points:{' '}
-                <span className={styles.availableValue}>{availablePoints}</span>
+                <span className={styles.availableValue}>
+                  {availablePoints}
+                </span>
               </div>
             </div>
 
@@ -305,12 +385,19 @@ export default function DroneDetailPage({ params }) {
             </div>
 
             <div className={styles.actions}>
-              <Toggle
-                checked={drone.active}
-                onChange={toggleActive}
-                disabled={togglePending}
-                label={drone.active ? 'Active' : 'Set Active'}
-              />
+              <div className={styles.activeBlock}>
+                <Toggle
+                  checked={drone.active}
+                  onChange={toggleActive}
+                  disabled={togglePending}
+                  label="Set Active"
+                />
+                <div className={styles.activeNote}>
+                  {drone.active
+                    ? 'Actively racing each cycle'
+                    : 'Eligible for racing'}
+                </div>
+              </div>
               <div className={styles.buttonGroup}>
                 <Button
                   variant="secondary"
@@ -322,7 +409,7 @@ export default function DroneDetailPage({ params }) {
                 </Button>
                 <Button
                   variant="primary"
-                  size="md"
+                  size="lg"
                   onClick={save}
                   disabled={!hasChanges}
                   loading={saving}
@@ -331,114 +418,244 @@ export default function DroneDetailPage({ params }) {
                 </Button>
               </div>
             </div>
-
-            {performance && (
-              <div className={styles.perfBlock}>
-                <h3 className={styles.perfHeading}>Performance Summary</h3>
-                <div className={styles.perfGrid}>
-                  <PerfColumn label="Optimal" items={performance.optimal} tone="optimal" />
-                  <PerfColumn label="Moderate" items={performance.moderate} tone="moderate" />
-                  <PerfColumn label="Poor" items={performance.poor} tone="poor" />
-                </div>
-              </div>
-            )}
           </Card>
         </div>
 
-        {/* ---- Race history ---- */}
+        <Card className={styles.raceProfileCard}>
+          <h2 className={styles.sectionHeading}>Race Profile</h2>
+          <div className={styles.raceProfileGrid}>
+            <RaceProfileColumn
+              label="Optimal"
+              items={performance.optimal}
+              tone="optimal"
+            />
+            <RaceProfileColumn
+              label="Moderate"
+              items={performance.moderate}
+              tone="moderate"
+            />
+            <RaceProfileColumn
+              label="Poor"
+              items={performance.poor}
+              tone="poor"
+            />
+          </div>
+        </Card>
+
         <Card className={styles.historyCard}>
-          <h2 className={styles.sectionHeading}>Race History (Last 10)</h2>
-          <DataTable
-            emptyMessage="No races yet."
-            columns={[
-              {
-                key: 'id',
-                label: 'Race ID',
-                render: (r) => <span className={styles.mono}>{r.id.slice(-8).toUpperCase()}</span>,
-              },
-              { key: 'trackName', label: 'Track' },
-              { key: 'conditions', label: 'Conditions' },
-              {
-                key: 'result',
-                label: 'Result',
-                align: 'right',
-                render: (r) => (
-                  <span className={r.result === 'WIN' ? styles.win : styles.loss}>
-                    {r.result}
-                  </span>
-                ),
-              },
-              {
-                key: 'pointsEarned',
-                label: 'Points',
-                align: 'right',
-                render: (r) => <span className={styles.mono}>{r.pointsEarned}</span>,
-              },
-            ]}
-            data={raceRows}
-          />
+          <h2 className={styles.sectionHeading}>Race History (Last 10 races)</h2>
+          <RaceHistoryTable rows={raceRows} />
         </Card>
       </div>
     </NavShell>
   );
 }
 
-function PerfColumn({ label, items, tone }) {
+/* ==========================================================================
+ * Public profile view — non-owner + unauthenticated.
+ * Read-only, no editor. Shows marketplace CTA if the drone is listed.
+ * ========================================================================== */
+
+function PublicDroneProfile({ drone, listing }) {
+  const stats = pickStats(drone);
+  const winRate =
+    drone.totalRaces > 0
+      ? ((drone.wins / drone.totalRaces) * 100).toFixed(1) + '%'
+      : '—';
+
+  const raceRows = (drone.recentRaces ?? []).map((r) => {
+    const isDrone1 = r.drone1Id === drone.id;
+    const won = r.winnerDroneId === drone.id;
+    return {
+      id: r.id,
+      opponent: isDrone1 ? r.drone2Id : r.drone1Id,
+      trackName: r.track?.name ?? '—',
+      conditions: `${r.weather} / ${r.timeOfDay}`,
+      result: won ? 'WIN' : 'LOSS',
+      pointsEarned: won ? r.pointsAwarded : 0,
+    };
+  });
+
   return (
-    <div className={styles.perfCol}>
-      <div className={`${styles.perfColLabel} ${styles[`tone-${tone}`]}`}>
+    <NavShell>
+      <div className={styles.page}>
+        <Link href="/" className={styles.back}>
+          <ArrowLeft size={16} /> Back
+        </Link>
+
+        <Card className={styles.publicHeroCard}>
+          <div className={styles.publicHeroImage}>
+            <DroneImage drone={drone} />
+          </div>
+          <div className={styles.publicHeroInfo}>
+            <h1 className={styles.publicName}>{drone.name}</h1>
+            <div className={styles.publicMetaLine}>
+              <Badge variant="level" value={drone.level} />
+              {drone.owner?.username ? (
+                <>
+                  <span className={styles.metaSep}>|</span>
+                  <span className={styles.metaOwner}>
+                    Owner:{' '}
+                    <Link
+                      href={`/profile/${drone.owner.id}`}
+                      className={styles.ownerLink}
+                    >
+                      {drone.owner.username}
+                    </Link>
+                  </span>
+                </>
+              ) : drone.isBot ? (
+                <>
+                  <span className={styles.metaSep}>|</span>
+                  <span className={styles.metaOwner}>Bot</span>
+                </>
+              ) : null}
+            </div>
+
+            <div className={styles.publicKpis}>
+              <PublicKpi label="ELO" value={drone.eloRating} />
+              <PublicKpi label="Races" value={drone.totalRaces} />
+              <PublicKpi label="Wins" value={drone.wins} />
+              <PublicKpi label="Losses" value={drone.losses} />
+              <PublicKpi label="Win Rate" value={winRate} />
+            </div>
+
+            {listing && (
+              <a
+                href={`/marketplace?highlight=${listing.id}`}
+                className={styles.buyButton}
+              >
+                <ShoppingCart size={18} />
+                Buy on Marketplace —{' '}
+                <span className={styles.buyPrice}>
+                  {listing.price.toLocaleString()} pts
+                </span>
+              </a>
+            )}
+          </div>
+        </Card>
+
+        <Card className={styles.publicStatsCard}>
+          <h2 className={styles.sectionHeading}>Stats</h2>
+          <div className={styles.publicStatsGrid}>
+            {STAT_KEYS.map((key) => (
+              <StatBar
+                key={key}
+                label={STAT_LABELS[key]}
+                value={stats[key]}
+                maxValue={100}
+                size="md"
+              />
+            ))}
+          </div>
+        </Card>
+
+        <Card className={styles.historyCard}>
+          <h2 className={styles.sectionHeading}>Race History (Last 10 races)</h2>
+          <RaceHistoryTable rows={raceRows} />
+        </Card>
+      </div>
+    </NavShell>
+  );
+}
+
+/* ==========================================================================
+ * Shared sub-components
+ * ========================================================================== */
+
+function RaceHistoryTable({ rows }) {
+  return (
+    <DataTable
+      emptyMessage="No races yet."
+      columns={[
+        {
+          key: 'id',
+          label: 'Race ID',
+          render: (r) => (
+            <Link href={`/races/${r.id}`} className={styles.raceLink}>
+              {r.id.slice(-8).toUpperCase()}
+            </Link>
+          ),
+        },
+        {
+          key: 'opponent',
+          label: 'Opponent',
+          render: (r) => (
+            <span className={styles.mono}>
+              {r.opponent ? r.opponent.slice(-8).toUpperCase() : '—'}
+            </span>
+          ),
+        },
+        { key: 'trackName', label: 'Track' },
+        { key: 'conditions', label: 'Conditions' },
+        {
+          key: 'result',
+          label: 'Result',
+          align: 'right',
+          render: (r) => (
+            <span className={r.result === 'WIN' ? styles.win : styles.loss}>
+              {r.result}
+            </span>
+          ),
+        },
+        {
+          key: 'pointsEarned',
+          label: 'Points Earned',
+          align: 'right',
+          render: (r) => <span className={styles.mono}>{r.pointsEarned}</span>,
+        },
+      ]}
+      data={rows}
+    />
+  );
+}
+
+function RaceProfileColumn({ label, items, tone }) {
+  return (
+    <div className={styles.raceProfileCol}>
+      <div
+        className={`${styles.raceProfileColLabel} ${styles[`tone-${tone}`]}`}
+      >
         {label}
       </div>
-      <div className={styles.perfChips}>
+      <div className={styles.raceProfileChips}>
         {items.length === 0 ? (
-          <span className={styles.perfEmpty}>—</span>
+          <span className={styles.raceProfileEmpty}>—</span>
         ) : (
-          items.map((name) => (
-            <span key={name} className={`${styles.perfChip} ${styles[`chip-${tone}`]}`}>
-              {name}
-            </span>
-          ))
+          items.map((name) => {
+            const Icon = CONDITION_ICONS[name] ?? Cloud;
+            return (
+              <span
+                key={name}
+                className={`${styles.raceProfileChip} ${styles[`chip-${tone}`]}`}
+              >
+                <Icon size={13} aria-hidden="true" />
+                {name}
+              </span>
+            );
+          })
         )}
       </div>
     </div>
   );
 }
 
-function DroneSvg() {
+function PublicKpi({ label, value }) {
   return (
-    <svg
-      viewBox="0 0 400 260"
-      xmlns="http://www.w3.org/2000/svg"
-      role="img"
-      aria-label="Drone illustration"
-      className={styles.droneSvg}
-    >
-      <defs>
-        <linearGradient id="droneBody" x1="0" x2="1">
-          <stop offset="0" stopColor="#03DAC6" stopOpacity="0.15" />
-          <stop offset="1" stopColor="#03DAC6" stopOpacity="0.6" />
-        </linearGradient>
-      </defs>
-      <g stroke="#03DAC6" strokeWidth="1.5" fill="none" opacity="0.9">
-        <line x1="80" y1="70" x2="160" y2="130" />
-        <line x1="80" y1="190" x2="160" y2="130" />
-        <line x1="320" y1="70" x2="240" y2="130" />
-        <line x1="320" y1="190" x2="240" y2="130" />
-      </g>
-      <polygon
-        points="160,130 200,90 240,130 200,170"
-        fill="url(#droneBody)"
-        stroke="#03DAC6"
-        strokeWidth="2"
-      />
-      <g stroke="#03DAC6" strokeWidth="1.5" fill="none" opacity="0.6">
-        <circle cx="80" cy="70" r="22" />
-        <circle cx="80" cy="190" r="22" />
-        <circle cx="320" cy="70" r="22" />
-        <circle cx="320" cy="190" r="22" />
-      </g>
-      <circle cx="200" cy="90" r="3" fill="#03DAC6" />
-      <circle cx="200" cy="170" r="3" fill="#03DAC6" />
-    </svg>
+    <div className={styles.publicKpi}>
+      <span className={styles.publicKpiLabel}>{label}</span>
+      <span className={styles.publicKpiValue}>{value}</span>
+    </div>
+  );
+}
+
+function DroneImage({ drone }) {
+  return (
+    <img
+      src={drone?.imageUrl || '/drones/default.png'}
+      alt={drone?.name ?? 'Drone'}
+      className={styles.droneImg}
+      loading="eager"
+    />
   );
 }

@@ -41,8 +41,28 @@
   color: var(--text-secondary);
 }
 
-/* ---- Level ---- */
+/* ---- Level tiers ---- */
 .level {
-  background: rgba(3, 218, 198, 0.15);
-  color: var(--accent-primary);
+  background: rgba(138, 155, 168, 0.15);
+  color: var(--level-steel);
+}
+
+.level.steel {
+  background: rgba(138, 155, 168, 0.15);
+  color: var(--level-steel);
+}
+
+.level.orange {
+  background: rgba(255, 140, 66, 0.15);
+  color: var(--level-orange);
+}
+
+.level.purple {
+  background: rgba(187, 134, 252, 0.15);
+  color: var(--level-purple);
+}
+
+.level.gold {
+  background: rgba(255, 215, 0, 0.15);
+  color: var(--level-gold);
 }

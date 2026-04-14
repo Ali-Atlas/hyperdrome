@@ -1,4 +1,4 @@
-import { desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 
 const { users, drones, seasons } = schema;
@@ -70,7 +70,7 @@ const DRONE_SORT_COLS = {
   level:       drones.level,
 };
 
-/** Ranked drone leaderboard. */
+/** Ranked drone leaderboard — bots excluded. */
 export async function getDroneLeaderboard(sortBy = 'elo', limit = 50, offset = 0) {
   if (sortBy === 'win_rate') {
     return db
@@ -84,10 +84,11 @@ export async function getDroneLeaderboard(sortBy = 'elo', limit = 50, offset = 0
         wins: drones.wins,
         losses: drones.losses,
         totalRaces: drones.totalRaces,
+        imageUrl: drones.imageUrl,
         winRate: sql`CASE WHEN ${drones.totalRaces} > 0 THEN (${drones.wins}::float / ${drones.totalRaces}::float) ELSE 0 END`,
       })
       .from(drones)
-      .where(gte(drones.totalRaces, 1))
+      .where(and(eq(drones.isBot, false), gte(drones.totalRaces, 1)))
       .orderBy(sql`(CASE WHEN ${drones.totalRaces} > 0 THEN (${drones.wins}::float / ${drones.totalRaces}::float) ELSE 0 END) DESC`)
       .limit(limit)
       .offset(offset);
@@ -105,8 +106,10 @@ export async function getDroneLeaderboard(sortBy = 'elo', limit = 50, offset = 0
       wins: drones.wins,
       losses: drones.losses,
       totalRaces: drones.totalRaces,
+      imageUrl: drones.imageUrl,
     })
     .from(drones)
+    .where(eq(drones.isBot, false))
     .orderBy(desc(col))
     .limit(limit)
     .offset(offset);

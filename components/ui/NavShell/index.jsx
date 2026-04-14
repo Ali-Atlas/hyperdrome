@@ -81,7 +81,7 @@ export default function NavShell({ children }) {
     <div className={styles.shell}>
       {/* Desktop sidebar */}
       <aside className={styles.sidebar} aria-label="Primary">
-        <Link href="/" className={styles.logo}>
+        <Link href="/dashboard" className={styles.logo}>
           Drone Manager
         </Link>
         <nav className={styles.nav}>{renderLinks()}</nav>
@@ -98,7 +98,7 @@ export default function NavShell({ children }) {
         >
           <Menu size={20} />
         </button>
-        <Link href="/" className={styles.mobileLogo}>
+        <Link href="/dashboard" className={styles.mobileLogo}>
           Drone Manager
         </Link>
         <div className={styles.mobilePoints}>

@@ -5,14 +5,22 @@ import { auth } from '@/lib/auth';
  * Next.js 16 routing proxy (formerly `middleware.js` in prior versions).
  * Redirects unauthenticated requests for protected routes to /login.
  *
- * Public routes: /, /login, /check-email, all /api/auth/*
+ * Exemptions handled inline:
+ *   - /api/auth/*   → handled by NextAuth itself.
+ *   - /drones/[id]  → public read-only drone profile (unauth viewers see
+ *                     the profile; authed viewers may see management UI
+ *                     if they own the drone).
+ *
  * Everything listed in `config.matcher` below runs this proxy.
  */
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
-  // Anything under /api/auth is handled by NextAuth itself
   if (pathname.startsWith('/api/auth')) return NextResponse.next();
+
+  // /drones/[droneId] — one path segment after /drones — is public.
+  // /drones (the garage list) remains protected.
+  if (/^\/drones\/[^/]+$/.test(pathname)) return NextResponse.next();
 
   const session = await auth();
   if (session?.user) return NextResponse.next();

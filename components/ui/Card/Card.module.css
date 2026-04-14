@@ -24,5 +24,4 @@
 .hover:hover {
   border-color: var(--border-accent);
   box-shadow: var(--glow-teal), var(--shadow-card);
-  transform: scale(1.02);
 }

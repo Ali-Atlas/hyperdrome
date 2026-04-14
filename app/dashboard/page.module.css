@@ -1,13 +1,17 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
+
+/* ==========================================================================
+ * Top header — welcome + compact meta (next race + points)
+ * ========================================================================== */
 
 .welcome {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-4);
   flex-wrap: wrap;
 }
@@ -18,21 +22,81 @@
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: var(--text-primary);
   margin: 0;
 }
 
-.balances {
+.welcomeMeta {
   display: flex;
+  align-items: baseline;
   gap: var(--space-5);
 }
 
-.balanceItem {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+.nextRace,
+.points {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.balanceLabel {
+.nextLabel,
+.pointsLabel {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.nextValue,
+.pointsValue {
+  color: var(--accent-primary);
+  font-weight: var(--font-bold);
+}
+
+.nextValuePaused {
+  color: var(--text-tertiary);
+  font-weight: var(--font-bold);
+}
+
+/* ==========================================================================
+ * Quick stats strip — thin horizontal row
+ * ========================================================================== */
+
+.quickStats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  padding: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.quickItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border-right: 1px solid var(--border-default);
+}
+
+.quickItem:last-child {
+  border-right: none;
+}
+
+.quickValue {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+  line-height: 1;
+}
+
+.quickLabel {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
@@ -40,170 +104,210 @@
   letter-spacing: 0.05em;
 }
 
-.balanceValue {
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  color: var(--accent-primary);
-  font-weight: var(--font-bold);
-}
-
-/* ---- Grid layout ---- */
+/* ==========================================================================
+ * Main grid — spotlight + live feed
+ * ========================================================================== */
 
 .grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  grid-template-areas:
-    'spotlight live-feed'
-    'results   countdown'
-    'results   quick-stats';
-  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
 }
+
+/* ==========================================================================
+ * Spotlight card
+ * ========================================================================== */
 
 .spotlight {
-  grid-area: spotlight;
-  padding: var(--space-6);
-}
-
-.liveFeed {
-  grid-area: live-feed;
-  padding: var(--space-5);
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-height: 520px;
 }
-
-.results {
-  grid-area: results;
-  padding: var(--space-5);
-}
-
-.countdown {
-  grid-area: countdown;
-  padding: var(--space-5);
-  text-align: center;
-}
-
-.quickStats {
-  grid-area: quick-stats;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
-}
-
-/* ---- Section heading ---- */
-
-.sectionHeading {
-  font-family: var(--font-heading);
-  font-size: var(--text-lg);
-  font-weight: var(--font-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 var(--space-4);
-  color: var(--text-primary);
-}
-
-/* ---- Spotlight ---- */
 
 .spotlightHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
-.spotlightTabs {
-  display: flex;
+.sectionHeading {
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.navCluster {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-2);
 }
 
-.spotlightTab {
-  padding: var(--space-1) var(--space-3);
-  background: transparent;
+.navBtn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.navBtn:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(3, 218, 198, 0.08);
+}
+
+.navBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.navCounter {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  cursor: pointer;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.spotlightTabActive {
-  color: var(--accent-primary);
-  border-color: var(--accent-primary);
-}
+/* ---- Spotlight body: two-column above 600px ---- */
 
 .spotlightBody {
   display: grid;
-  grid-template-columns: 1fr 1.4fr;
-  gap: var(--space-5);
-  align-items: center;
+  grid-template-columns: minmax(0, 42%) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
 }
 
 .spotlightLeft {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  align-items: flex-start;
+  min-width: 0;
 }
 
 .spotlightImage {
+  position: relative;
   width: 100%;
-  padding: var(--space-4);
-  background: var(--bg-elevated);
+  aspect-ratio: 4 / 3;
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(3, 218, 198, 0.2) 0%,
+      rgba(3, 218, 198, 0.05) 45%,
+      transparent 70%
+    ),
+    var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: var(--glow-teal);
+  overflow: hidden;
+}
+
+.spotlightImage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   animation: droneHover 4s var(--ease-in-out) infinite;
 }
 
-.spotlightImage svg {
-  display: block;
-  width: 100%;
-  height: auto;
+.spotlightIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.spotlightName {
+.spotlightNameLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.droneName {
   font-family: var(--font-heading);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+}
+
+.droneLv {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent-primary);
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
+.spotlightOwner {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.spotlightKpiLine {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+
 .spotlightStats {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+}
+
+/* ==========================================================================
+ * Live feed
+ * ========================================================================== */
+
+.liveFeed {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
+  min-height: 0;
 }
-
-.manageBtnLink {
-  display: inline-block;
-  margin-top: var(--space-2);
-}
-
-/* ---- Live feed ---- */
 
 .feedList {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
   overflow-y: auto;
+  max-height: 360px;
 }
 
 .feedRow {
   display: flex;
   gap: var(--space-3);
-  padding: var(--space-2);
+  padding: 6px var(--space-2);
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  transition: background var(--duration-fast) var(--ease-out);
+  transition: background var(--duration-normal) var(--ease-out);
 }
 
 .feedRow:hover {
@@ -213,7 +317,15 @@
 .feedTime {
   font-family: var(--font-mono);
   color: var(--text-tertiary);
-  min-width: 40px;
+  min-width: 38px;
+  flex-shrink: 0;
+}
+
+.feedText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .feedWinner {
@@ -221,12 +333,17 @@
   font-weight: var(--font-semibold);
 }
 
-/* ---- Results table ---- */
+/* ==========================================================================
+ * Recent results (full-width below grid)
+ * ========================================================================== */
+
+.results {
+  padding: var(--space-4);
+}
 
 .resultsTable {
   display: flex;
   flex-direction: column;
-  gap: 0;
 }
 
 .resultsHeader,
@@ -234,7 +351,7 @@
   display: grid;
   grid-template-columns: 1.2fr 1.5fr 80px 100px;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: 8px 12px;
   align-items: center;
   font-size: var(--text-sm);
 }
@@ -248,8 +365,23 @@
   border-bottom: 1px solid var(--border-default);
 }
 
+.resultsRow {
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-default);
+  transition: background var(--duration-normal) var(--ease-out);
+  cursor: pointer;
+}
+
 .resultsRow:nth-child(odd) {
+  background: var(--bg-card);
+}
+
+.resultsRow:nth-child(even) {
   background: var(--bg-card-alt);
+}
+
+.resultsRow:hover {
+  background: var(--bg-elevated);
 }
 
 .resultWin {
@@ -279,80 +411,57 @@
   margin: 0;
 }
 
-/* ---- Countdown ---- */
-
-.countdownBig {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.countdownCaption {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* ---- Quick stats cards ---- */
-
-.quickCard {
-  padding: var(--space-4);
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.quickValue {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-bold);
-  color: var(--accent-primary);
-}
-
-.quickLabel {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* ---- Breakpoints ---- */
+/* ==========================================================================
+ * Breakpoints
+ * ========================================================================== */
 
 @media (max-width: 1024px) {
   .grid {
     grid-template-columns: 1fr;
-    grid-template-areas:
-      'spotlight'
-      'live-feed'
-      'results'
-      'countdown'
-      'quick-stats';
   }
-  .spotlightBody {
-    grid-template-columns: 1fr;
-  }
-  .liveFeed {
-    max-height: 320px;
+  .feedList {
+    max-height: 280px;
   }
 }
 
 @media (max-width: 768px) {
+  .hello {
+    font-size: var(--text-xl);
+  }
+  .sectionHeading {
+    font-size: var(--text-base);
+  }
+}
+
+@media (max-width: 600px) {
+  .welcome {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+  .welcomeMeta {
+    gap: var(--space-4);
+  }
   .quickStats {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .quickItem {
+    border-right: none;
+    border-bottom: 1px solid var(--border-default);
+  }
+  .quickItem:nth-child(odd) {
+    border-right: 1px solid var(--border-default);
+  }
+  .quickItem:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+  .spotlightBody {
+    grid-template-columns: 1fr;
   }
   .resultsHeader,
   .resultsRow {
     grid-template-columns: 1fr 1fr 60px 80px;
     font-size: var(--text-xs);
-    padding: var(--space-2);
-  }
-  .welcome {
-    flex-direction: column;
-    align-items: flex-start;
+    padding: 6px 10px;
   }
 }

@@ -26,6 +26,8 @@ export default function MarketplacePage() {
   const [filters, setFilters] = useState({
     minPrice: '',
     maxPrice: '',
+    minLevel: '',
+    maxLevel: '',
     rarities: [],
     sort: 'newest',
   });
@@ -89,6 +91,17 @@ export default function MarketplacePage() {
 
     if (filters.rarities.length > 0 && tab === 'skins') {
       items = items.filter((l) => filters.rarities.includes(l.skin?.rarity));
+    }
+
+    if (tab === 'drones') {
+      const min = filters.minLevel ? Number(filters.minLevel) : null;
+      const max = filters.maxLevel ? Number(filters.maxLevel) : null;
+      if (min != null) {
+        items = items.filter((l) => (l.drone?.level ?? 0) >= min);
+      }
+      if (max != null) {
+        items = items.filter((l) => (l.drone?.level ?? 0) <= max);
+      }
     }
 
     if (search) {
@@ -208,10 +221,10 @@ export default function MarketplacePage() {
           </div>
           <Button
             variant="primary"
-            size="md"
+            size="lg"
             onClick={() => setListModal(true)}
           >
-            <Plus size={16} /> List Item
+            <Plus size={18} /> List Item
           </Button>
         </header>
 
@@ -264,6 +277,32 @@ export default function MarketplacePage() {
                 />
               </div>
             </div>
+
+            {tab === 'drones' && (
+              <div className={styles.filterGroup}>
+                <label className={styles.filterLabel}>Level</label>
+                <div className={styles.rangeRow}>
+                  <input
+                    type="number"
+                    className={styles.rangeInput}
+                    placeholder="Min"
+                    value={filters.minLevel}
+                    onChange={(e) =>
+                      setFilters((f) => ({ ...f, minLevel: e.target.value }))
+                    }
+                  />
+                  <input
+                    type="number"
+                    className={styles.rangeInput}
+                    placeholder="Max"
+                    value={filters.maxLevel}
+                    onChange={(e) =>
+                      setFilters((f) => ({ ...f, maxLevel: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+            )}
 
             {tab === 'skins' && (
               <div className={styles.filterGroup}>

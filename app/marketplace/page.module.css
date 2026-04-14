@@ -14,11 +14,17 @@
 
 .title {
   font-family: var(--font-heading);
-  font-size: var(--text-4xl);
+  font-size: var(--text-2xl);
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0;
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: var(--text-xl);
+  }
 }
 
 .balance {
@@ -126,10 +132,10 @@
 .rangeInput,
 .select {
   width: 100%;
-  padding: var(--space-2) var(--space-3);
+  padding: 6px 12px;
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: var(--text-sm);
@@ -192,14 +198,14 @@
 
 .searchInput {
   width: 100%;
-  padding: var(--space-3) var(--space-3) var(--space-3) calc(var(--space-3) + 22px);
+  padding: 6px 12px 6px 32px;
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  min-height: 40px;
+  min-height: 36px;
 }
 
 .searchInput:focus {
@@ -461,7 +467,6 @@
 /* ---- Breakpoints ---- */
 
 @media (max-width: 1024px) {
-  .title { font-size: var(--text-3xl); }
   .body {
     grid-template-columns: 1fr;
   }
