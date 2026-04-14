@@ -5,8 +5,6 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
-import StatBar from '@/components/ui/StatBar';
 import { cn } from '@/lib/utils';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
@@ -14,15 +12,15 @@ import { useSession } from '@/hooks/useSession';
 import styles from './page.module.css';
 
 const SPOTLIGHT_STATS = [
-  ['speed', 'SPD'],
-  ['turning', 'TRN'],
-  ['acceleration', 'ACC'],
-  ['durability', 'DUR'],
-  ['nightVision', 'N.VIS'],
-  ['batteryCapacity', 'BAT'],
-  ['rainHandling', 'RAIN'],
-  ['windResistance', 'WIND'],
-  ['consistency', 'CON'],
+  ['speed', 'SPEED'],
+  ['turning', 'TURNING'],
+  ['acceleration', 'ACCELERATION'],
+  ['durability', 'DURABILITY'],
+  ['nightVision', 'NIGHT VISION'],
+  ['batteryCapacity', 'BATTERY'],
+  ['rainHandling', 'RAIN HANDLING'],
+  ['windResistance', 'WIND RESISTANCE'],
+  ['consistency', 'CONSISTENCY'],
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -133,12 +131,6 @@ export default function DashboardPage() {
   return (
     <NavShell>
       <div className={styles.page}>
-        <header className={styles.welcome}>
-          <h1 className={styles.hello}>
-            Welcome back, {user?.username ?? 'Player'}
-          </h1>
-        </header>
-
         <div className={styles.grid}>
           {/* ---- Row 1 col 1: Spotlight ---- */}
           <Card className={cn(styles.spotlight, styles.areaSpotlight)}>
@@ -147,11 +139,13 @@ export default function DashboardPage() {
             ) : spotlightDrone ? (
               <div className={styles.spotlightBody}>
                 <div className={styles.spotlightTopRow}>
-                  <div className={styles.spotlightTitleGroup}>
+                  <div className={styles.droneNameBlock}>
                     <span className={styles.droneName}>
                       {spotlightDrone.name}
                     </span>
-                    <Badge variant="level" value={spotlightDrone.level} />
+                    <span className={styles.droneLevel}>
+                      Level {spotlightDrone.level}
+                    </span>
                   </div>
                   <div className={styles.spotlightTopRight}>
                     {canCycle && (
@@ -214,22 +208,14 @@ export default function DashboardPage() {
                         <dd>{spotlightDrone.eloRating}</dd>
                       </div>
                     </dl>
-                    <Link
-                      href={`/drones/${spotlightDrone.id}`}
-                      className={styles.manageBtn}
-                    >
-                      Manage Drone <ChevronRight size={16} />
-                    </Link>
                   </div>
 
                   <div className={styles.spotlightStats}>
                     {SPOTLIGHT_STATS.map(([key, label]) => (
-                      <StatBar
+                      <StatRow
                         key={key}
                         label={label}
-                        value={spotlightDrone[key]}
-                        maxValue={100}
-                        size="sm"
+                        value={spotlightDrone[key] ?? 0}
                       />
                     ))}
                   </div>
@@ -365,12 +351,31 @@ export default function DashboardPage() {
   );
 }
 
+function StatRow({ label, value, max = 100 }) {
+  const slots = 10;
+  const filled = Math.max(0, Math.min(slots, Math.round((value / max) * slots)));
+  const empty = slots - filled;
+  return (
+    <div className={styles.statRow}>
+      <span className={styles.statRowLabel}>{label}</span>
+      <span className={styles.statRowBar}>
+        <span className={styles.statBracket}>[</span>
+        <span className={styles.statFilled}>{'='.repeat(filled)}</span>
+        <span className={styles.statEmpty}>{' '.repeat(empty)}</span>
+        <span className={styles.statBracket}>]</span>
+      </span>
+    </div>
+  );
+}
+
 function QuickStat({ label, value }) {
   return (
     <div className={styles.quickItem}>
       <span className={styles.quickLabel}>{label}</span>
       <span className={styles.quickValue}>
-        [<span className={styles.quickValueInner}>{value}</span>]
+        <span className={styles.quickBracket}>[</span>
+        <span className={styles.quickValueInner}>{value}</span>
+        <span className={styles.quickBracket}>]</span>
       </span>
     </div>
   );
