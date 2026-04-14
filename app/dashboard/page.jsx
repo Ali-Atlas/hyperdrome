@@ -198,52 +198,58 @@ export default function DashboardPage() {
         {/* ---- Main grid: spotlight + live feed ---- */}
         <div className={styles.grid}>
           <Card className={styles.spotlight}>
-            <div className={styles.spotlightHeader}>
-              <h2 className={styles.sectionHeading}>Active Drone Spotlight</h2>
-              {canCycle && (
-                <div className={styles.navCluster}>
-                  <button
-                    type="button"
-                    className={styles.navBtn}
-                    onClick={goPrev}
-                    disabled={!canCycle}
-                    aria-label="Previous drone"
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                  <span className={styles.navCounter}>
-                    {spotlightIndex + 1} / {activeDrones.length}
-                  </span>
-                  <button
-                    type="button"
-                    className={styles.navBtn}
-                    onClick={goNext}
-                    disabled={!canCycle}
-                    aria-label="Next drone"
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
-              )}
-            </div>
-
             {loading ? (
               <Skeleton variant="card" height={220} />
             ) : spotlightDrone ? (
               <div className={styles.spotlightBody}>
+                <div className={styles.spotlightTopRow}>
+                  <div className={styles.spotlightTitleGroup}>
+                    <span className={styles.droneName}>
+                      {spotlightDrone.name}
+                    </span>
+                    <Badge variant="level" value={spotlightDrone.level} />
+                  </div>
+                  <div className={styles.spotlightTopRight}>
+                    {canCycle && (
+                      <div className={styles.navCluster}>
+                        <button
+                          type="button"
+                          className={styles.navBtn}
+                          onClick={goPrev}
+                          aria-label="Previous drone"
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                        <span className={styles.navCounter}>
+                          {spotlightIndex + 1}/{activeDrones.length}
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.navBtn}
+                          onClick={goNext}
+                          aria-label="Next drone"
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                    )}
+                    <Link
+                      href={`/drones/${spotlightDrone.id}`}
+                      className={styles.manageLink}
+                    >
+                      Manage Drone
+                    </Link>
+                  </div>
+                </div>
+
                 <div className={styles.spotlightImage}>
                   <img
                     src={spotlightDrone.imageUrl || '/drones/default.png'}
                     alt={spotlightDrone.name}
                   />
                 </div>
+
                 <div className={styles.spotlightMeta}>
-                  <div className={styles.spotlightNameLine}>
-                    <span className={styles.droneName}>
-                      {spotlightDrone.name}
-                    </span>
-                    <Badge variant="level" value={spotlightDrone.level} />
-                  </div>
                   <dl className={styles.spotlightKpiGrid}>
                     <div className={styles.kpiCell}>
                       <dt>Races</dt>
@@ -265,6 +271,7 @@ export default function DashboardPage() {
                     </div>
                   </dl>
                 </div>
+
                 <div className={styles.spotlightStats}>
                   {SPOTLIGHT_STATS.map(([key, label]) => (
                     <StatBar
@@ -276,12 +283,6 @@ export default function DashboardPage() {
                     />
                   ))}
                 </div>
-                <Link
-                  href={`/drones/${spotlightDrone.id}`}
-                  className={styles.manageLink}
-                >
-                  Manage Drone
-                </Link>
               </div>
             ) : (
               <EmptyState

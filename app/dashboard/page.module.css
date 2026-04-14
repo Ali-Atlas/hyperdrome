@@ -126,16 +126,9 @@
   gap: var(--space-3);
 }
 
-.spotlightHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-3);
-}
-
 .sectionHeading {
   font-family: var(--font-heading);
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
   text-transform: uppercase;
@@ -184,25 +177,82 @@
 }
 
 /* ---- Spotlight body: 3-state responsive layout ----
-   Desktop ≥1440px: [image | meta | stats] with manage button under meta
-   Tablet 768-1439: [image | meta] top row, stats row (2-col), manage in meta
-   Mobile <768:     [image] → [meta] → [stats] → [manage], all stacked */
+   Desktop ≥1440px: top-row, image | meta side by side, stats full width below
+   Tablet 768-1439: top-row, image | meta side by side, stats 2-col below
+   Mobile <768:     top-row, image full, meta 2x2, stats single col          */
 
 .spotlightBody {
   display: grid;
-  gap: var(--space-4);
-  grid-template-columns: minmax(0, 30%) minmax(0, 22%) minmax(0, 1fr);
-  grid-template-rows: 1fr auto;
+  gap: var(--space-3) var(--space-4);
+  grid-template-columns: minmax(0, 35%) minmax(0, 1fr);
   grid-template-areas:
-    "image meta   stats"
-    "image manage stats";
+    "top   top"
+    "image meta"
+    "stats stats";
+}
+
+.spotlightTopRow {
+  grid-area: top;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.spotlightTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.spotlightTopRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.droneName {
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.manageLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid rgba(3, 218, 198, 0.4);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--accent-primary);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.manageLink:hover {
+  background: rgba(3, 218, 198, 0.08);
+  border-color: var(--accent-primary);
 }
 
 .spotlightImage {
   grid-area: image;
   position: relative;
   width: 100%;
-  align-self: start;
   aspect-ratio: 16 / 11;
   padding: 10px;
   background:
@@ -231,43 +281,21 @@
   grid-area: meta;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.spotlightNameLine {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border-default);
-}
-
-.droneName {
-  font-family: var(--font-heading);
-  font-size: var(--text-base);
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  justify-content: center;
   min-width: 0;
 }
 
 .spotlightKpiGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 12px;
+  gap: 10px 16px;
   margin: 0;
 }
 
 .kpiCell {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -288,41 +316,13 @@
   margin: 0;
 }
 
-.manageLink {
-  grid-area: manage;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 14px;
-  margin-top: var(--space-2);
-  background: transparent;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  text-decoration: none;
-  width: fit-content;
-  min-height: 32px;
-  transition:
-    border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-
-.manageLink:hover {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-}
-
 .spotlightStats {
   grid-area: stats;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
 }
 
 /* ==========================================================================
@@ -470,23 +470,20 @@
     max-height: 280px;
   }
 
-  /* Tablet spotlight: [image | meta] top, stats full-width below */
+  /* Tablet spotlight: top row, image | meta, stats 2-col below */
   .spotlightBody {
     grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
-    grid-template-rows: 1fr auto auto;
     grid-template-areas:
-      "image  meta"
-      "image  manage"
-      "stats  stats";
+      "top   top"
+      "image meta"
+      "stats stats";
   }
 
   .spotlightStats {
-    display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: repeat(5, auto);
     grid-auto-flow: column;
-    gap: 4px 16px;
-    justify-content: initial;
+    gap: 6px var(--space-4);
   }
 }
 
@@ -495,18 +492,17 @@
     font-size: var(--text-xl);
   }
   .sectionHeading {
-    font-size: var(--text-base);
+    font-size: var(--text-sm);
   }
 
   /* Mobile spotlight: fully stacked */
   .spotlightBody {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto auto;
     grid-template-areas:
+      "top"
       "image"
       "meta"
-      "stats"
-      "manage";
+      "stats";
   }
 
   .spotlightImage {
@@ -519,21 +515,56 @@
     gap: 6px;
   }
 
-  .manageLink {
-    width: 100%;
-    justify-content: center;
+  .spotlightTopRow {
+    gap: var(--space-2);
+  }
+}
+
+@media (max-width: 768px) {
+  /* Welcome header: keep name + next race + points on one row, allow wrap */
+  .welcome {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-3);
+  }
+  .welcomeMeta {
+    gap: var(--space-3);
+    margin-left: auto;
+  }
+  .nextRace,
+  .points {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+  }
+  .nextLabel,
+  .pointsLabel {
+    font-size: 10px;
+  }
+  .nextValue,
+  .pointsValue {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    font-weight: var(--font-semibold);
+  }
+  .nextValuePaused {
+    font-size: var(--text-xs);
+  }
+
+  /* Compact quick stats strip */
+  .quickItem {
+    padding: 8px 6px;
+    gap: 1px;
+  }
+  .quickValue {
+    font-size: var(--text-base);
+  }
+  .quickLabel {
+    font-size: 10px;
   }
 }
 
 @media (max-width: 600px) {
-  .welcome {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-2);
-  }
-  .welcomeMeta {
-    gap: var(--space-4);
-  }
   .quickStats {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -546,9 +577,6 @@
   }
   .quickItem:nth-last-child(-n+2) {
     border-bottom: none;
-  }
-  .spotlightBody {
-    grid-template-columns: 1fr;
   }
   .resultsHeader,
   .resultsRow {
