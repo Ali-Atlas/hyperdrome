@@ -15,10 +15,12 @@
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   grid-template-areas:
-    "spotlight feed"
-    "results   countdown"
-    "results   quickStats";
+    "spotlight  feed"
+    "results    feed"
+    "countdown  feed"
+    "quickStats feed";
   gap: var(--space-4);
+  align-items: stretch;
 }
 
 .areaSpotlight {
@@ -144,20 +146,13 @@
   color: var(--text-secondary);
 }
 
-/* Spotlight body wraps name block + main grid so the name stays
-   top-left inside the padded body area. */
+/* Spotlight body: left col (name + image + meta) beside right col
+   (stats + manage button). Both columns start at the same top y. */
 .spotlightBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-}
-
-/* Main: image+meta (left 50%) | stats+manage btn (right 50%) */
-.spotlightMain {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   align-items: stretch;
 }
 
@@ -165,7 +160,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  align-items: center;
+  align-items: flex-start;
   min-width: 0;
 }
 
@@ -194,10 +189,12 @@
   flex-direction: column;
   min-width: 0;
   gap: var(--space-3);
+  min-height: 0;
 }
 
 .spotlightRight .spotlightStats {
   flex: 1;
+  justify-content: space-between;
 }
 
 .manageBtn {
@@ -327,6 +324,7 @@
   flex-direction: column;
   border-color: #3F3F3F;
   overflow: hidden;
+  min-height: 0;
 }
 
 .feedBody {
@@ -340,16 +338,29 @@
 .feedList {
   display: flex;
   flex-direction: column;
+  gap: 0;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  padding: var(--space-2) 0;
+}
+
+.feedList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.feedList::-webkit-scrollbar-thumb {
+  background: #3F3F3F;
+  border-radius: 3px;
 }
 
 .feedRow {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 6px var(--space-4);
+  margin: 2px var(--space-3);
+  padding: 6px var(--space-3);
+  border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
@@ -366,7 +377,7 @@
 }
 
 .feedRow:hover {
-  background: rgba(3, 218, 198, 0.1);
+  background: rgba(3, 218, 198, 0.12);
 }
 
 .feedRow:hover .feedTrack {
@@ -538,6 +549,17 @@
 .resultsTable {
   display: flex;
   flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.resultsTable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.resultsTable::-webkit-scrollbar-thumb {
+  background: #3F3F3F;
+  border-radius: 3px;
 }
 
 .resultsHeader,

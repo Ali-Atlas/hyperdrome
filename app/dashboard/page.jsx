@@ -170,22 +170,20 @@ export default function DashboardPage() {
               </div>
             ) : spotlightDrone ? (
               <div className={styles.spotlightBody}>
-                <div className={styles.droneNameBlock}>
-                  <span className={styles.droneName}>
-                    {spotlightDrone.name}
-                  </span>
-                  <span
-                    className={styles.droneLevel}
-                    style={{
-                      color: getLevelColor(spotlightDrone.level),
-                    }}
-                  >
-                    Level {spotlightDrone.level}
-                  </span>
-                </div>
-
-                <div className={styles.spotlightMain}>
                 <div className={styles.spotlightLeft}>
+                  <div className={styles.droneNameBlock}>
+                    <span className={styles.droneName}>
+                      {spotlightDrone.name}
+                    </span>
+                    <span
+                      className={styles.droneLevel}
+                      style={{
+                        color: getLevelColor(spotlightDrone.level),
+                      }}
+                    >
+                      Level {spotlightDrone.level}
+                    </span>
+                  </div>
                   <div className={styles.spotlightImage}>
                     <img
                       src={spotlightDrone.imageUrl || '/drones/default.png'}
@@ -235,7 +233,6 @@ export default function DashboardPage() {
                   >
                     Manage Drone
                   </Link>
-                </div>
                 </div>
               </div>
             ) : (
