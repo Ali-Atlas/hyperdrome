@@ -105,6 +105,7 @@ export default function RaceDetailPage({ params }) {
   const WeatherIcon = WEATHER_ICONS[race.weather] ?? Cloud;
   const TimeIcon = TIME_ICONS[race.timeOfDay] ?? Sun;
   const winnerId = race.winnerDroneId;
+  const raceLevel = race.drone1?.level ?? race.drone2?.level ?? null;
 
   return (
     <NavShell>
@@ -138,20 +139,50 @@ export default function RaceDetailPage({ params }) {
           </div>
         </header>
 
-        {/* ---- Drone cards + race log on one row (web) ---- */}
-        <div className={styles.droneGrid}>
-          <DroneCard
-            drone={race.drone1}
-            isWinner={race.drone1Id === winnerId}
-            time={race.drone1Time}
-          />
-          <DroneCard
-            drone={race.drone2}
-            isWinner={race.drone2Id === winnerId}
-            time={race.drone2Time}
-          />
+        <div className={styles.raceLayout}>
+          <div className={styles.drone1Slot}>
+            <DroneCard
+              drone={race.drone1}
+              isWinner={race.drone1Id === winnerId}
+              time={race.drone1Time}
+              level={raceLevel}
+            />
+          </div>
+          <div className={styles.drone2Slot}>
+            <DroneCard
+              drone={race.drone2}
+              isWinner={race.drone2Id === winnerId}
+              time={race.drone2Time}
+              level={raceLevel}
+            />
+          </div>
 
-          {/* ---- Race log (collapsible) ---- */}
+          <Card className={styles.trackCard}>
+            <div className={styles.trackHeader}>
+              <div className={styles.trackTitleRow}>
+                <h2 className={styles.trackName}>
+                  Track - {race.track?.name ?? 'Unknown track'}
+                </h2>
+                <div className={styles.trackDifficulty}>
+                  Difficulty {race.track?.difficulty ?? '?'}/5
+                </div>
+              </div>
+              <div className={styles.trackStats}>
+                <TrackStat
+                  label="Straights"
+                  value={race.track?.straights ?? 0}
+                />
+                <TrackStatDivider />
+                <TrackStat label="Turns" value={race.track?.turns ?? 0} />
+                <TrackStatDivider />
+                <TrackStat label="Length" value={race.track?.length ?? '—'} />
+              </div>
+            </div>
+            <div className={styles.trackImage} aria-label="Track visualization">
+              <TrackSvg track={race.track} />
+            </div>
+          </Card>
+
           <Card className={styles.logCard}>
             <button
               type="button"
@@ -205,33 +236,6 @@ export default function RaceDetailPage({ params }) {
           </Card>
         </div>
 
-        {/* ---- Track card below drones ---- */}
-        <Card className={styles.trackCard}>
-          <div className={styles.trackHeader}>
-            <div className={styles.trackTitleRow}>
-              <div className={styles.trackTitleLeft}>
-                <span className={styles.trackLabel}>Track</span>
-                <h2 className={styles.trackName}>
-                  {race.track?.name ?? 'Unknown track'}
-                </h2>
-              </div>
-              <div className={styles.trackDifficulty}>
-                Difficulty {race.track?.difficulty ?? '?'}/5
-              </div>
-            </div>
-            <div className={styles.trackStats}>
-              <TrackStat label="Straights" value={race.track?.straights ?? 0} />
-              <TrackStatDivider />
-              <TrackStat label="Turns" value={race.track?.turns ?? 0} />
-              <TrackStatDivider />
-              <TrackStat label="Length" value={race.track?.length ?? '—'} />
-            </div>
-          </div>
-          <div className={styles.trackImage} aria-label="Track visualization">
-            <TrackSvg track={race.track} />
-          </div>
-        </Card>
-
       </div>
     </NavShell>
   );
@@ -250,16 +254,14 @@ function TrackStatDivider() {
   return <span className={styles.trackStatDivider} aria-hidden="true" />;
 }
 
-function DroneCard({ drone, isWinner, time }) {
+function DroneCard({ drone, isWinner, time, level }) {
   if (!drone) {
     return <Card className={styles.droneCard}>Drone data missing</Card>;
   }
 
-  const cardClass = `${styles.droneCard} ${isWinner ? styles.winnerCard : ''}`;
-
   return (
     <Link href={`/drones/${drone.id}`} className={styles.droneLink}>
-      <Card className={cardClass}>
+      <Card className={styles.droneCard}>
         {isWinner && (
           <div className={styles.winnerBadge}>
             <Trophy size={14} /> Winner
@@ -275,7 +277,7 @@ function DroneCard({ drone, isWinner, time }) {
         <div className={styles.droneBody}>
           <div className={styles.droneHead}>
             <h3 className={styles.droneName}>{drone.name}</h3>
-            <Badge variant="level" value={drone.level} />
+            <Badge variant="level" value={level ?? drone.level} />
           </div>
           <div className={styles.droneOwner}>
             Owner: {drone.userId ? drone.userId.slice(0, 8) : 'Bot'}

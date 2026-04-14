@@ -106,11 +106,6 @@
   flex-direction: column;
   gap: var(--space-3);
   border-bottom: 1px solid var(--border-default);
-  background: linear-gradient(
-    180deg,
-    rgba(3, 218, 198, 0.04) 0%,
-    transparent 100%
-  );
 }
 
 .trackTitleRow {
@@ -119,21 +114,6 @@
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
-}
-
-.trackTitleLeft {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.trackLabel {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
 }
 
 .trackName {
@@ -150,10 +130,10 @@
 .trackDifficulty {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--accent-primary);
+  color: var(--text-secondary);
   padding: 4px 10px;
-  background: rgba(3, 218, 198, 0.1);
-  border: 1px solid rgba(3, 218, 198, 0.3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -199,32 +179,7 @@
   position: relative;
   width: 100%;
   height: 280px;
-  background-color: var(--bg-elevated);
-  background-image:
-    radial-gradient(
-      ellipse at 50% 40%,
-      rgba(3, 218, 198, 0.1) 0%,
-      transparent 70%
-    ),
-    linear-gradient(
-      135deg,
-      rgba(3, 218, 198, 0.04) 0%,
-      rgba(187, 134, 252, 0.04) 100%
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent 0,
-      transparent 39px,
-      rgba(3, 218, 198, 0.05) 39px,
-      rgba(3, 218, 198, 0.05) 40px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 39px,
-      rgba(3, 218, 198, 0.05) 39px,
-      rgba(3, 218, 198, 0.05) 40px
-    );
+  background: var(--bg-elevated);
   overflow: hidden;
 }
 
@@ -252,11 +207,30 @@
  * Drone cards (two side by side, half-width each)
  * ========================================================================== */
 
-.droneGrid {
+.raceLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr);
   gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-areas:
+    "drone1 drone2 log"
+    "track  track  log";
   align-items: start;
+}
+
+.drone1Slot {
+  grid-area: drone1;
+}
+
+.drone2Slot {
+  grid-area: drone2;
+}
+
+.raceLayout .trackCard {
+  grid-area: track;
+}
+
+.raceLayout .logCard {
+  grid-area: log;
 }
 
 .droneLink {
@@ -279,12 +253,6 @@
   box-shadow: 0 0 24px rgba(3, 218, 198, 0.1);
 }
 
-.droneCard.winnerCard {
-  border-color: var(--accent-primary);
-  box-shadow:
-    0 0 0 1px var(--accent-primary),
-    0 0 32px rgba(3, 218, 198, 0.3);
-}
 
 .winnerBadge {
   position: absolute;
@@ -497,17 +465,23 @@
  * ========================================================================== */
 
 @media (max-width: 1200px) {
-  .droneGrid {
+  .raceLayout {
     grid-template-columns: 1fr 1fr;
-  }
-  .logCard {
-    grid-column: 1 / -1;
+    grid-template-areas:
+      "drone1 drone2"
+      "track  track"
+      "log    log";
   }
 }
 
 @media (max-width: 768px) {
-  .droneGrid {
+  .raceLayout {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "drone1"
+      "drone2"
+      "track"
+      "log";
   }
   .header {
     flex-direction: column;
