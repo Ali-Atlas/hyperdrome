@@ -255,29 +255,6 @@ export default function DashboardPage() {
                   />
                 </div>
 
-                <div className={styles.spotlightMeta}>
-                  <dl className={styles.spotlightKpiGrid}>
-                    <div className={styles.kpiCell}>
-                      <dt>Races</dt>
-                      <dd>{spotlightDrone.totalRaces}</dd>
-                    </div>
-                    <div className={styles.kpiCell}>
-                      <dt>Win Rate</dt>
-                      <dd>{droneWinRate}</dd>
-                    </div>
-                    <div className={styles.kpiCell}>
-                      <dt>Record</dt>
-                      <dd>
-                        {spotlightDrone.wins}W / {spotlightDrone.losses}L
-                      </dd>
-                    </div>
-                    <div className={styles.kpiCell}>
-                      <dt>ELO</dt>
-                      <dd>{spotlightDrone.eloRating}</dd>
-                    </div>
-                  </dl>
-                </div>
-
                 <div className={styles.spotlightStats}>
                   {SPOTLIGHT_STATS.map(([key, label]) => (
                     <StatBar
