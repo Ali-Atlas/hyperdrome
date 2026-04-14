@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-height: calc(100vh - 4rem);
 }
 
 /* ==========================================================================
@@ -14,12 +15,15 @@
 .grid {
   display: grid;
   grid-template-columns: minmax(0, 0.75fr) minmax(0, 0.75fr) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   grid-template-areas:
     "spotlight  spotlight  feed"
-    "results    results    feed"
-    "countdown  quickStats feed";
+    "countdown  quickStats feed"
+    "results    results    feed";
   gap: var(--space-4);
   align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 .areaSpotlight {
@@ -560,13 +564,34 @@
   padding: 0;
   border-color: #3F3F3F;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.results .cardBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .resultsTable {
   display: flex;
   flex-direction: column;
-  max-height: 260px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  margin: calc(-1 * var(--space-3));
+}
+
+.resultsTable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.resultsTable::-webkit-scrollbar-thumb {
+  background: #3F3F3F;
+  border-radius: 3px;
 }
 
 .resultsTable::-webkit-scrollbar {
