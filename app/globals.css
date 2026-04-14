@@ -16,9 +16,11 @@
   --bg-input: #1E1E1E;
 
   /* ---- Borders ---- */
-  --border-default: #1E1E1E;
+  --border-default: #3F3F3F;
   --border-subtle: #292929;
   --border-accent: #03DAC6;
+  --header-bar-bg: #252525;
+  --header-bar-text: #F0F0F0;
 
   /* ---- Accent Colors ---- */
   --accent-primary: #03DAC6;

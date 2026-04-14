@@ -348,16 +348,20 @@
 /* ---- Transaction history ---- */
 
 .historyCard {
-  padding: var(--space-5);
+  padding: 0;
+  overflow: hidden;
 }
 
 .historyHeading {
-  font-family: var(--font-heading);
-  font-size: var(--text-lg);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
   font-weight: var(--font-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 var(--space-4);
+  letter-spacing: 0.01em;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--header-bar-bg);
+  color: var(--header-bar-text);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .historyList {
@@ -369,10 +373,18 @@
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: 10px var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-sm);
   border-bottom: 1px solid var(--border-default);
+}
+
+.historyRow:last-child {
+  border-bottom: none;
+}
+
+.historyCard .empty {
+  padding: var(--space-4);
 }
 
 .empty {

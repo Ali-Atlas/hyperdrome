@@ -277,13 +277,12 @@
 }
 
 .sectionHeading {
-  font-family: var(--font-heading);
-  font-size: var(--text-base);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
   font-weight: var(--font-semibold);
-  color: var(--text-primary);
+  color: var(--header-bar-text);
   margin: 0;
   letter-spacing: 0.01em;
-  text-transform: uppercase;
 }
 
 @media (max-width: 768px) {
@@ -379,15 +378,21 @@
  * ========================================================================== */
 
 .raceProfileCard {
-  padding: var(--space-5);
+  padding: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
+  overflow: hidden;
 }
 
 .raceProfileCard .sectionHeading {
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-3);
+  background: var(--header-bar-bg);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border-default);
+  margin: 0;
+}
+
+.raceProfileGrid {
+  padding: var(--space-4) var(--space-5);
 }
 
 .raceProfileGrid {
@@ -478,15 +483,17 @@
  * ========================================================================== */
 
 .historyCard {
-  padding: var(--space-5);
+  padding: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
+  overflow: hidden;
 }
 
 .historyCard .sectionHeading {
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-3);
+  background: var(--header-bar-bg);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border-default);
+  margin: 0;
 }
 
 .mono {
@@ -642,21 +649,24 @@
 }
 
 .publicStatsCard {
-  padding: var(--space-5);
+  padding: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
+  overflow: hidden;
 }
 
 .publicStatsCard .sectionHeading {
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-3);
+  background: var(--header-bar-bg);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border-default);
+  margin: 0;
 }
 
 .publicStatsGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-4) var(--space-6);
+  padding: var(--space-4) var(--space-5);
 }
 
 .raceLink {

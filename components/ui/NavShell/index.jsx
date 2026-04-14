@@ -10,7 +10,6 @@ import {
   Trophy,
   Store,
   Menu,
-  X,
   LogIn,
   LogOut,
 } from 'lucide-react';
@@ -84,7 +83,10 @@ export default function NavShell({ children }) {
       {/* Desktop sidebar */}
       <aside className={styles.sidebar} aria-label="Primary">
         <Link href="/dashboard" className={styles.logo}>
-          Drone Manager
+          <span className={styles.logoIcon} aria-hidden="true">
+            🛸
+          </span>
+          <span className={styles.logoText}>Drone Manager</span>
         </Link>
         <nav className={styles.nav}>{renderLinks()}</nav>
         <div className={styles.sidebarFooter}>{renderUserArea()}</div>
@@ -126,15 +128,12 @@ export default function NavShell({ children }) {
             aria-label="Mobile navigation"
           >
             <div className={styles.drawerHeader}>
-              <span className={styles.logo}>Drone Manager</span>
-              <button
-                type="button"
-                className={styles.menuBtn}
-                onClick={() => setOpen(false)}
-                aria-label="Close navigation"
-              >
-                <X size={20} />
-              </button>
+              <span className={styles.logo}>
+                <span className={styles.logoIcon} aria-hidden="true">
+                  🛸
+                </span>
+                <span className={styles.logoText}>Drone Manager</span>
+              </span>
             </div>
             <nav className={styles.nav}>{renderLinks()}</nav>
             <div className={styles.sidebarFooter}>{renderUserArea()}</div>
