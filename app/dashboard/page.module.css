@@ -656,29 +656,28 @@
  * Breakpoints
  * ========================================================================== */
 
-/* Tablet: spotlight full width; results | feed on row 2;
-   countdown | quickStats on row 3. */
+/* Tablet: spotlight full width; countdown | quickStats on row 2;
+   results | feed on row 3. */
 @media (min-width: 769px) and (max-width: 1200px) {
   .grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
       "spotlight  spotlight"
-      "results    feed"
-      "countdown  quickStats";
+      "countdown  quickStats"
+      "results    feed";
   }
 }
 
-/* Narrow desktop / full collapse stays available for 1201-1440 if needed
-   but the above already covers tablet. */
+/* Mobile: single column, countdown + quickStats before results + feed. */
 @media (max-width: 768px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "spotlight"
-      "feed"
-      "results"
       "countdown"
-      "quickStats";
+      "quickStats"
+      "results"
+      "feed";
   }
 }
 
