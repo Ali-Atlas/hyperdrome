@@ -385,14 +385,21 @@ export default function DashboardPage() {
 function StatRow({ label, value, max = 100 }) {
   const slots = 10;
   const filled = Math.max(0, Math.min(slots, Math.round((value / max) * slots)));
-  const empty = slots - filled;
   return (
     <div className={styles.statRow}>
       <span className={styles.statRowLabel}>{label}</span>
       <span className={styles.statRowBar}>
         <span className={styles.statBracket}>[</span>
-        <span className={styles.statFilled}>{'='.repeat(filled)}</span>
-        <span className={styles.statEmpty}>{'='.repeat(empty)}</span>
+        <span className={styles.statBarInner}>
+          {Array.from({ length: slots }).map((_, i) => (
+            <span
+              key={i}
+              className={i < filled ? styles.statFilled : styles.statEmpty}
+            >
+              =
+            </span>
+          ))}
+        </span>
         <span className={styles.statBracket}>]</span>
       </span>
     </div>

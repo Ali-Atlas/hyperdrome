@@ -49,8 +49,8 @@
   letter-spacing: 0.01em;
   margin: 0;
   padding: var(--space-2) var(--space-3);
-  background: #242424;
-  border-bottom: 1px solid #6B6B6B;
+  background: #252525;
+  border-bottom: 1px solid #3F3F3F;
 }
 
 /* When a heading shares its row with an aside (nav cluster), keep the
@@ -61,8 +61,8 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding-right: var(--space-3);
-  background: #242424;
-  border-bottom: 1px solid #6B6B6B;
+  background: #252525;
+  border-bottom: 1px solid #3F3F3F;
 }
 
 .sectionHeadingRow .sectionHeading {
@@ -83,7 +83,8 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  border-color: #6B6B6B;
+  border-color: #3F3F3F;
+  overflow: hidden;
 }
 
 /* Drone name + level overlay at the top-left corner of the drone image */
@@ -169,11 +170,12 @@
 .spotlightImage {
   position: relative;
   width: 100%;
+  max-width: 260px;
   aspect-ratio: 4 / 3;
   background: transparent;
   border: none;
   border-radius: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .spotlightImage img {
@@ -198,23 +200,22 @@
 
 .manageBtn {
   width: 100%;
-  box-shadow:
-    0 0 16px rgba(3, 218, 198, 0.35),
-    0 0 32px rgba(3, 218, 198, 0.2);
 }
 
-/* Meta: 2x2 grid beneath the drone image. Each cell shows label + value
-   inline, label whiter + bigger, value smaller grey. */
+/* Meta: 2x2 grid beneath the drone image. Per-cell grid so values
+   line up in the same column within each cell (vertically aligned). */
 .spotlightKpiGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px var(--space-4);
+  gap: 4px var(--space-4);
   margin: 0;
   width: 100%;
+  max-width: 280px;
 }
 
 .kpiCell {
-  display: flex;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
@@ -222,7 +223,7 @@
 
 .kpiCell dt {
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -233,7 +234,7 @@
 
 .kpiCell dd {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 10px;
   color: var(--text-secondary);
   font-weight: var(--font-medium);
   margin: 0;
@@ -259,10 +260,11 @@
   border-radius: 2px;
 }
 
-/* Stat row with ASCII-style bracketed bar */
+/* Stat row with bracketed bar — bar stretches to fill row via
+   justify-content: space-between on the inner =-char group. */
 .statRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-3);
   padding: 2px 0;
@@ -275,21 +277,30 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .statRowBar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
   font-family: var(--font-mono);
-  font-size: 10px;
-  white-space: pre;
-  letter-spacing: 0;
+  font-size: var(--text-base);
   line-height: 1;
+}
+
+.statBarInner {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-width: 0;
 }
 
 .statBracket {
   color: #E5E5E5;
   font-weight: var(--font-bold);
+  flex-shrink: 0;
 }
 
 .statFilled {
@@ -297,7 +308,7 @@
 }
 
 .statEmpty {
-  color: #6B6B6B;
+  color: #5A5A5A;
 }
 
 /* ==========================================================================
@@ -308,7 +319,8 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  border-color: #6B6B6B;
+  border-color: #3F3F3F;
+  overflow: hidden;
 }
 
 .feedBody {
@@ -331,7 +343,7 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 4px var(--space-3);
+  padding: 6px var(--space-4);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
@@ -339,11 +351,20 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: none;
+  transition: background var(--duration-fast) var(--ease-out);
+  cursor: pointer;
 }
 
 .feedRow:nth-child(even) {
-  background: #242424;
+  background: #252525;
+}
+
+.feedRow:hover {
+  background: rgba(3, 218, 198, 0.1);
+}
+
+.feedRow:hover .feedTrack {
+  color: var(--accent-primary);
 }
 
 .feedTime {
@@ -382,7 +403,8 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  border-color: #6B6B6B;
+  border-color: #3F3F3F;
+  overflow: hidden;
 }
 
 .countdownClock {
@@ -447,7 +469,8 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  border-color: #6B6B6B;
+  border-color: #3F3F3F;
+  overflow: hidden;
 }
 
 .quickStatsRow {
@@ -502,7 +525,8 @@
 
 .results {
   padding: 0;
-  border-color: #6B6B6B;
+  border-color: #3F3F3F;
+  overflow: hidden;
 }
 
 .resultsTable {
@@ -577,7 +601,21 @@
  * Breakpoints
  * ========================================================================== */
 
-@media (max-width: 1024px) {
+/* Tablet: spotlight full width; results | feed on row 2;
+   countdown | quickStats on row 3. */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "spotlight  spotlight"
+      "results    feed"
+      "countdown  quickStats";
+  }
+}
+
+/* Narrow desktop / full collapse stays available for 1201-1440 if needed
+   but the above already covers tablet. */
+@media (max-width: 768px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
@@ -586,9 +624,6 @@
       "results"
       "countdown"
       "quickStats";
-  }
-  .spotlightMain {
-    grid-template-columns: minmax(0, 45%) minmax(0, 55%);
   }
 }
 
@@ -603,20 +638,33 @@
     font-size: var(--text-2xl);
   }
 
-  .spotlight {
-    padding: var(--space-4);
-  }
   .spotlightMain {
     grid-template-columns: 1fr;
-    gap: var(--space-4);
+    gap: var(--space-3);
   }
   .spotlightImage {
+    max-width: 200px;
     aspect-ratio: 4 / 3;
   }
 
   .quickStatsRow {
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-2);
+    gap: 0;
+  }
+  .quickItem {
+    padding: var(--space-2);
+  }
+  .quickItem:nth-child(odd) {
+    border-right: 1px solid var(--border-subtle);
+  }
+  .quickItem:nth-child(2n) {
+    border-right: none;
+  }
+  .quickItem:nth-child(-n+2) {
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .quickValue {
+    font-size: var(--text-base);
   }
 
   .resultsHeader,
@@ -624,5 +672,21 @@
     grid-template-columns: 1fr 1fr 60px 80px;
     font-size: var(--text-xs);
     padding: 6px 10px;
+  }
+}
+
+/* Tablet: smaller quick stats card (values/labels shrink a bit) */
+@media (min-width: 769px) and (max-width: 1200px) {
+  .quickValue {
+    font-size: var(--text-base);
+  }
+  .quickLabel {
+    font-size: 10px;
+  }
+  .quickItem {
+    padding: var(--space-2);
+  }
+  .countdownClock {
+    font-size: var(--text-2xl);
   }
 }
