@@ -320,8 +320,19 @@
   grid-area: stats;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 6px;
-  justify-content: center;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.spotlightStats::-webkit-scrollbar {
+  width: 6px;
+}
+
+.spotlightStats::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
 }
 
 /* ==========================================================================
