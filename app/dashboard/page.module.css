@@ -183,35 +183,34 @@
   letter-spacing: 0.05em;
 }
 
-/* ---- Spotlight body: two-column above 600px ---- */
+/* ---- Spotlight body: 3-state responsive layout ----
+   Desktop ≥1440px: [image | meta | stats] with manage button under meta
+   Tablet 768-1439: [image | meta] top row, stats row (2-col), manage in meta
+   Mobile <768:     [image] → [meta] → [stats] → [manage], all stacked */
 
 .spotlightBody {
   display: grid;
-  grid-template-columns: minmax(0, 44%) minmax(0, 1fr);
   gap: var(--space-4);
-  align-items: stretch;
-}
-
-.spotlightLeft {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
+  grid-template-columns: minmax(0, 30%) minmax(0, 22%) minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "image meta   stats"
+    "image manage stats";
 }
 
 .spotlightImage {
+  grid-area: image;
   position: relative;
   width: 100%;
-  max-width: 260px;
+  align-self: start;
   aspect-ratio: 16 / 11;
-  margin: 0 auto;
   padding: 10px;
   background:
     radial-gradient(
       ellipse at center,
-      rgba(3, 218, 198, 0.2) 0%,
-      rgba(3, 218, 198, 0.05) 45%,
-      transparent 70%
+      rgba(3, 218, 198, 0.22) 0%,
+      rgba(3, 218, 198, 0.06) 45%,
+      transparent 72%
     ),
     var(--bg-elevated);
   border: 1px solid var(--border-subtle);
@@ -228,15 +227,17 @@
   filter: drop-shadow(0 0 12px rgba(3, 218, 198, 0.25));
 }
 
-.spotlightIdentity {
+.spotlightMeta {
+  grid-area: meta;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  min-width: 0;
 }
 
 .spotlightNameLine {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
   padding-bottom: var(--space-2);
@@ -256,19 +257,10 @@
   min-width: 0;
 }
 
-.droneLv {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  flex-shrink: 0;
-}
-
 .spotlightKpiGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px 12px;
+  gap: 8px 12px;
   margin: 0;
 }
 
@@ -276,11 +268,12 @@
   display: flex;
   flex-direction: column;
   gap: 1px;
+  min-width: 0;
 }
 
 .kpiCell dt {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -296,33 +289,36 @@
 }
 
 .manageLink {
+  grid-area: manage;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 8px 12px;
-  margin-top: var(--space-1);
-  background: rgba(3, 218, 198, 0.08);
-  border: 1px solid rgba(3, 218, 198, 0.35);
+  padding: 6px 14px;
+  margin-top: var(--space-2);
+  background: transparent;
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: var(--font-bold);
-  color: var(--accent-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.04em;
   text-decoration: none;
+  width: fit-content;
+  min-height: 32px;
   transition:
-    background var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .manageLink:hover {
-  background: rgba(3, 218, 198, 0.15);
   border-color: var(--accent-primary);
+  color: var(--accent-primary);
 }
 
 .spotlightStats {
+  grid-area: stats;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -465,12 +461,32 @@
  * Breakpoints
  * ========================================================================== */
 
-@media (max-width: 1024px) {
+/* Outer grid: spotlight + liveFeed side-by-side only on wide desktop */
+@media (max-width: 1439px) {
   .grid {
     grid-template-columns: 1fr;
   }
   .feedList {
     max-height: 280px;
+  }
+
+  /* Tablet spotlight: [image | meta] top, stats full-width below */
+  .spotlightBody {
+    grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
+    grid-template-rows: 1fr auto auto;
+    grid-template-areas:
+      "image  meta"
+      "image  manage"
+      "stats  stats";
+  }
+
+  .spotlightStats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(5, auto);
+    grid-auto-flow: column;
+    gap: 4px 16px;
+    justify-content: initial;
   }
 }
 
@@ -480,6 +496,32 @@
   }
   .sectionHeading {
     font-size: var(--text-base);
+  }
+
+  /* Mobile spotlight: fully stacked */
+  .spotlightBody {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    grid-template-areas:
+      "image"
+      "meta"
+      "stats"
+      "manage";
+  }
+
+  .spotlightImage {
+    aspect-ratio: 4 / 3;
+  }
+
+  .spotlightStats {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .manageLink {
+    width: 100%;
+    justify-content: center;
   }
 }
 

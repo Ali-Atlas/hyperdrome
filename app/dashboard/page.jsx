@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
+import Badge from '@/components/ui/Badge';
 import StatBar from '@/components/ui/StatBar';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from '@/hooks/useSession';
-import { getLevelColor } from '@/lib/utils';
 import styles from './page.module.css';
 
 const SPOTLIGHT_STATS = [
@@ -231,53 +231,39 @@ export default function DashboardPage() {
               <Skeleton variant="card" height={220} />
             ) : spotlightDrone ? (
               <div className={styles.spotlightBody}>
-                <div className={styles.spotlightLeft}>
-                  <div className={styles.spotlightImage}>
-                    <img
-                      src={spotlightDrone.imageUrl || '/drones/default.png'}
-                      alt={spotlightDrone.name}
-                    />
+                <div className={styles.spotlightImage}>
+                  <img
+                    src={spotlightDrone.imageUrl || '/drones/default.png'}
+                    alt={spotlightDrone.name}
+                  />
+                </div>
+                <div className={styles.spotlightMeta}>
+                  <div className={styles.spotlightNameLine}>
+                    <span className={styles.droneName}>
+                      {spotlightDrone.name}
+                    </span>
+                    <Badge variant="level" value={spotlightDrone.level} />
                   </div>
-                  <div className={styles.spotlightIdentity}>
-                    <div className={styles.spotlightNameLine}>
-                      <span className={styles.droneName}>
-                        {spotlightDrone.name}
-                      </span>
-                      <span
-                        className={styles.droneLv}
-                        style={{ color: getLevelColor(spotlightDrone.level) }}
-                      >
-                        LVL {spotlightDrone.level}
-                      </span>
+                  <dl className={styles.spotlightKpiGrid}>
+                    <div className={styles.kpiCell}>
+                      <dt>Races</dt>
+                      <dd>{spotlightDrone.totalRaces}</dd>
                     </div>
-                    <dl className={styles.spotlightKpiGrid}>
-                      <div className={styles.kpiCell}>
-                        <dt>Races</dt>
-                        <dd>{spotlightDrone.totalRaces}</dd>
-                      </div>
-                      <div className={styles.kpiCell}>
-                        <dt>Win Rate</dt>
-                        <dd>{droneWinRate}</dd>
-                      </div>
-                      <div className={styles.kpiCell}>
-                        <dt>Record</dt>
-                        <dd>
-                          {spotlightDrone.wins}W / {spotlightDrone.losses}L
-                        </dd>
-                      </div>
-                      <div className={styles.kpiCell}>
-                        <dt>ELO</dt>
-                        <dd>{spotlightDrone.eloRating}</dd>
-                      </div>
-                    </dl>
-                    <Link
-                      href={`/drones/${spotlightDrone.id}`}
-                      className={styles.manageLink}
-                    >
-                      Manage Drone
-                      <ChevronRight size={14} aria-hidden="true" />
-                    </Link>
-                  </div>
+                    <div className={styles.kpiCell}>
+                      <dt>Win Rate</dt>
+                      <dd>{droneWinRate}</dd>
+                    </div>
+                    <div className={styles.kpiCell}>
+                      <dt>Record</dt>
+                      <dd>
+                        {spotlightDrone.wins}W / {spotlightDrone.losses}L
+                      </dd>
+                    </div>
+                    <div className={styles.kpiCell}>
+                      <dt>ELO</dt>
+                      <dd>{spotlightDrone.eloRating}</dd>
+                    </div>
+                  </dl>
                 </div>
                 <div className={styles.spotlightStats}>
                   {SPOTLIGHT_STATS.map(([key, label]) => (
@@ -290,6 +276,12 @@ export default function DashboardPage() {
                     />
                   ))}
                 </div>
+                <Link
+                  href={`/drones/${spotlightDrone.id}`}
+                  className={styles.manageLink}
+                >
+                  Manage Drone
+                </Link>
               </div>
             ) : (
               <EmptyState
