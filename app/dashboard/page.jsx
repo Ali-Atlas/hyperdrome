@@ -169,22 +169,24 @@ export default function DashboardPage() {
                 <Skeleton variant="card" height={220} />
               </div>
             ) : spotlightDrone ? (
-              <div className={styles.spotlightMain}>
+              <div className={styles.spotlightBody}>
+                <div className={styles.droneNameBlock}>
+                  <span className={styles.droneName}>
+                    {spotlightDrone.name}
+                  </span>
+                  <span
+                    className={styles.droneLevel}
+                    style={{
+                      color: getLevelColor(spotlightDrone.level),
+                    }}
+                  >
+                    Level {spotlightDrone.level}
+                  </span>
+                </div>
+
+                <div className={styles.spotlightMain}>
                 <div className={styles.spotlightLeft}>
                   <div className={styles.spotlightImage}>
-                    <div className={styles.droneNameOverlay}>
-                      <span className={styles.droneName}>
-                        {spotlightDrone.name}
-                      </span>
-                      <span
-                        className={styles.droneLevel}
-                        style={{
-                          color: getLevelColor(spotlightDrone.level),
-                        }}
-                      >
-                        Level {spotlightDrone.level}
-                      </span>
-                    </div>
                     <img
                       src={spotlightDrone.imageUrl || '/drones/default.png'}
                       alt={spotlightDrone.name}
@@ -233,6 +235,7 @@ export default function DashboardPage() {
                   >
                     Manage Drone
                   </Link>
+                </div>
                 </div>
               </div>
             ) : (
@@ -368,7 +371,7 @@ export default function DashboardPage() {
                 value={myStats?.totalRaces ?? 0}
               />
               <QuickStat label="Win Rate" value={userWinRate} />
-              <QuickStat label="Current Streak" value={currentStreak} />
+              <QuickStat label="Streak" value={currentStreak} />
               <QuickStat
                 label="Season Rank"
                 value={myStats?.rank ? `#${myStats.rank}` : '—'}
@@ -383,25 +386,17 @@ export default function DashboardPage() {
 }
 
 function StatRow({ label, value, max = 100 }) {
-  const slots = 10;
-  const filled = Math.max(0, Math.min(slots, Math.round((value / max) * slots)));
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
     <div className={styles.statRow}>
       <span className={styles.statRowLabel}>{label}</span>
-      <span className={styles.statRowBar}>
-        <span className={styles.statBracket}>[</span>
-        <span className={styles.statBarInner}>
-          {Array.from({ length: slots }).map((_, i) => (
-            <span
-              key={i}
-              className={i < filled ? styles.statFilled : styles.statEmpty}
-            >
-              =
-            </span>
-          ))}
-        </span>
-        <span className={styles.statBracket}>]</span>
-      </span>
+      <div className={styles.statBarTrack}>
+        <div
+          className={styles.statBarFill}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className={styles.statValue}>{value}</span>
     </div>
   );
 }

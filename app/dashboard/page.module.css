@@ -87,16 +87,12 @@
   overflow: hidden;
 }
 
-/* Drone name + level overlay at the top-left corner of the drone image */
-.droneNameOverlay {
-  position: absolute;
-  top: var(--space-3);
-  left: var(--space-3);
+/* Drone name + level block pinned at the top-left of the spotlight body */
+.droneNameBlock {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  z-index: 2;
-  pointer-events: none;
+  align-self: flex-start;
 }
 
 .droneName {
@@ -107,7 +103,6 @@
   letter-spacing: 0.03em;
   color: var(--text-primary);
   line-height: 1.05;
-  text-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
 }
 
 .droneLevel {
@@ -115,7 +110,6 @@
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
 }
 
 .navCluster {
@@ -150,13 +144,21 @@
   color: var(--text-secondary);
 }
 
-/* Main body: image+meta (left 50%) | stats+manage btn (right 50%) */
+/* Spotlight body wraps name block + main grid so the name stays
+   top-left inside the padded body area. */
+.spotlightBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+/* Main: image+meta (left 50%) | stats+manage btn (right 50%) */
 .spotlightMain {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: stretch;
-  padding: var(--space-3) var(--space-4);
 }
 
 .spotlightLeft {
@@ -170,7 +172,7 @@
 .spotlightImage {
   position: relative;
   width: 100%;
-  max-width: 260px;
+  max-width: 320px;
   aspect-ratio: 4 / 3;
   background: transparent;
   border: none;
@@ -200,6 +202,15 @@
 
 .manageBtn {
   width: 100%;
+  box-shadow:
+    0 0 14px rgba(3, 218, 198, 0.55),
+    0 0 28px rgba(3, 218, 198, 0.35);
+}
+
+.manageBtn:hover {
+  box-shadow:
+    0 0 18px rgba(3, 218, 198, 0.7),
+    0 0 36px rgba(3, 218, 198, 0.45);
 }
 
 /* Meta: 2x2 grid beneath the drone image. Per-cell grid so values
@@ -260,14 +271,13 @@
   border-radius: 2px;
 }
 
-/* Stat row with bracketed bar — bar stretches to fill row via
-   justify-content: space-between on the inner =-char group. */
+/* Stat row: label + solid track bar + value number */
 .statRow {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: 110px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
-  padding: 2px 0;
+  padding: 3px 0;
 }
 
 .statRowLabel {
@@ -277,38 +287,34 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.statRowBar {
-  display: flex;
-  align-items: center;
-  gap: 3px;
+.statBarTrack {
+  position: relative;
+  height: 10px;
+  background: #2A2A2A;
+  border: 1px solid #3F3F3F;
+  border-radius: 2px;
+  overflow: hidden;
   min-width: 0;
+}
+
+.statBarFill {
+  height: 100%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(3, 218, 198, 0.5);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.statValue {
   font-family: var(--font-mono);
-  font-size: var(--text-base);
-  line-height: 1;
-}
-
-.statBarInner {
-  flex: 1;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  min-width: 0;
-}
-
-.statBracket {
-  color: #E5E5E5;
+  font-size: var(--text-xs);
   font-weight: var(--font-bold);
-  flex-shrink: 0;
-}
-
-.statFilled {
-  color: var(--accent-primary);
-}
-
-.statEmpty {
-  color: #5A5A5A;
+  color: var(--text-primary);
+  min-width: 24px;
+  text-align: right;
 }
 
 /* ==========================================================================
