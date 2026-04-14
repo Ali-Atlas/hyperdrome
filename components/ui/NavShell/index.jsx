@@ -100,9 +100,6 @@ export default function NavShell({ children }) {
         >
           <Menu size={20} />
         </button>
-        <Link href="/dashboard" className={styles.mobileLogo}>
-          Drone Manager
-        </Link>
         {user && (
           <div className={styles.mobileUser}>
             <span className={styles.mobileUsername}>

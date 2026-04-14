@@ -182,9 +182,7 @@
   height: 100%;
   object-fit: contain;
   animation: droneHover 4s var(--ease-in-out) infinite;
-  filter:
-    drop-shadow(0 0 24px rgba(3, 218, 198, 0.45))
-    drop-shadow(0 0 48px rgba(3, 218, 198, 0.25));
+  filter: drop-shadow(0 10px 12px rgba(3, 218, 198, 0.32));
 }
 
 /* Right column: stats stretch + manage button pinned at bottom */
