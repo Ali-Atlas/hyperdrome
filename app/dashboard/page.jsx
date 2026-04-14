@@ -137,7 +137,7 @@ export default function DashboardPage() {
             {loading ? (
               <Skeleton variant="card" height={220} />
             ) : spotlightDrone ? (
-              <div className={styles.spotlightBody}>
+              <>
                 <div className={styles.spotlightTopRow}>
                   <div className={styles.droneNameBlock}>
                     <span className={styles.droneName}>
@@ -223,7 +223,7 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 </div>
-              </div>
+              </>
             ) : (
               <EmptyState
                 title="No active drone"
@@ -237,6 +237,7 @@ export default function DashboardPage() {
           {/* ---- Row 1 col 2: Live Race Feed ---- */}
           <Card className={cn(styles.liveFeed, styles.areaFeed)}>
             <h2 className={styles.sectionHeading}>Live Race Feed</h2>
+            <div className={cn(styles.cardBody, styles.feedBody)}>
             <div className={styles.feedList}>
               {loading ? (
                 <Skeleton variant="text" count={6} />
@@ -270,11 +271,13 @@ export default function DashboardPage() {
                 })
               )}
             </div>
+            </div>
           </Card>
 
           {/* ---- Row 2 col 1: Recent Results ---- */}
           <Card className={cn(styles.results, styles.areaResults)}>
             <h2 className={styles.sectionHeading}>Your Recent Results</h2>
+            <div className={styles.cardBody}>
             {loading ? (
               <Skeleton variant="text" count={5} />
             ) : recentRaces.length === 0 ? (
@@ -321,20 +324,24 @@ export default function DashboardPage() {
                 })}
               </div>
             )}
+            </div>
           </Card>
 
           {/* ---- Row 2 col 2: Countdown ---- */}
           <Card className={cn(styles.countdownCard, styles.areaCountdown)}>
             <h2 className={styles.sectionHeading}>Next Race Countdown</h2>
-            <NextRaceCountdown
-              targetDate={nextRaceAt}
-              paused={racingPaused}
-            />
+            <div className={styles.cardBody}>
+              <NextRaceCountdown
+                targetDate={nextRaceAt}
+                paused={racingPaused}
+              />
+            </div>
           </Card>
 
           {/* ---- Row 3 col 2: Quick Stats ---- */}
           <Card className={cn(styles.quickStatsCard, styles.areaQuickStats)}>
             <h2 className={styles.sectionHeading}>Quick Stats</h2>
+            <div className={styles.cardBody}>
             <div className={styles.quickStatsRow}>
               <QuickStat
                 label="Total Races"
@@ -347,6 +354,7 @@ export default function DashboardPage() {
                 value={myStats?.rank ? `#${myStats.rank}` : '—'}
               />
             </div>
+            </div>
           </Card>
         </div>
       </div>
@@ -355,7 +363,7 @@ export default function DashboardPage() {
 }
 
 function StatRow({ label, value, max = 100 }) {
-  const slots = 10;
+  const slots = 50;
   const filled = Math.max(0, Math.min(slots, Math.round((value / max) * slots)));
   const empty = slots - filled;
   return (
@@ -364,7 +372,7 @@ function StatRow({ label, value, max = 100 }) {
       <span className={styles.statRowBar}>
         <span className={styles.statBracket}>[</span>
         <span className={styles.statFilled}>{'='.repeat(filled)}</span>
-        <span className={styles.statEmpty}>{' '.repeat(empty)}</span>
+        <span className={styles.statEmpty}>{'='.repeat(empty)}</span>
         <span className={styles.statBracket}>]</span>
       </span>
     </div>
