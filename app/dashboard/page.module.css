@@ -319,8 +319,10 @@
 .spotlightStats {
   grid-area: stats;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px var(--space-3);
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(5, auto);
+  grid-auto-flow: column;
+  gap: 6px var(--space-6);
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
 }
