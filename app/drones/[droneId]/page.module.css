@@ -258,8 +258,13 @@
   gap: var(--space-3);
   background: var(--bg-card);
   border: 1px solid var(--border-default);
-  min-height: 0;
-  overflow: hidden;
+}
+
+@media (min-width: 1101px) {
+  .rightPanel {
+    min-height: 0;
+    overflow: hidden;
+  }
 }
 
 .statHeader {
@@ -314,19 +319,24 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px;
 }
 
-.statList::-webkit-scrollbar {
-  width: 6px;
-}
+@media (min-width: 1101px) {
+  .statList {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
 
-.statList::-webkit-scrollbar-thumb {
-  background: var(--border-default);
-  border-radius: 3px;
+  .statList::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .statList::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: 3px;
+  }
 }
 
 /* ==========================================================================
@@ -680,12 +690,21 @@
  * Breakpoints
  * ========================================================================== */
 
-@media (max-width: 600px) {
+/* Mid range: drone card full width, image beside meta (2-col) so the
+   drone doesn't balloon.  */
+@media (min-width: 601px) and (max-width: 1100px) {
   .leftInner {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: stretch;
+    flex: none;
   }
   .droneImageWrap {
     aspect-ratio: 4 / 3;
+  }
+  .metaCol {
+    justify-content: flex-start;
   }
 }
 
