@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   ChevronDown,
+  Info,
   Sun,
   Moon,
   Cloud,
@@ -295,145 +296,162 @@ function DroneManagementView({ drone, onReload }) {
           <Card className={styles.leftPanel}>
             <h2 className={styles.sectionHeading}>Drone</h2>
             <div className={styles.leftInner}>
-              <div className={styles.droneImageWrap}>
+              <div className={styles.droneNameBlock}>
+                <div className={styles.droneName}>{drone.name}</div>
+                <div className={styles.droneLevel}>
+                  <span
+                    className={styles.metaLevel}
+                    style={{ color: getLevelColor(drone.level) }}
+                  >
+                    Lv {drone.level}
+                  </span>
+                  <span className={styles.metaSep}>|</span>
+                  <span className={styles.metaOwner}>
+                    Owner: {drone.owner?.username ?? '—'}
+                  </span>
+                </div>
+              </div>
+
+              <div className={styles.droneImageFrame}>
                 <DroneImage drone={drone} />
               </div>
 
-              <div className={styles.metaCol}>
-                <div className={styles.metaTop}>
-                  <div className={styles.droneName}>{drone.name}</div>
-                  <div className={styles.metaLine}>
-                    <span
-                      className={styles.metaLevel}
-                      style={{ color: getLevelColor(drone.level) }}
-                    >
-                      Lv {drone.level}
-                    </span>
-                    <span className={styles.metaSep}>·</span>
-                    <span className={styles.metaOwner}>
-                      {drone.owner?.username ?? '—'}
-                    </span>
-                  </div>
-                  <div className={styles.kpiLine}>
-                    <span>
-                      <span className={styles.kpiLabel}>Races</span>
-                      <span className={styles.kpiValue}>
-                        {drone.totalRaces}
-                      </span>
-                    </span>
-                    <span>
-                      <span className={styles.kpiLabel}>Win Rate</span>
-                      <span className={styles.kpiValue}>{winRate}</span>
-                    </span>
-                    <span>
-                      <span className={styles.kpiLabel}>ELO</span>
-                      <span className={styles.kpiValue}>{drone.eloRating}</span>
-                    </span>
-                  </div>
+              <div className={styles.statStrip}>
+                <div className={styles.statStripItem}>
+                  <span className={styles.statStripLabel}>Total Races</span>
+                  <span className={styles.statStripValue}>
+                    {drone.totalRaces}
+                  </span>
                 </div>
+                <div className={styles.statStripItem}>
+                  <span className={styles.statStripLabel}>Wins</span>
+                  <span className={styles.statStripValue}>{drone.wins}</span>
+                </div>
+                <div className={styles.statStripItem}>
+                  <span className={styles.statStripLabel}>Losses</span>
+                  <span className={styles.statStripValue}>
+                    {drone.losses}
+                  </span>
+                </div>
+                <div className={styles.statStripItem}>
+                  <span className={styles.statStripLabel}>Win Rate</span>
+                  <span className={styles.statStripValue}>{winRate}</span>
+                </div>
+                <div className={styles.statStripItem}>
+                  <span className={styles.statStripLabel}>ELO</span>
+                  <span className={styles.statStripValue}>
+                    {drone.eloRating}
+                  </span>
+                </div>
+                <div className={styles.statStripItem}>
+                  <span className={styles.statStripLabel}>Unspent Points</span>
+                  <span className={styles.statStripValue}>
+                    {drone.unspentPoints ?? 0}
+                  </span>
+                </div>
+              </div>
 
-                <div className={styles.skinBlock}>
-                  <div className={styles.skinHeader}>
-                    <span className={styles.skinLabel}>Skins</span>
-                    {drone.appliedSkin?.name && (
-                      <span className={styles.skinSelected}>
-                        {drone.appliedSkin.name}
-                      </span>
-                    )}
-                  </div>
-                  <button type="button" className={styles.skinSelect}>
-                    <span>{drone.appliedSkin?.name ?? 'None'}</span>
-                    <ChevronDown size={14} aria-hidden="true" />
-                  </button>
-                </div>
+              <div className={styles.skinBlock}>
+                <span className={styles.skinLabel}>Skin Equipped</span>
+                <button type="button" className={styles.skinSelect}>
+                  <span className={styles.skinSwatch} aria-hidden="true" />
+                  <span className={styles.skinName}>
+                    {drone.appliedSkin?.name ?? 'None'}
+                  </span>
+                  <ChevronDown size={16} aria-hidden="true" />
+                </button>
               </div>
             </div>
           </Card>
 
-          <Card className={styles.rightPanel}>
-            <div className={styles.statHeader}>
-              <h2 className={styles.sectionHeading}>Stat Editor</h2>
-              <div className={styles.availablePoints}>
-                Available Points:{' '}
-                <span className={styles.availableValue}>
-                  {availablePoints}
-                </span>
-              </div>
-            </div>
-
-            <div className={styles.statList}>
-              {STAT_KEYS.map((key) => (
-                <StatEditorRow
-                  key={key}
-                  statName={STAT_LABELS[key]}
-                  currentValue={editedStats[key]}
-                  baseValue={baseStats[key]}
-                  maxValue={cap}
-                  pointsAvailable={availablePoints}
-                  costToUpgrade={calculateStatUpgradeCost(editedStats[key])}
-                  onIncrement={() => increment(key)}
-                  onDecrement={() => decrement(key)}
-                />
-              ))}
-            </div>
-
-            <div className={styles.actions}>
-              <div className={styles.activeBlock}>
-                <Toggle
-                  checked={drone.active}
-                  onChange={toggleActive}
-                  disabled={togglePending}
-                  label="Set Active"
-                />
-                <div className={styles.activeNote}>
-                  {drone.active
-                    ? 'Actively racing each cycle'
-                    : 'Eligible for racing'}
+          <div className={styles.rightStack}>
+            <Card className={styles.rightPanel}>
+              <div className={styles.statHeader}>
+                <h2 className={styles.sectionHeading}>Stat Editor</h2>
+                <div className={styles.availablePoints}>
+                  Available Points:{' '}
+                  <span className={styles.availableValue}>
+                    {availablePoints}
+                  </span>
                 </div>
               </div>
-              <div className={styles.buttonGroup}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={reset}
-                  disabled={!hasChanges || saving}
-                >
-                  Reset
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={save}
-                  disabled={!hasChanges}
-                  loading={saving}
-                >
-                  Save
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
 
-        <Card className={styles.raceProfileCard}>
-          <h2 className={styles.sectionHeading}>Race Profile</h2>
-          <div className={styles.raceProfileGrid}>
-            <RaceProfileColumn
-              label="Optimal"
-              items={performance.optimal}
-              tone="optimal"
-            />
-            <RaceProfileColumn
-              label="Moderate"
-              items={performance.moderate}
-              tone="moderate"
-            />
-            <RaceProfileColumn
-              label="Poor"
-              items={performance.poor}
-              tone="poor"
-            />
+              <div className={styles.statList}>
+                {STAT_KEYS.map((key) => (
+                  <StatEditorRow
+                    key={key}
+                    statName={STAT_LABELS[key]}
+                    currentValue={editedStats[key]}
+                    baseValue={baseStats[key]}
+                    maxValue={cap}
+                    pointsAvailable={availablePoints}
+                    costToUpgrade={calculateStatUpgradeCost(editedStats[key])}
+                    onIncrement={() => increment(key)}
+                    onDecrement={() => decrement(key)}
+                  />
+                ))}
+              </div>
+
+              <div className={styles.actions}>
+                <div className={styles.activeBlock}>
+                  <span className={styles.activeLabel}>Set Active</span>
+                  <Toggle
+                    checked={drone.active}
+                    onChange={toggleActive}
+                    disabled={togglePending}
+                  />
+                  <span
+                    className={styles.activeHelp}
+                    title="Active means this drone races each cycle. Up to 3 drones can be active per player."
+                    aria-label="Set Active — active drones race each cycle. Up to 3 drones can be active per player."
+                  >
+                    <Info size={12} aria-hidden="true" />
+                  </span>
+                </div>
+                <div className={styles.buttonGroup}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={save}
+                    disabled={!hasChanges}
+                    loading={saving}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={reset}
+                    disabled={!hasChanges || saving}
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            <Card className={styles.perfSummaryCard}>
+              <h2 className={styles.sectionHeading}>Performance Summary</h2>
+              <div className={styles.raceProfileGrid}>
+                <RaceProfileColumn
+                  label="Optimal"
+                  items={performance.optimal}
+                  tone="optimal"
+                />
+                <RaceProfileColumn
+                  label="Moderate"
+                  items={performance.moderate}
+                  tone="moderate"
+                />
+                <RaceProfileColumn
+                  label="Poor"
+                  items={performance.poor}
+                  tone="poor"
+                />
+              </div>
+            </Card>
           </div>
-        </Card>
+        </div>
 
         <Card className={styles.historyCard}>
           <h2 className={styles.sectionHeading}>Race History (Last 10 races)</h2>
@@ -618,7 +636,7 @@ function RaceProfileColumn({ label, items, tone }) {
                 key={name}
                 className={`${styles.raceProfileChip} ${styles[`chip-${tone}`]}`}
               >
-                <Icon size={13} aria-hidden="true" />
+                <Icon size={11} aria-hidden="true" />
                 {name}
               </span>
             );

@@ -347,10 +347,10 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          {/* ---- Row 2 col 2: Countdown (no header row, inline title) ---- */}
+          {/* ---- Row 2 col 2: Countdown ---- */}
           <Card className={cn(styles.countdownCard, styles.areaCountdown)}>
+            <h2 className={styles.sectionHeading}>Next Race Countdown</h2>
             <div className={styles.cardBody}>
-              <h2 className={styles.countdownHeading}>Next Race Countdown</h2>
               <NextRaceCountdown
                 targetDate={nextRaceAt}
                 paused={racingPaused}

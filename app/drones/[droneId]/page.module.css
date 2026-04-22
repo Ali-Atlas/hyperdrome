@@ -4,32 +4,6 @@
   gap: var(--space-4);
 }
 
-.back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  width: fit-content;
-  transition: color var(--duration-normal) var(--ease-out);
-}
-
-.back:hover {
-  color: var(--accent-primary);
-}
-
-.title {
-  font-family: var(--font-heading);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-bold);
-  color: var(--text-primary);
-  margin: 0;
-  letter-spacing: 0.01em;
-}
-
 .main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -37,7 +11,14 @@
   align-items: stretch;
 }
 
-@media (max-width: 1100px) {
+.rightStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
   .main {
     display: flex;
     flex-direction: column;
@@ -45,111 +26,54 @@
 }
 
 /* ==========================================================================
- * Left panel — metadata LEFT, drone image RIGHT (side by side inside card)
+ * Left panel — vertical stack: image frame, name/meta, stat strip, skin
  * ========================================================================== */
 
 .leftPanel {
-  padding: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 .leftInner {
   display: flex;
-  flex-direction: row;
-  align-items: flex-start;
+  flex-direction: column;
   gap: var(--space-4);
+  padding: var(--space-4);
   flex: 1;
   min-height: 0;
-  padding: var(--space-4);
 }
 
-.leftInner > .droneImageWrap {
-  flex: 0 0 auto;
-}
-
-.leftInner > .metaCol {
-  flex: 1;
-  min-width: 0;
-}
-
-@media (max-width: 1100px) {
-  .leftInner {
-    flex-direction: column;
-  }
-  .leftInner > .metaCol {
-    width: 100%;
-  }
-}
-
-.droneImageWrap {
-  position: relative;
+/* Name + level header — matches dashboard spotlight's .droneNameBlock */
+.droneNameBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-self: flex-start;
   width: 100%;
-  max-width: 380px;
-  aspect-ratio: 4 / 3;
-  padding: 12px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  overflow: visible;
-}
-
-.droneImg {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  animation: droneHover 4s var(--ease-in-out) infinite;
-  filter: drop-shadow(0 10px 12px rgba(3, 218, 198, 0.32));
-}
-
-.metaCol {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: var(--space-4);
-  min-width: 0;
-}
-
-.metaTop {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
 }
 
 .droneName {
   font-family: var(--font-heading);
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  line-height: 1.15;
+  line-height: 1.05;
   margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.metaLine {
+.droneLevel {
   display: flex;
   align-items: baseline;
-  flex-wrap: wrap;
   gap: 6px;
+  flex-wrap: wrap;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
 }
 
 .metaSep {
@@ -164,94 +88,96 @@
   color: var(--text-secondary);
 }
 
-.kpiLine {
+/* Image frame — matches dashboard .spotlightImage (no border, no radial bg) */
+.droneImageFrame {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 4 / 3;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.droneImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  animation: droneHover 4s var(--ease-in-out) infinite;
+  filter: drop-shadow(0 10px 12px rgba(3, 218, 198, 0.32));
+}
+
+/* Stat strip — matches dashboard .kpiCell treatment (label primary+semibold,
+   value secondary+medium, mono everywhere) */
+.statStrip {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-default);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
 }
 
-.kpiLine > span {
+.statStripItem {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
-  align-items: baseline;
 }
 
-.kpiLabel {
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.statStripLabel {
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
-}
-
-.kpiValue {
   color: var(--text-primary);
   font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.statStripValue {
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
 }
 
 .skinBlock {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   margin-top: auto;
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-default);
 }
 
-.skinHeader {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  min-width: 0;
-}
-
 .skinLabel {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: #ffffff;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
-  flex-shrink: 0;
-}
-
-.skinSelected {
-  font-family: var(--font-heading);
-  font-size: var(--text-base);
-  font-weight: var(--font-bold);
-  color: #ffffff;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  line-height: 1.1;
-  text-shadow:
-    0 0 12px rgba(255, 255, 255, 0.75),
-    0 0 24px rgba(255, 255, 255, 0.35);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
 }
 
 .skinSelect {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
+  gap: var(--space-3);
+  padding: 10px 12px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: var(--font-medium);
+  font-weight: var(--font-semibold);
   color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   cursor: pointer;
-  min-height: 36px;
+  min-height: 42px;
   transition: all var(--duration-normal) var(--ease-out);
 }
 
@@ -259,8 +185,30 @@
   border-color: var(--accent-primary);
 }
 
+.skinSwatch {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    135deg,
+    rgba(3, 218, 198, 0.32),
+    rgba(3, 218, 198, 0.08)
+  );
+  border: 1px solid rgba(3, 218, 198, 0.5);
+}
+
+.skinName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .skinSelect svg {
   color: var(--text-secondary);
+  flex-shrink: 0;
 }
 
 /* ==========================================================================
@@ -268,18 +216,10 @@
  * ========================================================================== */
 
 .rightPanel {
-  padding: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
-  overflow: hidden;
-}
-
-@media (min-width: 1101px) {
-  .rightPanel {
-    min-height: 0;
-  }
 }
 
 .statHeader {
@@ -290,9 +230,14 @@
   padding: var(--space-3) var(--space-4);
   background: var(--header-bar-bg);
   border-bottom: 1px solid var(--border-default);
+  line-height: 1.2;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .sectionHeading {
+  display: flex;
+  align-items: center;
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
@@ -302,23 +247,24 @@
   padding: var(--space-3) var(--space-4);
   background: var(--header-bar-bg);
   border-bottom: 1px solid var(--border-default);
+  line-height: 1.2;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .statHeader .sectionHeading {
   padding: 0;
   background: transparent;
   border-bottom: none;
+  min-height: auto;
 }
 
 @media (max-width: 768px) {
-  .title {
-    font-size: var(--text-xl);
-  }
   .sectionHeading {
     font-size: var(--text-sm);
   }
   .droneName {
-    font-size: var(--text-base);
+    font-size: var(--text-lg);
   }
   .skinSelect {
     font-size: var(--text-xs);
@@ -335,32 +281,15 @@
   font-family: var(--font-mono);
   color: var(--accent-primary);
   font-weight: var(--font-bold);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   margin-left: var(--space-1);
 }
 
 .statList {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-@media (min-width: 1101px) {
-  .statList {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding-right: 4px;
-  }
-
-  .statList::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .statList::-webkit-scrollbar-thumb {
-    background: var(--border-default);
-    border-radius: 3px;
-  }
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
 }
 
 /* ==========================================================================
@@ -372,58 +301,63 @@
   justify-content: space-between;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-4);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border-default);
 }
 
 .activeBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-.activeNote {
+.activeLabel {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  font-weight: var(--font-medium);
+  color: #E5E5E5;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
+.activeHelp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  cursor: help;
+  transition: color var(--duration-normal) var(--ease-out);
+}
+
+.activeHelp:hover {
+  color: var(--accent-primary);
+}
+
 .buttonGroup {
-  display: flex;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  min-width: 160px;
+}
+
+.buttonGroup > * {
+  width: 100%;
 }
 
 /* ==========================================================================
- * Race profile card
+ * Performance Summary card (lives inside .rightStack below Stat Editor)
  * ========================================================================== */
 
-.raceProfileCard {
-  padding: 0;
+.perfSummaryCard {
   background: var(--bg-card);
   border: 1px solid var(--border-default);
-  overflow: hidden;
-}
-
-.raceProfileCard .sectionHeading {
-  background: var(--header-bar-bg);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-default);
-  margin: 0;
-}
-
-.raceProfileGrid {
-  padding: var(--space-4) var(--space-5);
 }
 
 .raceProfileGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-5);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3);
 }
 
 .raceProfileCol {
@@ -434,9 +368,9 @@
 
 .raceProfileColLabel {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   font-weight: var(--font-bold);
 }
 
@@ -465,15 +399,16 @@
 .raceProfileChip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px var(--space-3);
+  gap: 4px;
+  padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
-  font-size: var(--text-xs);
+  font-size: 11px;
   font-weight: var(--font-medium);
   letter-spacing: 0.02em;
   border: 1px solid transparent;
   white-space: nowrap;
+  line-height: 1.4;
 }
 
 .chip-optimal {
@@ -508,17 +443,8 @@
  * ========================================================================== */
 
 .historyCard {
-  padding: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
-  overflow: hidden;
-}
-
-.historyCard .sectionHeading {
-  background: var(--header-bar-bg);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-default);
-  margin: 0;
 }
 
 .mono {
@@ -725,28 +651,10 @@
  * Breakpoints
  * ========================================================================== */
 
-/* Mid range: drone card full width, image beside meta (2-col) so the
-   drone doesn't balloon.  */
-@media (min-width: 601px) and (max-width: 1100px) {
-  .leftInner {
-    display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-    gap: var(--space-4);
-    align-items: stretch;
-    flex: none;
-  }
-  .droneImageWrap {
-    aspect-ratio: 4 / 3;
-  }
-  .metaCol {
-    justify-content: flex-start;
-  }
-}
-
+/* Mobile */
 @media (max-width: 768px) {
-  .kpiLine {
-    flex-direction: column;
-    gap: var(--space-2);
+  .droneImageFrame {
+    max-width: 240px;
   }
   .actions {
     flex-direction: column;
@@ -760,5 +668,14 @@
   }
   .raceProfileGrid {
     grid-template-columns: 1fr;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+  .statList {
+    padding: var(--space-2);
+  }
+  .statHeader {
+    flex-wrap: wrap;
+    gap: var(--space-2);
   }
 }

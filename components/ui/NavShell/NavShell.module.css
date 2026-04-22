@@ -36,9 +36,7 @@
 }
 
 .logoIcon {
-  font-size: 1.4em;
-  line-height: 1;
-  filter: drop-shadow(0 0 6px rgba(3, 218, 198, 0.5));
+  flex-shrink: 0;
 }
 
 .logoText {

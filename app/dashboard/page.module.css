@@ -85,11 +85,9 @@
  * ========================================================================== */
 
 .spotlight {
-  padding: 0;
   display: flex;
   flex-direction: column;
   border-color: #3F3F3F;
-  overflow: hidden;
 }
 
 /* Drone name + level block pinned at the top-left of the spotlight body */
@@ -322,11 +320,9 @@
  * ========================================================================== */
 
 .liveFeed {
-  padding: 0;
   display: flex;
   flex-direction: column;
   border-color: #3F3F3F;
-  overflow: hidden;
   min-height: 0;
 }
 
@@ -416,20 +412,9 @@
  * ========================================================================== */
 
 .countdownCard {
-  padding: 0;
   display: flex;
   flex-direction: column;
   border-color: #3F3F3F;
-  overflow: hidden;
-}
-
-.countdownHeading {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  color: #F0F0F0;
-  letter-spacing: 0.01em;
-  margin: 0 0 var(--space-3);
 }
 
 .countdownClock {
@@ -503,11 +488,9 @@
  * ========================================================================== */
 
 .quickStatsCard {
-  padding: 0;
   display: flex;
   flex-direction: column;
   border-color: #3F3F3F;
-  overflow: hidden;
 }
 
 .quickStatsRow {
@@ -523,6 +506,10 @@
   gap: 6px;
   padding: var(--space-2) var(--space-3);
   border-right: 1px solid var(--border-subtle);
+}
+
+.quickItem .quickValue {
+  margin-top: auto;
 }
 
 .quickItem:last-child {
@@ -561,9 +548,7 @@
  * ========================================================================== */
 
 .results {
-  padding: 0;
   border-color: #3F3F3F;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 0;
