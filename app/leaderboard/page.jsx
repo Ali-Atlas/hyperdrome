@@ -255,6 +255,17 @@ export default function LeaderboardPage() {
                   </span>{' '}
                   days remaining
                 </span>
+                <div className={styles.progressInline}>
+                  <div className={styles.progressTrack}>
+                    <div
+                      className={styles.progressFill}
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <span className={styles.progressPct}>
+                    {Math.round(progress)}%
+                  </span>
+                </div>
               </div>
 
               <div className={styles.tabs} role="tablist">
@@ -277,17 +288,6 @@ export default function LeaderboardPage() {
                   Drones
                 </button>
               </div>
-            </div>
-
-            <div className={styles.progressRow}>
-              <span className={styles.progressLabel}>Season Progress</span>
-              <div className={styles.progressTrack}>
-                <div
-                  className={styles.progressFill}
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <span className={styles.progressPct}>{Math.round(progress)}%</span>
             </div>
 
             <div className={styles.rewardsRow}>
