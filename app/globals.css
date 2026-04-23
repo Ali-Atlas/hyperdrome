@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Drone Manager — Global Stylesheet
+ * Drone Manager - Global Stylesheet
  * Design system: CSS variables + keyframes. Component styles use CSS Modules
  * and reference these variables only. Never hardcode color/spacing/font values.
  * ========================================================================== */
@@ -30,7 +30,7 @@
 
   /* ---- Rarity Colors ---- */
   --rarity-common: #9E9E9E;
-  --rarity-rare: #03DAC6;
+  --rarity-rare: #4A9EFF;
   --rarity-epic: #BB86FC;
   --rarity-legendary: #FFD700;
 

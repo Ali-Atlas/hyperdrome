@@ -62,7 +62,7 @@ const LEVEL_BRACKET_OPTIONS = [
 ];
 
 function shortId(id) {
-  return id ? `#${id.slice(-8).toUpperCase()}` : '#—';
+  return id ? `#${id.slice(-8).toUpperCase()}` : '#-';
 }
 
 function formatDate(iso) {
@@ -199,7 +199,7 @@ export default function RacesPage() {
         key: 'track',
         label: 'Track Name',
         shortLabel: 'Track',
-        render: (row) => row.track?.name ?? '—',
+        render: (row) => row.track?.name ?? '-',
       },
       {
         key: 'weather',
@@ -244,7 +244,7 @@ export default function RacesPage() {
               </span>
             </span>
           ) : (
-            '—'
+            '-'
           ),
       },
       {
@@ -262,7 +262,7 @@ export default function RacesPage() {
               </span>
             </span>
           ) : (
-            '—'
+            '-'
           ),
       },
       {
@@ -282,7 +282,7 @@ export default function RacesPage() {
               </span>
             </span>
           ) : (
-            '—'
+            '-'
           );
         },
       },

@@ -82,7 +82,7 @@
 }
 
 /* ==========================================================================
- * Hero — generous padding, large drone stage, subtle teal radial backdrop
+ * Hero - generous padding, large drone stage, subtle teal radial backdrop
  * ========================================================================== */
 
 .hero {
@@ -187,7 +187,7 @@
 }
 
 /* ==========================================================================
- * Generic section — 80px vertical breathing room
+ * Generic section - 80px vertical breathing room
  * ========================================================================== */
 
 .section {
@@ -206,7 +206,7 @@
 }
 
 /* ==========================================================================
- * How It Works — bigger cards, prominent step numbers, arrow connectors
+ * How It Works - bigger cards, prominent step numbers, arrow connectors
  * ========================================================================== */
 
 .steps {
@@ -285,7 +285,7 @@
 }
 
 /* ==========================================================================
- * Stats ticker — large mono numbers, generous horizontal spacing
+ * Stats ticker - large mono numbers, generous horizontal spacing
  * ========================================================================== */
 
 .statsBar {
@@ -325,7 +325,7 @@
 }
 
 /* ==========================================================================
- * Features — 3/2/1 responsive grid; 5th card centres when wrapped
+ * Features - 3/2/1 responsive grid; 5th card centres when wrapped
  * ========================================================================== */
 
 .features {

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import styles from './FilterBar.module.css';
 
 /**
- * Horizontal filter strip — selects, range inputs, and a search box.
+ * Horizontal filter strip - selects, range inputs, and a search box.
  * @param {object} props
  * @param {Array<{ key: string, label: string, type: 'select'|'range', options?: Array<{ value: string, label: string }> }>} props.filters
  * @param {Record<string, any>} props.values
@@ -59,7 +59,7 @@ export default function FilterBar({
                     onChange?.(filter.key, { ...range, min: e.target.value })
                   }
                 />
-                <span className={styles.rangeDash}>—</span>
+                <span className={styles.rangeDash}>-</span>
                 <input
                   className={styles.rangeInput}
                   type="number"

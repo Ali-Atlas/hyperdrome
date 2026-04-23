@@ -285,11 +285,11 @@ export async function getRaces(filters = {}, pagination = {}) {
  * Fetch a single race with all drone + track details, plus a few
  * convenience fields derived from the races table so the detail page
  * can render without extra round trips:
- *   - `isUpset` — true when the winner's pre-race ELO was >= 50 lower
+ *   - `isUpset` - true when the winner's pre-race ELO was >= 50 lower
  *     than the loser's.
- *   - `isNewTrackRecord` — true when this race's winning time is the
+ *   - `isNewTrackRecord` - true when this race's winning time is the
  *     fastest recorded on the track at/before it ran.
- *   - `h2h` — { total, drone1Wins, drone2Wins } across all prior +
+ *   - `h2h` - { total, drone1Wins, drone2Wins } across all prior +
  *     current races between the same two drones in either slot.
  *
  * @param {string} raceId

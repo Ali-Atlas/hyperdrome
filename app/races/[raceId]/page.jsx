@@ -86,7 +86,7 @@ function countLeadChanges(log) {
 }
 
 /**
- * Difficulty pill palette — matches the .pointsChip + level Badge pattern:
+ * Difficulty pill palette - matches the .pointsChip + level Badge pattern:
  * tinted 15% bg, full-colour text, no border, no glow. Teal easy, purple
  * mid, red extreme.
  */
@@ -249,7 +249,7 @@ export default function RaceDetailPage({ params }) {
   const TimeIcon = TIME_ICONS[race.timeOfDay] ?? Sun;
 
   // Tracks now store difficulty as an absolute 1-10 rating, paired with
-  // level brackets enforced at matchmaking time — no client-side scaling.
+  // level brackets enforced at matchmaking time - no client-side scaling.
   const difficultyOutOfTen = race.track?.difficulty ?? null;
   const difficultyStyle =
     difficultyOutOfTen != null ? getDifficultyStyle(difficultyOutOfTen) : null;

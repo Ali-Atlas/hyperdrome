@@ -27,7 +27,7 @@
 }
 
 /* ==========================================================================
- * Left panel — vertical stack: image frame, name/meta, stat strip, skin
+ * Left panel - vertical stack: image frame, name/meta, stat strip, skin
  * ========================================================================== */
 
 .leftPanel {
@@ -69,7 +69,7 @@
   min-width: 0;
 }
 
-/* Name + level header — matches dashboard spotlight's .droneNameBlock */
+/* Name + level header - matches dashboard spotlight's .droneNameBlock */
 .droneNameBlock {
   display: flex;
   flex-direction: column;
@@ -112,7 +112,7 @@
   color: var(--text-secondary);
 }
 
-/* Image frame — matches dashboard .spotlightImage (no border, no radial bg) */
+/* Image frame - matches dashboard .spotlightImage (no border, no radial bg) */
 .droneImageFrame {
   position: relative;
   width: 100%;
@@ -137,7 +137,7 @@
   filter: drop-shadow(0 10px 12px rgba(3, 218, 198, 0.32));
 }
 
-/* Stat strip — matches dashboard .kpiCell treatment (label primary+semibold,
+/* Stat strip - matches dashboard .kpiCell treatment (label primary+semibold,
    value secondary+medium, mono everywhere) */
 .formStrip {
   display: flex;
@@ -293,7 +293,7 @@
 }
 
 /* ==========================================================================
- * Right panel — stat editor
+ * Right panel - stat editor
  * ========================================================================== */
 
 .rightPanel {
@@ -384,7 +384,7 @@
 }
 
 /* ==========================================================================
- * Actions row — toggle + note + buttons on one line
+ * Actions row - toggle + note + buttons on one line
  * ========================================================================== */
 
 .actions {
@@ -745,7 +745,7 @@
  * Breakpoints
  * ========================================================================== */
 
-/* Small mobile — stack image above meta. */
+/* Small mobile - stack image above meta. */
 @media (max-width: 600px) {
   .droneBody {
     grid-template-columns: 1fr;

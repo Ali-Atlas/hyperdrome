@@ -361,7 +361,7 @@ export default function LeaderboardPage() {
           <Podium items={top3} tab={tab} />
         )}
 
-        {/* ---- Rankings — just the table, no container ---- */}
+        {/* ---- Rankings - just the table, no container ---- */}
         <DataTable
           sortable
           columns={columns}

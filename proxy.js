@@ -18,7 +18,7 @@ export async function proxy(request) {
 
   if (pathname.startsWith('/api/auth')) return NextResponse.next();
 
-  // /drones/[droneId] — one path segment after /drones — is public.
+  // /drones/[droneId] - one path segment after /drones - is public.
   // /drones (the garage list) remains protected.
   if (/^\/drones\/[^/]+$/.test(pathname)) return NextResponse.next();
 

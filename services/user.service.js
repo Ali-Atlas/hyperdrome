@@ -5,7 +5,7 @@ import { ApiError } from '@/lib/api/response.js';
 const { users, drones, races, skins } = schema;
 
 /**
- * Public profile for a user — profile fields + owned drones + recent races + skins.
+ * Public profile for a user - profile fields + owned drones + recent races + skins.
  * @param {string} userId
  */
 export async function getUserProfile(userId) {

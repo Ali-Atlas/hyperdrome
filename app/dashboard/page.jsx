@@ -103,10 +103,10 @@ export default function DashboardPage() {
 
   const userWinRate = myStats?.totalRaces
     ? ((myStats.totalWins / myStats.totalRaces) * 100).toFixed(1) + '%'
-    : '—';
+    : '-';
 
   const currentStreak = useMemo(() => {
-    if (!recentRaces.length || !myDrones.length) return '—';
+    if (!recentRaces.length || !myDrones.length) return '-';
     const myDroneIds = new Set(myDrones.map((d) => d.id));
     let streak = 0;
     for (const race of recentRaces) {
@@ -119,7 +119,7 @@ export default function DashboardPage() {
         break;
       }
     }
-    if (streak === 0) return '—';
+    if (streak === 0) return '-';
     return `${streak > 0 ? 'W' : 'L'}${Math.abs(streak)}`;
   }, [recentRaces, myDrones]);
 
@@ -127,7 +127,7 @@ export default function DashboardPage() {
     spotlightDrone && spotlightDrone.totalRaces > 0
       ? ((spotlightDrone.wins / spotlightDrone.totalRaces) * 100).toFixed(1) +
         '%'
-      : '—';
+      : '-';
 
   return (
     <NavShell>
@@ -276,15 +276,15 @@ export default function DashboardPage() {
                       <span className={styles.feedTime}>{ts}</span>
                       <span className={styles.feedSep}>|</span>
                       <span className={styles.feedDrone}>
-                        {winner?.name ?? '—'}
+                        {winner?.name ?? '-'}
                       </span>
                       <span className={styles.feedWord}>beat</span>
                       <span className={styles.feedDrone}>
-                        {loser?.name ?? '—'}
+                        {loser?.name ?? '-'}
                       </span>
                       <span className={styles.feedWord}>on</span>
                       <span className={styles.feedTrack}>
-                        {r.track?.name ?? '—'}
+                        {r.track?.name ?? '-'}
                       </span>
                     </Link>
                   );
@@ -325,8 +325,8 @@ export default function DashboardPage() {
                       href={`/races/${r.id}`}
                       className={styles.resultsRow}
                     >
-                      <span>{opp?.name ?? '—'}</span>
-                      <span>{r.track?.name ?? '—'}</span>
+                      <span>{opp?.name ?? '-'}</span>
+                      <span>{r.track?.name ?? '-'}</span>
                       <span>
                         {won ? (
                           <span className={styles.resultWin}>WIN</span>
@@ -337,7 +337,7 @@ export default function DashboardPage() {
                       <span
                         className={`${styles.mono} ${styles.alignRight}`}
                       >
-                        {won ? `+${r.pointsAwarded}` : '—'}
+                        {won ? `+${r.pointsAwarded}` : '-'}
                       </span>
                     </Link>
                   );
@@ -371,7 +371,7 @@ export default function DashboardPage() {
               <QuickStat label="Streak" value={currentStreak} />
               <QuickStat
                 label="Season Rank"
-                value={myStats?.rank ? `#${myStats.rank}` : '—'}
+                value={myStats?.rank ? `#${myStats.rank}` : '-'}
               />
             </div>
             </div>

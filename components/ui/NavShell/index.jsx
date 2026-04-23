@@ -27,7 +27,7 @@ const NAV_LINKS = [
 
 /**
  * Application layout shell with desktop sidebar + mobile drawer nav.
- * Reads the session directly — no need to pass `user` from every page.
+ * Reads the session directly - no need to pass `user` from every page.
  * @param {object} props
  * @param {React.ReactNode} props.children
  */

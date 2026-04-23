@@ -6,7 +6,7 @@
 }
 
 /* ==========================================================================
- * Main grid — 2 rows × 2 cols using grid-template-areas
+ * Main grid - 2 rows × 2 cols using grid-template-areas
  * Row 1: Spotlight (60%)         | Live Feed (40%)
  * Row 2: Recent Results (60%)    | Countdown  (40%)
  * Row 3:                         | Quick Stats (40%)

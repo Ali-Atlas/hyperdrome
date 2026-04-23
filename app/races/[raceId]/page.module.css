@@ -5,7 +5,7 @@
 }
 
 /* ==========================================================================
- * Top meta strip — race id + timestamp on left, status pill on right
+ * Top meta strip - race id + timestamp on left, status pill on right
  * ========================================================================== */
 
 .topStrip {
@@ -217,7 +217,7 @@
 }
 
 /* ==========================================================================
- * Shared section heading (full-width flush bar) — matches dashboard + drone-mgr
+ * Shared section heading (full-width flush bar) - matches dashboard + drone-mgr
  * ========================================================================== */
 
 .sectionHeading {
@@ -238,7 +238,7 @@
 }
 
 /* ==========================================================================
- * Layout grid — drone1 | drone2 | log on top row, track full-width below
+ * Layout grid - drone1 | drone2 | log on top row, track full-width below
  * ========================================================================== */
 
 .raceLayout {
@@ -457,7 +457,7 @@
 }
 
 /* ==========================================================================
- * Track card — flush header with title + difficulty, stats row, hero image
+ * Track card - flush header with title + difficulty, stats row, hero image
  * ========================================================================== */
 
 .trackCard {

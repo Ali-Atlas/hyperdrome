@@ -5,7 +5,7 @@ import styles from './ScrollReveal.module.css';
 
 /**
  * Wrap children in a div that fades + slides in when it first scrolls into view.
- * Respects `prefers-reduced-motion` — disabled via the global CSS rule.
+ * Respects `prefers-reduced-motion` - disabled via the global CSS rule.
  * @param {object} props
  * @param {React.ReactNode} props.children
  * @param {number} [props.delay=0] - animation delay in ms

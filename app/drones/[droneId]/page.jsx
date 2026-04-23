@@ -93,7 +93,7 @@ function pickStats(drone) {
 }
 
 /* ==========================================================================
- * Top-level page — loads drone + listing, routes to management or public view
+ * Top-level page - loads drone + listing, routes to management or public view
  * ========================================================================== */
 
 export default function DroneDetailPage({ params }) {
@@ -173,7 +173,7 @@ export default function DroneDetailPage({ params }) {
 }
 
 /* ==========================================================================
- * Management view — owner-only. Stat editor, race profile, history.
+ * Management view - owner-only. Stat editor, race profile, history.
  * ========================================================================== */
 
 function DroneManagementView({ drone, onReload }) {
@@ -311,7 +311,7 @@ function DroneManagementView({ drone, onReload }) {
   const winRate =
     drone.totalRaces > 0
       ? ((drone.wins / drone.totalRaces) * 100).toFixed(1) + '%'
-      : '—';
+      : '-';
 
   const raceRows = (drone.recentRaces ?? []).map((r) => {
     const isDrone1 = r.drone1Id === drone.id;
@@ -319,7 +319,7 @@ function DroneManagementView({ drone, onReload }) {
     return {
       id: r.id,
       opponent: isDrone1 ? r.drone2Id : r.drone1Id,
-      trackName: r.track?.name ?? '—',
+      trackName: r.track?.name ?? '-',
       conditions: `${r.weather} / ${r.timeOfDay}`,
       result: won ? 'WIN' : 'LOSS',
       pointsEarned: won ? r.pointsAwarded : 0,
@@ -344,7 +344,7 @@ function DroneManagementView({ drone, onReload }) {
                   </span>
                   <span className={styles.metaSep}>|</span>
                   <span className={styles.metaOwner}>
-                    Owner: {drone.owner?.username ?? '—'}
+                    Owner: {drone.owner?.username ?? '-'}
                   </span>
                 </div>
               </div>
@@ -377,7 +377,7 @@ function DroneManagementView({ drone, onReload }) {
                           />
                         ))
                       ) : (
-                        <span className={styles.formEmpty}>—</span>
+                        <span className={styles.formEmpty}>-</span>
                       )}
                     </div>
                     {formInfo.dots.length > 0 && (
@@ -491,7 +491,7 @@ function DroneManagementView({ drone, onReload }) {
                   <span
                     className={styles.activeHelp}
                     title="Active means this drone races each cycle. Up to 3 drones can be active per player."
-                    aria-label="Set Active — active drones race each cycle. Up to 3 drones can be active per player."
+                    aria-label="Set Active - active drones race each cycle. Up to 3 drones can be active per player."
                   >
                     <Info size={12} aria-hidden="true" />
                   </span>
@@ -551,7 +551,7 @@ function DroneManagementView({ drone, onReload }) {
 }
 
 /* ==========================================================================
- * Public profile view — non-owner + unauthenticated.
+ * Public profile view - non-owner + unauthenticated.
  * Read-only, no editor. Shows marketplace CTA if the drone is listed.
  * ========================================================================== */
 
@@ -560,7 +560,7 @@ function PublicDroneProfile({ drone, listing }) {
   const winRate =
     drone.totalRaces > 0
       ? ((drone.wins / drone.totalRaces) * 100).toFixed(1) + '%'
-      : '—';
+      : '-';
 
   const raceRows = (drone.recentRaces ?? []).map((r) => {
     const isDrone1 = r.drone1Id === drone.id;
@@ -568,7 +568,7 @@ function PublicDroneProfile({ drone, listing }) {
     return {
       id: r.id,
       opponent: isDrone1 ? r.drone2Id : r.drone1Id,
-      trackName: r.track?.name ?? '—',
+      trackName: r.track?.name ?? '-',
       conditions: `${r.weather} / ${r.timeOfDay}`,
       result: won ? 'WIN' : 'LOSS',
       pointsEarned: won ? r.pointsAwarded : 0,
@@ -621,7 +621,7 @@ function PublicDroneProfile({ drone, listing }) {
                 className={styles.buyButton}
               >
                 <ShoppingCart size={18} />
-                Buy on Marketplace —{' '}
+                Buy on Marketplace -{' '}
                 <span className={styles.buyPrice}>
                   {listing.price.toLocaleString()} pts
                 </span>
@@ -677,7 +677,7 @@ function RaceHistoryTable({ rows }) {
           label: 'Opponent',
           render: (r) => (
             <span className={styles.mono}>
-              {r.opponent ? r.opponent.slice(-8).toUpperCase() : '—'}
+              {r.opponent ? r.opponent.slice(-8).toUpperCase() : '-'}
             </span>
           ),
         },
@@ -715,7 +715,7 @@ function RaceProfileColumn({ label, items, tone }) {
       </div>
       <div className={styles.raceProfileChips}>
         {items.length === 0 ? (
-          <span className={styles.raceProfileEmpty}>—</span>
+          <span className={styles.raceProfileEmpty}>-</span>
         ) : (
           items.map((name) => {
             const Icon = CONDITION_ICONS[name] ?? Cloud;

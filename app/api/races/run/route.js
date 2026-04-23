@@ -12,7 +12,7 @@ const { adminConfig } = schema;
  * Accepts either `Authorization: Bearer <secret>` (Vercel cron default)
  * or `x-cron-secret: <secret>` (our own scripts).
  *
- * Short-circuits when the `racing_enabled` admin_config row is not truthy —
+ * Short-circuits when the `racing_enabled` admin_config row is not truthy -
  * the cron endpoint will return `{ message: 'Racing is paused' }` without
  * running any races. Flip the config flag via the admin panel to go live.
  */
@@ -31,7 +31,7 @@ async function handler(request) {
     return fail('Unauthorized', 401);
   }
 
-  // Master kill-switch — check the admin_config flag before doing anything
+  // Master kill-switch - check the admin_config flag before doing anything
   try {
     const [flag] = await db
       .select()

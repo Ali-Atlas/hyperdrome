@@ -7,7 +7,7 @@
 }
 
 /* ==========================================================================
- * Season header block — season info + progress + season rewards row.
+ * Season header block - season info + progress + season rewards row.
  * Intentionally borderless; acts as a hero context strip, not a boxed
  * container.
  * ========================================================================== */
@@ -69,7 +69,7 @@
   font-weight: var(--font-bold);
 }
 
-/* Progress bar — sits inline after "N days remaining" on web/tablet,
+/* Progress bar - sits inline after "N days remaining" on web/tablet,
    drops below on the smallest mobile via flex-wrap on .seasonTopLine. */
 .progressInline {
   display: inline-flex;
@@ -109,7 +109,7 @@
   flex-shrink: 0;
 }
 
-/* Rewards — inline preview thumbnails + captions, no dot separators.
+/* Rewards - inline preview thumbnails + captions, no dot separators.
    Sits directly under the progress row with no dividing line: season
    progress + rewards are all one "season context" cluster. */
 .rewardsRow {
@@ -141,7 +141,7 @@
   letter-spacing: 0.02em;
 }
 
-/* Reward preview thumbnails — flat tinted tiles in the same pill-style
+/* Reward preview thumbnails - flat tinted tiles in the same pill-style
    language as .pointsChip / level Badge: 15% color bg, matching coloured
    icon on top, subtle border. No gradients, no drop shadows. */
 .rewardThumb {
@@ -183,7 +183,7 @@
  * Tabs (Players / Drones)
  * ========================================================================== */
 
-/* Tabs — compact top-right switch */
+/* Tabs - compact top-right switch */
 .tabs {
   display: inline-flex;
   gap: 2px;
@@ -230,7 +230,7 @@
   flex-wrap: wrap;
 }
 
-/* Bracket selector — small text buttons, not pills */
+/* Bracket selector - small text buttons, not pills */
 .bracketTabs {
   display: inline-flex;
   align-items: center;
@@ -277,7 +277,7 @@
 }
 
 /* ==========================================================================
- * Podium — 2nd / 1st / 3rd (gold/silver/bronze tiers)
+ * Podium - 2nd / 1st / 3rd (gold/silver/bronze tiers)
  * ========================================================================== */
 
 .podium {
@@ -316,7 +316,7 @@
   padding: var(--space-3);
 }
 
-/* Tier treatments — thick coloured borders + stronger tinted gradient bgs
+/* Tier treatments - thick coloured borders + stronger tinted gradient bgs
    so silver/bronze read as real medals, not greyed-out states. */
 
 .gold {
@@ -485,7 +485,7 @@
 }
 
 /* ==========================================================================
- * Rankings — DataTable renders directly in the page flow (no Card wrapper)
+ * Rankings - DataTable renders directly in the page flow (no Card wrapper)
  * ========================================================================== */
 
 .rankingsTable {
@@ -496,7 +496,7 @@
   margin-top: var(--space-5);
 }
 
-/* Table cells — consistent typography with races/drones tables */
+/* Table cells - consistent typography with races/drones tables */
 
 .rankCell {
   font-family: var(--font-mono);
@@ -523,7 +523,7 @@
   font-family: var(--font-mono);
 }
 
-/* User's own row highlight — applied via DataTable rowClassName prop */
+/* User's own row highlight - applied via DataTable rowClassName prop */
 
 .myRow {
   background: rgba(3, 218, 198, 0.09) !important;

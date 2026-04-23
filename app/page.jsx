@@ -16,11 +16,11 @@ import ScrollReveal from '@/components/util/ScrollReveal';
 import styles from './page.module.css';
 
 export const metadata = {
-  title: 'Drone Manager — Competitive Idle Drone Racing',
+  title: 'Drone Manager - Competitive Idle Drone Racing',
   description:
     'Build, optimize, and dominate the circuit. Own drones, allocate stats, and race automatically every 2 minutes. Earn points, trade skins, climb the leaderboard.',
   openGraph: {
-    title: 'Drone Manager — Competitive Idle Drone Racing',
+    title: 'Drone Manager - Competitive Idle Drone Racing',
     description:
       'Build, optimize, and dominate the circuit. Own drones, allocate stats, and race automatically every 2 minutes.',
     type: 'website',
@@ -87,7 +87,7 @@ const FEATURES = [
 ];
 
 export default async function LandingPage() {
-  // Logged-in users never see the marketing page — bounce straight to dashboard.
+  // Logged-in users never see the marketing page - bounce straight to dashboard.
   const session = await auth();
   if (session?.user) {
     redirect('/dashboard');

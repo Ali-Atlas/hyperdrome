@@ -10,8 +10,8 @@ const GRID_LEVELS = [0.25, 0.5, 0.75, 1];
 
 /**
  * N-axis radar chart visualising a drone's stat shape at a glance.
- * By default renders a distribution — the largest stat reaches the
- * outer ring, others scale proportionally — so the shape reflects
+ * By default renders a distribution - the largest stat reaches the
+ * outer ring, others scale proportionally - so the shape reflects
  * where points have been allocated, not how many. Pass `maxValue`
  * to render on an absolute scale instead.
  *

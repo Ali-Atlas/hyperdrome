@@ -8,7 +8,7 @@ import styles from './DataTable.module.css';
 /**
  * Responsive sortable data table.
  *
- * Columns can supply a `shortLabel` — when set, the full `label` renders
+ * Columns can supply a `shortLabel` - when set, the full `label` renders
  * at desktop width and the `shortLabel` swaps in at ≤1024px so columns
  * still fit on tablet without horizontal scroll.
  *

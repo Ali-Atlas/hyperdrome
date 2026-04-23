@@ -120,7 +120,7 @@ const STAT_SNAKE_TO_CAMEL = {
  *
  * The two writes are best-effort under the Neon HTTP driver (no txns).
  * If the second write fails the player will have been debited without
- * stats updating — rare given both statements target a single row each,
+ * stats updating - rare given both statements target a single row each,
  * and logs surface via the caller's try/catch.
  *
  * @param {string} droneId
@@ -292,7 +292,7 @@ export async function checkAndLevelUp(droneId) {
     .where(eq(drones.id, droneId));
 
   // Player gets the level-up bonus in their shared wallet (bots have no
-  // owner, so their level-ups yield no payout — by design).
+  // owner, so their level-ups yield no payout - by design).
   if (drone.userId && !drone.isBot && bonusPoints > 0) {
     await db
       .update(users)

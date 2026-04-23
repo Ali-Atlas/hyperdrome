@@ -53,7 +53,7 @@
 }
 
 /* ==========================================================================
- * Drone card — trading-card style
+ * Drone card - trading-card style
  * ========================================================================== */
 
 .droneCard {
@@ -81,7 +81,7 @@
   border-color: rgba(3, 218, 198, 0.35);
 }
 
-/* ---- Image frame — padded so drone sits inside, not overflowing ---- */
+/* ---- Image frame - padded so drone sits inside, not overflowing ---- */
 
 .imageFrame {
   position: relative;
