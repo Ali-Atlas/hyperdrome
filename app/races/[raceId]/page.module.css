@@ -302,9 +302,93 @@
   transition: all var(--duration-normal) var(--ease-out);
 }
 
-.droneLink:hover .droneCard {
-  border-color: rgba(3, 218, 198, 0.4);
-  box-shadow: 0 0 24px rgba(3, 218, 198, 0.12);
+/* Level-tier tinted drone card backgrounds + level-colored hover. */
+.level_steel {
+  background: linear-gradient(
+      180deg,
+      rgba(138, 155, 168, 0.18) 0%,
+      rgba(138, 155, 168, 0.04) 100%
+    ),
+    var(--bg-card);
+  border-width: 2px;
+  border-color: rgba(138, 155, 168, 0.5);
+}
+.droneLink:hover .level_steel {
+  border-color: rgba(138, 155, 168, 0.9);
+  box-shadow: 0 0 24px rgba(138, 155, 168, 0.18);
+}
+
+.level_orange {
+  background: linear-gradient(
+      180deg,
+      rgba(255, 140, 66, 0.18) 0%,
+      rgba(255, 140, 66, 0.04) 100%
+    ),
+    var(--bg-card);
+  border-width: 2px;
+  border-color: rgba(255, 140, 66, 0.55);
+}
+.droneLink:hover .level_orange {
+  border-color: rgba(255, 140, 66, 0.95);
+  box-shadow: 0 0 24px rgba(255, 140, 66, 0.2);
+}
+
+.level_purple {
+  background: linear-gradient(
+      180deg,
+      rgba(187, 134, 252, 0.18) 0%,
+      rgba(187, 134, 252, 0.04) 100%
+    ),
+    var(--bg-card);
+  border-width: 2px;
+  border-color: rgba(187, 134, 252, 0.55);
+}
+.droneLink:hover .level_purple {
+  border-color: rgba(187, 134, 252, 0.95);
+  box-shadow: 0 0 24px rgba(187, 134, 252, 0.22);
+}
+
+.level_gold {
+  background: linear-gradient(
+      180deg,
+      rgba(255, 215, 0, 0.18) 0%,
+      rgba(255, 215, 0, 0.04) 100%
+    ),
+    var(--bg-card);
+  border-width: 2px;
+  border-color: rgba(255, 215, 0, 0.55);
+}
+.droneLink:hover .level_gold {
+  border-color: rgba(255, 215, 0, 0.95);
+  box-shadow: 0 0 24px rgba(255, 215, 0, 0.22);
+}
+
+/* Skin-rarity indicator layered on top of the level tint. */
+.skinRarity_rare {
+  border-color: rgba(74, 158, 255, 0.4);
+  box-shadow: 0 0 12px rgba(74, 158, 255, 0.1);
+}
+
+.skinRarity_epic {
+  border-color: rgba(187, 134, 252, 0.4);
+  box-shadow: 0 0 12px rgba(187, 134, 252, 0.1);
+}
+
+.skinRarity_legendary {
+  border-color: rgba(255, 215, 0, 0.4);
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
+  animation: legendaryShimmer 4s ease-in-out infinite;
+}
+
+@keyframes legendaryShimmer {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
+    border-color: rgba(255, 215, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(255, 215, 0, 0.35);
+    border-color: rgba(255, 215, 0, 0.75);
+  }
 }
 
 .droneImageFrame {

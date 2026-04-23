@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Cpu,
   Flag,
+  Map,
   Trophy,
   Store,
   Menu,
@@ -21,6 +22,7 @@ const NAV_LINKS = [
   { href: '/dashboard',   label: 'Dashboard',   Icon: LayoutDashboard },
   { href: '/drones',      label: 'My Drones',   Icon: Cpu },
   { href: '/races',       label: 'Races',       Icon: Flag },
+  { href: '/tracks',      label: 'Tracks',      Icon: Map },
   { href: '/leaderboard', label: 'Leaderboard', Icon: Trophy },
   { href: '/marketplace', label: 'Marketplace', Icon: Store },
 ];

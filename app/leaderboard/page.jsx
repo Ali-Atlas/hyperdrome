@@ -8,7 +8,7 @@ import DataTable from '@/components/ui/DataTable';
 import Toggle from '@/components/ui/Toggle';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from '@/hooks/useSession';
-import { cn, getLevelColor } from '@/lib/utils';
+import { cn, getDroneImage, getLevelColor } from '@/lib/utils';
 import styles from './page.module.css';
 
 const BRACKETS = [
@@ -427,7 +427,7 @@ function PodiumCard({ rank, entry, tab }) {
   const totalRaces = entry?.totalRaces ?? 0;
   const winRate = computeWinRate(wins, totalRaces);
   const seasonPts = tab === 'players' ? entry?.seasonPoints : null;
-  const imageUrl = entry?.imageUrl || '/drones/default.png';
+  const imageUrl = getDroneImage(entry);
 
   const rankClass =
     rank === 1 ? styles.gold : rank === 2 ? styles.silver : styles.bronze;

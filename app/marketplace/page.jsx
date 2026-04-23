@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, ChevronDown, ChevronRight } from 'lucide-react';
@@ -8,13 +8,12 @@ import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import DataTable from '@/components/ui/DataTable';
 import Modal from '@/components/ui/Modal';
 import Skeleton from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
-import { cn, getLevelColor } from '@/lib/utils';
+import { cn, getDroneImage, getLevelColor, getLevelTier } from '@/lib/utils';
 import styles from './page.module.css';
 
 const PACK_DEFS = [
@@ -24,6 +23,8 @@ const PACK_DEFS = [
     price: 500,
     variant: 'gray',
     contents: '3 Skins - 2 Common guaranteed, 1 Rare or higher',
+    description:
+      'Cheapest way to start a collection. Two commons plus a wild slot that bumps to rare on every open.',
     slots: [
       { variant: 'common' },
       { variant: 'common' },
@@ -36,6 +37,14 @@ const PACK_DEFS = [
       { label: 'Legendary', rarity: 'legendary', chance: '5%' },
     ],
     buttonVariant: 'secondary',
+    possible: [
+      { name: 'Carbon Fiber', rarity: 'common' },
+      { name: 'Chrome Plate', rarity: 'common' },
+      { name: 'Neon Pulse', rarity: 'rare' },
+      { name: 'Prism', rarity: 'rare' },
+      { name: 'Hologram', rarity: 'rare' },
+      { name: 'Thunder Strike', rarity: 'epic', mystery: true },
+    ],
   },
   {
     id: 'premium',
@@ -43,6 +52,12 @@ const PACK_DEFS = [
     price: 2_000,
     variant: 'purple',
     contents: '3 Skins - 1 Rare guaranteed, 1 Epic or higher, 1 any rarity',
+    description:
+      'Guaranteed rare plus an epic-or-better slot. The sweet spot between cost and shot at a legendary.',
+    pills: [
+      { label: 'Most Popular', tone: 'accent' },
+      { label: 'Save 30% vs Singles', tone: 'muted' },
+    ],
     slots: [
       { variant: 'rare' },
       { variant: 'epic' },
@@ -55,6 +70,14 @@ const PACK_DEFS = [
       { label: 'Wild slot - any rarity', rarity: 'epic', chance: '40% / 35% / 20% / 5%' },
     ],
     buttonVariant: 'primary',
+    possible: [
+      { name: 'Neon Pulse', rarity: 'rare' },
+      { name: 'Synthwave', rarity: 'rare' },
+      { name: 'Data Stream', rarity: 'rare' },
+      { name: 'Void Walker', rarity: 'epic' },
+      { name: 'Inferno Core', rarity: 'epic' },
+      { name: 'Hyperion', rarity: 'legendary', mystery: true },
+    ],
   },
   {
     id: 'legendary',
@@ -62,10 +85,12 @@ const PACK_DEFS = [
     price: 10_000,
     variant: 'gold',
     contents: '3 Skins - 1 Epic guaranteed, 1 Legendary, 1 Rare or higher',
+    description:
+      '1 Epic guaranteed · 1 Legendary guaranteed · 1 Rare+ wild slot. The only way to pull Mach Zero, Overdrive, or Apex Prime.',
     slots: [
       { variant: 'epic' },
       { variant: 'legendary' },
-      { variant: 'rare', mystery: true },
+      { variant: 'rainbow', mystery: true },
     ],
     rates: [
       { label: 'Epic (guaranteed)', rarity: 'epic', chance: '100%' },
@@ -73,8 +98,23 @@ const PACK_DEFS = [
       { label: 'Rare+ (slot 3)', rarity: 'rare', chance: '30% / 50% / 20%' },
     ],
     buttonVariant: 'gold',
+    possible: [
+      { name: 'Thunder Strike', rarity: 'epic' },
+      { name: 'Celestial Guard', rarity: 'epic' },
+      { name: 'Tidal Surge', rarity: 'epic' },
+      { name: 'Mach Zero', rarity: 'legendary' },
+      { name: 'Overdrive', rarity: 'legendary' },
+      { name: 'Apex Prime', rarity: 'legendary' },
+    ],
   },
 ];
+
+// Live ticker - a hardcoded sample pull. Uses a real seeded username
+// (MKT_ORBIT) so the text looks plausible, not fabricated.
+const LIVE_TICKER = {
+  packsOpenedToday: 2369,
+  lastPull: { username: 'MKT_ORBIT', rarity: 'legendary', name: 'Mach Zero' },
+};
 
 const RARITY_LIST = ['common', 'rare', 'epic', 'legendary'];
 const RARITY_LABELS = {
@@ -83,6 +123,16 @@ const RARITY_LABELS = {
   epic: 'Epic',
   legendary: 'Legendary',
 };
+
+// Aggregate rarity % per pack across all 3 slots. Mirrors the probabilities
+// encoded in services/pack.service.js PACK_SLOTS so the visual odds bar
+// and the backend roller stay in sync.
+const PACK_ODDS = {
+  starter:   { common: 66.7, rare: 23.3, epic: 8.3,  legendary: 1.7  },
+  premium:   { common: 13.3, rare: 45.0, epic: 26.7, legendary: 15.0 },
+  legendary: { common: 0,    rare: 10.0, epic: 50.0, legendary: 40.0 },
+};
+
 
 export default function MarketplacePage() {
   const { user } = useSession();
@@ -96,14 +146,14 @@ export default function MarketplacePage() {
   const [listings, setListings] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [txOpen, setTxOpen] = useState(false);
+  const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({
     minPrice: '',
     maxPrice: '',
     minLevel: '',
     maxLevel: '',
     rarities: [],
-    sort: 'newest',
+    sort: 'priceHigh',
   });
   const [search, setSearch] = useState('');
 
@@ -204,6 +254,59 @@ export default function MarketplacePage() {
 
     return items;
   }, [listings, myActiveListings, filters, search, tab, view]);
+
+  // Measure the grid width and derive the column count that the CSS
+  // would produce at this viewport. Page size then locks to a whole
+  // number of rows (cols × ROWS_PER_PAGE) so the last row on every
+  // page is always full. Missing slots on the tail page are filled
+  // with invisible placeholders (see render) so the pagination
+  // buttons sit at the same vertical position across pages.
+  const gridRef = useRef(null);
+  const [columns, setColumns] = useState(4);
+  useEffect(() => {
+    const node = gridRef.current;
+    if (!node) return;
+    const recalc = () => {
+      const width = node.clientWidth;
+      if (!width) return;
+      // Mirrors the CSS: minmax(165px, 1fr) with 8px gap.
+      const CARD_MIN = 165;
+      const GAP = 8;
+      const cols = Math.max(
+        1,
+        Math.floor((width + GAP) / (CARD_MIN + GAP)),
+      );
+      setColumns(cols);
+    };
+    recalc();
+    const ro = new ResizeObserver(recalc);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, [tab, loading]);
+
+  const ROWS_PER_PAGE = 3;
+  const PAGE_SIZE = columns * ROWS_PER_PAGE;
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, view, filters, search]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredListings.length / PAGE_SIZE),
+  );
+  const safePage = Math.min(page, totalPages);
+  const pagedListings = useMemo(
+    () =>
+      filteredListings.slice(
+        (safePage - 1) * PAGE_SIZE,
+        safePage * PAGE_SIZE,
+      ),
+    [filteredListings, safePage, PAGE_SIZE],
+  );
+  // Invisible slots that pad the last page up to PAGE_SIZE so the grid
+  // keeps the same height and the pagination below never jumps.
+  const placeholderCount = Math.max(0, PAGE_SIZE - pagedListings.length);
 
   const handleBuy = async () => {
     if (!buyModal) return;
@@ -319,45 +422,6 @@ export default function MarketplacePage() {
     setPackRevealStep(0);
   };
 
-  const txColumns = useMemo(
-    () => [
-      {
-        key: 'soldAt',
-        label: 'Date',
-        render: (r) =>
-          r.soldAt ? new Date(r.soldAt).toLocaleDateString() : '-',
-      },
-      {
-        key: 'itemName',
-        label: 'Item',
-        render: (r) =>
-          r.drone?.name ??
-          r.skin?.name ??
-          (r.itemType === 'drone' ? 'Drone' : 'Skin'),
-      },
-      {
-        key: 'itemType',
-        label: 'Type',
-        shortLabel: 'Type',
-        render: (r) => (
-          <span className={styles.txType}>{r.itemType}</span>
-        ),
-      },
-      {
-        key: 'price',
-        label: 'Price',
-        align: 'right',
-        sortable: true,
-        render: (r) => (
-          <span className={styles.mono}>
-            {Number(r.price).toLocaleString()} pts
-          </span>
-        ),
-      },
-    ],
-    [],
-  );
-
   return (
     <NavShell>
       <div className={styles.page}>
@@ -469,8 +533,6 @@ export default function MarketplacePage() {
           {tab !== 'packs' && (
           <aside className={styles.filters}>
             <div className={styles.filtersInner}>
-              <h2 className={styles.filtersHeading}>Filters</h2>
-
               <div className={styles.filterBody}>
                 <div className={styles.filterGroup}>
                   <label className={styles.filterLabel}>Price (pts)</label>
@@ -595,7 +657,7 @@ export default function MarketplacePage() {
                       minLevel: '',
                       maxLevel: '',
                       rarities: [],
-                      sort: 'newest',
+                      sort: 'priceHigh',
                     })
                   }
                 >
@@ -634,75 +696,75 @@ export default function MarketplacePage() {
                 }
               />
             ) : (
-              <div className={styles.grid}>
-                {filteredListings.map((listing) => {
-                  const card = (
-                    <ListingCard
-                      listing={listing}
-                      isOwner={listing.sellerId === user?.id}
-                      canAfford={userPoints >= listing.price}
-                      pointsShort={Math.max(0, listing.price - userPoints)}
-                      onBuy={() => setBuyModal(listing)}
-                      onCancel={() => handleCancel(listing.id)}
-                    />
-                  );
-                  // Drone cards navigate to the public drone profile. Skin
-                  // cards have no detail page yet, so stay non-clickable.
-                  const droneId =
-                    listing.itemType === 'drone' ? listing.drone?.id : null;
-                  if (droneId) {
-                    return (
-                      <Link
-                        key={listing.id}
-                        href={`/drones/${droneId}`}
-                        className={styles.cardLink}
-                      >
-                        {card}
-                      </Link>
+              <>
+                <div
+                  ref={gridRef}
+                  className={styles.grid}
+                  style={{
+                    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                  }}
+                >
+                  {pagedListings.map((listing) => {
+                    const card = (
+                      <ListingCard
+                        listing={listing}
+                        isOwner={listing.sellerId === user?.id}
+                        canAfford={userPoints >= listing.price}
+                        pointsShort={Math.max(0, listing.price - userPoints)}
+                        onBuy={() => setBuyModal(listing)}
+                        onCancel={() => handleCancel(listing.id)}
+                      />
                     );
-                  }
-                  return (
-                    <div key={listing.id} className={styles.cardWrap}>
-                      {card}
-                    </div>
-                  );
-                })}
-              </div>
+                    // Drone cards navigate to the public drone profile. Skin
+                    // cards have no detail page yet, so stay non-clickable.
+                    const droneId =
+                      listing.itemType === 'drone' ? listing.drone?.id : null;
+                    if (droneId) {
+                      return (
+                        <Link
+                          key={listing.id}
+                          href={`/drones/${droneId}`}
+                          className={styles.cardLink}
+                        >
+                          {card}
+                        </Link>
+                      );
+                    }
+                    return (
+                      <div key={listing.id} className={styles.cardWrap}>
+                        {card}
+                      </div>
+                    );
+                  })}
+                  {/* Invisible spacers fill partial last rows so the grid
+                      height stays constant and the pagination below
+                      never jumps up. aria-hidden keeps screen readers
+                      focused on real listings only. */}
+                  {Array.from({ length: placeholderCount }).map((_, i) => (
+                    <div
+                      key={`ph-${i}`}
+                      className={styles.cardPlaceholder}
+                      aria-hidden="true"
+                    />
+                  ))}
+                </div>
+                {totalPages > 1 && (
+                  <Pagination
+                    page={safePage}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {/* ---- Transaction history (collapsed by default, DataTable inside).
-            Hidden on Packs tab - doesn't apply there. ---- */}
+        {/* ---- Recent sales tape (always expanded). A compact activity
+             feed rather than a table - sits below the grid as a market
+             pulse section. Hidden on the Packs tab. ---- */}
         {tab !== 'packs' && (
-        <Card className={styles.historyCard}>
-          <button
-            type="button"
-            className={styles.historyToggle}
-            onClick={() => setTxOpen((o) => !o)}
-            aria-expanded={txOpen}
-          >
-            <span>Transaction History</span>
-            <ChevronDown
-              size={16}
-              className={cn(
-                styles.historyChevron,
-                txOpen && styles.historyChevronOpen,
-              )}
-              aria-hidden="true"
-            />
-          </button>
-          {txOpen && (
-            <div className={styles.historyBody}>
-              <DataTable
-                sortable
-                columns={txColumns}
-                data={transactions}
-                emptyMessage="No completed sales yet."
-              />
-            </div>
-          )}
-        </Card>
+          <SalesTape transactions={transactions} />
         )}
       </div>
 
@@ -897,102 +959,371 @@ export default function MarketplacePage() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Packs showcase                                                             */
+/* Numbered pagination (1 2 3 … >). Mirrors the pattern on the races page. */
+/* -------------------------------------------------------------------------- */
+
+function Pagination({ page, totalPages, onPageChange }) {
+  const pages = getVisiblePages(page, totalPages);
+  return (
+    <nav className={styles.pagination} aria-label="Pagination">
+      {pages.map((p, i) =>
+        p === '...' ? (
+          <span key={`ell-${i}`} className={styles.pageEllipsis}>
+            …
+          </span>
+        ) : (
+          <button
+            key={p}
+            type="button"
+            className={cn(styles.pageNum, p === page && styles.pageNumActive)}
+            onClick={() => onPageChange(p)}
+            aria-current={p === page ? 'page' : undefined}
+          >
+            {p}
+          </button>
+        ),
+      )}
+      <button
+        type="button"
+        className={styles.pageNext}
+        disabled={page >= totalPages}
+        onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+        aria-label="Next page"
+      >
+        <ChevronRight size={14} />
+      </button>
+    </nav>
+  );
+}
+
+function getVisiblePages(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = [1];
+  if (current > 3) pages.push('...');
+  const lo = Math.max(2, current - 1);
+  const hi = Math.min(total - 1, current + 1);
+  for (let i = lo; i <= hi; i++) pages.push(i);
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Recent sales tape - compact activity feed replacing the old DataTable.     */
+/* Reads as a market pulse: type pill + item name · time · seller → price.    */
+/* -------------------------------------------------------------------------- */
+
+function SalesTape({ transactions }) {
+  const stats = useMemo(() => {
+    const count = transactions.length;
+    if (!count) return { count: 0, volume: 0, avg: 0 };
+    const volume = transactions.reduce(
+      (sum, t) => sum + Number(t.price || 0),
+      0,
+    );
+    return { count, volume, avg: Math.round(volume / count) };
+  }, [transactions]);
+
+  return (
+    <section className={styles.tapeSection}>
+      <header className={styles.tapeHeader}>
+        <div className={styles.tapeTitleBlock}>
+          <span className={styles.tapeDot} aria-hidden="true" />
+          <h2 className={styles.tapeTitle}>Recent Sales</h2>
+        </div>
+        <div className={styles.tapeStats}>
+          <span className={styles.tapeStat}>
+            <span className={styles.tapeStatValue}>{stats.count}</span>
+            <span className={styles.tapeStatLabel}>sales</span>
+          </span>
+          <span className={styles.tapeStatSep} aria-hidden="true" />
+          <span className={styles.tapeStat}>
+            <span className={styles.tapeStatValue}>
+              {stats.volume.toLocaleString()}
+            </span>
+            <span className={styles.tapeStatLabel}>volume</span>
+          </span>
+          <span className={styles.tapeStatSep} aria-hidden="true" />
+          <span className={styles.tapeStat}>
+            <span className={styles.tapeStatValue}>
+              {stats.avg.toLocaleString()}
+            </span>
+            <span className={styles.tapeStatLabel}>avg</span>
+          </span>
+        </div>
+      </header>
+
+      {transactions.length === 0 ? (
+        <div className={styles.tapeEmpty}>No completed sales yet.</div>
+      ) : (
+        <ul className={styles.tapeList}>
+          {transactions.map((t) => {
+            const name =
+              t.drone?.name ??
+              t.skin?.name ??
+              (t.itemType === 'drone' ? 'Drone' : 'Skin');
+            const typePill = t.itemType === 'skin' ? t.skin?.rarity : null;
+            return (
+              <li key={t.id} className={styles.tapeRow}>
+                <span
+                  className={cn(
+                    styles.tapeTypePill,
+                    typePill && styles[`rarity_${typePill}`],
+                    t.itemType === 'drone' && styles.tapePillDrone,
+                  )}
+                >
+                  {t.itemType}
+                </span>
+                <span className={styles.tapeName}>{name}</span>
+                <span className={styles.tapeMeta}>
+                  {formatRelativeTime(t.soldAt)}
+                  {t.buyer?.username ? ` · by ${t.buyer.username}` : ''}
+                </span>
+                <span className={styles.tapePrice}>
+                  {Number(t.price).toLocaleString()}
+                  <span className={styles.tapePriceUnit}>pts</span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function formatRelativeTime(iso) {
+  if (!iso) return '-';
+  const then = new Date(iso);
+  const diffMs = Date.now() - then.getTime();
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return then.toLocaleDateString();
+}
+
+/* -------------------------------------------------------------------------- */
+/* Packs showcase - hero Legendary, medium Premium, compact Starter.           */
+/*                                                                             */
+/* Every card: left column has title + price + description + odds text +       */
+/* "What's Inside" expander. Right column has 3 card silhouettes whose glows   */
+/* reflect each slot's guaranteed rarity (mystery slots get a shifting glow    */
+/* + "?"). Buy button spans the card width at the bottom.                      */
 /* -------------------------------------------------------------------------- */
 
 function PacksShowcase({ userPoints, openingId, onOpen }) {
+  const legendary = PACK_DEFS.find((p) => p.id === 'legendary');
+  const premium = PACK_DEFS.find((p) => p.id === 'premium');
+  const starter = PACK_DEFS.find((p) => p.id === 'starter');
+
+  const packProps = (pack) => ({
+    pack,
+    canAfford: userPoints >= pack.price,
+    pointsShort: Math.max(0, pack.price - userPoints),
+    isOpening: openingId === pack.id,
+    onOpen: () => onOpen(pack.id),
+  });
+
   return (
     <div className={styles.packsShowcase}>
-      {PACK_DEFS.map((pack) => {
-        const canAfford = userPoints >= pack.price;
-        const pointsShort = Math.max(0, pack.price - userPoints);
-        const isOpening = openingId === pack.id;
-        return (
-          <PackCard
-            key={pack.id}
-            pack={pack}
-            canAfford={canAfford}
-            pointsShort={pointsShort}
-            isOpening={isOpening}
-            onOpen={() => onOpen(pack.id)}
-          />
-        );
-      })}
+      <LiveTicker />
+      <LegendaryHero {...packProps(legendary)} />
+      <div className={styles.packsRow}>
+        <PackCard {...packProps(premium)} />
+        <PackCard {...packProps(starter)} />
+      </div>
     </div>
+  );
+}
+
+/* Thin activity strip at the top - LIVE dot + packs-opened-today + latest
+   legendary pull. Hardcoded for now; wire to real data later. */
+function LiveTicker() {
+  const t = LIVE_TICKER;
+  return (
+    <div className={styles.ticker} role="status" aria-live="polite">
+      <span className={styles.tickerLive}>
+        <span className={styles.tickerDot} aria-hidden="true" />
+        Live
+      </span>
+      <span className={styles.tickerMetric}>
+        <strong>{t.packsOpenedToday.toLocaleString()}</strong> packs opened today
+      </span>
+      <span className={styles.tickerSep} aria-hidden="true" />
+      <span className={styles.tickerPull}>
+        <strong className={styles.tickerUser}>{t.lastPull.username}</strong>
+        <span className={styles.tickerPullText}> pulled </span>
+        <span
+          className={cn(
+            styles.tickerPullRarity,
+            styles[`rarity_${t.lastPull.rarity}`],
+          )}
+        >
+          Legendary: {t.lastPull.name}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/* Hero legendary pack. Left column = copy + odds + possible pulls +
+   CTA; right column = a big tilted gold "L" card that slowly floats.
+   The over-the-top treatment Captain wanted. */
+function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
+  return (
+    <article
+      className={cn(styles.packCard, styles[`pack_${pack.variant}`], styles.packCardHero)}
+    >
+      <div className={styles.heroGrid}>
+        <div className={styles.heroInfo}>
+          <span className={styles.packSubtitle}>Legendary Pack</span>
+          <p className={styles.heroDescription}>{pack.description}</p>
+          <OddsText packId={pack.id} />
+          <PossibleGroup items={pack.possible} />
+          <div className={styles.heroActions}>
+            <Button
+              variant="secondary"
+              onClick={onOpen}
+              disabled={!canAfford || isOpening}
+              loading={isOpening}
+              className={cn(styles.packBtn, styles.packBtnGold)}
+            >
+              {!canAfford
+                ? `Need +${pointsShort.toLocaleString()} pts`
+                : `Open Pack · ${pack.price.toLocaleString()} pts`}
+            </Button>
+            <span className={styles.heroHint}>Earn points by racing</span>
+          </div>
+        </div>
+        <div className={styles.heroCardWrap} aria-hidden="true">
+          <div className={styles.bigLegendaryCard}>
+            <span className={styles.bigCardL}>L</span>
+            <span className={styles.bigCardLabel}>Legendary</span>
+          </div>
+        </div>
+      </div>
+    </article>
   );
 }
 
 function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
-
   return (
-    <div className={cn(styles.packCard, styles[`pack_${pack.variant}`])}>
-      <div className={styles.packSilhouettes}>
-        {pack.slots.map((slot, i) => (
-          <Silhouette key={i} variant={slot.variant} mystery={slot.mystery} />
-        ))}
-      </div>
-
-      <div className={styles.packContent}>
-        <div className={styles.packName}>{pack.name}</div>
-        <div className={styles.packContents}>{pack.contents}</div>
-
-        <button
-          type="button"
-          className={styles.packDetailsToggle}
-          onClick={() => setDetailsOpen((v) => !v)}
-          aria-expanded={detailsOpen}
-        >
-          {detailsOpen ? (
-            <ChevronDown size={12} aria-hidden="true" />
-          ) : (
-            <ChevronRight size={12} aria-hidden="true" />
-          )}
-          What&apos;s inside
-        </button>
-
-        {detailsOpen && (
-          <ul className={styles.packRates}>
-            {pack.rates.map((rate, i) => (
-              <li key={i}>
-                <span
-                  className={cn(styles.packRateLabel, styles[`rarity_${rate.rarity}`])}
-                >
-                  {rate.label}
-                </span>
-                <span className={styles.packRateChance}>{rate.chance}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div className={styles.packBuyRow}>
-          <Button
-            variant={
-              pack.buttonVariant === 'gold' ? 'secondary' : pack.buttonVariant
-            }
-            onClick={onOpen}
-            disabled={!canAfford || isOpening}
-            loading={isOpening}
-            className={cn(
-              styles.packBtn,
-              pack.buttonVariant === 'gold' && styles.packBtnGold,
-            )}
-          >
-            {!canAfford
-              ? `Need +${pointsShort.toLocaleString()} pts`
-              : `Open Pack - ${pack.price.toLocaleString()} pts`}
-          </Button>
+    <article className={cn(styles.packCard, styles[`pack_${pack.variant}`])}>
+      {pack.pills ? (
+        <div className={styles.pillRow}>
+          {pack.pills.map((p, i) => (
+            <span
+              key={i}
+              className={cn(styles.pill, styles[`pill_${p.tone}`])}
+            >
+              {p.label}
+            </span>
+          ))}
         </div>
+      ) : (
+        /* Invisible spacer keeps Starter's header row aligned with
+           Premium's (which has the Most Popular / Save pills above). */
+        <div className={styles.pillRowSpacer} aria-hidden="true" />
+      )}
+      <div className={styles.packHead}>
+        <h3 className={styles.packName}>{pack.name}</h3>
+        <span className={styles.packPrice}>
+          {pack.price.toLocaleString()}
+          <span className={styles.packPriceUnit}>pts</span>
+        </span>
+      </div>
+      <OddsText packId={pack.id} />
+      <PossibleGroup items={pack.possible} />
+      <div className={styles.packCtaRow}>
+        <Button
+          variant={pack.buttonVariant === 'gold' ? 'secondary' : pack.buttonVariant}
+          onClick={onOpen}
+          disabled={!canAfford || isOpening}
+          loading={isOpening}
+          className={cn(
+            styles.packBtn,
+            pack.buttonVariant === 'gold' && styles.packBtnGold,
+          )}
+        >
+          {!canAfford
+            ? `Need +${pointsShort.toLocaleString()} pts`
+            : `Open Pack · ${pack.price.toLocaleString()} pts`}
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+/* "What You Could Pull" group - 6 named card slots with rarity glow. */
+function PossibleGroup({ items }) {
+  return (
+    <div className={styles.possibleGroup}>
+      <span className={styles.possibleLabel}>What You Could Pull</span>
+      <div className={styles.possibleGrid}>
+        {items.map((item, i) => (
+          <PossibleCard key={i} item={item} />
+        ))}
       </div>
     </div>
   );
 }
 
-function Silhouette({ variant, mystery }) {
+/* Tier image used as the drone-outline silhouette inside each possible card.
+   Rarity maps to tier so the silhouette roughly matches the drone-class the
+   skin would apply to (common→tier 1, legendary→tier 4). */
+const POSSIBLE_TIER_IMG = {
+  common: '/drones/tier-1.webp',
+  rare: '/drones/tier-2.webp',
+  epic: '/drones/tier-3.webp',
+  legendary: '/drones/tier-4.webp',
+};
+
+function PossibleCard({ item }) {
   return (
-    <div className={cn(styles.silhouette, styles[`sil_${variant}`])}>
-      {mystery && <span className={styles.silMystery}>?</span>}
+    <div className={cn(styles.possibleCard, styles[`possibleCard_${item.rarity}`])}>
+      <div className={styles.possibleInner}>
+        <div
+          className={cn(styles.possibleDrone, styles[`possibleDrone_${item.rarity}`])}
+          style={{ '--drone-img': `url(${POSSIBLE_TIER_IMG[item.rarity]})` }}
+          aria-hidden="true"
+        />
+        {item.mystery && <span className={styles.possibleMystery}>?</span>}
+      </div>
+      <span className={styles.possibleName}>{item.name}</span>
+      <span
+        className={cn(styles.possibleRarity, styles[`rarity_${item.rarity}`])}
+      >
+        {RARITY_LABELS[item.rarity]}
+      </span>
+    </div>
+  );
+}
+
+
+/* Odds as colored text, one entry per rarity present in the pack. */
+function OddsText({ packId }) {
+  const odds = PACK_ODDS[packId];
+  if (!odds) return null;
+  const entries = RARITY_LIST.filter((r) => odds[r] > 0);
+  return (
+    <div className={styles.oddsText}>
+      {entries.map((r, i) => (
+        <span key={r} className={styles.oddsTextItem}>
+          <span className={cn(styles.oddsTextLabel, styles[`rarity_${r}`])}>
+            {RARITY_LABELS[r]}
+          </span>{' '}
+          <span className={styles.oddsTextValue}>{Math.round(odds[r])}%</span>
+          {i < entries.length - 1 && (
+            <span className={styles.oddsTextSep} aria-hidden="true">
+              ·
+            </span>
+          )}
+        </span>
+      ))}
     </div>
   );
 }
@@ -1031,11 +1362,26 @@ function ListingCard({
       ? styles[`card_${rarity}`]
       : '';
 
+  const levelClass =
+    isDrone && drone?.level != null
+      ? styles[`card_level_${getLevelTier(drone.level)}`]
+      : '';
+
+  // Skin rarity treatment layers on top of the level tint. Common
+  // skins get no treatment (spec: stays default).
+  const skinRarity = drone?.appliedSkin?.rarity;
+  const skinRarityClass =
+    isDrone && skinRarity && skinRarity !== 'common'
+      ? styles[`skinRarity_${skinRarity}`]
+      : '';
+
   return (
     <Card
       className={cn(
         styles.listingCard,
         rarityClass,
+        levelClass,
+        skinRarityClass,
         isOwner && styles.cardMine,
         !isDrone && rarity === 'legendary' && styles.cardLegendaryShimmer,
       )}
@@ -1045,7 +1391,7 @@ function ListingCard({
       <div className={styles.listingImage}>
         {isDrone ? (
           <img
-            src={drone?.imageUrl || '/drones/default.png'}
+            src={getDroneImage(drone)}
             alt={drone?.name ?? 'Drone'}
             className={styles.droneImg}
           />

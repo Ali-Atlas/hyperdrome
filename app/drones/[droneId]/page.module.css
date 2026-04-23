@@ -562,68 +562,7 @@
   color: var(--accent-error);
 }
 
-/* ==========================================================================
- * Public drone profile (non-owner / unauth viewer)
- * ========================================================================== */
-
-.publicHeroCard {
-  padding: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 0;
-  overflow: hidden;
-  background: var(--bg-card);
-  border: 1px solid var(--border-default);
-}
-
-.publicHeroImage {
-  padding: var(--space-8);
-  min-height: 320px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(
-    135deg,
-    rgba(3, 218, 198, 0.06) 0%,
-    var(--bg-card) 50%,
-    rgba(3, 218, 198, 0.03) 100%
-  );
-  border-right: 1px solid var(--border-default);
-}
-
-.publicHeroImage img {
-  max-width: 320px;
-  width: 100%;
-  height: auto;
-  object-fit: contain;
-  animation: droneHover 4s var(--ease-in-out) infinite;
-  filter: drop-shadow(0 0 32px rgba(3, 218, 198, 0.4));
-}
-
-.publicHeroInfo {
-  padding: var(--space-8) var(--space-8);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-.publicName {
-  font-family: var(--font-heading);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-bold);
-  color: var(--text-primary);
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.publicMetaLine {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
+/* Owner link (inline in the drone meta row when viewing someone else's drone) */
 .ownerLink {
   color: var(--accent-primary);
   text-decoration: none;
@@ -634,84 +573,32 @@
   filter: brightness(1.2);
 }
 
-.publicKpis {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-  gap: var(--space-4);
-  padding: var(--space-4) 0;
-  border-top: 1px solid var(--border-default);
-  border-bottom: 1px solid var(--border-default);
-}
-
-.publicKpi {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.publicKpiLabel {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.publicKpiValue {
-  font-family: var(--font-mono);
-  font-size: var(--text-xl);
-  color: var(--text-primary);
-  font-weight: var(--font-bold);
-}
-
 .buyButton {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-6);
+  gap: 4px;
+  padding: 3px 8px;
   background: var(--accent-primary);
   color: #000;
-  border-radius: var(--radius-md);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: var(--font-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  width: fit-content;
-  transition: all var(--duration-normal) var(--ease-out);
-  box-shadow: 0 0 24px rgba(3, 218, 198, 0.25);
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  transition: filter var(--duration-normal) var(--ease-out);
+  text-decoration: none;
+  margin-left: auto;
 }
 
 .buyButton:hover {
   filter: brightness(1.1);
-  transform: translateY(-2px);
 }
 
 .buyPrice {
-  font-family: var(--font-mono);
   font-weight: var(--font-bold);
-  margin-left: var(--space-1);
-}
-
-.publicStatsCard {
-  padding: 0;
-  background: var(--bg-card);
-  border: 1px solid var(--border-default);
-  overflow: hidden;
-}
-
-.publicStatsCard .sectionHeading {
-  background: var(--header-bar-bg);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-default);
-  margin: 0;
-}
-
-.publicStatsGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-4) var(--space-6);
-  padding: var(--space-4) var(--space-5);
+  margin-left: 2px;
 }
 
 .raceLink {
@@ -722,23 +609,6 @@
 
 .raceLink:hover {
   filter: brightness(1.2);
-}
-
-@media (max-width: 900px) {
-  .publicHeroCard {
-    grid-template-columns: 1fr;
-  }
-  .publicHeroImage {
-    border-right: none;
-    border-bottom: 1px solid var(--border-default);
-    min-height: 240px;
-  }
-  .publicStatsGrid {
-    grid-template-columns: 1fr;
-  }
-  .publicName {
-    font-size: var(--text-xl);
-  }
 }
 
 /* ==========================================================================
@@ -778,5 +648,38 @@
   .statHeader {
     flex-wrap: wrap;
     gap: var(--space-2);
+  }
+}
+
+/* ==========================================================================
+ * Skin-rarity indicator - applied additively to the card that holds the
+ * drone image. Signals the equipped skin's rarity via border + glow,
+ * without replacing the level tint (which may also apply).
+ * ========================================================================== */
+
+.skinRarity_rare {
+  border-color: rgba(74, 158, 255, 0.4);
+  box-shadow: 0 0 12px rgba(74, 158, 255, 0.1);
+}
+
+.skinRarity_epic {
+  border-color: rgba(187, 134, 252, 0.4);
+  box-shadow: 0 0 12px rgba(187, 134, 252, 0.1);
+}
+
+.skinRarity_legendary {
+  border-color: rgba(255, 215, 0, 0.4);
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
+  animation: legendaryShimmer 4s ease-in-out infinite;
+}
+
+@keyframes legendaryShimmer {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
+    border-color: rgba(255, 215, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(255, 215, 0, 0.35);
+    border-color: rgba(255, 215, 0, 0.75);
   }
 }

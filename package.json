@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio",
     "seed": "node --env-file=.env.local lib/db/seed.js",
     "seed:marketplace": "node --env-file=.env.local lib/db/seed-marketplace.js",
+    "seed:more-drones": "node --env-file=.env.local lib/db/seed-more-drones.js",
     "test:economy": "node lib/game-engine/economy.test.js"
   },
   "dependencies": {

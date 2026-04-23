@@ -232,7 +232,11 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
 
   const [droneRows, skinRows, sellerRows] = await Promise.all([
     droneIds.length
-      ? db.select().from(drones).where(inArray(drones.id, droneIds))
+      ? db
+          .select({ drone: drones, appliedSkin: skins })
+          .from(drones)
+          .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
+          .where(inArray(drones.id, droneIds))
       : Promise.resolve([]),
     skinIds.length
       ? db.select().from(skins).where(inArray(skins.id, skinIds))
@@ -243,7 +247,12 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
       .where(inArray(users.id, sellerIds)),
   ]);
 
-  const droneMap = Object.fromEntries(droneRows.map((d) => [d.id, d]));
+  const droneMap = Object.fromEntries(
+    droneRows.map(({ drone, appliedSkin }) => [
+      drone.id,
+      { ...drone, appliedSkin },
+    ]),
+  );
   const skinMap = Object.fromEntries(skinRows.map((s) => [s.id, s]));
   const sellerMap = Object.fromEntries(sellerRows.map((s) => [s.id, s]));
 

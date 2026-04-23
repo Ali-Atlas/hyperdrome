@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import btnStyles from '@/components/ui/Button/Button.module.css';
-import { cn, getLevelColor } from '@/lib/utils';
+import { cn, getDroneImage, getLevelColor } from '@/lib/utils';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from '@/hooks/useSession';
@@ -134,7 +134,15 @@ export default function DashboardPage() {
       <div className={styles.page}>
         <div className={styles.grid}>
           {/* ---- Row 1 col 1: Spotlight ---- */}
-          <Card className={cn(styles.spotlight, styles.areaSpotlight)}>
+          <Card
+            className={cn(
+              styles.spotlight,
+              styles.areaSpotlight,
+              spotlightDrone?.appliedSkin?.rarity &&
+                spotlightDrone.appliedSkin.rarity !== 'common' &&
+                styles[`skinRarity_${spotlightDrone.appliedSkin.rarity}`],
+            )}
+          >
             <div className={styles.sectionHeadingRow}>
               <h2 className={styles.sectionHeading}>
                 Active Drone Spotlight
@@ -186,7 +194,7 @@ export default function DashboardPage() {
                   </div>
                   <div className={styles.spotlightImage}>
                     <img
-                      src={spotlightDrone.imageUrl || '/drones/default.png'}
+                      src={getDroneImage(spotlightDrone)}
                       alt={spotlightDrone.name}
                     />
                   </div>
@@ -458,7 +466,7 @@ function NextRaceCountdown({ targetDate, paused }) {
         </div>
       </div>
       <div className={styles.countdownTagline}>
-        {paused ? 'Racing Paused' : 'Seconds Until Race'}
+        {paused ? 'Racing Paused' : 'Until Next Race'}
       </div>
     </>
   );

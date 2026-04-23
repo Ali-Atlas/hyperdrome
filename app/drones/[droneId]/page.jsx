@@ -21,7 +21,6 @@ import {
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
-import StatBar from '@/components/ui/StatBar';
 import StatEditorRow from '@/components/ui/StatEditorRow';
 import StatRadar from '@/components/ui/StatRadar';
 import Toggle from '@/components/ui/Toggle';
@@ -30,7 +29,7 @@ import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
-import { cn, getLevelColor } from '@/lib/utils';
+import { cn, getDroneImage, getLevelColor } from '@/lib/utils';
 import {
   STAT_KEYS,
   calculateStatUpgradeCost,
@@ -166,17 +165,24 @@ export default function DroneDetailPage({ params }) {
 
   const isOwner = Boolean(user?.id && drone.userId === user.id);
 
-  if (isOwner) {
-    return <DroneManagementView drone={drone} onReload={load} />;
-  }
-  return <PublicDroneProfile drone={drone} listing={listing} />;
+  return (
+    <DroneDetailView
+      drone={drone}
+      isOwner={isOwner}
+      listing={listing}
+      onReload={load}
+    />
+  );
 }
 
 /* ==========================================================================
- * Management view - owner-only. Stat editor, race profile, history.
+ * Unified detail view - same layout for owner and non-owner. Interactive
+ * controls (stat +/-, save/reset, set-active toggle, points balance) are
+ * gated on isOwner; non-owners see the same layout read-only, plus a
+ * "Buy on Marketplace" CTA when an active listing exists for this drone.
  * ========================================================================== */
 
-function DroneManagementView({ drone, onReload }) {
+function DroneDetailView({ drone, isOwner, listing, onReload }) {
   const { showToast } = useToast();
   const { user } = useSession();
   const [editedStats, setEditedStats] = useState(() => pickStats(drone));
@@ -330,7 +336,14 @@ function DroneManagementView({ drone, onReload }) {
     <NavShell>
       <div className={styles.page}>
         <div className={styles.main}>
-          <Card className={styles.leftPanel}>
+          <Card
+            className={cn(
+              styles.leftPanel,
+              drone.appliedSkin?.rarity &&
+                drone.appliedSkin.rarity !== 'common' &&
+                styles[`skinRarity_${drone.appliedSkin.rarity}`],
+            )}
+          >
             <h2 className={styles.sectionHeading}>Drone</h2>
             <div className={styles.leftInner}>
               <div className={styles.droneNameBlock}>
@@ -344,7 +357,23 @@ function DroneManagementView({ drone, onReload }) {
                   </span>
                   <span className={styles.metaSep}>|</span>
                   <span className={styles.metaOwner}>
-                    Owner: {drone.owner?.username ?? '-'}
+                    Owner:{' '}
+                    {drone.owner?.username ? (
+                      !isOwner && drone.owner.id ? (
+                        <Link
+                          href={`/profile/${drone.owner.id}`}
+                          className={styles.ownerLink}
+                        >
+                          {drone.owner.username}
+                        </Link>
+                      ) : (
+                        drone.owner.username
+                      )
+                    ) : drone.isBot ? (
+                      'Bot'
+                    ) : (
+                      '-'
+                    )}
                   </span>
                 </div>
               </div>
@@ -436,12 +465,16 @@ function DroneManagementView({ drone, onReload }) {
 
                   <div className={styles.skinBlock}>
                     <span className={styles.skinLabel}>Skin Equipped</span>
-                    <button type="button" className={styles.skinSelect}>
+                    <button
+                      type="button"
+                      className={styles.skinSelect}
+                      disabled={!isOwner}
+                    >
                       <span className={styles.skinSwatch} aria-hidden="true" />
                       <span className={styles.skinName}>
                         {drone.appliedSkin?.name ?? 'None'}
                       </span>
-                      <ChevronDown size={14} aria-hidden="true" />
+                      {isOwner && <ChevronDown size={14} aria-hidden="true" />}
                     </button>
                   </div>
                 </div>
@@ -452,16 +485,20 @@ function DroneManagementView({ drone, onReload }) {
           <div className={styles.rightStack}>
             <Card className={styles.rightPanel}>
               <div className={styles.statHeader}>
-                <h2 className={styles.sectionHeading}>Stat Editor</h2>
-                <div className={styles.availablePoints}>
-                  Available Points:{' '}
-                  <span className={styles.availableValue}>
-                    {availablePoints}
-                  </span>
-                  <span className={styles.balanceNote}>
-                    Your balance: {playerPoints} pts
-                  </span>
-                </div>
+                <h2 className={styles.sectionHeading}>
+                  {isOwner ? 'Stat Editor' : 'Stats'}
+                </h2>
+                {isOwner && (
+                  <div className={styles.availablePoints}>
+                    Available Points:{' '}
+                    <span className={styles.availableValue}>
+                      {availablePoints}
+                    </span>
+                    <span className={styles.balanceNote}>
+                      Your balance: {playerPoints} pts
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className={styles.statList}>
@@ -476,46 +513,62 @@ function DroneManagementView({ drone, onReload }) {
                     costToUpgrade={calculateStatUpgradeCost(editedStats[key])}
                     onIncrement={() => increment(key)}
                     onDecrement={() => decrement(key)}
+                    readOnly={!isOwner}
                   />
                 ))}
               </div>
 
-              <div className={styles.actions}>
-                <div className={styles.activeBlock}>
-                  <span className={styles.activeLabel}>Set Active</span>
-                  <Toggle
-                    checked={drone.active}
-                    onChange={toggleActive}
-                    disabled={togglePending}
-                  />
-                  <span
-                    className={styles.activeHelp}
-                    title="Active means this drone races each cycle. Up to 3 drones can be active per player."
-                    aria-label="Set Active - active drones race each cycle. Up to 3 drones can be active per player."
-                  >
-                    <Info size={12} aria-hidden="true" />
-                  </span>
+              {isOwner ? (
+                <div className={styles.actions}>
+                  <div className={styles.activeBlock}>
+                    <span className={styles.activeLabel}>Set Active</span>
+                    <Toggle
+                      checked={drone.active}
+                      onChange={toggleActive}
+                      disabled={togglePending}
+                    />
+                    <span
+                      className={styles.activeHelp}
+                      title="Active means this drone races each cycle. Up to 3 drones can be active per player."
+                      aria-label="Set Active - active drones race each cycle. Up to 3 drones can be active per player."
+                    >
+                      <Info size={12} aria-hidden="true" />
+                    </span>
+                  </div>
+                  <div className={styles.buttonGroup}>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={save}
+                      disabled={!hasChanges}
+                      loading={saving}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={reset}
+                      disabled={!hasChanges || saving}
+                    >
+                      Reset
+                    </Button>
+                  </div>
                 </div>
-                <div className={styles.buttonGroup}>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={save}
-                    disabled={!hasChanges}
-                    loading={saving}
+              ) : listing ? (
+                <div className={styles.actions}>
+                  <a
+                    href={`/marketplace?highlight=${listing.id}`}
+                    className={styles.buyButton}
                   >
-                    Save
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={reset}
-                    disabled={!hasChanges || saving}
-                  >
-                    Reset
-                  </Button>
+                    <ShoppingCart size={11} />
+                    Buy{' '}
+                    <span className={styles.buyPrice}>
+                      {listing.price.toLocaleString()} pts
+                    </span>
+                  </a>
                 </div>
-              </div>
+              ) : null}
             </Card>
 
             <Card className={styles.perfSummaryCard}>
@@ -540,110 +593,6 @@ function DroneManagementView({ drone, onReload }) {
             </Card>
           </div>
         </div>
-
-        <Card className={styles.historyCard}>
-          <h2 className={styles.sectionHeading}>Race History (Last 10 races)</h2>
-          <RaceHistoryTable rows={raceRows} />
-        </Card>
-      </div>
-    </NavShell>
-  );
-}
-
-/* ==========================================================================
- * Public profile view - non-owner + unauthenticated.
- * Read-only, no editor. Shows marketplace CTA if the drone is listed.
- * ========================================================================== */
-
-function PublicDroneProfile({ drone, listing }) {
-  const stats = pickStats(drone);
-  const winRate =
-    drone.totalRaces > 0
-      ? ((drone.wins / drone.totalRaces) * 100).toFixed(1) + '%'
-      : '-';
-
-  const raceRows = (drone.recentRaces ?? []).map((r) => {
-    const isDrone1 = r.drone1Id === drone.id;
-    const won = r.winnerDroneId === drone.id;
-    return {
-      id: r.id,
-      opponent: isDrone1 ? r.drone2Id : r.drone1Id,
-      trackName: r.track?.name ?? '-',
-      conditions: `${r.weather} / ${r.timeOfDay}`,
-      result: won ? 'WIN' : 'LOSS',
-      pointsEarned: won ? r.pointsAwarded : 0,
-    };
-  });
-
-  return (
-    <NavShell>
-      <div className={styles.page}>
-        <Card className={styles.publicHeroCard}>
-          <div className={styles.publicHeroImage}>
-            <DroneImage drone={drone} />
-          </div>
-          <div className={styles.publicHeroInfo}>
-            <h1 className={styles.publicName}>{drone.name}</h1>
-            <div className={styles.publicMetaLine}>
-              <Badge variant="level" value={drone.level} />
-              {drone.owner?.username ? (
-                <>
-                  <span className={styles.metaSep}>|</span>
-                  <span className={styles.metaOwner}>
-                    Owner:{' '}
-                    <Link
-                      href={`/profile/${drone.owner.id}`}
-                      className={styles.ownerLink}
-                    >
-                      {drone.owner.username}
-                    </Link>
-                  </span>
-                </>
-              ) : drone.isBot ? (
-                <>
-                  <span className={styles.metaSep}>|</span>
-                  <span className={styles.metaOwner}>Bot</span>
-                </>
-              ) : null}
-            </div>
-
-            <div className={styles.publicKpis}>
-              <PublicKpi label="ELO" value={drone.eloRating} />
-              <PublicKpi label="Races" value={drone.totalRaces} />
-              <PublicKpi label="Wins" value={drone.wins} />
-              <PublicKpi label="Losses" value={drone.losses} />
-              <PublicKpi label="Win Rate" value={winRate} />
-            </div>
-
-            {listing && (
-              <a
-                href={`/marketplace?highlight=${listing.id}`}
-                className={styles.buyButton}
-              >
-                <ShoppingCart size={18} />
-                Buy on Marketplace -{' '}
-                <span className={styles.buyPrice}>
-                  {listing.price.toLocaleString()} pts
-                </span>
-              </a>
-            )}
-          </div>
-        </Card>
-
-        <Card className={styles.publicStatsCard}>
-          <h2 className={styles.sectionHeading}>Stats</h2>
-          <div className={styles.publicStatsGrid}>
-            {STAT_KEYS.map((key) => (
-              <StatBar
-                key={key}
-                label={STAT_LABELS[key]}
-                value={stats[key]}
-                maxValue={100}
-                size="md"
-              />
-            ))}
-          </div>
-        </Card>
 
         <Card className={styles.historyCard}>
           <h2 className={styles.sectionHeading}>Race History (Last 10 races)</h2>
@@ -735,19 +684,10 @@ function RaceProfileColumn({ label, items, tone }) {
   );
 }
 
-function PublicKpi({ label, value }) {
-  return (
-    <div className={styles.publicKpi}>
-      <span className={styles.publicKpiLabel}>{label}</span>
-      <span className={styles.publicKpiValue}>{value}</span>
-    </div>
-  );
-}
-
 function DroneImage({ drone }) {
   return (
     <img
-      src={drone?.imageUrl || '/drones/default.png'}
+      src={getDroneImage(drone)}
       alt={drone?.name ?? 'Drone'}
       className={styles.droneImg}
       loading="eager"

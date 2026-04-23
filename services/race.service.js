@@ -269,9 +269,18 @@ export async function getRaces(filters = {}, pagination = {}) {
     droneIds.add(race.drone2Id);
   });
   const droneList = droneIds.size
-    ? await db.select().from(drones).where(inArray(drones.id, Array.from(droneIds)))
+    ? await db
+        .select({ drone: drones, appliedSkin: skins })
+        .from(drones)
+        .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
+        .where(inArray(drones.id, Array.from(droneIds)))
     : [];
-  const droneMap = Object.fromEntries(droneList.map((d) => [d.id, d]));
+  const droneMap = Object.fromEntries(
+    droneList.map(({ drone, appliedSkin }) => [
+      drone.id,
+      { ...drone, appliedSkin },
+    ]),
+  );
 
   return rows.map(({ race, track }) => ({
     ...race,
@@ -306,10 +315,16 @@ export async function getRaceById(raceId) {
   const race = row.race;
 
   const droneRows = await db
-    .select()
+    .select({ drone: drones, appliedSkin: skins })
     .from(drones)
+    .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
     .where(inArray(drones.id, [race.drone1Id, race.drone2Id]));
-  const byId = Object.fromEntries(droneRows.map((d) => [d.id, d]));
+  const byId = Object.fromEntries(
+    droneRows.map(({ drone, appliedSkin }) => [
+      drone.id,
+      { ...drone, appliedSkin },
+    ]),
+  );
 
   // Upset: pre-race ELO gap of 50+ in the loser's favour.
   const winnerEloBefore =
@@ -335,7 +350,9 @@ export async function getRaceById(raceId) {
 
   let isNewTrackRecord = false;
   if (winnerTime != null && race.trackId) {
-    const [best] = await db.execute(sql`
+    // drizzle-orm/neon-http `execute()` returns { rows, fields, rowCount, ... },
+    // not an iterable - destructure off .rows.
+    const { rows: [best] } = await db.execute(sql`
       SELECT MIN(LEAST(drone1_time::numeric, drone2_time::numeric)) AS best_time
       FROM races
       WHERE track_id = ${race.trackId}
@@ -350,7 +367,7 @@ export async function getRaceById(raceId) {
 
   // Head-to-head: count across either drone-slot orientation, including
   // this race (keeps the tally stable as users browse old races).
-  const [h2hRow] = await db.execute(sql`
+  const { rows: [h2hRow] } = await db.execute(sql`
     SELECT
       COUNT(*)::int AS total,
       SUM(CASE WHEN winner_drone_id = ${race.drone1Id} THEN 1 ELSE 0 END)::int AS drone1_wins,

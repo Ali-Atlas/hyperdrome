@@ -178,7 +178,7 @@
 
 .body {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 180px minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
@@ -213,62 +213,44 @@
   overflow: hidden;
 }
 
-.filtersHeading {
-  display: flex;
-  align-items: center;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  color: var(--header-bar-text, #F0F0F0);
-  margin: 0;
-  letter-spacing: 0.01em;
-  padding: var(--space-3) var(--space-4);
-  background: var(--header-bar-bg, #252525);
-  border-bottom: 1px solid var(--border-default);
-  line-height: 1.2;
-  min-height: 44px;
-  box-sizing: border-box;
-}
-
 .filterBody {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3);
+  gap: 10px;
+  padding: 10px 12px;
 }
 
 .filterGroup {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .filterLabel {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: var(--font-semibold);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
 }
 
 .rangeRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .rangeInput {
-  flex: 0 0 70px;
-  width: 70px;
-  padding: 6px 10px;
+  flex: 0 0 60px;
+  width: 60px;
+  padding: 3px 7px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 11px;
-  min-height: 30px;
+  font-size: 10px;
+  min-height: 22px;
   transition: border-color var(--duration-fast) var(--ease-out);
   /* Hide the native browser number spinners (Firefox). */
   -moz-appearance: textfield;
@@ -289,7 +271,7 @@
 }
 
 .rangeDash {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 10px;
   flex-shrink: 0;
@@ -298,41 +280,123 @@
 .checkList {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .check {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 11px;
+  user-select: none;
 }
 
+/* Hide the native checkbox but keep it focusable/accessible. */
 .check input[type='checkbox'] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Custom square visual - rendered before the label text. */
+.check input[type='checkbox'] + .checkText::before {
+  content: '';
+  display: inline-block;
   width: 13px;
   height: 13px;
-  accent-color: var(--accent-primary);
-  cursor: pointer;
+  margin-right: 6px;
+  vertical-align: -2px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease;
+  box-sizing: border-box;
+}
+
+/* Checkmark - drawn via a ::after glyph that fades in when checked. */
+.check input[type='checkbox'] + .checkText::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  width: 8px;
+  height: 4px;
+  margin-top: -4px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg);
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+
+.check input[type='checkbox']:checked + .checkText::after {
+  opacity: 1;
+}
+
+/* Per-rarity checked fill + hover border. The label text color is
+   already set via .rarity_* on .checkText. */
+.check input[type='checkbox']:checked + .checkText.rarity_common::before {
+  background: var(--rarity-common);
+  border-color: var(--rarity-common);
+}
+.check input[type='checkbox']:checked + .checkText.rarity_rare::before {
+  background: var(--rarity-rare);
+  border-color: var(--rarity-rare);
+}
+.check input[type='checkbox']:checked + .checkText.rarity_epic::before {
+  background: var(--rarity-epic);
+  border-color: var(--rarity-epic);
+}
+.check input[type='checkbox']:checked + .checkText.rarity_legendary::before {
+  background: var(--rarity-legendary);
+  border-color: var(--rarity-legendary);
+}
+
+.check:hover input[type='checkbox']:not(:checked) + .checkText.rarity_common::before {
+  border-color: color-mix(in srgb, var(--rarity-common) 50%, transparent);
+}
+.check:hover input[type='checkbox']:not(:checked) + .checkText.rarity_rare::before {
+  border-color: color-mix(in srgb, var(--rarity-rare) 50%, transparent);
+}
+.check:hover input[type='checkbox']:not(:checked) + .checkText.rarity_epic::before {
+  border-color: color-mix(in srgb, var(--rarity-epic) 50%, transparent);
+}
+.check:hover input[type='checkbox']:not(:checked) + .checkText.rarity_legendary::before {
+  border-color: color-mix(in srgb, var(--rarity-legendary) 50%, transparent);
+}
+
+.check input[type='checkbox']:focus-visible + .checkText::before {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
 .checkText {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   text-transform: capitalize;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
   color: var(--text-primary);
   font-weight: var(--font-medium);
 }
 
 .select {
-  padding: 4px 8px;
+  padding: 3px 7px;
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: 11px;
-  min-height: 28px;
+  min-height: 22px;
   cursor: pointer;
 }
 
@@ -342,15 +406,14 @@
 }
 
 .clearBtn {
-  margin-top: var(--space-2);
+  margin-top: 4px;
   background: transparent;
   border: none;
-  padding: 4px 0;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  padding: 2px 0;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.01em;
   cursor: pointer;
   text-align: left;
   transition: color var(--duration-fast) var(--ease-out);
@@ -370,8 +433,21 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--space-3);
+  /* JS overrides grid-template-columns inline with `repeat(N, ...)` so
+     every page has exactly N × ROWS_PER_PAGE cells. This fallback is
+     used before JS has measured the container. */
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: var(--space-2);
+}
+
+/* Invisible spacers used on the tail page so pagination controls sit
+   at a constant vertical position. min-height roughly matches a
+   filled card so a row made up entirely of placeholders keeps its
+   height. Rows with at least one real card size to the real card. */
+.cardPlaceholder {
+  visibility: hidden;
+  pointer-events: none;
+  min-height: 200px;
 }
 
 /* ==========================================================================
@@ -384,13 +460,13 @@
   flex-direction: column;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
-  transition: transform var(--duration-normal) var(--ease-out),
-    border-color var(--duration-normal) var(--ease-out);
+  transition:
+    border-color var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
 }
 
 .listingCard:hover {
   border-color: rgba(3, 218, 198, 0.4);
-  transform: translateY(-2px);
 }
 
 .cardMine {
@@ -450,6 +526,99 @@
   border-color: rgba(255, 215, 0, 0.55);
 }
 
+/* Level-tier-tinted drone card backgrounds. 2px level-colored border
+   stays the same width on hover (no layout shift) - hover just
+   saturates the border + adds a matching glow. */
+.card_level_steel {
+  background: linear-gradient(
+      180deg,
+      rgba(138, 155, 168, 0.18) 0%,
+      rgba(138, 155, 168, 0.04) 100%
+    ),
+    var(--bg-card);
+  border-width: 2px;
+  border-color: rgba(138, 155, 168, 0.5);
+}
+.card_level_steel:hover {
+  border-color: rgba(138, 155, 168, 0.9);
+  box-shadow: 0 0 20px rgba(138, 155, 168, 0.18);
+}
+
+.card_level_orange {
+  background: linear-gradient(
+      180deg,
+      rgba(255, 140, 66, 0.18) 0%,
+      rgba(255, 140, 66, 0.04) 100%
+    ),
+    var(--bg-card);
+  border-width: 2px;
+  border-color: rgba(255, 140, 66, 0.55);
+}
+.card_level_orange:hover {
+  border-color: rgba(255, 140, 66, 0.95);
+  box-shadow: 0 0 20px rgba(255, 140, 66, 0.2);
+}
+
+.card_level_purple {
+  background: linear-gradient(
+      180deg,
+      rgba(187, 134, 252, 0.18) 0%,
+      rgba(187, 134, 252, 0.04) 100%
+    ),
+    var(--bg-card);
+  border-width: 2px;
+  border-color: rgba(187, 134, 252, 0.55);
+}
+.card_level_purple:hover {
+  border-color: rgba(187, 134, 252, 0.95);
+  box-shadow: 0 0 20px rgba(187, 134, 252, 0.22);
+}
+
+.card_level_gold {
+  background: linear-gradient(
+      180deg,
+      rgba(255, 215, 0, 0.18) 0%,
+      rgba(255, 215, 0, 0.04) 100%
+    ),
+    var(--bg-card);
+  border-width: 2px;
+  border-color: rgba(255, 215, 0, 0.55);
+}
+.card_level_gold:hover {
+  border-color: rgba(255, 215, 0, 0.95);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.22);
+}
+
+/* Skin-rarity indicator on drone cards. Layered ON TOP of the level
+   tint + border - these rules override only border-color and add a
+   matching glow so both informations (level + skin) read at a glance. */
+.skinRarity_rare {
+  border-color: rgba(74, 158, 255, 0.4);
+  box-shadow: 0 0 12px rgba(74, 158, 255, 0.1);
+}
+
+.skinRarity_epic {
+  border-color: rgba(187, 134, 252, 0.4);
+  box-shadow: 0 0 12px rgba(187, 134, 252, 0.1);
+}
+
+.skinRarity_legendary {
+  border-color: rgba(255, 215, 0, 0.4);
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
+  animation: legendaryShimmer 4s ease-in-out infinite;
+}
+
+@keyframes legendaryShimmer {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
+    border-color: rgba(255, 215, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(255, 215, 0, 0.35);
+    border-color: rgba(255, 215, 0, 0.75);
+  }
+}
+
 /* Legendary shimmer - a subtle diagonal sweep of light that fades across
    the card every few seconds to make legendary listings feel alive. */
 .cardLegendaryShimmer {
@@ -469,13 +638,13 @@
   );
   background-size: 260% 100%;
   background-position: 200% 0;
-  animation: legendaryShimmer 4s linear infinite;
+  animation: legendarySkinSweep 4s linear infinite;
   pointer-events: none;
   z-index: 1;
   mix-blend-mode: screen;
 }
 
-@keyframes legendaryShimmer {
+@keyframes legendarySkinSweep {
   from {
     background-position: 200% 0;
   }
@@ -519,8 +688,8 @@
 .listingBody {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: var(--space-3);
+  gap: 4px;
+  padding: 10px 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -528,12 +697,12 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: 6px;
 }
 
 .listingName {
   font-family: var(--font-heading);
-  font-size: var(--text-sm);
+  font-size: 12px;
   font-weight: var(--font-bold);
   color: var(--text-primary);
   text-transform: uppercase;
@@ -548,7 +717,7 @@
 
 .listingLevel {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -558,7 +727,7 @@
 /* Rarity tag on skin cards + rarity-tinted filter labels */
 .rarityTag {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -585,19 +754,19 @@
 .statBars {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .statBar {
   display: grid;
-  grid-template-columns: 26px 1fr 22px;
+  grid-template-columns: 22px 1fr 18px;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   font-family: var(--font-mono);
 }
 
 .statBarLabel {
-  font-size: 9px;
+  font-size: 8px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -606,7 +775,7 @@
 
 .statBarTrack {
   position: relative;
-  height: 4px;
+  height: 3px;
   background: #2A2A2A;
   border-radius: 2px;
   overflow: hidden;
@@ -621,7 +790,7 @@
 }
 
 .statBarValue {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: var(--font-bold);
   color: var(--text-primary);
   text-align: right;
@@ -629,7 +798,7 @@
 
 .compat {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -639,13 +808,13 @@
 .priceRow {
   display: flex;
   align-items: baseline;
-  gap: 4px;
-  margin-top: 2px;
+  gap: 3px;
+  margin-top: 1px;
 }
 
 .price {
   font-family: var(--font-mono);
-  font-size: var(--text-lg);
+  font-size: 14px;
   font-weight: var(--font-bold);
   color: var(--accent-primary);
   letter-spacing: 0.02em;
@@ -654,7 +823,7 @@
 
 .priceUnit {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -663,7 +832,7 @@
 
 .seller {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -681,11 +850,15 @@
 
 .cardBtnWrap {
   width: 100%;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .cardBtn {
   width: 100%;
+  min-height: 24px;
+  padding: 4px 6px;
+  font-size: 9.5px;
+  letter-spacing: 0.02em;
 }
 
 /* Link wrapper around drone cards - stays transparent so card bg shows
@@ -703,228 +876,347 @@
 }
 
 /* ==========================================================================
- * Packs showcase - aspirational premium storefront
+ * Packs showcase - hero Legendary + medium Premium + compact Starter.
+ *
+ * Each card: content on the left, 3 card silhouettes on the right, buy
+ * button full-width at the bottom. Size hierarchy comes from per-variant
+ * padding + silhouette scale, so Legendary naturally reads as ~2-3x the
+ * Starter card height.
  * ========================================================================== */
 
 .packsShowcase {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  max-width: 960px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
 }
 
+/* ---------- Live ticker (top strip) ---------- */
+
+.ticker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 10px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+  flex-wrap: wrap;
+}
+
+.tickerLive {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-primary);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+}
+
+.tickerDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(3, 218, 198, 0.6);
+  animation: tickerPulse 2s ease-in-out infinite;
+}
+
+@keyframes tickerPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.6; transform: scale(0.85); }
+}
+
+.tickerMetric {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.tickerMetric strong {
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+  margin-right: 6px;
+}
+
+.tickerSep {
+  width: 1px;
+  height: 14px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.tickerPull {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tickerUser {
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+}
+.tickerPullText {
+  color: var(--text-tertiary);
+}
+.tickerPullRarity {
+  font-weight: var(--font-bold);
+}
+
+/* ---------- Premium + Starter side-by-side row ---------- */
+
+.packsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
 .packCard {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
-  gap: var(--space-5);
-  align-items: center;
-  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  padding: 18px 22px;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
-/* Tier-specific card bg + border + ambient glow */
+/* Hero (Legendary) - the premium offering commands the page. Dominates
+   via height + gold treatment, not bigger graphics. min-height enforces
+   the ~2-3x size vs starter even when "What's Inside" is collapsed. */
+.packCardHero {
+  min-height: 360px;
+  padding: 48px 40px 36px;
+  gap: 28px;
+}
+
+/* Compact (Starter) - trimmed down so the hierarchy reads. */
+.packCardCompact {
+  padding: 14px 18px;
+  gap: 12px;
+}
+
+/* Default (Premium sits here too). */
+.packCard:not(.packCardHero):not(.packCardCompact) {
+  gap: 16px;
+}
+
 .pack_gray {
-  background:
-    linear-gradient(
-      135deg,
-      rgba(158, 158, 158, 0.05) 0%,
-      transparent 60%
-    ),
-    var(--bg-card);
+  /* Default surface - no additional treatment. */
 }
 
 .pack_purple {
   background:
     linear-gradient(
       135deg,
-      rgba(187, 134, 252, 0.1) 0%,
+      rgba(187, 134, 252, 0.06) 0%,
       transparent 60%
     ),
     var(--bg-card);
   border-color: rgba(187, 134, 252, 0.4);
-  box-shadow: 0 0 24px rgba(187, 134, 252, 0.12);
 }
 
 .pack_gold {
   background:
     linear-gradient(
       135deg,
-      rgba(255, 215, 0, 0.08) 0%,
+      rgba(255, 215, 0, 0.06) 0%,
       transparent 60%
     ),
     var(--bg-card);
-  border: 2px solid rgba(255, 215, 0, 0.6);
-  box-shadow: 0 0 32px rgba(255, 215, 0, 0.2);
+  border: 1px solid rgba(255, 215, 0, 0.55);
+  box-shadow: 0 0 26px rgba(255, 215, 0, 0.18);
 }
 
-/* Gold shimmer sweeping across the legendary pack border/surface. */
+/* Gold shimmer sweep across the legendary card surface. */
 .pack_gold::after {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(
     110deg,
-    transparent 25%,
-    rgba(255, 215, 0, 0.14) 50%,
-    transparent 75%
-  );
-  background-size: 260% 100%;
-  background-position: 200% 0;
-  animation: legendaryShimmer 5s linear infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Keep content above the shimmer layer. */
-.packSilhouettes,
-.packContent {
-  position: relative;
-  z-index: 1;
-}
-
-.packSilhouettes {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-
-/* Silhouette: small card-shaped placeholder with a tier glow. */
-.silhouette {
-  width: 56px;
-  height: 76px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  position: relative;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.sil_common {
-  border-color: rgba(158, 158, 158, 0.5);
-  box-shadow: 0 0 12px rgba(158, 158, 158, 0.3);
-  background:
-    linear-gradient(135deg, rgba(158, 158, 158, 0.14), transparent),
-    var(--bg-elevated);
-}
-
-.sil_rare {
-  border-color: rgba(74, 158, 255, 0.65);
-  box-shadow: 0 0 14px rgba(74, 158, 255, 0.45);
-  background:
-    linear-gradient(135deg, rgba(74, 158, 255, 0.18), transparent),
-    var(--bg-elevated);
-}
-
-.sil_epic {
-  border-color: rgba(187, 134, 252, 0.7);
-  box-shadow: 0 0 16px rgba(187, 134, 252, 0.5);
-  background:
-    linear-gradient(135deg, rgba(187, 134, 252, 0.2), transparent),
-    var(--bg-elevated);
-}
-
-.sil_legendary {
-  border-color: rgba(255, 215, 0, 0.75);
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.55);
-  background:
-    linear-gradient(135deg, rgba(255, 215, 0, 0.22), transparent),
-    var(--bg-elevated);
-}
-
-.sil_legendary::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    110deg,
     transparent 30%,
-    rgba(255, 215, 0, 0.3) 50%,
+    rgba(255, 215, 0, 0.1) 50%,
     transparent 70%
   );
   background-size: 260% 100%;
   background-position: 200% 0;
-  animation: legendaryShimmer 4s linear infinite;
+  animation: legendaryShimmer 6s linear infinite;
   pointer-events: none;
+  z-index: 0;
 }
 
-/* Rainbow mystery slot - conic gradient border + shifting hue. */
-.sil_rainbow {
-  border: 1px solid transparent;
-  background:
-    linear-gradient(var(--bg-elevated), var(--bg-elevated)) padding-box,
-    conic-gradient(
-      from 0deg,
-      #4A9EFF,
-      #BB86FC,
-      #FFD700,
-      #4A9EFF
-    ) border-box;
-  box-shadow:
-    0 0 14px rgba(74, 158, 255, 0.35),
-    0 0 18px rgba(187, 134, 252, 0.3),
-    0 0 14px rgba(255, 215, 0, 0.25);
-  animation: rainbowSpin 8s linear infinite;
-}
-
-@keyframes rainbowSpin {
-  to {
-    filter: hue-rotate(360deg);
-  }
-}
-
-.silMystery {
-  font-family: var(--font-heading);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-bold);
-  color: var(--text-primary);
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+.packMain,
+.packCtaRow {
   position: relative;
   z-index: 1;
 }
 
-/* Pack content column */
-.packContent {
+.packMain {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: center;
+}
+
+.packCardHero .packMain {
+  gap: 40px;
+  flex: 1;
+  align-items: center;
+}
+
+.packCardCompact .packMain {
+  gap: 16px;
+  align-items: center;
+}
+
+/* ---------- Left column: info ---------- */
+
+.packInfo {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 8px;
   min-width: 0;
 }
 
+.packCardHero .packInfo {
+  gap: 12px;
+}
+
+.packCardCompact .packInfo {
+  gap: 6px;
+}
+
+.packHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
 .packName {
+  margin: 0;
   font-family: var(--font-heading);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  line-height: 1.05;
-  margin: 0;
+  line-height: 1.1;
+}
+
+.packCardHero .packName {
+  font-size: var(--text-2xl);
+  letter-spacing: 0.04em;
+}
+
+.packCardCompact .packName {
+  font-size: var(--text-base);
 }
 
 .pack_gold .packName {
-  color: #FFD700;
-  text-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
+  color: var(--rarity-legendary);
+  text-shadow: 0 0 14px rgba(255, 215, 0, 0.3);
+}
+
+.pack_purple .packName {
+  color: var(--rarity-epic);
+}
+
+.packPrice {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.packCardHero .packPrice {
+  font-size: var(--text-xl);
+  color: var(--rarity-legendary);
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.25);
+}
+
+.packCardCompact .packPrice {
+  font-size: var(--text-sm);
+}
+
+.packPriceUnit {
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-left: 3px;
+  font-weight: var(--font-semibold);
+  text-shadow: none;
 }
 
 .packContents {
+  margin: 0;
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  line-height: 1.5;
+  letter-spacing: 0.02em;
+  line-height: 1.55;
 }
+
+.packCardHero .packContents {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.packCardCompact .packContents {
+  font-size: 10px;
+}
+
+/* ---------- Odds as rarity-colored text ---------- */
+
+.oddsText {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+}
+
+.packCardHero .oddsText {
+  font-size: 11px;
+}
+
+.oddsTextItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.oddsTextLabel {
+  text-transform: uppercase;
+  font-weight: var(--font-bold);
+}
+
+.oddsTextValue {
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+}
+
+.oddsTextSep {
+  color: var(--text-tertiary);
+  margin-left: 3px;
+}
+
+/* ---------- What's Inside expandable ---------- */
 
 .packDetailsToggle {
   align-self: flex-start;
@@ -942,7 +1234,6 @@
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease-out);
 }
-
 .packDetailsToggle:hover {
   color: var(--accent-primary);
 }
@@ -950,13 +1241,13 @@
 .packRates {
   list-style: none;
   margin: 0;
-  padding: 4px 0 2px;
+  padding: 2px 0 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
   font-family: var(--font-mono);
   font-size: 10px;
-  max-width: 420px;
+  max-width: 480px;
 }
 
 .packRates li {
@@ -966,7 +1257,6 @@
   padding: 3px 0;
   border-bottom: 1px solid var(--border-subtle);
 }
-
 .packRates li:last-child {
   border-bottom: none;
 }
@@ -982,39 +1272,646 @@
   font-weight: var(--font-medium);
 }
 
-.packBuyRow {
-  margin-top: var(--space-2);
+/* ---------- Right column: card silhouettes ---------- */
+
+.packSilhouettes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
+.silhouette {
+  position: relative;
+  width: 58px;
+  height: 80px;
+  border-radius: 5px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(0, 0, 0, 0.35) 100%
+    ),
+    var(--bg-elevated);
+  border: 1.5px solid var(--border-subtle);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: border-color var(--duration-normal) var(--ease-out);
+}
+
+/* Hero silhouettes stay ~80px tall per spec - the card's dominance
+   comes from padding + whitespace, not ballooned graphics. */
+.packCardHero .silhouette {
+  width: 64px;
+  height: 88px;
+  border-radius: 6px;
+  border-width: 2px;
+}
+
+/* Compact starter shrinks silhouettes. */
+.packCardCompact .silhouette {
+  width: 48px;
+  height: 66px;
+}
+
+.sil_common {
+  border-color: rgba(158, 158, 158, 0.55);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.4), 0 0 10px rgba(158, 158, 158, 0.25);
+  background:
+    linear-gradient(145deg, rgba(158, 158, 158, 0.08) 0%, rgba(0, 0, 0, 0.4) 100%),
+    var(--bg-elevated);
+}
+
+.sil_rare {
+  border-color: rgba(74, 158, 255, 0.75);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.45), 0 0 14px rgba(74, 158, 255, 0.45);
+  background:
+    linear-gradient(145deg, rgba(74, 158, 255, 0.12) 0%, rgba(0, 0, 0, 0.4) 100%),
+    var(--bg-elevated);
+}
+
+.sil_epic {
+  border-color: rgba(187, 134, 252, 0.8);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.45), 0 0 16px rgba(187, 134, 252, 0.5);
+  background:
+    linear-gradient(145deg, rgba(187, 134, 252, 0.13) 0%, rgba(0, 0, 0, 0.4) 100%),
+    var(--bg-elevated);
+}
+
+.sil_legendary {
+  border-color: rgba(255, 215, 0, 0.85);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.45), 0 0 18px rgba(255, 215, 0, 0.55);
+  background:
+    linear-gradient(145deg, rgba(255, 215, 0, 0.14) 0%, rgba(0, 0, 0, 0.4) 100%),
+    var(--bg-elevated);
+}
+
+/* Gold shimmer sweep inside the legendary silhouette. */
+.sil_legendary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 215, 0, 0.3) 50%,
+    transparent 70%
+  );
+  background-size: 260% 100%;
+  background-position: 200% 0;
+  animation: legendaryShimmer 4s linear infinite;
+  pointer-events: none;
+}
+
+/* Mystery/wild slot - conic gradient border + slow hue rotation. */
+.sil_rainbow {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--bg-elevated), var(--bg-elevated)) padding-box,
+    conic-gradient(
+      from 0deg,
+      #4A9EFF,
+      #BB86FC,
+      #FFD700,
+      #03DAC6,
+      #4A9EFF
+    ) border-box;
+  box-shadow:
+    inset 0 0 22px rgba(0, 0, 0, 0.45),
+    0 0 14px rgba(74, 158, 255, 0.3),
+    0 0 18px rgba(187, 134, 252, 0.25),
+    0 0 14px rgba(255, 215, 0, 0.25);
+  animation: rainbowSpin 10s linear infinite;
+}
+.packCardHero .sil_rainbow {
+  border-width: 2px;
+}
+
+@keyframes rainbowSpin {
+  to { filter: hue-rotate(360deg); }
+}
+
+.silMystery {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  position: relative;
+  z-index: 1;
+  line-height: 1;
+}
+
+.packCardHero .silMystery {
+  font-size: 22px;
+}
+.packCardCompact .silMystery {
+  font-size: 18px;
+}
+
+/* ---------- CTA row - natural button width, right-aligned ---------- */
+
+/* margin-top: auto pushes the CTA row to the bottom of the flex-column
+   pack card so Starter's button aligns with Premium's (Premium has an
+   extra pillRow above), and the Legendary hero's button stays anchored. */
+.packCtaRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+/* Fixed width keeps all three Open-Pack buttons visually identical
+   regardless of their "Need +X pts" text length. */
 .packBtn {
-  min-width: 240px;
+  width: 240px;
+  opacity: 1;
+}
+.packBtn:disabled {
+  opacity: 1;
 }
 
-/* Gold-border legendary button. Button primitive variant="secondary"
-   gives the outline base; this class overrides colour + border. */
+/* Solid gold treatment - matches Primary's "solid accent + black text"
+   approach. Disabled state keeps the same vibrant colors; the "Need +X pts"
+   label alone conveys the state. */
 .packBtnGold {
-  background: transparent;
-  border: 1px solid #FFD700;
-  color: #FFD700;
+  background: var(--rarity-legendary);
+  color: #000;
+  border: 1px solid var(--rarity-legendary);
+  font-weight: var(--font-bold);
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.35);
 }
-
 .packBtnGold:hover:not(:disabled) {
-  background: rgba(255, 215, 0, 0.12);
-  border-color: #FFD700;
-  color: #FFD700;
+  filter: brightness(1.08);
+  box-shadow: 0 0 22px rgba(255, 215, 0, 0.5);
+}
+.packBtnGold:disabled {
+  background: var(--rarity-legendary);
+  color: #000;
+  opacity: 1;
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.35);
 }
 
-/* Pack reveal modal */
+/* ==========================================================================
+ * Legendary hero: left info column + right big-card figure
+ * ========================================================================== */
+
+.heroGrid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 40px;
+  align-items: center;
+  flex: 1;
+}
+
+.heroInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.featuredPill {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid rgba(255, 215, 0, 0.45);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  color: var(--rarity-legendary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.featuredSep {
+  opacity: 0.5;
+}
+
+.countdown {
+  font-family: var(--font-mono);
+  font-weight: var(--font-bold);
+  color: var(--rarity-legendary);
+  letter-spacing: 0.06em;
+}
+
+.packSubtitle {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--rarity-legendary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  text-shadow: 0 0 14px rgba(255, 215, 0, 0.3);
+}
+
+.heroDescription {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 620px;
+}
+
+.heroActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: 6px;
+}
+
+.heroHint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ---------- Big tilted legendary card (right side of hero) ---------- */
+
+.heroCardWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1200px;
+}
+
+.bigLegendaryCard {
+  position: relative;
+  width: 220px;
+  height: 310px;
+  border: 2px solid rgba(255, 215, 0, 0.85);
+  border-radius: 14px;
+  background:
+    radial-gradient(
+      ellipse at 35% 30%,
+      rgba(255, 215, 0, 0.35) 0%,
+      rgba(255, 215, 0, 0.08) 45%,
+      rgba(0, 0, 0, 0.4) 100%
+    ),
+    linear-gradient(140deg, rgba(30, 25, 0, 0.9) 0%, rgba(0, 0, 0, 0.95) 100%);
+  box-shadow:
+    0 0 60px rgba(255, 215, 0, 0.35),
+    0 0 120px rgba(255, 215, 0, 0.15),
+    inset 0 0 40px rgba(255, 215, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  transform-style: preserve-3d;
+  animation: bigCardFloat 5s ease-in-out infinite;
+}
+
+.bigLegendaryCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 215, 0, 0.25) 50%,
+    transparent 70%
+  );
+  background-size: 260% 100%;
+  background-position: 200% 0;
+  animation: legendaryShimmer 4s linear infinite;
+  pointer-events: none;
+}
+
+.bigCardL {
+  font-family: var(--font-heading);
+  font-size: 140px;
+  font-weight: var(--font-bold);
+  color: var(--rarity-legendary);
+  text-shadow:
+    0 0 18px rgba(255, 215, 0, 0.55),
+    0 0 38px rgba(255, 215, 0, 0.35);
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.bigCardLabel {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: var(--font-bold);
+  color: var(--rarity-legendary);
+  text-transform: uppercase;
+  letter-spacing: 0.26em;
+  opacity: 0.85;
+}
+
+@keyframes bigCardFloat {
+  0%, 100% {
+    transform: rotateY(-14deg) rotateX(6deg) translateY(0);
+  }
+  50% {
+    transform: rotateY(-14deg) rotateX(6deg) translateY(-10px);
+  }
+}
+
+/* ==========================================================================
+ * Premium/Starter pills, horizontal odds bar, 6-card "possible" grid
+ * ========================================================================== */
+
+.pillRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 22px;
+}
+
+/* Same height as .pillRow (3+3 padding + 9px font + 1px*2 border = ~22px)
+   so Starter's first visible row aligns with Premium's title row. */
+.pillRowSpacer {
+  height: 22px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.pill_accent {
+  background: rgba(187, 134, 252, 0.18);
+  border: 1px solid rgba(187, 134, 252, 0.5);
+  color: var(--rarity-epic);
+}
+
+.pill_muted {
+  background: rgba(3, 218, 198, 0.15);
+  border: 1px solid rgba(3, 218, 198, 0.4);
+  color: var(--accent-primary);
+}
+
+/* Horizontal gradient odds bar - one colored segment per rarity. */
+.oddsBar {
+  display: flex;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.oddsSeg {
+  min-width: 10px;
+}
+.oddsSeg_common    { background: var(--rarity-common); }
+.oddsSeg_rare      { background: var(--rarity-rare, #4A9EFF); }
+.oddsSeg_epic      { background: var(--rarity-epic); }
+.oddsSeg_legendary { background: var(--rarity-legendary); }
+
+/* ---------- "What You Could Pull" section ---------- */
+
+.possibleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.possibleLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.possibleGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.possibleCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--duration-fast) var(--ease-out);
+  min-width: 0;
+}
+
+.possibleCard_common    { border-color: rgba(158, 158, 158, 0.5); }
+.possibleCard_rare {
+  border-color: rgba(74, 158, 255, 0.65);
+  box-shadow: 0 0 10px rgba(74, 158, 255, 0.18);
+}
+.possibleCard_epic {
+  border-color: rgba(187, 134, 252, 0.7);
+  box-shadow: 0 0 10px rgba(187, 134, 252, 0.22);
+}
+.possibleCard_legendary {
+  border-color: rgba(255, 215, 0, 0.8);
+  box-shadow: 0 0 14px rgba(255, 215, 0, 0.3);
+}
+
+.possibleInner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Trapezoid skin shape - 2-color gradient in rarity color. */
+.possibleShape {
+  width: 70%;
+  height: 65%;
+  clip-path: polygon(18% 100%, 82% 100%, 100% 25%, 0 25%);
+}
+
+.possibleShape_common {
+  background: linear-gradient(180deg, rgba(158, 158, 158, 0.6), rgba(158, 158, 158, 0.25));
+}
+.possibleShape_rare {
+  background: linear-gradient(180deg, rgba(74, 158, 255, 0.7), rgba(74, 158, 255, 0.3));
+  filter: drop-shadow(0 0 6px rgba(74, 158, 255, 0.5));
+}
+.possibleShape_epic {
+  background: linear-gradient(180deg, rgba(187, 134, 252, 0.7), rgba(187, 134, 252, 0.3));
+  filter: drop-shadow(0 0 6px rgba(187, 134, 252, 0.5));
+}
+.possibleShape_legendary {
+  background: linear-gradient(180deg, rgba(255, 215, 0, 0.8), rgba(255, 215, 0, 0.35));
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.55));
+}
+
+/* Drone silhouette via CSS mask - the tier webp is used as a shape mask,
+   then filled with a solid rarity color. Produces a flat silhouette,
+   not the full photo-render. The drop-shadow follows the masked shape. */
+.possibleDrone {
+  width: 85%;
+  height: 70%;
+  -webkit-mask: var(--drone-img) center / contain no-repeat;
+          mask: var(--drone-img) center / contain no-repeat;
+}
+.possibleDrone_common {
+  background-color: var(--rarity-common, #9E9E9E);
+  filter: drop-shadow(0 0 4px rgba(158, 158, 158, 0.45));
+}
+.possibleDrone_rare {
+  background-color: var(--rarity-rare, #4A9EFF);
+  filter: drop-shadow(0 0 8px rgba(74, 158, 255, 0.55));
+}
+.possibleDrone_epic {
+  background-color: var(--rarity-epic, #BB86FC);
+  filter: drop-shadow(0 0 10px rgba(187, 134, 252, 0.6));
+}
+.possibleDrone_legendary {
+  background-color: var(--rarity-legendary, #FFD700);
+  filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.65));
+}
+
+.possibleMystery {
+  position: absolute;
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  z-index: 1;
+}
+
+.possibleName {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.possibleRarity {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Rarity text colors - shared with odds text + rate labels. */
+.rarity_common    { color: var(--rarity-common, #9E9E9E); }
+.rarity_rare      { color: var(--rarity-rare, #4A9EFF); }
+.rarity_epic      { color: var(--rarity-epic, #BB86FC); }
+.rarity_legendary { color: var(--rarity-legendary, #FFD700); }
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1100px) {
+  .heroGrid {
+    grid-template-columns: 1fr;
+  }
+  .heroCardWrap {
+    order: -1;
+  }
+  .bigLegendaryCard {
+    width: 180px;
+    height: 250px;
+  }
+  .bigCardL {
+    font-size: 110px;
+  }
+}
+
+@media (max-width: 900px) {
+  .packsRow {
+    grid-template-columns: 1fr;
+  }
+  .possibleGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .packMain {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .packSilhouettes {
+    justify-content: center;
+  }
+  .packCardHero {
+    padding: 24px 20px;
+    min-height: 0;
+  }
+  .heroGrid {
+    gap: 24px;
+  }
+  .heroActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .heroHint {
+    text-align: center;
+  }
+  .possibleGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ticker {
+    font-size: 10px;
+    gap: var(--space-3);
+  }
+  .packCtaRow {
+    justify-content: stretch;
+  }
+  .packBtn {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* Pack reveal modal - cinematic. Cards fly in from 3D space, staggered. */
 .revealWrap {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
+  position: relative;
+  padding: var(--space-3) 0 var(--space-2);
 }
 
 .revealGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
+  perspective: 1200px;
 }
 
 .revealCard {
@@ -1027,15 +1924,40 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   opacity: 0;
-  transform: translateY(12px);
+  transform-origin: 50% 100%;
+  transform:
+    translate3d(0, 80px, -200px)
+    rotateX(35deg)
+    rotateY(-10deg)
+    scale(0.7);
   transition:
-    opacity 320ms var(--ease-out),
-    transform 320ms var(--ease-out);
+    opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .revealVisible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1);
+}
+
+/* Legendary reveal gets a burst of light + sustained shimmer. */
+.revealVisible.card_legendary {
+  animation: revealBurst 1.1s var(--ease-out);
+}
+@keyframes revealBurst {
+  0%   { box-shadow: 0 0 0 rgba(255, 215, 0, 0);   filter: brightness(1); }
+  30%  { box-shadow: 0 0 80px rgba(255, 215, 0, 0.85); filter: brightness(1.35); }
+  100% { box-shadow: 0 0 28px rgba(255, 215, 0, 0.35); filter: brightness(1); }
+}
+
+/* Epic drops get a softer purple pulse. */
+.revealVisible.card_epic {
+  animation: revealPulseEpic 900ms var(--ease-out);
+}
+@keyframes revealPulseEpic {
+  0%   { box-shadow: 0 0 0 rgba(187, 134, 252, 0); }
+  40%  { box-shadow: 0 0 40px rgba(187, 134, 252, 0.55); }
+  100% { box-shadow: 0 0 16px rgba(187, 134, 252, 0.2); }
 }
 
 .revealImage {
@@ -1090,66 +2012,294 @@
 }
 
 /* ==========================================================================
- * Transaction history (collapsed by default)
+ * Numbered pagination (1 2 3 … >). Mirrors the races-page styling so
+ * paginated surfaces feel consistent across the app.
  * ========================================================================== */
 
-.historyCard {
-  background: var(--bg-card);
-  border: 1px solid var(--border-default);
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: var(--space-4) 0 var(--space-2);
 }
 
-.historyToggle {
-  width: 100%;
+.pageNum {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.pageNum:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pageNumActive {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-subtle);
+}
+
+.pageEllipsis {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 0 6px;
+  user-select: none;
+}
+
+.pageNext {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-left: var(--space-2);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.pageNext:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.pageNext:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* ==========================================================================
+ * Recent Sales tape - activity-feed style below the marketplace grid.
+ * A pulsing dot + stat strip header, then a clean row-per-sale list.
+ * Designed to feel alive and market-y rather than spreadsheet-y.
+ * ========================================================================== */
+
+.tapeSection {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.tapeHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-4);
+  padding: 10px var(--space-4);
   background: var(--header-bar-bg, #252525);
-  border: none;
   border-bottom: 1px solid var(--border-default);
-  color: var(--header-bar-text, #F0F0F0);
+  min-height: 44px;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+}
+
+.tapeTitleBlock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Small pulsing accent dot - signals "live" feed energy. */
+.tapeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(3, 218, 198, 0.7);
+  animation: tapePulse 2.5s ease-in-out infinite;
+}
+
+@keyframes tapePulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.9); }
+  50%      { opacity: 1;   transform: scale(1.1); }
+}
+
+.tapeTitle {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
-  letter-spacing: 0.01em;
-  line-height: 1.2;
-  min-height: 44px;
-  box-sizing: border-box;
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-out);
-  text-align: left;
+  color: var(--header-bar-text, #F0F0F0);
+  letter-spacing: 0.02em;
+  margin: 0;
+  text-transform: uppercase;
 }
 
-.historyToggle:hover {
-  color: var(--accent-primary);
-}
-
-.historyChevron {
-  color: var(--text-secondary);
-  transition: transform var(--duration-normal) var(--ease-out);
-  flex-shrink: 0;
-}
-
-.historyChevronOpen {
-  transform: rotate(180deg);
-  color: var(--accent-primary);
-}
-
-.historyBody {
-  padding: 0;
-}
-
-.txType {
+.tapeStats {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-family: var(--font-mono);
+}
+
+.tapeStat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.tapeStatValue {
+  font-size: 13px;
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+}
+
+.tapeStatLabel {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.tapeStatSep {
+  width: 1px;
+  height: 12px;
+  background: var(--border-subtle);
+}
+
+.tapeEmpty {
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.tapeList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.tapeRow {
+  display: grid;
+  grid-template-columns: 68px 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-family: var(--font-mono);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.tapeRow:last-child {
+  border-bottom: none;
+}
+
+.tapeRow:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.tapeTypePill {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  min-width: 52px;
+}
+
+.tapePillDrone {
+  background: rgba(3, 218, 198, 0.15);
+  color: var(--accent-primary);
+}
+
+/* Skin rarity pills reuse the .rarity_* colors already defined above. */
+.tapeTypePill.rarity_common {
+  background: rgba(158, 158, 158, 0.18);
+}
+.tapeTypePill.rarity_rare {
+  background: rgba(74, 158, 255, 0.18);
+}
+.tapeTypePill.rarity_epic {
+  background: rgba(187, 134, 252, 0.18);
+}
+.tapeTypePill.rarity_legendary {
+  background: rgba(255, 215, 0, 0.18);
+}
+
+.tapeName {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.tapeMeta {
   font-size: 10px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.tapePrice {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+  text-shadow: 0 0 6px rgba(3, 218, 198, 0.3);
+  justify-self: end;
+}
+
+.tapePriceUnit {
+  font-size: 9px;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-semibold);
+  text-shadow: none;
 }
 
-.mono {
-  font-family: var(--font-mono);
+@media (max-width: 600px) {
+  .tapeRow {
+    grid-template-columns: 54px 1fr auto;
+    gap: 8px;
+  }
+  .tapeMeta {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    justify-self: start;
+  }
+  .tapePrice {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .tapeHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 /* ==========================================================================

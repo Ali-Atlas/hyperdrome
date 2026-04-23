@@ -20,6 +20,9 @@ import styles from './StatEditorRow.module.css';
  * @param {() => void} props.onIncrement
  * @param {() => void} props.onDecrement
  * @param {number} props.costToUpgrade
+ * @param {boolean} [props.readOnly] - hides the +/- controls entirely.
+ *   Used on the shared drone detail page for non-owners, where the same
+ *   layout renders but the viewer has no authority to edit.
  * @param {string} [props.className]
  */
 export default function StatEditorRow({
@@ -31,6 +34,7 @@ export default function StatEditorRow({
   onIncrement,
   onDecrement,
   costToUpgrade,
+  readOnly,
   className,
 }) {
   const plusDisabled =
@@ -53,26 +57,28 @@ export default function StatEditorRow({
 
       <span className={styles.value}>{currentValue}</span>
 
-      <div className={styles.btnGroup}>
-        <button
-          type="button"
-          className={styles.btn}
-          disabled={minusDisabled}
-          onClick={onDecrement}
-          aria-label={`Decrease ${statName}`}
-        >
-          <Minus size={14} strokeWidth={2.5} />
-        </button>
-        <button
-          type="button"
-          className={styles.btn}
-          disabled={plusDisabled}
-          onClick={onIncrement}
-          aria-label={`Increase ${statName}`}
-        >
-          <Plus size={14} strokeWidth={2.5} />
-        </button>
-      </div>
+      {!readOnly && (
+        <div className={styles.btnGroup}>
+          <button
+            type="button"
+            className={styles.btn}
+            disabled={minusDisabled}
+            onClick={onDecrement}
+            aria-label={`Decrease ${statName}`}
+          >
+            <Minus size={14} strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            className={styles.btn}
+            disabled={plusDisabled}
+            onClick={onIncrement}
+            aria-label={`Increase ${statName}`}
+          >
+            <Plus size={14} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -19,7 +19,7 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
-import { cn } from '@/lib/utils';
+import { cn, getDroneImage, getLevelTier } from '@/lib/utils';
 import styles from './page.module.css';
 
 const WEATHER_ICONS = {
@@ -606,14 +606,22 @@ function DroneCard({ drone, isWinner, time, eloBefore, eloChange, showUpset }) {
 
   return (
     <Link href={`/drones/${drone.id}`} className={styles.droneLink}>
-      <Card className={styles.droneCard}>
+      <Card
+        className={cn(
+          styles.droneCard,
+          styles[`level_${getLevelTier(drone.level)}`],
+          drone.appliedSkin?.rarity &&
+            drone.appliedSkin.rarity !== 'common' &&
+            styles[`skinRarity_${drone.appliedSkin.rarity}`],
+        )}
+      >
         <h2 className={styles.sectionHeading}>
           {isWinner ? 'Winner' : 'Challenger'}
         </h2>
 
         <div className={styles.droneImageFrame}>
           <img
-            src={drone.imageUrl || '/drones/default.png'}
+            src={getDroneImage(drone)}
             alt={drone.name}
             className={styles.droneImg}
           />
