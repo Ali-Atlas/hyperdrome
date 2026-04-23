@@ -6,7 +6,7 @@
 
 .main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: stretch;
 }
@@ -16,6 +16,7 @@
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
+  flex: 1;
 }
 
 @media (max-width: 1024px) {
@@ -45,6 +46,29 @@
   min-height: 0;
 }
 
+/* Radar + meta 2-col row that sits BELOW the drone image.
+   Radar on the left, meta (form + KPIs + skin) on the right.
+   Collapses to a single column on small mobile. */
+.droneBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: var(--space-4);
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+.droneBody .radar {
+  align-self: center;
+}
+
+.droneMeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
 /* Name + level header — matches dashboard spotlight's .droneNameBlock */
 .droneNameBlock {
   display: flex;
@@ -56,12 +80,12 @@
 
 .droneName {
   font-family: var(--font-heading);
-  font-size: var(--text-xl);
+  font-size: var(--text-base);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  line-height: 1.05;
+  line-height: 1.1;
   margin: 0;
 }
 
@@ -115,6 +139,62 @@
 
 /* Stat strip — matches dashboard .kpiCell treatment (label primary+semibold,
    value secondary+medium, mono everywhere) */
+.formStrip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.formLabel {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-semibold);
+}
+
+.formDots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.formDot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  display: inline-block;
+}
+
+.formDotWin {
+  background: var(--accent-primary);
+  box-shadow: 0 0 6px rgba(3, 218, 198, 0.5);
+}
+
+.formDotLoss {
+  background: var(--accent-error);
+}
+
+.formEmpty {
+  color: var(--text-tertiary);
+}
+
+.formStreak {
+  margin-left: auto;
+  font-weight: var(--font-bold);
+  letter-spacing: 0.05em;
+}
+
+.formStreakWin {
+  color: var(--accent-primary);
+}
+
+.formStreakLoss {
+  color: var(--accent-error);
+}
+
 .statStrip {
   display: flex;
   flex-direction: column;
@@ -140,7 +220,7 @@
 
 .statStripValue {
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--text-secondary);
   font-weight: var(--font-medium);
 }
@@ -152,6 +232,7 @@
   margin-top: auto;
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-default);
+  min-width: 0;
 }
 
 .skinLabel {
@@ -165,19 +246,19 @@
 .skinSelect {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: 10px 12px;
+  gap: var(--space-2);
+  padding: 6px 10px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   cursor: pointer;
-  min-height: 42px;
+  min-height: 32px;
   transition: all var(--duration-normal) var(--ease-out);
 }
 
@@ -187,8 +268,8 @@
 
 .skinSwatch {
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   border-radius: var(--radius-sm);
   background: linear-gradient(
     135deg,
@@ -351,6 +432,9 @@
 .perfSummaryCard {
   background: var(--bg-card);
   border: 1px solid var(--border-default);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .raceProfileGrid {
@@ -650,6 +734,13 @@
 /* ==========================================================================
  * Breakpoints
  * ========================================================================== */
+
+/* Small mobile — stack image above meta. */
+@media (max-width: 600px) {
+  .droneBody {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* Mobile */
 @media (max-width: 768px) {

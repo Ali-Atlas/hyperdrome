@@ -21,27 +21,36 @@
 }
 
 .fieldLabel {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  letter-spacing: 0;
   line-height: 1;
+  font-weight: var(--font-medium);
 }
 
 .select,
 .rangeInput,
 .searchInput {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--text-primary);
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 6px 12px;
-  min-height: 36px;
+  padding: 5px 10px;
+  min-height: 30px;
   width: 100%;
   transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+@media (max-width: 768px) {
+  .select,
+  .rangeInput,
+  .searchInput {
+    font-size: 11px;
+    min-height: 28px;
+  }
 }
 
 .select:focus,

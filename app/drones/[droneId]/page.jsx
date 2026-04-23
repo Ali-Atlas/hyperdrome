@@ -23,13 +23,14 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import StatBar from '@/components/ui/StatBar';
 import StatEditorRow from '@/components/ui/StatEditorRow';
+import StatRadar from '@/components/ui/StatRadar';
 import Toggle from '@/components/ui/Toggle';
 import Button from '@/components/ui/Button';
 import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
-import { getLevelColor } from '@/lib/utils';
+import { cn, getLevelColor } from '@/lib/utils';
 import {
   STAT_KEYS,
   calculateStatUpgradeCost,
@@ -50,6 +51,18 @@ const STAT_LABELS = {
   rainHandling: 'Rain Handling',
   windResistance: 'Wind Resistance',
   consistency: 'Consistency',
+};
+
+const RADAR_SHORT_LABELS = {
+  speed: 'SPD',
+  turning: 'TRN',
+  acceleration: 'ACC',
+  durability: 'DUR',
+  nightVision: 'NV',
+  batteryCapacity: 'BAT',
+  rainHandling: 'RAIN',
+  windResistance: 'WIND',
+  consistency: 'CST',
 };
 
 const SNAKE_KEYS = {
@@ -271,6 +284,25 @@ function DroneManagementView({ drone, onReload }) {
     [editedStats],
   );
 
+  const radarLabels = useMemo(
+    () => STAT_KEYS.map((key) => RADAR_SHORT_LABELS[key]),
+    [],
+  );
+
+  const formInfo = useMemo(() => {
+    const races = drone.recentRaces ?? [];
+    if (!races.length) return { dots: [], streak: 0, type: null };
+    const last5 = races.slice(0, 5);
+    const dots = last5.map((r) => r.winnerDroneId === drone.id);
+    const first = dots[0];
+    let streak = 1;
+    for (let i = 1; i < dots.length; i++) {
+      if (dots[i] === first) streak += 1;
+      else break;
+    }
+    return { dots, streak, type: first ? 'W' : 'L' };
+  }, [drone]);
+
   const winRate =
     drone.totalRaces > 0
       ? ((drone.wins / drone.totalRaces) * 100).toFixed(1) + '%'
@@ -316,50 +348,98 @@ function DroneManagementView({ drone, onReload }) {
                 <DroneImage drone={drone} />
               </div>
 
-              <div className={styles.statStrip}>
-                <div className={styles.statStripItem}>
-                  <span className={styles.statStripLabel}>Total Races</span>
-                  <span className={styles.statStripValue}>
-                    {drone.totalRaces}
-                  </span>
-                </div>
-                <div className={styles.statStripItem}>
-                  <span className={styles.statStripLabel}>Wins</span>
-                  <span className={styles.statStripValue}>{drone.wins}</span>
-                </div>
-                <div className={styles.statStripItem}>
-                  <span className={styles.statStripLabel}>Losses</span>
-                  <span className={styles.statStripValue}>
-                    {drone.losses}
-                  </span>
-                </div>
-                <div className={styles.statStripItem}>
-                  <span className={styles.statStripLabel}>Win Rate</span>
-                  <span className={styles.statStripValue}>{winRate}</span>
-                </div>
-                <div className={styles.statStripItem}>
-                  <span className={styles.statStripLabel}>ELO</span>
-                  <span className={styles.statStripValue}>
-                    {drone.eloRating}
-                  </span>
-                </div>
-                <div className={styles.statStripItem}>
-                  <span className={styles.statStripLabel}>Unspent Points</span>
-                  <span className={styles.statStripValue}>
-                    {drone.unspentPoints ?? 0}
-                  </span>
-                </div>
-              </div>
+              <div className={styles.droneBody}>
+                <StatRadar
+                  axes={STAT_KEYS}
+                  stats={editedStats}
+                  labels={radarLabels}
+                  className={styles.radar}
+                />
 
-              <div className={styles.skinBlock}>
-                <span className={styles.skinLabel}>Skin Equipped</span>
-                <button type="button" className={styles.skinSelect}>
-                  <span className={styles.skinSwatch} aria-hidden="true" />
-                  <span className={styles.skinName}>
-                    {drone.appliedSkin?.name ?? 'None'}
-                  </span>
-                  <ChevronDown size={16} aria-hidden="true" />
-                </button>
+                <div className={styles.droneMeta}>
+                  <div className={styles.formStrip}>
+                    <span className={styles.formLabel}>Form</span>
+                    <div className={styles.formDots}>
+                      {formInfo.dots.length > 0 ? (
+                        formInfo.dots.map((won, i) => (
+                          <span
+                            key={i}
+                            className={cn(
+                              styles.formDot,
+                              won ? styles.formDotWin : styles.formDotLoss,
+                            )}
+                            aria-label={won ? 'Win' : 'Loss'}
+                          />
+                        ))
+                      ) : (
+                        <span className={styles.formEmpty}>—</span>
+                      )}
+                    </div>
+                    {formInfo.dots.length > 0 && (
+                      <span
+                        className={cn(
+                          styles.formStreak,
+                          formInfo.type === 'W'
+                            ? styles.formStreakWin
+                            : styles.formStreakLoss,
+                        )}
+                      >
+                        {formInfo.type}
+                        {formInfo.streak}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={styles.statStrip}>
+                    <div className={styles.statStripItem}>
+                      <span className={styles.statStripLabel}>Total Races</span>
+                      <span className={styles.statStripValue}>
+                        {drone.totalRaces}
+                      </span>
+                    </div>
+                    <div className={styles.statStripItem}>
+                      <span className={styles.statStripLabel}>Wins</span>
+                      <span className={styles.statStripValue}>
+                        {drone.wins}
+                      </span>
+                    </div>
+                    <div className={styles.statStripItem}>
+                      <span className={styles.statStripLabel}>Losses</span>
+                      <span className={styles.statStripValue}>
+                        {drone.losses}
+                      </span>
+                    </div>
+                    <div className={styles.statStripItem}>
+                      <span className={styles.statStripLabel}>Win Rate</span>
+                      <span className={styles.statStripValue}>{winRate}</span>
+                    </div>
+                    <div className={styles.statStripItem}>
+                      <span className={styles.statStripLabel}>ELO</span>
+                      <span className={styles.statStripValue}>
+                        {drone.eloRating}
+                      </span>
+                    </div>
+                    <div className={styles.statStripItem}>
+                      <span className={styles.statStripLabel}>
+                        Unspent Points
+                      </span>
+                      <span className={styles.statStripValue}>
+                        {drone.unspentPoints ?? 0}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={styles.skinBlock}>
+                    <span className={styles.skinLabel}>Skin Equipped</span>
+                    <button type="button" className={styles.skinSelect}>
+                      <span className={styles.skinSwatch} aria-hidden="true" />
+                      <span className={styles.skinName}>
+                        {drone.appliedSkin?.name ?? 'None'}
+                      </span>
+                      <ChevronDown size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </Card>

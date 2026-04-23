@@ -4,55 +4,44 @@
   gap: var(--space-4);
 }
 
-.header {
+/* ---- Top info strip: total races (left) + live indicator + mini clock (right) ---- */
+
+.topStrip {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-4);
   flex-wrap: wrap;
 }
 
-.title {
-  font-family: var(--font-heading);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.subtitle {
+.totalRaces {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin: 4px 0 0;
 }
 
-/* ---- Compact live/status box ---- */
+.totalRacesValue {
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+  margin-left: 4px;
+}
 
-.liveBox {
-  display: flex;
+.liveGroup {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 6px 12px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  height: 36px;
 }
 
-.liveIndicator {
+.liveBox {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  background: rgba(3, 218, 198, 0.08);
+  border: 1px solid rgba(3, 218, 198, 0.35);
+  border-radius: var(--radius-sm);
 }
 
 .liveDot {
@@ -64,12 +53,22 @@
   animation: pulse 1.5s infinite;
 }
 
+.liveLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-bold);
+}
+
 .liveBoxPaused {
+  background: transparent;
   border-color: var(--border-default);
 }
 
-.liveIndicatorPaused {
-  color: var(--text-secondary);
+.liveBoxPaused .liveLabel {
+  color: var(--text-tertiary);
 }
 
 .liveDotPaused {
@@ -78,26 +77,39 @@
   animation: none;
 }
 
-.pausedLabel {
+.miniCountdown {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding-left: var(--space-3);
-  margin-left: var(--space-1);
-  position: relative;
 }
 
-.pausedLabel::before {
-  content: '·';
-  position: absolute;
-  left: 0;
-  color: var(--text-tertiary);
+.miniCountdownLabel {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
+
+.miniCountdownTime {
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+  letter-spacing: 0.04em;
+}
+
+.miniColon {
+  opacity: 0.6;
+  margin: 0 1px;
+}
+
+/* ---- Borderless filter bar container (filters float free) ---- */
 
 .filterBar {
   margin: 0;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
 }
 
 /* ---- Table cell styles (compact) ---- */
@@ -112,25 +124,25 @@
 .mono {
   font-family: var(--font-mono);
   color: var(--text-secondary);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
 }
 
 .droneCell {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--text-primary);
   white-space: nowrap;
 }
 
 .droneLv {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 11px;
   color: var(--text-tertiary);
 }
 
 .winner {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--accent-primary);
   font-weight: var(--font-semibold);
   white-space: nowrap;
@@ -138,65 +150,96 @@
 
 .winnerLv {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 11px;
   opacity: 0.8;
 }
 
-/* ---- Pagination ---- */
+@media (max-width: 768px) {
+  .mono,
+  .droneCell,
+  .winner {
+    font-size: 11px;
+  }
+  .droneLv,
+  .winnerLv {
+    font-size: 10px;
+  }
+}
+
+/* ---- Numbered pagination (1 2 3 … >) ---- */
 
 .pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
+  gap: 4px;
   padding: var(--space-3) 0;
 }
 
-.pageBtn {
-  padding: 6px 14px;
+.pageNum {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
   background: transparent;
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
   cursor: pointer;
-  transition: all var(--duration-normal) var(--ease-out);
-  min-height: 32px;
+  transition: all var(--duration-fast) var(--ease-out);
 }
 
-.pageBtn:hover:not(:disabled) {
+.pageNum:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pageNumActive {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-subtle);
+}
+
+.pageEllipsis {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 0 6px;
+  user-select: none;
+}
+
+.pageNext {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-left: var(--space-2);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.pageNext:hover:not(:disabled) {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
 }
 
-.pageBtn:disabled {
-  opacity: 0.4;
+.pageNext:disabled {
   cursor: not-allowed;
 }
 
-.pageInfo {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
 @media (max-width: 768px) {
-  .title {
-    font-size: var(--text-xl);
-  }
-}
-
-@media (max-width: 768px) {
-  .header {
+  .topStrip {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
   }
-  .liveBox {
+  .liveGroup {
     align-self: flex-start;
   }
 }

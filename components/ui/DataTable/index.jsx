@@ -7,8 +7,13 @@ import styles from './DataTable.module.css';
 
 /**
  * Responsive sortable data table.
+ *
+ * Columns can supply a `shortLabel` — when set, the full `label` renders
+ * at desktop width and the `shortLabel` swaps in at ≤1024px so columns
+ * still fit on tablet without horizontal scroll.
+ *
  * @param {object} props
- * @param {Array<{ key: string, label: string, sortable?: boolean, render?: (row: any) => React.ReactNode, align?: 'left'|'center'|'right' }>} props.columns
+ * @param {Array<{ key: string, label: string, shortLabel?: string, sortable?: boolean, render?: (row: any) => React.ReactNode, align?: 'left'|'center'|'right' }>} props.columns
  * @param {Array<object>} props.data
  * @param {(row: any) => void} [props.onRowClick]
  * @param {boolean} [props.sortable]
@@ -70,7 +75,16 @@ export default function DataTable({
                   onClick={isSortable ? () => toggleSort(col.key) : undefined}
                 >
                   <span className={styles.thContent}>
-                    {col.label}
+                    {col.shortLabel ? (
+                      <>
+                        <span className={styles.labelFull}>{col.label}</span>
+                        <span className={styles.labelShort}>
+                          {col.shortLabel}
+                        </span>
+                      </>
+                    ) : (
+                      col.label
+                    )}
                     {isSortable && (
                       <span className={styles.sortIcon}>
                         {isActive && sort.order === 'asc' ? (

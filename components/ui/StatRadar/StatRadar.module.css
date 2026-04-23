@@ -1,0 +1,41 @@
+.radar {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 220px;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.grid {
+  fill: none;
+  stroke: #3F3F3F;
+  stroke-width: 0.75;
+}
+
+.axis {
+  stroke: #2A2A2A;
+  stroke-width: 0.5;
+}
+
+.dataFill {
+  fill: rgba(3, 218, 198, 0.18);
+  stroke: var(--accent-primary);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 6px rgba(3, 218, 198, 0.4));
+  transition:
+    points var(--duration-normal) var(--ease-out),
+    fill var(--duration-normal) var(--ease-out);
+}
+
+.dataDot {
+  fill: var(--accent-primary);
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

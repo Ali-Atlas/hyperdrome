@@ -4,69 +4,22 @@
   gap: var(--space-4);
 }
 
-.back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  width: fit-content;
-  transition: color var(--duration-normal) var(--ease-out);
-}
+/* ==========================================================================
+ * Top meta strip — race id + timestamp on left, status pill on right
+ * ========================================================================== */
 
-.back:hover {
-  color: var(--accent-primary);
-}
-
-.header {
+.topStrip {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-4);
   flex-wrap: wrap;
 }
 
-.title {
-  font-family: var(--font-heading);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  margin: 0;
-}
-
-@media (max-width: 768px) {
-  .title {
-    font-size: var(--text-xl);
-  }
-}
-
-.meta {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin: var(--space-2) 0 0;
-}
-
-.conditions {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.conditionChip {
+.metaLeft {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
@@ -74,138 +27,218 @@
   letter-spacing: 0.05em;
 }
 
-.pointsChip {
+.metaLabel {
+  color: var(--text-secondary);
+}
+
+.metaId {
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+}
+
+.metaDivider {
+  width: 1px;
+  height: 12px;
+  background: var(--border-default);
+}
+
+.metaTimestamp {
+  color: var(--text-secondary);
+}
+
+.statusPill {
   display: inline-flex;
   align-items: center;
-  padding: var(--space-2) var(--space-3);
-  background: rgba(3, 218, 198, 0.12);
-  border: 1px solid rgba(3, 218, 198, 0.3);
+  gap: var(--space-2);
+  padding: 4px 10px;
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-bold);
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+}
+
+.statusLive {
+  background: rgba(3, 218, 198, 0.08);
+  border: 1px solid rgba(3, 218, 198, 0.35);
   color: var(--accent-primary);
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+}
+
+.statusLive .statusDot {
+  background: var(--accent-primary);
+  box-shadow: 0 0 6px var(--accent-primary);
+  animation: pulse 1.5s infinite;
+}
+
+.statusFinal {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.statusFinal .statusDot {
+  background: var(--text-tertiary);
 }
 
 /* ==========================================================================
- * Track card — header above, full-width hero image below
+ * Headline result banner
  * ========================================================================== */
 
-.trackCard {
-  padding: 0;
-  overflow: hidden;
-  background: var(--bg-card);
-  border: 1px solid var(--border-default);
-}
-
-.trackHeader {
-  padding: var(--space-4) var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  border-bottom: 1px solid var(--border-default);
-}
-
-.trackTitleRow {
+.headlineBanner {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  animation: bannerEnter 640ms var(--ease-out);
+}
+
+@keyframes bannerEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px);
+    box-shadow: 0 0 0 rgba(3, 218, 198, 0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(0);
+    box-shadow: 0 0 28px rgba(3, 218, 198, 0.35);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    box-shadow: 0 0 0 rgba(3, 218, 198, 0);
+  }
+}
+
+.headlineLeft {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-3);
+  min-width: 0;
+}
+
+.headlineTrophy {
+  color: var(--accent-primary);
+  filter: drop-shadow(0 0 8px rgba(3, 218, 198, 0.5));
+  flex-shrink: 0;
+}
+
+.headlineTextGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.headlineTopLine {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
-.trackName {
+.commentary {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+.headlineWinner {
   font-family: var(--font-heading);
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   font-weight: var(--font-bold);
   color: var(--text-primary);
-  margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   line-height: 1.1;
 }
 
-.trackDifficulty {
+.headlineWinAction {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  padding: 4px 10px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
-.trackStats {
-  display: flex;
+.headlineRight {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
-.trackStatItem {
+.pointsChip {
   display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-2);
+  align-items: center;
+  padding: 3px 10px;
+  background: rgba(3, 218, 198, 0.12);
+  border: 1px solid rgba(3, 218, 198, 0.35);
+  border-radius: var(--radius-sm);
   font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent-primary);
+  font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.trackStatLabel {
+.conditionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.conditionChip svg {
   color: var(--text-secondary);
 }
 
-.trackStatValue {
+/* ==========================================================================
+ * Shared section heading (full-width flush bar) — matches dashboard + drone-mgr
+ * ========================================================================== */
+
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  color: var(--text-primary);
-  font-weight: var(--font-bold);
-}
-
-.trackStatDivider {
-  width: 1px;
-  height: 14px;
-  background: var(--border-default);
-  flex-shrink: 0;
-}
-
-.trackImage {
-  position: relative;
-  width: 100%;
-  height: 280px;
-  background: var(--bg-elevated);
-  overflow: hidden;
-}
-
-.trackImage svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-@media (max-width: 768px) {
-  .trackHeader {
-    padding: var(--space-3) var(--space-4);
-  }
-  .trackName {
-    font-size: var(--text-base);
-  }
-  .trackImage {
-    height: 200px;
-  }
+  font-weight: var(--font-semibold);
+  color: var(--header-bar-text);
+  margin: 0;
+  letter-spacing: 0.01em;
+  padding: var(--space-3) var(--space-4);
+  background: var(--header-bar-bg);
+  border-bottom: 1px solid var(--border-default);
+  line-height: 1.2;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 /* ==========================================================================
- * Drone cards (two side by side, half-width each)
+ * Layout grid — drone1 | drone2 | log on top row, track full-width below
  * ========================================================================== */
 
 .raceLayout {
@@ -233,51 +266,27 @@
 .raceLayout .logCard {
   grid-area: log;
   align-self: stretch;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-@media (min-width: 1201px) {
-  .raceLayout .logCard {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    overflow: hidden;
-  }
-  .raceLayout .logToggle {
-    cursor: default;
-    pointer-events: none;
-    flex-shrink: 0;
-  }
-  .raceLayout .logChevron,
-  .raceLayout .logChevronOpen {
-    display: none;
-  }
-  .raceLayout .logTable {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-  }
-  .raceLayout .logTableHidden {
-    display: block;
-  }
+.logScroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
-@media (max-width: 1200px) {
-  .logTableHidden {
-    display: none;
-  }
-}
+/* ==========================================================================
+ * Drone cards (winner / challenger)
+ * ========================================================================== */
 
 .droneLink {
   display: block;
 }
 
 .droneCard {
-  position: relative;
-  padding: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   transition: all var(--duration-normal) var(--ease-out);
@@ -285,53 +294,27 @@
 
 .droneLink:hover .droneCard {
   border-color: rgba(3, 218, 198, 0.4);
-  box-shadow: 0 0 24px rgba(3, 218, 198, 0.1);
-}
-
-
-.winnerBadge {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  background: var(--accent-primary);
-  color: #000;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  border-radius: var(--radius-sm);
-  z-index: 2;
+  box-shadow: 0 0 24px rgba(3, 218, 198, 0.12);
 }
 
 .droneImageFrame {
   padding: var(--space-4);
-  min-height: 160px;
+  min-height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(
-    135deg,
-    rgba(3, 218, 198, 0.03) 0%,
-    var(--bg-card) 60%
-  );
-  border-bottom: 1px solid var(--border-default);
 }
 
 .droneImg {
   display: block;
   width: 100%;
-  max-width: 200px;
+  max-width: 260px;
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 0 10px rgba(3, 218, 198, 0.2));
+  filter: drop-shadow(0 0 12px rgba(3, 218, 198, 0.28));
 }
 
-.droneBody {
+.droneCardBody {
   padding: var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
@@ -347,12 +330,13 @@
 
 .droneName {
   font-family: var(--font-heading);
-  font-size: var(--text-base);
+  font-size: var(--text-xl);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+  line-height: 1.05;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -369,18 +353,98 @@
 
 .droneMeta {
   display: flex;
-  gap: var(--space-4);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--border-default);
+  gap: var(--space-5);
+  font-family: var(--font-mono);
 }
 
-.droneMeta > span {
+.droneMetaItem {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
 }
 
-.metaLabel {
+.metaKpiLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metaKpiValue {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+
+/* ==========================================================================
+ * Track card — flush header with title + difficulty, stats row, hero image
+ * ========================================================================== */
+
+.trackCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+}
+
+.trackHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--header-bar-bg);
+  border-bottom: 1px solid var(--border-default);
+  padding-right: var(--space-4);
+  min-height: 44px;
+}
+
+.trackHeaderRow .sectionHeading {
+  background: transparent;
+  border-bottom: none;
+  flex: 1;
+  min-height: auto;
+  padding: var(--space-3) var(--space-4);
+}
+
+.trackDifficulty {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 3px 10px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: var(--font-bold);
+}
+
+.trackStatsRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+}
+
+.trackConditionsRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+.conditionInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
@@ -388,116 +452,130 @@
   letter-spacing: 0.05em;
 }
 
-.metaValue {
+.conditionInline svg {
+  color: var(--text-secondary);
+}
+
+.trackStatItem {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.trackStatLabel {
+  font-size: var(--text-xs);
   color: var(--text-primary);
-  font-weight: var(--font-bold);
+  font-weight: var(--font-semibold);
+}
+
+.trackStatValue {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+
+.trackStatDivider {
+  width: 1px;
+  height: 14px;
+  background: var(--border-default);
+  flex-shrink: 0;
+}
+
+.trackImage {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  overflow: hidden;
+}
+
+.trackImage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 /* ==========================================================================
- * Race log (collapsible)
+ * Race log card
  * ========================================================================== */
 
 .logCard {
-  padding: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
 }
 
-.logToggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.sparklineWrap {
+  padding: var(--space-3) var(--space-4) 0;
+}
+
+.sparklineLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.sparkline {
+  display: block;
   width: 100%;
-  padding: var(--space-3) var(--space-4);
-  background: transparent;
-  border: none;
+  height: 48px;
+  overflow: visible;
+}
+
+.sparklineAxis {
+  stroke: var(--border-default);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.sparklineArea {
+  fill: rgba(3, 218, 198, 0.14);
+  stroke: none;
+}
+
+.sparklineLine {
+  fill: none;
+  stroke: var(--accent-primary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 4px rgba(3, 218, 198, 0.35));
+}
+
+.logMono {
+  font-family: var(--font-mono);
   color: var(--text-primary);
-  font-family: var(--font-heading);
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  transition: color var(--duration-normal) var(--ease-out);
 }
 
-.logToggle:hover {
-  color: var(--accent-primary);
-}
-
-.logChevron {
-  transition: transform var(--duration-normal) var(--ease-out);
-  color: var(--text-secondary);
-}
-
-.logChevronOpen {
-  transform: rotate(180deg);
-  color: var(--accent-primary);
-  transition: transform var(--duration-normal) var(--ease-out);
-}
-
-.logTable {
-  padding: 0 var(--space-5) var(--space-5);
-}
-
-.logHeader,
-.logRow {
-  display: grid;
-  grid-template-columns: 40px 1fr 1fr 1fr 40px;
-  gap: var(--space-3);
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
-}
-
-.logHeader {
+.logSegType {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border-default);
-}
-
-.logRow:nth-child(odd) {
-  background: var(--bg-card-alt);
-}
-
-.mono {
-  font-family: var(--font-mono);
-}
-
-.segType {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
 }
 
 .lead1,
 .lead2 {
   font-family: var(--font-mono);
   color: var(--accent-primary);
+  font-size: var(--text-sm);
 }
 
-.alignRight {
-  text-align: right;
-}
-
-.alignCenter {
-  text-align: center;
-}
+/* ==========================================================================
+ * Error + responsive
+ * ========================================================================== */
 
 .error {
   font-family: var(--font-body);
   color: var(--accent-error);
 }
-
-/* ==========================================================================
- * Breakpoints
- * ========================================================================== */
 
 @media (max-width: 1200px) {
   .raceLayout {
@@ -506,6 +584,12 @@
       "drone1 drone2"
       "track  track"
       "log    log";
+  }
+  .raceLayout .logCard {
+    align-self: auto;
+  }
+  .logScroll {
+    overflow-y: visible;
   }
 }
 
@@ -518,14 +602,21 @@
       "track"
       "log";
   }
-  .header {
+  .topStrip {
     flex-direction: column;
     align-items: flex-start;
   }
-  .logHeader,
-  .logRow {
-    grid-template-columns: 30px 1fr 1fr 1fr 30px;
-    font-size: var(--text-xs);
-    gap: var(--space-2);
+  .headlineBanner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .trackImage {
+    height: 200px;
+  }
+  .droneName {
+    font-size: var(--text-lg);
+  }
+  .headlineWinner {
+    font-size: var(--text-sm);
   }
 }

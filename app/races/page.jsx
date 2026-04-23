@@ -12,12 +12,12 @@ import {
   Sunrise,
   Sunset,
   Moon,
+  ChevronRight,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import DataTable from '@/components/ui/DataTable';
 import FilterBar from '@/components/ui/FilterBar';
-import CountdownTimer from '@/components/ui/CountdownTimer';
-import { getLevelColor } from '@/lib/utils';
+import { cn, getLevelColor } from '@/lib/utils';
 import styles from './page.module.css';
 
 const WEATHER_ICONS = {
@@ -183,7 +183,8 @@ export default function RacesPage() {
     () => [
       {
         key: 'id',
-        label: 'ID',
+        label: 'Race ID',
+        shortLabel: 'ID',
         render: (row) => (
           <span className={styles.mono}>{shortId(row.id)}</span>
         ),
@@ -191,16 +192,19 @@ export default function RacesPage() {
       {
         key: 'createdAt',
         label: 'Date / Time',
+        sortable: true,
         render: (row) => formatDate(row.createdAt),
       },
       {
         key: 'track',
-        label: 'Track',
+        label: 'Track Name',
+        shortLabel: 'Track',
         render: (row) => row.track?.name ?? '—',
       },
       {
         key: 'weather',
-        label: 'Wx',
+        label: 'Weather',
+        shortLabel: 'Wx',
         align: 'center',
         render: (row) => {
           const Icon = WEATHER_ICONS[row.weather] ?? Cloud;
@@ -213,7 +217,8 @@ export default function RacesPage() {
       },
       {
         key: 'timeOfDay',
-        label: 'Time',
+        label: 'Time of Day',
+        shortLabel: 'Time',
         align: 'center',
         render: (row) => {
           const Icon = TIME_ICONS[row.timeOfDay] ?? Sun;
@@ -283,8 +288,9 @@ export default function RacesPage() {
       },
       {
         key: 'pointsAwarded',
-        label: 'Pts',
-        align: 'right',
+        label: 'Points Awarded',
+        shortLabel: 'Pts',
+        sortable: true,
         render: (row) => (
           <span className={styles.mono}>{row.pointsAwarded}</span>
         ),
@@ -325,6 +331,40 @@ export default function RacesPage() {
   return (
     <NavShell>
       <div className={styles.page}>
+        <div className={styles.topStrip}>
+          <div className={styles.totalRaces}>
+            TOTAL RACES:{' '}
+            <span className={styles.totalRacesValue}>
+              {data.total.toLocaleString()}
+            </span>
+          </div>
+          <div className={styles.liveGroup}>
+            <div
+              className={cn(
+                styles.liveBox,
+                racingPaused && styles.liveBoxPaused,
+              )}
+            >
+              <span
+                className={cn(
+                  styles.liveDot,
+                  racingPaused && styles.liveDotPaused,
+                )}
+                aria-hidden="true"
+              />
+              <span className={styles.liveLabel}>
+                {racingPaused ? 'RACING PAUSED' : 'LIVE'}
+              </span>
+            </div>
+            {!racingPaused && nextRaceAt && (
+              <div className={styles.miniCountdown}>
+                <span className={styles.miniCountdownLabel}>Next race in</span>
+                <MiniCountdown targetDate={nextRaceAt} />
+              </div>
+            )}
+          </div>
+        </div>
+
         <FilterBar
           filters={filterDefs}
           values={filters}
@@ -341,33 +381,94 @@ export default function RacesPage() {
           data={filteredItems}
           loading={loading}
           emptyMessage="No races yet."
+          sortable
           onRowClick={(row) => router.push(`/races/${row.id}`)}
         />
 
         {totalPages > 1 && (
-          <nav className={styles.pagination} aria-label="Pagination">
-            <button
-              type="button"
-              className={styles.pageBtn}
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Prev
-            </button>
-            <span className={styles.pageInfo}>
-              Page {page} of {totalPages}
-            </span>
-            <button
-              type="button"
-              className={styles.pageBtn}
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next
-            </button>
-          </nav>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         )}
       </div>
     </NavShell>
   );
+}
+
+/* ---------- Mini countdown (MM:SS, text-sm, teal) ---------- */
+function MiniCountdown({ targetDate }) {
+  const compute = () => {
+    if (!targetDate) return 0;
+    return Math.max(0, new Date(targetDate).getTime() - Date.now());
+  };
+  const [remaining, setRemaining] = useState(compute);
+  useEffect(() => {
+    setRemaining(compute());
+    const id = setInterval(() => setRemaining(compute()), 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetDate]);
+
+  if (remaining <= 0) {
+    return <span className={styles.miniCountdownTime}>00:00</span>;
+  }
+  const total = Math.floor(remaining / 1000);
+  const hrs = Math.floor(total / 3600);
+  const mins = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+  const secs = String(total % 60).padStart(2, '0');
+  return (
+    <span className={styles.miniCountdownTime}>
+      {hrs > 0 && <>{String(hrs).padStart(2, '0')}<span className={styles.miniColon}>:</span></>}
+      {mins}
+      <span className={styles.miniColon}>:</span>
+      {secs}
+    </span>
+  );
+}
+
+/* ---------- Numbered pagination (1 2 3 … >) ---------- */
+function Pagination({ page, totalPages, onPageChange }) {
+  const pages = getVisiblePages(page, totalPages);
+  return (
+    <nav className={styles.pagination} aria-label="Pagination">
+      {pages.map((p, i) =>
+        p === '...' ? (
+          <span key={`ell-${i}`} className={styles.pageEllipsis}>…</span>
+        ) : (
+          <button
+            key={p}
+            type="button"
+            className={cn(styles.pageNum, p === page && styles.pageNumActive)}
+            onClick={() => onPageChange(p)}
+            aria-current={p === page ? 'page' : undefined}
+          >
+            {p}
+          </button>
+        ),
+      )}
+      <button
+        type="button"
+        className={styles.pageNext}
+        disabled={page >= totalPages}
+        onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+        aria-label="Next page"
+      >
+        <ChevronRight size={14} />
+      </button>
+    </nav>
+  );
+}
+
+function getVisiblePages(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = [1];
+  if (current > 3) pages.push('...');
+  const lo = Math.max(2, current - 1);
+  const hi = Math.min(total - 1, current + 1);
+  for (let i = lo; i <= hi; i++) pages.push(i);
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
 }

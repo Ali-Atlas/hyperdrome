@@ -12,14 +12,14 @@ import {
   Sunrise,
   Sunset,
   Moon,
-  ArrowLeft,
   Trophy,
-  ChevronDown,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
+import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
+import { cn } from '@/lib/utils';
 import styles from './page.module.css';
 
 const WEATHER_ICONS = {
@@ -32,6 +32,16 @@ const WEATHER_ICONS = {
   fog: CloudFog,
 };
 
+const WEATHER_LABELS = {
+  clear: 'Clear',
+  clouds: 'Clouds',
+  rain: 'Rain',
+  heavy_rain: 'Heavy Rain',
+  wind: 'Wind',
+  haze: 'Haze',
+  fog: 'Fog',
+};
+
 const TIME_ICONS = {
   dawn: Sunrise,
   day: Sun,
@@ -39,16 +49,107 @@ const TIME_ICONS = {
   night: Moon,
 };
 
+const TIME_LABELS = {
+  dawn: 'Dawn',
+  day: 'Day',
+  dusk: 'Dusk',
+  night: 'Night',
+};
+
+function formatTimestamp(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function shortId(id) {
+  return id ? `#${id.slice(-8).toUpperCase()}` : '#-';
+}
+
+/** Count how many times the lead switched between the two drones. */
+function countLeadChanges(log) {
+  if (!log || log.length === 0) return 0;
+  let changes = 0;
+  let prev = null;
+  for (const seg of log) {
+    const lead = seg.drone1Time <= seg.drone2Time ? 1 : 2;
+    if (prev !== null && prev !== lead) changes += 1;
+    prev = lead;
+  }
+  return changes;
+}
+
+/** Difficulty tint — greens/teals for easy, purple mid, red for extreme. */
+function getDifficultyColor(n /* 1-10 */) {
+  if (n <= 3) return 'var(--accent-primary)';
+  if (n <= 7) return 'var(--accent-secondary)';
+  return 'var(--accent-error)';
+}
+
+/** Cumulative lead gap per segment (+ = winner ahead, − = loser ahead). */
+function computeWinnerGaps(log, winnerIsDrone1) {
+  if (!log || log.length === 0) return [];
+  const gaps = [];
+  let cumW = 0;
+  let cumL = 0;
+  for (const seg of log) {
+    const winT = Number(winnerIsDrone1 ? seg.drone1Time : seg.drone2Time);
+    const losT = Number(winnerIsDrone1 ? seg.drone2Time : seg.drone1Time);
+    cumW += winT;
+    cumL += losT;
+    gaps.push(cumL - cumW);
+  }
+  return gaps;
+}
+
+/** Single-sentence auto commentary derived from the race log. */
+function generateCommentary(log, winnerIsDrone1, winnerName) {
+  if (!log || log.length === 0 || !winnerName) return null;
+  const leads = log.map((seg) => {
+    const d1 = seg.drone1Time <= seg.drone2Time;
+    return winnerIsDrone1 ? d1 : !d1;
+  });
+  const changes = leads.reduce(
+    (acc, lead, i) => (i > 0 && lead !== leads[i - 1] ? acc + 1 : acc),
+    0,
+  );
+  const ledFromStart = leads[0];
+  let permanentLeadAt = -1;
+  for (let i = leads.length - 1; i >= 0; i -= 1) {
+    if (!leads[i]) {
+      permanentLeadAt = i + 1; // next segment is where the final lead begins
+      break;
+    }
+  }
+  if (ledFromStart && changes === 0) {
+    return `${winnerName} led from start to finish.`;
+  }
+  if (changes === 0) {
+    return `${winnerName} closed strong to take the win.`;
+  }
+  if (changes === 1 && permanentLeadAt >= 0) {
+    return `${winnerName} seized the lead at segment ${permanentLeadAt + 1} and never let go.`;
+  }
+  if (changes >= 4) {
+    return `Lead traded ${changes} times - ${winnerName} prevailed.`;
+  }
+  return `${winnerName} edged ahead in the closing segments.`;
+}
+
 /**
  * Race detail page. Unwraps async params (Next 16) via React.use().
- * Identity-focused design: track on top, two drone cards below, no stat bars.
  */
 export default function RaceDetailPage({ params }) {
   const { raceId } = use(params);
   const [race, setRace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [logOpen, setLogOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,10 +180,11 @@ export default function RaceDetailPage({ params }) {
       <NavShell>
         <div className={styles.page}>
           <Skeleton variant="text" width="40%" />
-          <Skeleton variant="card" height={280} />
-          <div className={styles.droneGrid}>
+          <Skeleton variant="card" height={88} />
+          <div className={styles.raceLayout}>
             <Skeleton variant="card" height={260} />
             <Skeleton variant="card" height={260} />
+            <Skeleton variant="card" height={420} />
           </div>
         </div>
       </NavShell>
@@ -99,22 +201,113 @@ export default function RaceDetailPage({ params }) {
     );
   }
 
+  const winnerId = race.winnerDroneId;
+  const winnerDrone =
+    winnerId === race.drone1Id ? race.drone1 : race.drone2;
+  const loserDrone =
+    winnerId === race.drone1Id ? race.drone2 : race.drone1;
+
+  const margin =
+    race.drone1Time != null && race.drone2Time != null
+      ? Math.abs(Number(race.drone1Time) - Number(race.drone2Time))
+      : null;
+
+  const winnerIsDrone1 = winnerId === race.drone1Id;
+  const leadChanges = countLeadChanges(race.raceLog);
+  const gaps = computeWinnerGaps(race.raceLog, winnerIsDrone1);
+  const maxGap = gaps.length > 0 ? Math.max(...gaps.map(Math.abs)) : null;
+  const commentary = generateCommentary(
+    race.raceLog,
+    winnerIsDrone1,
+    winnerDrone?.name,
+  );
+
   const WeatherIcon = WEATHER_ICONS[race.weather] ?? Cloud;
   const TimeIcon = TIME_ICONS[race.timeOfDay] ?? Sun;
-  const winnerId = race.winnerDroneId;
-  const raceLevel = race.drone1?.level ?? race.drone2?.level ?? null;
+
+  const difficultyRaw = race.track?.difficulty ?? null;
+  const difficultyOutOfTen =
+    difficultyRaw != null ? Math.min(10, Math.max(1, difficultyRaw * 2)) : null;
+  const difficultyColor =
+    difficultyOutOfTen != null ? getDifficultyColor(difficultyOutOfTen) : null;
+
+  const isComplete = Boolean(winnerId);
 
   return (
     <NavShell>
       <div className={styles.page}>
+        {/* ---- Top meta strip (race id, timestamp, status) ---- */}
+        <div className={styles.topStrip}>
+          <div className={styles.metaLeft}>
+            <span className={styles.metaLabel}>RACE</span>
+            <span className={styles.metaId}>{shortId(race.id)}</span>
+            <span className={styles.metaDivider} aria-hidden="true" />
+            <span className={styles.metaTimestamp}>
+              {formatTimestamp(race.createdAt)}
+            </span>
+          </div>
+          <div
+            className={`${styles.statusPill} ${
+              isComplete ? styles.statusFinal : styles.statusLive
+            }`}
+          >
+            <span className={styles.statusDot} aria-hidden="true" />
+            <span>{isComplete ? 'FINAL' : 'LIVE'}</span>
+          </div>
+        </div>
 
+        {/* ---- Headline result banner ---- */}
+        {winnerDrone && (
+          <div className={styles.headlineBanner}>
+            <div className={styles.headlineLeft}>
+              <Trophy
+                size={20}
+                className={styles.headlineTrophy}
+                aria-hidden="true"
+              />
+              <div className={styles.headlineTextGroup}>
+                <div className={styles.headlineTopLine}>
+                  <span className={styles.headlineWinner}>
+                    {winnerDrone.name}
+                  </span>
+                  <span className={styles.headlineWinAction}>
+                    {margin != null
+                      ? `wins by ${margin.toFixed(2)}s`
+                      : 'wins'}
+                  </span>
+                </div>
+                {commentary && (
+                  <div className={styles.commentary}>{commentary}</div>
+                )}
+              </div>
+            </div>
+            <div className={styles.headlineRight}>
+              {race.pointsAwarded != null && (
+                <span className={styles.pointsChip}>
+                  +{race.pointsAwarded} PTS
+                </span>
+              )}
+              {leadChanges > 0 && (
+                <span className={styles.conditionChip}>
+                  LEAD CHANGED {leadChanges}×
+                </span>
+              )}
+              {maxGap != null && maxGap > 0 && (
+                <span className={styles.conditionChip}>
+                  MAX GAP {maxGap.toFixed(2)}s
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ---- Grid: Winner / Challenger drone cards + Track + Race Log ---- */}
         <div className={styles.raceLayout}>
           <div className={styles.drone1Slot}>
             <DroneCard
               drone={race.drone1}
               isWinner={race.drone1Id === winnerId}
               time={race.drone1Time}
-              level={raceLevel}
             />
           </div>
           <div className={styles.drone2Slot}>
@@ -122,30 +315,49 @@ export default function RaceDetailPage({ params }) {
               drone={race.drone2}
               isWinner={race.drone2Id === winnerId}
               time={race.drone2Time}
-              level={raceLevel}
             />
           </div>
 
           <Card className={styles.trackCard}>
-            <div className={styles.trackHeader}>
-              <div className={styles.trackTitleRow}>
-                <h2 className={styles.trackName}>
-                  Track - {race.track?.name ?? 'Unknown track'}
-                </h2>
-                <div className={styles.trackDifficulty}>
-                  Difficulty {race.track?.difficulty ?? '?'}/5
-                </div>
-              </div>
-              <div className={styles.trackStats}>
-                <TrackStat
-                  label="Straights"
-                  value={race.track?.straights ?? 0}
-                />
-                <TrackStatDivider />
-                <TrackStat label="Turns" value={race.track?.turns ?? 0} />
-                <TrackStatDivider />
-                <TrackStat label="Length" value={race.track?.length ?? '—'} />
-              </div>
+            <div className={styles.trackHeaderRow}>
+              <h2 className={styles.sectionHeading}>
+                Track · {race.track?.name ?? 'Unknown track'}
+              </h2>
+              {difficultyOutOfTen != null && (
+                <span
+                  className={styles.trackDifficulty}
+                  style={{
+                    color: difficultyColor,
+                    borderColor: difficultyColor,
+                  }}
+                >
+                  Difficulty {difficultyOutOfTen}/10
+                </span>
+              )}
+            </div>
+            <div className={styles.trackStatsRow}>
+              <TrackStat
+                label="Straights"
+                value={race.track?.straights ?? 0}
+              />
+              <TrackStatDivider />
+              <TrackStat label="Turns" value={race.track?.turns ?? 0} />
+              <TrackStatDivider />
+              <TrackStat
+                label="Length"
+                value={race.track?.length ?? '-'}
+              />
+            </div>
+            <div className={styles.trackConditionsRow}>
+              <span className={styles.conditionInline}>
+                <WeatherIcon size={13} aria-hidden="true" />
+                {WEATHER_LABELS[race.weather] ?? race.weather ?? '-'}
+              </span>
+              <TrackStatDivider />
+              <span className={styles.conditionInline}>
+                <TimeIcon size={13} aria-hidden="true" />
+                {TIME_LABELS[race.timeOfDay] ?? race.timeOfDay ?? '-'}
+              </span>
             </div>
             <div className={styles.trackImage} aria-label="Track visualization">
               <TrackSvg track={race.track} />
@@ -153,62 +365,126 @@ export default function RaceDetailPage({ params }) {
           </Card>
 
           <Card className={styles.logCard}>
-            <button
-              type="button"
-              className={styles.logToggle}
-              onClick={() => setLogOpen((v) => !v)}
-              aria-expanded={logOpen}
-            >
-              <span>Race Log</span>
-              <ChevronDown
-                size={18}
-                className={logOpen ? styles.logChevronOpen : styles.logChevron}
-              />
-            </button>
-            <div
-              className={`${styles.logTable} ${
-                !logOpen ? styles.logTableHidden : ''
-              }`}
-            >
-              <div className={styles.logHeader}>
-                <span>#</span>
-                <span>Segment</span>
-                <span className={styles.alignRight}>
-                  {race.drone1?.name ?? 'Drone 1'}
-                </span>
-                <span className={styles.alignRight}>
-                  {race.drone2?.name ?? 'Drone 2'}
-                </span>
-                <span className={styles.alignCenter}>Lead</span>
+            <h2 className={styles.sectionHeading}>Race Log</h2>
+            {gaps.length > 1 && (
+              <div className={styles.sparklineWrap}>
+                <div className={styles.sparklineLabel}>
+                  Gap over race (winner&apos;s advantage)
+                </div>
+                <GapSparkline gaps={gaps} />
               </div>
-              {(race.raceLog ?? []).map((seg) => {
-                const lead = seg.drone1Time <= seg.drone2Time ? 1 : 2;
-                return (
-                  <div key={seg.segment} className={styles.logRow}>
-                    <span className={styles.mono}>{seg.segment}</span>
-                    <span className={styles.segType}>{seg.type}</span>
-                    <span className={`${styles.mono} ${styles.alignRight}`}>
-                      {Number(seg.drone1Time).toFixed(2)}s
-                    </span>
-                    <span className={`${styles.mono} ${styles.alignRight}`}>
-                      {Number(seg.drone2Time).toFixed(2)}s
-                    </span>
-                    <span
-                      className={`${styles.alignCenter} ${
-                        lead === 1 ? styles.lead1 : styles.lead2
-                      }`}
-                    >
-                      {lead === 1 ? '◀' : '▶'}
-                    </span>
-                  </div>
-                );
-              })}
+            )}
+            <div className={styles.logScroll}>
+              <DataTable
+                sortable
+                emptyMessage="No log data."
+                columns={[
+                  {
+                    key: 'segment',
+                    label: '#',
+                    align: 'right',
+                    render: (r) => (
+                      <span className={styles.logMono}>{r.segment}</span>
+                    ),
+                  },
+                  {
+                    key: 'type',
+                    label: 'Segment',
+                    render: (r) => (
+                      <span className={styles.logSegType}>{r.type}</span>
+                    ),
+                  },
+                  {
+                    key: 'drone1Time',
+                    label: race.drone1?.name ?? 'Drone 1',
+                    shortLabel: 'D1',
+                    align: 'right',
+                    sortable: true,
+                    render: (r) => (
+                      <span className={styles.logMono}>
+                        {Number(r.drone1Time).toFixed(2)}s
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'drone2Time',
+                    label: race.drone2?.name ?? 'Drone 2',
+                    shortLabel: 'D2',
+                    align: 'right',
+                    sortable: true,
+                    render: (r) => (
+                      <span className={styles.logMono}>
+                        {Number(r.drone2Time).toFixed(2)}s
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'lead',
+                    label: 'Lead',
+                    align: 'center',
+                    render: (r) => {
+                      const lead = r.drone1Time <= r.drone2Time ? 1 : 2;
+                      return (
+                        <span
+                          className={
+                            lead === 1 ? styles.lead1 : styles.lead2
+                          }
+                        >
+                          {lead === 1 ? '◀' : '▶'}
+                        </span>
+                      );
+                    },
+                  },
+                ]}
+                data={race.raceLog ?? []}
+              />
             </div>
           </Card>
         </div>
-
       </div>
     </NavShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sub-components                                                             */
+/* -------------------------------------------------------------------------- */
+
+function GapSparkline({ gaps }) {
+  if (!gaps || gaps.length < 2) return null;
+  const W = 300;
+  const H = 48;
+  const padY = 4;
+  const maxAbs = Math.max(...gaps.map((g) => Math.abs(g)), 0.001);
+  const stepX = W / (gaps.length - 1);
+  const points = gaps.map((g, i) => {
+    const x = i * stepX;
+    // Positive gap (winner ahead) sits above the center line.
+    const y = H / 2 - (g / maxAbs) * (H / 2 - padY);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const areaPath =
+    `M 0,${H / 2} L ${points.join(' L ')} L ${W},${H / 2} Z`;
+  return (
+    <svg
+      className={styles.sparkline}
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <line
+        x1="0"
+        y1={H / 2}
+        x2={W}
+        y2={H / 2}
+        className={styles.sparklineAxis}
+      />
+      <path d={areaPath} className={styles.sparklineArea} />
+      <polyline
+        points={points.join(' ')}
+        className={styles.sparklineLine}
+      />
+    </svg>
   );
 }
 
@@ -225,19 +501,23 @@ function TrackStatDivider() {
   return <span className={styles.trackStatDivider} aria-hidden="true" />;
 }
 
-function DroneCard({ drone, isWinner, time, level }) {
+function DroneCard({ drone, isWinner, time }) {
   if (!drone) {
-    return <Card className={styles.droneCard}>Drone data missing</Card>;
+    return (
+      <Card className={styles.droneCard}>
+        <h2 className={styles.sectionHeading}>Challenger</h2>
+        <div className={styles.droneCardBody}>Drone data missing</div>
+      </Card>
+    );
   }
 
   return (
     <Link href={`/drones/${drone.id}`} className={styles.droneLink}>
       <Card className={styles.droneCard}>
-        {isWinner && (
-          <div className={styles.winnerBadge}>
-            <Trophy size={14} /> Winner
-          </div>
-        )}
+        <h2 className={styles.sectionHeading}>
+          {isWinner ? 'Winner' : 'Challenger'}
+        </h2>
+
         <div className={styles.droneImageFrame}>
           <img
             src={drone.imageUrl || '/drones/default.png'}
@@ -245,25 +525,26 @@ function DroneCard({ drone, isWinner, time, level }) {
             className={styles.droneImg}
           />
         </div>
-        <div className={styles.droneBody}>
+
+        <div className={styles.droneCardBody}>
           <div className={styles.droneHead}>
             <h3 className={styles.droneName}>{drone.name}</h3>
-            <Badge variant="level" value={level ?? drone.level} />
+            <Badge variant="level" value={drone.level} />
           </div>
           <div className={styles.droneOwner}>
             Owner: {drone.userId ? drone.userId.slice(0, 8) : 'Bot'}
           </div>
           <div className={styles.droneMeta}>
-            <span>
-              <span className={styles.metaLabel}>ELO</span>
-              <span className={styles.metaValue}>{drone.eloRating}</span>
-            </span>
-            <span>
-              <span className={styles.metaLabel}>Time</span>
-              <span className={styles.metaValue}>
-                {time != null ? `${Number(time).toFixed(2)}s` : '—'}
+            <div className={styles.droneMetaItem}>
+              <span className={styles.metaKpiLabel}>ELO</span>
+              <span className={styles.metaKpiValue}>{drone.eloRating}</span>
+            </div>
+            <div className={styles.droneMetaItem}>
+              <span className={styles.metaKpiLabel}>Time</span>
+              <span className={styles.metaKpiValue}>
+                {time != null ? `${Number(time).toFixed(2)}s` : '-'}
               </span>
-            </span>
+            </div>
           </div>
         </div>
       </Card>
@@ -350,8 +631,6 @@ function hashString(str) {
 }
 
 function buildCircuit(turns, seed) {
-  // Build a rounded-rectangle circuit with extra internal chicanes based on
-  // the turn count. Deterministic via seed.
   const rand = mulberry32(seed);
   const margin = 60;
   const w = 800;
@@ -363,13 +642,10 @@ function buildCircuit(turns, seed) {
   const x2 = w - margin;
   const y2 = h - margin;
 
-  // Base circuit is a rounded rectangle with corners (4 corners).
-  // Additional turns add chicanes along the top straight.
   const extraTurns = Math.max(0, turns - 4);
   const chicaneCount = Math.min(extraTurns, 5);
 
   let path = `M ${x1 + r} ${y1}`;
-  // Top straight with optional chicanes
   if (chicaneCount > 0) {
     const topLen = x2 - r - (x1 + r);
     const step = topLen / (chicaneCount + 1);
@@ -400,4 +676,3 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-
