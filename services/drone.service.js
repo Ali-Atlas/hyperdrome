@@ -1,4 +1,4 @@
-import { and, desc, eq, or } from 'drizzle-orm';
+import { and, desc, eq, or, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import {
   validateStatAllocation,
@@ -106,8 +106,23 @@ const STAT_SNAKE_TO_CAMEL = {
 };
 
 /**
- * Apply a stat allocation. Verifies ownership, runs all economy rules,
- * then atomically (best-effort on neon-http) updates stats + unspent points.
+ * Apply a stat allocation.
+ *
+ * April 2026: cost is now paid from the owning player's `users.points`
+ * wallet (not the per-drone `unspent_points` column, which is deprecated).
+ * This function:
+ *   1. verifies drone ownership,
+ *   2. looks up the player's current balance,
+ *   3. runs economy rules against that balance,
+ *   4. deducts the cost from `users.points`,
+ *   5. updates the drone's stats and bumps its `total_points_invested`
+ *      running total (display/marketplace-value only, not spendable).
+ *
+ * The two writes are best-effort under the Neon HTTP driver (no txns).
+ * If the second write fails the player will have been debited without
+ * stats updating — rare given both statements target a single row each,
+ * and logs surface via the caller's try/catch.
+ *
  * @param {string} droneId
  * @param {string} userId
  * @param {Record<string, number>} statChanges - snake_case keys from API
@@ -124,23 +139,45 @@ export async function allocateStats(droneId, userId, statChanges) {
     throw new ApiError('You do not own this drone', 403);
   }
 
-  const result = validateStatAllocation(drone, statChanges);
+  const [user] = await db
+    .select({ id: users.id, points: users.points })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!user) throw new ApiError('User not found', 404);
+
+  const result = validateStatAllocation(drone, statChanges, {
+    availablePoints: user.points,
+  });
   if (!result.valid) {
     throw new ApiError('Invalid stat allocation', 400, result.errors);
   }
 
-  // Build the SET payload — only columns that actually changed
-  const setPayload = { unspentPoints: drone.unspentPoints - result.totalCost };
+  // Debit the player's wallet first so a downstream drone-update failure
+  // can't double-spend. Intentionally does not touch drones.unspent_points.
+  if (result.totalCost > 0) {
+    await db
+      .update(users)
+      .set({ points: sql`${users.points} - ${result.totalCost}` })
+      .where(eq(users.id, userId));
+  }
+
+  // Build the drone SET payload: only stat columns that changed, plus the
+  // running total_points_invested counter for display/marketplace value.
+  const dronePayload = {
+    totalPointsInvested:
+      (drone.totalPointsInvested ?? 0) + result.totalCost,
+  };
   for (const [snake, value] of Object.entries(statChanges ?? {})) {
     const camel = STAT_SNAKE_TO_CAMEL[snake] ?? snake;
     if (STAT_KEYS.includes(camel)) {
-      setPayload[camel] = value;
+      dronePayload[camel] = value;
     }
   }
 
   const [updated] = await db
     .update(drones)
-    .set(setPayload)
+    .set(dronePayload)
     .where(eq(drones.id, droneId))
     .returning();
 
@@ -202,9 +239,13 @@ export function getDronePerformanceSummary(droneStats) {
 
 /**
  * Check and apply level-ups on a drone until XP is below the next threshold.
- * Grants +20 unspent points and +20 TSB per level.
+ *
+ * Each level grants +20 TSB (bigger stat budget) and pays a +20-point
+ * bonus into the *owning player's* wallet (non-bots only). The deprecated
+ * drone.unspent_points column is left untouched.
+ *
  * @param {string} droneId
- * @returns {Promise<{ leveledUp: boolean, newLevel: number, newTSB: number, newUnspentPoints: number }>}
+ * @returns {Promise<{ leveledUp: boolean, newLevel: number, newTSB: number, bonusPointsAwarded: number }>}
  */
 export async function checkAndLevelUp(droneId) {
   const [drone] = await db
@@ -219,14 +260,14 @@ export async function checkAndLevelUp(droneId) {
   let xp = drone.xp;
   let xpToNext = drone.xpToNextLevel;
   let tsb = drone.totalStatBudget;
-  let unspent = drone.unspentPoints;
+  let bonusPoints = 0;
   let leveled = false;
 
   while (xp >= xpToNext) {
     xp -= xpToNext;
     level += 1;
     tsb = calculateTSB(level);
-    unspent += 20;
+    bonusPoints += 20;
     xpToNext = calculateXPToNextLevel(level);
     leveled = true;
   }
@@ -236,7 +277,7 @@ export async function checkAndLevelUp(droneId) {
       leveledUp: false,
       newLevel: level,
       newTSB: tsb,
-      newUnspentPoints: unspent,
+      bonusPointsAwarded: 0,
     };
   }
 
@@ -247,14 +288,22 @@ export async function checkAndLevelUp(droneId) {
       xp,
       xpToNextLevel: xpToNext,
       totalStatBudget: tsb,
-      unspentPoints: unspent,
     })
     .where(eq(drones.id, droneId));
+
+  // Player gets the level-up bonus in their shared wallet (bots have no
+  // owner, so their level-ups yield no payout — by design).
+  if (drone.userId && !drone.isBot && bonusPoints > 0) {
+    await db
+      .update(users)
+      .set({ points: sql`${users.points} + ${bonusPoints}` })
+      .where(eq(users.id, drone.userId));
+  }
 
   return {
     leveledUp: true,
     newLevel: level,
     newTSB: tsb,
-    newUnspentPoints: unspent,
+    bonusPointsAwarded: bonusPoints,
   };
 }

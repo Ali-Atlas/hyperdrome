@@ -85,11 +85,21 @@ function countLeadChanges(log) {
   return changes;
 }
 
-/** Difficulty tint — greens/teals for easy, purple mid, red for extreme. */
-function getDifficultyColor(n /* 1-10 */) {
-  if (n <= 3) return 'var(--accent-primary)';
-  if (n <= 7) return 'var(--accent-secondary)';
-  return 'var(--accent-error)';
+/**
+ * Difficulty pill palette — matches the .pointsChip + level Badge pattern:
+ * tinted 15% bg, full-colour text, no border, no glow. Teal easy, purple
+ * mid, red extreme.
+ */
+const DIFFICULTY_STYLES = {
+  easy: { fg: '#03DAC6', bg: 'rgba(3, 218, 198, 0.15)' },
+  mid:  { fg: '#BB86FC', bg: 'rgba(187, 134, 252, 0.15)' },
+  hard: { fg: '#CF6679', bg: 'rgba(207, 102, 121, 0.15)' },
+};
+
+function getDifficultyStyle(n /* 1-10 */) {
+  if (n <= 3) return DIFFICULTY_STYLES.easy;
+  if (n <= 7) return DIFFICULTY_STYLES.mid;
+  return DIFFICULTY_STYLES.hard;
 }
 
 /** Cumulative lead gap per segment (+ = winner ahead, − = loser ahead). */
@@ -106,6 +116,18 @@ function computeWinnerGaps(log, winnerIsDrone1) {
     gaps.push(cumL - cumW);
   }
   return gaps;
+}
+
+/** Cumulative winner-clock time at the end of each segment, in seconds. */
+function computeWinnerCumTimes(log, winnerIsDrone1) {
+  if (!log || log.length === 0) return [];
+  const out = [];
+  let cum = 0;
+  for (const seg of log) {
+    cum += Number(winnerIsDrone1 ? seg.drone1Time : seg.drone2Time);
+    out.push(cum);
+  }
+  return out;
 }
 
 /** Single-sentence auto commentary derived from the race log. */
@@ -215,6 +237,7 @@ export default function RaceDetailPage({ params }) {
   const winnerIsDrone1 = winnerId === race.drone1Id;
   const leadChanges = countLeadChanges(race.raceLog);
   const gaps = computeWinnerGaps(race.raceLog, winnerIsDrone1);
+  const winnerCumTimes = computeWinnerCumTimes(race.raceLog, winnerIsDrone1);
   const maxGap = gaps.length > 0 ? Math.max(...gaps.map(Math.abs)) : null;
   const commentary = generateCommentary(
     race.raceLog,
@@ -225,11 +248,11 @@ export default function RaceDetailPage({ params }) {
   const WeatherIcon = WEATHER_ICONS[race.weather] ?? Cloud;
   const TimeIcon = TIME_ICONS[race.timeOfDay] ?? Sun;
 
-  const difficultyRaw = race.track?.difficulty ?? null;
-  const difficultyOutOfTen =
-    difficultyRaw != null ? Math.min(10, Math.max(1, difficultyRaw * 2)) : null;
-  const difficultyColor =
-    difficultyOutOfTen != null ? getDifficultyColor(difficultyOutOfTen) : null;
+  // Tracks now store difficulty as an absolute 1-10 rating, paired with
+  // level brackets enforced at matchmaking time — no client-side scaling.
+  const difficultyOutOfTen = race.track?.difficulty ?? null;
+  const difficultyStyle =
+    difficultyOutOfTen != null ? getDifficultyStyle(difficultyOutOfTen) : null;
 
   const isComplete = Boolean(winnerId);
 
@@ -261,7 +284,7 @@ export default function RaceDetailPage({ params }) {
           <div className={styles.headlineBanner}>
             <div className={styles.headlineLeft}>
               <Trophy
-                size={20}
+                size={16}
                 className={styles.headlineTrophy}
                 aria-hidden="true"
               />
@@ -302,12 +325,38 @@ export default function RaceDetailPage({ params }) {
         )}
 
         {/* ---- Grid: Winner / Challenger drone cards + Track + Race Log ---- */}
+        {race.h2h && race.h2h.total > 0 && race.drone1 && race.drone2 && (
+          <div className={styles.h2hLine}>
+            Head to Head:{' '}
+            {race.h2h.drone1Wins === race.h2h.drone2Wins ? (
+              <>
+                <span className={styles.h2hDrone}>{race.drone1.name}</span> and{' '}
+                <span className={styles.h2hDrone}>{race.drone2.name}</span>{' '}
+                tied {race.h2h.drone1Wins}-{race.h2h.drone2Wins}
+              </>
+            ) : race.h2h.drone1Wins > race.h2h.drone2Wins ? (
+              <>
+                <span className={styles.h2hDrone}>{race.drone1.name}</span>{' '}
+                leads {race.h2h.drone1Wins}-{race.h2h.drone2Wins}
+              </>
+            ) : (
+              <>
+                <span className={styles.h2hDrone}>{race.drone2.name}</span>{' '}
+                leads {race.h2h.drone2Wins}-{race.h2h.drone1Wins}
+              </>
+            )}
+          </div>
+        )}
+
         <div className={styles.raceLayout}>
           <div className={styles.drone1Slot}>
             <DroneCard
               drone={race.drone1}
               isWinner={race.drone1Id === winnerId}
               time={race.drone1Time}
+              eloBefore={race.drone1EloBefore}
+              eloChange={race.drone1EloChange}
+              showUpset={race.isUpset && race.drone1Id === winnerId}
             />
           </div>
           <div className={styles.drone2Slot}>
@@ -315,25 +364,62 @@ export default function RaceDetailPage({ params }) {
               drone={race.drone2}
               isWinner={race.drone2Id === winnerId}
               time={race.drone2Time}
+              eloBefore={race.drone2EloBefore}
+              eloChange={race.drone2EloChange}
+              showUpset={race.isUpset && race.drone2Id === winnerId}
             />
           </div>
+
+          {gaps.length > 1 && (
+            <Card className={styles.gapCard}>
+              <h2 className={styles.sectionHeading}>
+                Gap Over Race
+              </h2>
+              <div className={styles.sparklineWrap}>
+                <GapSparkline gaps={gaps} times={winnerCumTimes} />
+                {winnerCumTimes.length > 0 && (
+                  <div className={styles.timeline} aria-hidden="true">
+                    {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (
+                      <span
+                        key={i}
+                        className={styles.timelineTick}
+                        style={{ left: `${f * 100}%` }}
+                      >
+                        {(
+                          f * winnerCumTimes[winnerCumTimes.length - 1]
+                        ).toFixed(1)}
+                        s
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
 
           <Card className={styles.trackCard}>
             <div className={styles.trackHeaderRow}>
               <h2 className={styles.sectionHeading}>
                 Track · {race.track?.name ?? 'Unknown track'}
               </h2>
-              {difficultyOutOfTen != null && (
-                <span
-                  className={styles.trackDifficulty}
-                  style={{
-                    color: difficultyColor,
-                    borderColor: difficultyColor,
-                  }}
-                >
-                  Difficulty {difficultyOutOfTen}/10
-                </span>
-              )}
+              <div className={styles.trackHeaderRight}>
+                {race.isNewTrackRecord && (
+                  <span className={styles.trackRecordPill}>
+                    NEW TRACK RECORD
+                  </span>
+                )}
+                {difficultyOutOfTen != null && difficultyStyle && (
+                  <span
+                    className={styles.trackDifficulty}
+                    style={{
+                      background: difficultyStyle.bg,
+                      color: difficultyStyle.fg,
+                    }}
+                  >
+                    Difficulty {difficultyOutOfTen}/10
+                  </span>
+                )}
+              </div>
             </div>
             <div className={styles.trackStatsRow}>
               <TrackStat
@@ -366,14 +452,6 @@ export default function RaceDetailPage({ params }) {
 
           <Card className={styles.logCard}>
             <h2 className={styles.sectionHeading}>Race Log</h2>
-            {gaps.length > 1 && (
-              <div className={styles.sparklineWrap}>
-                <div className={styles.sparklineLabel}>
-                  Gap over race (winner&apos;s advantage)
-                </div>
-                <GapSparkline gaps={gaps} />
-              </div>
-            )}
             <div className={styles.logScroll}>
               <DataTable
                 sortable
@@ -450,21 +528,26 @@ export default function RaceDetailPage({ params }) {
 /* Sub-components                                                             */
 /* -------------------------------------------------------------------------- */
 
-function GapSparkline({ gaps }) {
+function GapSparkline({ gaps, times }) {
   if (!gaps || gaps.length < 2) return null;
   const W = 300;
-  const H = 48;
+  const H = 56;
   const padY = 4;
   const maxAbs = Math.max(...gaps.map((g) => Math.abs(g)), 0.001);
-  const stepX = W / (gaps.length - 1);
+
+  // If segment times are provided, position vertices proportional to
+  // cumulative race time so x matches the timeline below. Otherwise fall
+  // back to even segment-index spacing.
+  const totalTime =
+    times && times.length > 0 ? times[times.length - 1] : null;
+  const useTime = Number.isFinite(totalTime) && totalTime > 0;
+
   const points = gaps.map((g, i) => {
-    const x = i * stepX;
-    // Positive gap (winner ahead) sits above the center line.
+    const x = useTime ? (times[i] / totalTime) * W : (i / (gaps.length - 1)) * W;
     const y = H / 2 - (g / maxAbs) * (H / 2 - padY);
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
-  const areaPath =
-    `M 0,${H / 2} L ${points.join(' L ')} L ${W},${H / 2} Z`;
+  const areaPath = `M 0,${H / 2} L ${points.join(' L ')} L ${W},${H / 2} Z`;
   return (
     <svg
       className={styles.sparkline}
@@ -501,7 +584,7 @@ function TrackStatDivider() {
   return <span className={styles.trackStatDivider} aria-hidden="true" />;
 }
 
-function DroneCard({ drone, isWinner, time }) {
+function DroneCard({ drone, isWinner, time, eloBefore, eloChange, showUpset }) {
   if (!drone) {
     return (
       <Card className={styles.droneCard}>
@@ -510,6 +593,16 @@ function DroneCard({ drone, isWinner, time }) {
       </Card>
     );
   }
+
+  // Prefer the snapshotted pre-race ELO + signed delta for historical
+  // accuracy; fall back to the drone's live rating when the race row
+  // predates the ELO-snapshot columns.
+  const eloDisplay =
+    eloBefore != null && eloChange != null
+      ? eloBefore + eloChange
+      : drone.eloRating;
+  const hasChange = eloChange != null && eloChange !== 0;
+  const changeSign = eloChange != null && eloChange > 0 ? '+' : '';
 
   return (
     <Link href={`/drones/${drone.id}`} className={styles.droneLink}>
@@ -524,6 +617,7 @@ function DroneCard({ drone, isWinner, time }) {
             alt={drone.name}
             className={styles.droneImg}
           />
+          {showUpset && <span className={styles.upsetPill}>UPSET</span>}
         </div>
 
         <div className={styles.droneCardBody}>
@@ -537,7 +631,20 @@ function DroneCard({ drone, isWinner, time }) {
           <div className={styles.droneMeta}>
             <div className={styles.droneMetaItem}>
               <span className={styles.metaKpiLabel}>ELO</span>
-              <span className={styles.metaKpiValue}>{drone.eloRating}</span>
+              <span className={styles.metaKpiValue}>
+                {eloDisplay}
+                {hasChange && (
+                  <span
+                    className={cn(
+                      styles.eloDelta,
+                      eloChange > 0 ? styles.eloDeltaUp : styles.eloDeltaDown,
+                    )}
+                  >
+                    {' '}({changeSign}
+                    {eloChange})
+                  </span>
+                )}
+              </span>
             </div>
             <div className={styles.droneMetaItem}>
               <span className={styles.metaKpiLabel}>Time</span>

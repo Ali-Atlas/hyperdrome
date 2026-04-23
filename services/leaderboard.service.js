@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 
 const { users, drones, seasons } = schema;
@@ -70,9 +70,36 @@ const DRONE_SORT_COLS = {
   level:       drones.level,
 };
 
-/** Ranked drone leaderboard — bots excluded. */
-export async function getDroneLeaderboard(sortBy = 'elo', limit = 50, offset = 0) {
+/**
+ * Ranked drone leaderboard.
+ *
+ * @param {string} sortBy          'elo'|'wins'|'total_races'|'level'|'win_rate'
+ * @param {number} limit
+ * @param {number} offset
+ * @param {object} [filters]
+ * @param {boolean} [filters.includeBots=false]  include bot drones in the results
+ * @param {[number, number]} [filters.bracket]   inclusive level range, e.g. [6, 10]
+ */
+export async function getDroneLeaderboard(
+  sortBy = 'elo',
+  limit = 50,
+  offset = 0,
+  filters = {},
+) {
+  const { includeBots = false, bracket } = filters;
+
+  const conditions = [];
+  if (!includeBots) conditions.push(eq(drones.isBot, false));
+  if (Array.isArray(bracket) && bracket.length === 2) {
+    const [lo, hi] = bracket;
+    if (Number.isFinite(lo) && Number.isFinite(hi)) {
+      conditions.push(gte(drones.level, lo));
+      conditions.push(lte(drones.level, hi));
+    }
+  }
+
   if (sortBy === 'win_rate') {
+    conditions.push(gte(drones.totalRaces, 1));
     return db
       .select({
         id: drones.id,
@@ -88,7 +115,7 @@ export async function getDroneLeaderboard(sortBy = 'elo', limit = 50, offset = 0
         winRate: sql`CASE WHEN ${drones.totalRaces} > 0 THEN (${drones.wins}::float / ${drones.totalRaces}::float) ELSE 0 END`,
       })
       .from(drones)
-      .where(and(eq(drones.isBot, false), gte(drones.totalRaces, 1)))
+      .where(and(...conditions))
       .orderBy(sql`(CASE WHEN ${drones.totalRaces} > 0 THEN (${drones.wins}::float / ${drones.totalRaces}::float) ELSE 0 END) DESC`)
       .limit(limit)
       .offset(offset);
@@ -109,7 +136,7 @@ export async function getDroneLeaderboard(sortBy = 'elo', limit = 50, offset = 0
       imageUrl: drones.imageUrl,
     })
     .from(drones)
-    .where(eq(drones.isBot, false))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(col))
     .limit(limit)
     .offset(offset);

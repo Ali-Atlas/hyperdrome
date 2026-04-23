@@ -12,10 +12,14 @@ import styles from './DataTable.module.css';
  * at desktop width and the `shortLabel` swaps in at ≤1024px so columns
  * still fit on tablet without horizontal scroll.
  *
+ * Pass `rowClassName(row)` to tag specific rows (e.g., the user's own
+ * row on a leaderboard) with an extra class for bespoke highlighting.
+ *
  * @param {object} props
  * @param {Array<{ key: string, label: string, shortLabel?: string, sortable?: boolean, render?: (row: any) => React.ReactNode, align?: 'left'|'center'|'right' }>} props.columns
  * @param {Array<object>} props.data
  * @param {(row: any) => void} [props.onRowClick]
+ * @param {(row: any) => string|null|undefined} [props.rowClassName]
  * @param {boolean} [props.sortable]
  * @param {boolean} [props.loading]
  * @param {string} [props.emptyMessage='No results']
@@ -25,6 +29,7 @@ export default function DataTable({
   columns,
   data,
   onRowClick,
+  rowClassName,
   sortable = false,
   loading = false,
   emptyMessage = 'No results',
@@ -128,6 +133,7 @@ export default function DataTable({
                     className={cn(
                       styles.row,
                       onRowClick && styles.rowInteractive,
+                      rowClassName && rowClassName(row),
                     )}
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
                   >

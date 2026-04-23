@@ -366,6 +366,16 @@
   margin-left: var(--space-1);
 }
 
+.balanceNote {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
 .statList {
   display: flex;
   flex-direction: column;

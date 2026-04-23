@@ -178,6 +178,7 @@ export default function DroneDetailPage({ params }) {
 
 function DroneManagementView({ drone, onReload }) {
   const { showToast } = useToast();
+  const { user } = useSession();
   const [editedStats, setEditedStats] = useState(() => pickStats(drone));
   const [saving, setSaving] = useState(false);
   const [togglePending, setTogglePending] = useState(false);
@@ -206,7 +207,11 @@ function DroneManagementView({ drone, onReload }) {
     [editedStats],
   );
 
-  const availablePoints = (drone.unspentPoints ?? 0) - totalCost;
+  // Upgrades are paid from the player's single shared wallet. What's
+  // available to spend right now is the user's balance minus any pending
+  // staged changes; the drone-level "unspentPoints" column is deprecated.
+  const playerPoints = user?.points ?? 0;
+  const availablePoints = playerPoints - totalCost;
   const hasChanges = totalCost > 0;
 
   const increment = (key) => {
@@ -421,10 +426,10 @@ function DroneManagementView({ drone, onReload }) {
                     </div>
                     <div className={styles.statStripItem}>
                       <span className={styles.statStripLabel}>
-                        Unspent Points
+                        Points Invested
                       </span>
                       <span className={styles.statStripValue}>
-                        {drone.unspentPoints ?? 0}
+                        {drone.totalPointsInvested ?? 0}
                       </span>
                     </div>
                   </div>
@@ -452,6 +457,9 @@ function DroneManagementView({ drone, onReload }) {
                   Available Points:{' '}
                   <span className={styles.availableValue}>
                     {availablePoints}
+                  </span>
+                  <span className={styles.balanceNote}>
+                    Your balance: {playerPoints} pts
                   </span>
                 </div>
               </div>

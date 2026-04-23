@@ -124,13 +124,22 @@ export async function runRaceCycle() {
 }
 
 async function runSingleRace(d1, d2, cfg) {
-  const track = await getRandomTrack();
+  // Matchmaking guarantees d1.level === d2.level, so either drone's level
+  // is the race level used to filter eligible tracks.
+  const raceLevel = d1.level ?? d2.level ?? null;
+  const track = await getRandomTrack(raceLevel);
   const weather = randomWeather();
   const timeOfDay = randomTimeOfDay();
 
   const result = simulateRace(d1, d2, track, weather, timeOfDay);
   const winner = result.winnerId === d1.id ? d1 : d2;
   const loser = result.winnerId === d1.id ? d2 : d1;
+
+  // Snapshot pre-race ELO before we touch drones, and compute signed
+  // deltas so the race-detail page can show ELO + (+N / -N) without
+  // reconstructing history.
+  const drone1EloBefore = d1.eloRating;
+  const drone2EloBefore = d2.eloRating;
 
   const pointsAwarded = calculateRacePoints(
     track.difficulty,
@@ -142,6 +151,11 @@ async function runSingleRace(d1, d2, cfg) {
     winner.eloRating,
     loser.eloRating,
   );
+
+  const drone1EloAfter = d1.id === winner.id ? newWinnerElo : newLoserElo;
+  const drone2EloAfter = d2.id === winner.id ? newWinnerElo : newLoserElo;
+  const drone1EloChange = drone1EloAfter - drone1EloBefore;
+  const drone2EloChange = drone2EloAfter - drone2EloBefore;
 
   // Insert the race row
   await db.insert(races).values({
@@ -156,10 +170,15 @@ async function runSingleRace(d1, d2, cfg) {
     weather,
     drone1Time: String(result.drone1Time),
     drone2Time: String(result.drone2Time),
+    drone1EloBefore,
+    drone2EloBefore,
+    drone1EloChange,
+    drone2EloChange,
     raceLog: result.raceLog,
   });
 
-  // Update winner drone
+  // Update winner drone (points are paid into the owning player's wallet
+  // further down, NOT into the deprecated drones.unspent_points column).
   await db
     .update(drones)
     .set({
@@ -167,7 +186,6 @@ async function runSingleRace(d1, d2, cfg) {
       totalRaces: winner.totalRaces + 1,
       xp: winner.xp + cfg.xpPerWin,
       eloRating: newWinnerElo,
-      unspentPoints: winner.unspentPoints + pointsAwarded,
     })
     .where(eq(drones.id, winner.id));
 
@@ -264,7 +282,16 @@ export async function getRaces(filters = {}, pagination = {}) {
 }
 
 /**
- * Fetch a single race with all drone + track details.
+ * Fetch a single race with all drone + track details, plus a few
+ * convenience fields derived from the races table so the detail page
+ * can render without extra round trips:
+ *   - `isUpset` — true when the winner's pre-race ELO was >= 50 lower
+ *     than the loser's.
+ *   - `isNewTrackRecord` — true when this race's winning time is the
+ *     fastest recorded on the track at/before it ran.
+ *   - `h2h` — { total, drone1Wins, drone2Wins } across all prior +
+ *     current races between the same two drones in either slot.
+ *
  * @param {string} raceId
  */
 export async function getRaceById(raceId) {
@@ -276,17 +303,76 @@ export async function getRaceById(raceId) {
     .limit(1);
   if (!row) throw new ApiError('Race not found', 404);
 
+  const race = row.race;
+
   const droneRows = await db
     .select()
     .from(drones)
-    .where(inArray(drones.id, [row.race.drone1Id, row.race.drone2Id]));
+    .where(inArray(drones.id, [race.drone1Id, race.drone2Id]));
   const byId = Object.fromEntries(droneRows.map((d) => [d.id, d]));
 
+  // Upset: pre-race ELO gap of 50+ in the loser's favour.
+  const winnerEloBefore =
+    race.winnerDroneId === race.drone1Id
+      ? race.drone1EloBefore
+      : race.drone2EloBefore;
+  const loserEloBefore =
+    race.winnerDroneId === race.drone1Id
+      ? race.drone2EloBefore
+      : race.drone1EloBefore;
+  const isUpset =
+    winnerEloBefore != null &&
+    loserEloBefore != null &&
+    winnerEloBefore + 50 <= loserEloBefore;
+
+  // New track record: compare winner's time to the minimum winner time on
+  // this track strictly before this race's createdAt. LEAST() picks the
+  // faster of the two drone times per row; we want the min across rows.
+  const winnerTimeStr =
+    race.winnerDroneId === race.drone1Id ? race.drone1Time : race.drone2Time;
+  const winnerTime =
+    winnerTimeStr != null ? Number(winnerTimeStr) : null;
+
+  let isNewTrackRecord = false;
+  if (winnerTime != null && race.trackId) {
+    const [best] = await db.execute(sql`
+      SELECT MIN(LEAST(drone1_time::numeric, drone2_time::numeric)) AS best_time
+      FROM races
+      WHERE track_id = ${race.trackId}
+        AND created_at < ${race.createdAt}
+        AND drone1_time IS NOT NULL
+        AND drone2_time IS NOT NULL
+    `);
+    const prevBest =
+      best?.best_time != null ? Number(best.best_time) : null;
+    isNewTrackRecord = prevBest == null || winnerTime < prevBest;
+  }
+
+  // Head-to-head: count across either drone-slot orientation, including
+  // this race (keeps the tally stable as users browse old races).
+  const [h2hRow] = await db.execute(sql`
+    SELECT
+      COUNT(*)::int AS total,
+      SUM(CASE WHEN winner_drone_id = ${race.drone1Id} THEN 1 ELSE 0 END)::int AS drone1_wins,
+      SUM(CASE WHEN winner_drone_id = ${race.drone2Id} THEN 1 ELSE 0 END)::int AS drone2_wins
+    FROM races
+    WHERE (drone1_id = ${race.drone1Id} AND drone2_id = ${race.drone2Id})
+       OR (drone1_id = ${race.drone2Id} AND drone2_id = ${race.drone1Id})
+  `);
+  const h2h = {
+    total: h2hRow?.total ?? 0,
+    drone1Wins: h2hRow?.drone1_wins ?? 0,
+    drone2Wins: h2hRow?.drone2_wins ?? 0,
+  };
+
   return {
-    ...row.race,
+    ...race,
     track: row.track,
-    drone1: byId[row.race.drone1Id],
-    drone2: byId[row.race.drone2Id],
+    drone1: byId[race.drone1Id],
+    drone2: byId[race.drone2Id],
+    isUpset,
+    isNewTrackRecord,
+    h2h,
   };
 }
 

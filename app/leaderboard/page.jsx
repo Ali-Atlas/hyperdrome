@@ -1,22 +1,23 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Trophy,
-  Sparkles,
-  Coins,
-  Award,
-  Search,
-  ChevronUp,
-  ChevronDown,
-} from 'lucide-react';
+import Link from 'next/link';
+import { Trophy, Sparkles, Coins, Award } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
-import Card from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
+import DataTable from '@/components/ui/DataTable';
+import Toggle from '@/components/ui/Toggle';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from '@/hooks/useSession';
 import { cn, getLevelColor } from '@/lib/utils';
 import styles from './page.module.css';
+
+const BRACKETS = [
+  { value: 'all',   label: 'All Levels' },
+  { value: '1-5',   label: 'Lv 1-5' },
+  { value: '6-10',  label: 'Lv 6-10' },
+  { value: '11-15', label: 'Lv 11-15' },
+  { value: '16-20', label: 'Lv 16-20' },
+];
 
 function daysRemaining(endIso) {
   if (!endIso) return 0;
@@ -32,16 +33,22 @@ function seasonProgress(startIso, endIso) {
   return Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100));
 }
 
+function computeWinRate(wins, races) {
+  if (!races || races <= 0) return null;
+  return Math.round((wins / races) * 100);
+}
+
 /* -------------------------------------------------------------------------- */
 
 export default function LeaderboardPage() {
   const { user } = useSession();
   const [tab, setTab] = useState('players');
+  const [bracket, setBracket] = useState('all');
+  const [includeBots, setIncludeBots] = useState(false);
   const [items, setItems] = useState([]);
   const [season, setSeason] = useState(null);
+  const [myStats, setMyStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState({ key: 'elo', order: 'desc' });
   const [myDroneIds, setMyDroneIds] = useState(new Set());
 
   const fetchData = useCallback(async () => {
@@ -52,6 +59,8 @@ export default function LeaderboardPage() {
         sort_by: 'elo',
         limit: '100',
       });
+      if (tab === 'drones' && bracket !== 'all') params.set('bracket', bracket);
+      if (tab === 'drones' && includeBots) params.set('include_bots', 'true');
       const res = await fetch(`/api/leaderboard?${params.toString()}`);
       const body = await res.json();
       if (body?.data) {
@@ -63,7 +72,18 @@ export default function LeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [tab]);
+  }, [tab, bracket, includeBots]);
+
+  const fetchMyStats = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch('/api/leaderboard/me');
+      const body = await res.json();
+      if (body?.data) setMyStats(body.data);
+    } catch {
+      /* noop */
+    }
+  }, [user?.id]);
 
   const fetchMyDrones = useCallback(async () => {
     if (!user?.id) return;
@@ -78,206 +98,259 @@ export default function LeaderboardPage() {
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
-    fetchMyDrones();
-  }, [fetchMyDrones]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchMyStats(); }, [fetchMyStats]);
+  useEffect(() => { fetchMyDrones(); }, [fetchMyDrones]);
 
   const top3 = items.slice(0, 3);
-  const rest = items.slice(3);
-
-  const filteredRest = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const source = rest.map((row, idx) => ({ ...row, __rank: idx + 4 }));
-    if (!q) return source;
-    return source.filter((row) =>
-      (row.username ?? row.name ?? '').toLowerCase().includes(q),
-    );
-  }, [rest, search]);
-
-  const sortedRest = useMemo(() => {
-    const copy = [...filteredRest];
-    copy.sort((a, b) => {
-      const av = a[sort.key];
-      const bv = b[sort.key];
-      if (av == null) return 1;
-      if (bv == null) return -1;
-      if (typeof av === 'string')
-        return sort.order === 'asc'
-          ? av.localeCompare(bv)
-          : bv.localeCompare(av);
-      return sort.order === 'asc' ? av - bv : bv - av;
-    });
-    return copy;
-  }, [filteredRest, sort]);
-
-  const toggleSort = (key) => {
-    setSort((prev) =>
-      prev.key === key
-        ? { key, order: prev.order === 'desc' ? 'asc' : 'desc' }
-        : { key, order: 'desc' },
-    );
-  };
+  const rest = useMemo(
+    () => items.slice(3).map((row, i) => ({ ...row, __rank: i + 4 })),
+    [items],
+  );
 
   const rowIsMine = (row) => {
     if (tab === 'players') return user?.id && row.id === user.id;
     return myDroneIds.has(row.id);
   };
 
-  const columns = useMemo(() => {
-    if (tab === 'players') {
-      return [
-        { key: '__rank', label: '#', sortable: false, align: 'left' },
-        {
-          key: 'username',
-          label: 'Player',
-          sortable: true,
-          render: (row) => row.username || '—',
-        },
-        {
-          key: 'winRateValue',
-          label: 'Win Rate',
-          sortable: true,
-          align: 'right',
-          value: (row) =>
-            row.totalRaces > 0 ? row.totalWins / row.totalRaces : 0,
-          render: (row) => {
-            const rate =
-              row.totalRaces > 0
-                ? ((row.totalWins / row.totalRaces) * 100).toFixed(0) + '%'
-                : '—';
-            return rate;
-          },
-        },
-        {
-          key: 'totalWins',
-          label: 'Wins',
-          sortable: true,
-          align: 'right',
-        },
-        {
-          key: 'totalRaces',
-          label: 'Races',
-          sortable: true,
-          align: 'right',
-        },
-        {
-          key: 'eloRating',
-          label: 'ELO',
-          sortable: true,
-          align: 'right',
-          render: (row) => <span className={styles.mono}>{row.eloRating}</span>,
-        },
-        {
-          key: 'seasonPoints',
-          label: 'Season',
-          sortable: true,
-          align: 'right',
-          render: (row) => (
-            <span className={styles.mono}>{row.seasonPoints}</span>
-          ),
-        },
-      ];
-    }
-    return [
-      { key: '__rank', label: '#', sortable: false, align: 'left' },
+  const playerColumns = useMemo(
+    () => [
       {
-        key: 'name',
-        label: 'Drone',
-        sortable: true,
-        render: (row) => (
-          <span className={styles.droneNameCell}>
-            {row.name}
-            <span
-              className={styles.droneLvSuffix}
-              style={{ color: getLevelColor(row.level) }}
-            >
-              {' '}Lv{row.level}
-            </span>
-          </span>
+        key: '__rank',
+        label: 'Rank',
+        shortLabel: '#',
+        align: 'left',
+        render: (r) => <span className={styles.rankCell}>#{r.__rank}</span>,
+      },
+      {
+        key: 'username',
+        label: 'Player Name',
+        shortLabel: 'Player',
+        render: (r) => (
+          <span className={styles.nameCell}>{r.username || '-'}</span>
         ),
       },
       {
-        key: 'level',
-        label: 'Level',
+        key: 'totalRaces',
+        label: 'Races',
         sortable: true,
         align: 'right',
-        render: (row) => <Badge variant="level" value={row.level} />,
       },
       {
-        key: 'winRateValue',
-        label: 'Win Rate',
+        key: 'totalWins',
+        label: 'Wins',
         sortable: true,
         align: 'right',
-        value: (row) => (row.totalRaces > 0 ? row.wins / row.totalRaces : 0),
-        render: (row) => {
-          const rate =
-            row.totalRaces > 0
-              ? ((row.wins / row.totalRaces) * 100).toFixed(0) + '%'
-              : '—';
-          return rate;
+      },
+      {
+        key: 'winRate',
+        label: 'Win Rate',
+        shortLabel: 'Rate',
+        sortable: true,
+        align: 'right',
+        render: (r) => {
+          const rate = computeWinRate(r.totalWins, r.totalRaces);
+          return rate == null ? '-' : `${rate}%`;
         },
       },
-      { key: 'wins', label: 'Wins', sortable: true, align: 'right' },
-      { key: 'totalRaces', label: 'Races', sortable: true, align: 'right' },
       {
         key: 'eloRating',
         label: 'ELO',
         sortable: true,
         align: 'right',
-        render: (row) => <span className={styles.mono}>{row.eloRating}</span>,
+        render: (r) => <span className={styles.mono}>{r.eloRating}</span>,
       },
-    ];
-  }, [tab]);
-
-  const rewards = (
-    <Card className={styles.rewards}>
-      <h2 className={styles.rewardsHeading}>Season Rewards Preview</h2>
-      <div className={styles.rewardsGrid}>
-        <div className={styles.rewardItem}>
-          <Sparkles size={20} className={styles.rewardIcon} />
-          <div className={styles.rewardLabel}>Exclusive Skins</div>
-        </div>
-        <div className={styles.rewardItem}>
-          <Coins size={20} className={styles.rewardIcon} />
-          <div className={styles.rewardLabel}>Point Prizes</div>
-        </div>
-        <div className={styles.rewardItem}>
-          <Award size={20} className={styles.rewardIcon} />
-          <div className={styles.rewardLabel}>Titles / Badges</div>
-        </div>
-      </div>
-    </Card>
+      {
+        key: 'seasonPoints',
+        label: 'Points Earned',
+        shortLabel: 'Pts',
+        sortable: true,
+        align: 'right',
+        render: (r) => <span className={styles.mono}>{r.seasonPoints}</span>,
+      },
+    ],
+    [],
   );
+
+  const droneColumns = useMemo(
+    () => [
+      {
+        key: '__rank',
+        label: 'Rank',
+        shortLabel: '#',
+        align: 'left',
+        render: (r) => <span className={styles.rankCell}>#{r.__rank}</span>,
+      },
+      {
+        key: 'name',
+        label: 'Drone',
+        render: (r) => (
+          <span className={styles.nameCell}>
+            {r.name}
+            <span
+              className={styles.levelSuffix}
+              style={{ color: getLevelColor(r.level) }}
+            >
+              {' '}| Lv {r.level}
+            </span>
+          </span>
+        ),
+      },
+      {
+        key: 'totalRaces',
+        label: 'Races',
+        sortable: true,
+        align: 'right',
+      },
+      {
+        key: 'wins',
+        label: 'Wins',
+        sortable: true,
+        align: 'right',
+      },
+      {
+        key: 'winRate',
+        label: 'Win Rate',
+        shortLabel: 'Rate',
+        sortable: true,
+        align: 'right',
+        render: (r) => {
+          const rate = computeWinRate(r.wins, r.totalRaces);
+          return rate == null ? '-' : `${rate}%`;
+        },
+      },
+      {
+        key: 'eloRating',
+        label: 'ELO',
+        sortable: true,
+        align: 'right',
+        render: (r) => <span className={styles.mono}>{r.eloRating}</span>,
+      },
+    ],
+    [],
+  );
+
+  const columns = tab === 'players' ? playerColumns : droneColumns;
+
+  const progress = seasonProgress(season?.startDate, season?.endDate);
+  const daysLeft = daysRemaining(season?.endDate);
 
   return (
     <NavShell>
       <div className={styles.page}>
-        <div className={styles.tabs} role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'players'}
-            className={cn(styles.tab, tab === 'players' && styles.tabActive)}
-            onClick={() => setTab('players')}
-          >
-            Players
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'drones'}
-            className={cn(styles.tab, tab === 'drones' && styles.tabActive)}
-            onClick={() => setTab('drones')}
-          >
-            Drones
-          </button>
-        </div>
+        {/* ---- Season header: season info + tabs (right) + progress + rewards ---- */}
+        {season && (
+          <section className={styles.seasonBlock}>
+            <div className={styles.seasonTopRow}>
+              <div className={styles.seasonTopLine}>
+                <span className={styles.seasonLabel}>
+                  Season {season.seasonNumber ?? 1}
+                </span>
+                <span className={styles.seasonSep} aria-hidden="true">
+                  ·
+                </span>
+                <span className={styles.seasonRemaining}>
+                  <span className={styles.seasonRemainingValue}>
+                    {daysLeft}
+                  </span>{' '}
+                  days remaining
+                </span>
+              </div>
 
-        {/* ---- Podium (horizontal scroll on mobile) ---- */}
+              <div className={styles.tabs} role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === 'players'}
+                  className={cn(styles.tab, tab === 'players' && styles.tabActive)}
+                  onClick={() => setTab('players')}
+                >
+                  Players
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === 'drones'}
+                  className={cn(styles.tab, tab === 'drones' && styles.tabActive)}
+                  onClick={() => setTab('drones')}
+                >
+                  Drones
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.progressRow}>
+              <span className={styles.progressLabel}>Season Progress</span>
+              <div className={styles.progressTrack}>
+                <div
+                  className={styles.progressFill}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <span className={styles.progressPct}>{Math.round(progress)}%</span>
+            </div>
+
+            <div className={styles.rewardsRow}>
+              <span className={styles.rewardsLabel}>Season Rewards</span>
+              <span className={styles.rewardInline}>
+                <span
+                  className={cn(styles.rewardThumb, styles.rewardThumbSkins)}
+                  aria-hidden="true"
+                >
+                  <Sparkles size={12} />
+                </span>
+                Exclusive Skins
+              </span>
+              <span className={styles.rewardInline}>
+                <span
+                  className={cn(styles.rewardThumb, styles.rewardThumbPoints)}
+                  aria-hidden="true"
+                >
+                  <Coins size={12} />
+                </span>
+                Point Prizes
+              </span>
+              <span className={styles.rewardInline}>
+                <span
+                  className={cn(styles.rewardThumb, styles.rewardThumbTitles)}
+                  aria-hidden="true"
+                >
+                  <Award size={12} />
+                </span>
+                Titles / Badges
+              </span>
+            </div>
+          </section>
+        )}
+
+        {/* ---- Drone-only filter row: bracket text tabs + humans toggle ---- */}
+        {tab === 'drones' && (
+          <div className={styles.filterRow}>
+            <div className={styles.bracketTabs} role="tablist">
+              {BRACKETS.map((b) => (
+                <button
+                  key={b.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={bracket === b.value}
+                  className={cn(
+                    styles.bracketTab,
+                    bracket === b.value && styles.bracketTabActive,
+                  )}
+                  onClick={() => setBracket(b.value)}
+                >
+                  {b.label}
+                </button>
+              ))}
+            </div>
+            <div className={styles.botsToggle}>
+              <span className={styles.botsToggleLabel}>Include bots</span>
+              <Toggle checked={includeBots} onChange={setIncludeBots} />
+            </div>
+          </div>
+        )}
+
+        {/* ---- Podium ---- */}
         {loading ? (
           <div className={styles.podium}>
             <Skeleton variant="card" height={280} />
@@ -288,95 +361,47 @@ export default function LeaderboardPage() {
           <Podium items={top3} tab={tab} />
         )}
 
-        {/* ---- Season rewards (mobile-first order, CSS reorders on desktop) ---- */}
-        <div className={styles.rewardsMobile}>{rewards}</div>
-
-        {/* ---- Table (search integrated as header bar) ---- */}
-        <div className={styles.tableWrap}>
-          <div className={styles.tableSearchBar}>
-            <Search
-              size={14}
-              className={styles.tableSearchIcon}
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              className={styles.tableSearchInput}
-              placeholder={
-                tab === 'players' ? 'Search player...' : 'Search drone...'
-              }
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                {columns.map((col) => {
-                  const isActive = sort.key === col.key;
-                  return (
-                    <th
-                      key={col.key}
-                      className={cn(
-                        styles.th,
-                        col.align && styles[`align${col.align}`],
-                        col.sortable && styles.sortable,
-                      )}
-                      onClick={
-                        col.sortable ? () => toggleSort(col.key) : undefined
-                      }
-                    >
-                      <span className={styles.thContent}>
-                        {col.label}
-                        {col.sortable && isActive && (
-                          sort.order === 'asc' ? (
-                            <ChevronUp size={12} />
-                          ) : (
-                            <ChevronDown size={12} />
-                          )
-                        )}
-                      </span>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedRest.length === 0 ? (
-                <tr>
-                  <td className={styles.empty} colSpan={columns.length}>
-                    No results.
-                  </td>
-                </tr>
-              ) : (
-                sortedRest.map((row) => (
-                  <tr
-                    key={row.id}
-                    className={cn(
-                      styles.row,
-                      rowIsMine(row) && styles.myRow,
-                    )}
-                  >
-                    {columns.map((col) => (
-                      <td
-                        key={col.key}
-                        className={cn(
-                          styles.td,
-                          col.align && styles[`align${col.align}`],
-                        )}
-                      >
-                        {col.render ? col.render(row) : row[col.key]}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className={styles.rewardsDesktop}>{rewards}</div>
+        {/* ---- Rankings — just the table, no container ---- */}
+        <DataTable
+          sortable
+          columns={columns}
+          data={rest}
+          loading={loading}
+          emptyMessage={
+            tab === 'players'
+              ? 'No players on the board yet.'
+              : 'No drones match the current filters.'
+          }
+          rowClassName={(row) => (rowIsMine(row) ? styles.myRow : null)}
+          className={styles.rankingsTable}
+        />
       </div>
+
+      {/* ---- Sticky "Your Rank" bar (logged-in users only) ---- */}
+      {user && myStats && (
+        <div className={styles.yourRankBar}>
+          <span className={styles.yourRankSegment}>
+            <span className={styles.yourRankLabel}>Your Rank</span>
+            <span className={styles.yourRankValue}>
+              #{myStats.rank ?? '-'}
+            </span>
+          </span>
+          <span className={styles.yourRankDivider} aria-hidden="true" />
+          <span className={styles.yourRankSegment}>
+            <span className={styles.yourRankLabel}>ELO</span>
+            <span className={styles.yourRankValue}>
+              {myStats.eloRating ?? 0}
+            </span>
+          </span>
+          <span className={styles.yourRankDivider} aria-hidden="true" />
+          <span className={styles.yourRankSegment}>
+            <span className={styles.yourRankLabel}>Season Pts</span>
+            <span className={styles.yourRankValue}>
+              {myStats.seasonPoints ?? 0}
+            </span>
+          </span>
+        </div>
+      )}
     </NavShell>
   );
 }
@@ -400,60 +425,90 @@ function PodiumCard({ rank, entry, tab }) {
   const name = entry ? (tab === 'players' ? entry.username : entry.name) : null;
   const wins = entry ? (tab === 'players' ? entry.totalWins : entry.wins) : 0;
   const totalRaces = entry?.totalRaces ?? 0;
-  const winRate =
-    totalRaces > 0 ? ((wins / totalRaces) * 100).toFixed(0) + '%' : '—';
+  const winRate = computeWinRate(wins, totalRaces);
   const seasonPts = tab === 'players' ? entry?.seasonPoints : null;
   const imageUrl = entry?.imageUrl || '/drones/default.png';
 
   const rankClass =
     rank === 1 ? styles.gold : rank === 2 ? styles.silver : styles.bronze;
+  const rankLabel = rank === 1 ? '1ST' : rank === 2 ? '2ND' : '3RD';
 
-  return (
-    <div
-      className={cn(
-        styles.podiumCard,
-        rankClass,
-        rank === 1 && styles.podiumFirst,
-        empty && styles.podiumEmpty,
-      )}
-    >
-      <div className={styles.podiumRankLabel}>
-        <Trophy size={rank === 1 ? 20 : 16} /> {rank}
-        {ordinal(rank)}
+  const linkHref =
+    !empty && tab === 'players' && entry?.id
+      ? `/profile/${entry.id}`
+      : !empty && tab === 'drones' && entry?.id
+      ? `/drones/${entry.id}`
+      : null;
+
+  const trophySize = rank === 1 ? 22 : 18;
+  const droneLevel = !empty && tab === 'drones' ? entry.level : null;
+
+  const body = (
+    <>
+      <div className={styles.podiumHeader}>
+        <div className={styles.podiumHeaderLeft}>
+          <div className={styles.podiumName}>
+            {empty ? 'Unclaimed' : name}
+            {droneLevel != null && (
+              <span
+                className={styles.podiumLevel}
+                style={{ color: getLevelColor(droneLevel) }}
+              >
+                {' '}
+                · Lv {droneLevel}
+              </span>
+            )}
+          </div>
+          <div className={styles.podiumRankLabel}>{rankLabel}</div>
+        </div>
+        <Trophy
+          size={trophySize}
+          className={styles.podiumTrophy}
+          strokeWidth={2.2}
+          aria-hidden="true"
+        />
       </div>
+
       <div className={styles.podiumImageFrame}>
         <img src={imageUrl} alt={name ?? 'Unclaimed'} />
       </div>
-      <div className={styles.podiumNameRow}>
-        <div className={styles.podiumName}>{empty ? 'Unclaimed' : name}</div>
-        {!empty && tab === 'drones' && entry.level != null && (
-          <Badge variant="level" value={entry.level} />
-        )}
-      </div>
+
       <dl className={styles.podiumStats}>
-        <StatRow label="Win Rate" value={empty ? '—' : winRate} />
-        <StatRow label="Wins" value={empty ? '—' : wins} />
-        <StatRow label="ELO" value={empty ? '—' : entry.eloRating} />
+        <PodiumStat
+          label="Win Rate"
+          value={empty ? '-' : winRate != null ? `${winRate}%` : '-'}
+        />
+        <PodiumStat label="Wins" value={empty ? '-' : wins} />
+        <PodiumStat label="ELO" value={empty ? '-' : entry.eloRating} />
         {tab === 'players' && (
-          <StatRow label="Season" value={empty ? '—' : seasonPts ?? 0} />
+          <PodiumStat label="Season Pts" value={empty ? '-' : seasonPts ?? 0} />
         )}
       </dl>
-    </div>
+    </>
   );
+
+  const classes = cn(
+    styles.podiumCard,
+    rankClass,
+    rank === 1 && styles.podiumFirst,
+    empty && styles.podiumEmpty,
+  );
+
+  if (linkHref) {
+    return (
+      <Link href={linkHref} className={cn(classes, styles.podiumCardLink)}>
+        {body}
+      </Link>
+    );
+  }
+  return <div className={classes}>{body}</div>;
 }
 
-function StatRow({ label, value }) {
+function PodiumStat({ label, value }) {
   return (
     <div className={styles.podiumStatRow}>
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>
   );
-}
-
-function ordinal(n) {
-  if (n === 1) return 'st';
-  if (n === 2) return 'nd';
-  if (n === 3) return 'rd';
-  return 'th';
 }
