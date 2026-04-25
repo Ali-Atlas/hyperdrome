@@ -2585,17 +2585,31 @@
   width: 100%;
 }
 
-/* "BEST VALUE" pill (top tier only, sits to the LEFT of the bonus pill) */
+/* "BEST VALUE" pill (top tier only, sits to the LEFT of the bonus pill).
+   Right corners squared because BEST VALUE only renders on the
+   top-tier card and always has a bonus pill kissing it on the right -
+   the joined edge reads as a single segmented unit. */
 .pointsBestValuePill {
   display: inline-block;
   padding: 3px 9px;
-  border-radius: var(--radius-sm);
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
   background: var(--rarity-legendary);
   color: #000;
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: var(--font-bold);
   text-transform: uppercase;
+}
+
+/* When a bonus pill immediately follows a BEST VALUE pill, square
+   its left corners so the two pills meet flush. Solo bonus pills
+   (cards 2-5) still get fully rounded corners. */
+.pointsBestValuePill + .pointsBonusPill {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 /* Bonus pill (options 2-6) */

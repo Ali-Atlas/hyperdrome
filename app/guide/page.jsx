@@ -530,8 +530,26 @@ const SECTIONS = [
   },
 ];
 
+const MOD_EXAMPLES = [
+  { name: 'Aero Shell',    bonus: '+5% Speed (straights)',       tradeoff: '-3% Turning' },
+  { name: 'Grip Coating',  bonus: '+4% Turning',                 tradeoff: '-2% Acceleration' },
+  { name: 'Night Optics',  bonus: '+8% Night Vision',            tradeoff: '-3% Battery Capacity' },
+  { name: 'Storm Plating', bonus: '+6% Rain Handling',           tradeoff: '-4% Speed' },
+  { name: 'Plasma Core',   bonus: '+5% Acceleration',            tradeoff: '-3% Consistency' },
+  { name: 'Phantom Drive', bonus: 'Ignores Lap 1 battery drain', tradeoff: '-5% Wind Resistance' },
+];
+
+const SEASON_2_PREVIEW = {
+  id: 'season-2-preview',
+  title: 'Season 2 Preview',
+  Icon: Sparkles,
+};
+
+/** TOC entries: the Season 2 preview block sits above the regular SECTIONS. */
+const TOC_ENTRIES = [SEASON_2_PREVIEW, ...SECTIONS];
+
 export default function GuidePage() {
-  const [activeId, setActiveId] = useState(SECTIONS[0].id);
+  const [activeId, setActiveId] = useState(SEASON_2_PREVIEW.id);
   const [mobileOpen, setMobileOpen] = useState(false);
   const sectionRefs = useRef({});
 
@@ -551,7 +569,7 @@ export default function GuidePage() {
       },
     );
 
-    SECTIONS.forEach((s) => {
+    TOC_ENTRIES.forEach((s) => {
       const el = sectionRefs.current[s.id];
       if (el) observer.observe(el);
     });
@@ -569,7 +587,8 @@ export default function GuidePage() {
     setMobileOpen(false);
   };
 
-  const activeSection = SECTIONS.find((s) => s.id === activeId) ?? SECTIONS[0];
+  const activeSection =
+    TOC_ENTRIES.find((s) => s.id === activeId) ?? TOC_ENTRIES[0];
 
   return (
     <NavShell>
@@ -607,7 +626,7 @@ export default function GuidePage() {
               id="guide-toc-mobile-list"
               className={styles.tocMobileList}
             >
-              {SECTIONS.map(({ id, title, Icon }) => (
+              {TOC_ENTRIES.map(({ id, title, Icon }) => (
                 <li key={id}>
                   <a
                     href={`#${id}`}
@@ -630,7 +649,7 @@ export default function GuidePage() {
           <nav className={styles.toc} aria-label="Guide sections">
             <div className={styles.tocLabel}>Contents</div>
             <ul className={styles.tocList}>
-              {SECTIONS.map(({ id, title, Icon }) => (
+              {TOC_ENTRIES.map(({ id, title, Icon }) => (
                 <li key={id}>
                   <a
                     href={`#${id}`}
@@ -649,6 +668,69 @@ export default function GuidePage() {
           </nav>
 
           <div className={styles.content}>
+            <section
+              id={SEASON_2_PREVIEW.id}
+              ref={(el) => {
+                sectionRefs.current[SEASON_2_PREVIEW.id] = el;
+              }}
+              className={styles.s2Section}
+            >
+              <span className={styles.s2Pill}>Season 2 Preview</span>
+              <Card className={styles.sectionCard}>
+                <div className={styles.sectionHeading}>
+                  <Sparkles size={14} aria-hidden="true" />
+                  <span>What&apos;s Coming in Season 2</span>
+                </div>
+                <div className={styles.sectionBody}>
+                  <h3 className={styles.subheading}>Trait Mods</h3>
+                  <p className={styles.paragraph}>
+                    Mods are equippable drone modifications that directly impact race outcomes. Skins are permanent visual reskins for your drone. Mods are strategic hardware. Each Mod offers a tradeoff: boost one stat at the cost of another. There are no pure power upgrades, only build diversity.
+                  </p>
+
+                  <h3 className={styles.subheading}>Pre-Race Strategy Window</h3>
+                  <p className={styles.paragraph}>
+                    When a race batch is pending, you&apos;ll see your opponents, the track, and the conditions before the race locks. You&apos;ll have a two-minute window to equip or swap your Mods. Study their build. Read the weather. Adapt your loadout. When the timer hits zero, your configuration locks and the race runs. Commit to your strategy or miss your chance.
+                  </p>
+
+                  <h3 className={styles.subheading}>Mod Rarity</h3>
+                  <p className={styles.paragraph}>
+                    Common Mods offer subtle adjustments. Small bonus, small penalty. Rare and Epic Mods push harder in both directions, creating sharper tradeoffs and more specialized builds. Legendary Mods break conventional rules entirely with unique mechanics that change how your drone behaves during a race.
+                  </p>
+
+                  <h3 className={styles.subheading}>Skins vs Mods</h3>
+                  <p className={styles.paragraph}>
+                    Skins are cosmetic. They permanently reskin your drone&apos;s appearance and are bound on equip. You buy them on the Marketplace or pull them from Packs. They look different but change nothing about race performance.
+                  </p>
+                  <p className={styles.paragraph}>
+                    Mods are functional. They modify your drone&apos;s racing characteristics and can be swapped between races during the strategy window. They are tradeable on the Marketplace and will have their own Mod Packs.
+                  </p>
+
+                  <h3 className={styles.subheading}>Mod Examples</h3>
+                  <div
+                    className={cn(styles.costTable, styles.modTable)}
+                    role="table"
+                  >
+                    <div className={styles.costHeader} role="row">
+                      <span role="columnheader">Mod Name</span>
+                      <span role="columnheader">Bonus</span>
+                      <span role="columnheader">Tradeoff</span>
+                    </div>
+                    {MOD_EXAMPLES.map((row, i) => (
+                      <div key={i} className={styles.costRow} role="row">
+                        <span role="cell">{row.name}</span>
+                        <span role="cell">{row.bonus}</span>
+                        <span role="cell">{row.tradeoff}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className={styles.paragraph}>
+                    Mods, Mod Packs, and the pre-race strategy window will launch with Season 2. The Marketplace will expand with a dedicated MODS tab alongside the existing Drones, Skins, and Packs tabs.
+                  </p>
+                </div>
+              </Card>
+            </section>
+
             {SECTIONS.map(({ id, title, Icon, blocks }) => (
               <section
                 key={id}

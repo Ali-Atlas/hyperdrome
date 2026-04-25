@@ -300,6 +300,41 @@
 }
 
 /* ==========================================================================
+ * Season 2 preview - prepended above the regular guide content. Purple
+ * left-border accent and pill mark it as future content (intentional
+ * exception to the no-left-border-on-links rule, scoped to this block).
+ * ========================================================================== */
+
+.s2Section {
+  margin-bottom: var(--space-8);
+  scroll-margin-top: 80px;
+}
+
+.s2Pill {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  background: rgba(3, 218, 198, 0.15);
+  color: var(--accent-primary);
+  margin-bottom: var(--space-2);
+}
+
+.modTable .costHeader,
+.modTable .costRow {
+  grid-template-columns: 1fr 1.4fr 1.2fr;
+}
+
+.modTable .costRow span:first-child {
+  font-family: var(--font-body);
+  letter-spacing: 0.01em;
+}
+
+/* ==========================================================================
  * Responsive
  * ========================================================================== */
 
