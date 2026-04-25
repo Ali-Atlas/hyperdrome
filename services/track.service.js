@@ -107,7 +107,9 @@ export async function getTopPerformersOnTrack(trackId) {
   }));
 }
 
-/** Last 10 races on a track with both drone names + winner + conditions. */
+/** Last 10 COMPLETED races on a track with both drone names + winner + conditions.
+ *  PENDING races are excluded - they have no winner / times so they
+ *  would render as broken rows in the recent-races table. */
 export async function getRecentRacesOnTrack(trackId) {
   const rows = await raw`
     SELECT
@@ -126,7 +128,7 @@ export async function getRecentRacesOnTrack(trackId) {
     FROM races r
     JOIN drones d1 ON d1.id = r.drone1_id
     JOIN drones d2 ON d2.id = r.drone2_id
-    WHERE r.track_id = ${trackId}
+    WHERE r.track_id = ${trackId} AND r.status = 'completed'
     ORDER BY r.created_at DESC
     LIMIT 10
   `;

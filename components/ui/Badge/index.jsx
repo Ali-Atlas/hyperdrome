@@ -17,7 +17,7 @@ export default function Badge({ variant, value, className }) {
   if (variant === 'level') {
     const level = Number(value) || 0;
     modifier = getLevelTier(level);
-    label = `Lv ${level}`;
+    label = `LV ${level}`;
   } else if (variant === 'rarity' || variant === 'status') {
     modifier = String(value).toLowerCase();
     label = String(value).toUpperCase();

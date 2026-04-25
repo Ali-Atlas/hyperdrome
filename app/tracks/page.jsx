@@ -71,7 +71,7 @@ export function LevelBracket({ min, max }) {
         '--level-to': getLevelColor(max),
       }}
     >
-      Lv {min}-{max}
+      LV {min}-{max}
     </span>
   );
 }

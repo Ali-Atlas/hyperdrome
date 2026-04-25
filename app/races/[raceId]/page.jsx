@@ -13,15 +13,38 @@ import {
   Sunset,
   Moon,
   Trophy,
+  Bot,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
-import { cn, getLevelTier } from '@/lib/utils';
+import StatRadar from '@/components/ui/StatRadar';
+import {
+  cn,
+  getLevelColor,
+  getLevelTier,
+  getDifficultyColor,
+} from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
+import {
+  STAT_KEYS,
+  calculatePerStatCap,
+} from '@/lib/game-engine/economy.js';
 import styles from './page.module.css';
+
+const RADAR_LABELS = {
+  speed: 'SPD',
+  turning: 'TRN',
+  acceleration: 'ACC',
+  durability: 'DUR',
+  nightVision: 'NV',
+  batteryCapacity: 'BAT',
+  rainHandling: 'RAIN',
+  windResistance: 'WIND',
+  consistency: 'CST',
+};
 
 const WEATHER_ICONS = {
   clear: Sun,
@@ -198,6 +221,30 @@ export default function RaceDetailPage({ params }) {
     };
   }, [raceId]);
 
+  // Poll while the race is PENDING so the page transitions automatically
+  // to the results view once the cron executes it. 5s cadence is fast
+  // enough to feel instant near the lock-in moment without spamming the
+  // API; stops as soon as we see status='completed'.
+  useEffect(() => {
+    if (race?.status !== 'pending') return undefined;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/races/${raceId}`);
+        const body = await res.json();
+        if (cancelled || !res.ok || !body?.data) return;
+        setRace(body.data);
+      } catch {
+        /* keep stale until next tick */
+      }
+    };
+    const id = setInterval(tick, 5_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [race?.status, raceId]);
+
   if (loading) {
     return (
       <NavShell>
@@ -222,6 +269,14 @@ export default function RaceDetailPage({ params }) {
         </div>
       </NavShell>
     );
+  }
+
+  // Status dispatch: PENDING races get the strategy view (countdown +
+  // matchup preview). COMPLETED races fall through to the results view
+  // below. Single canonical URL `/races/[id]` survives the lifecycle -
+  // the page just swaps content as the race transitions.
+  if (race.status === 'pending') {
+    return <RaceStrategyView race={race} />;
   }
 
   const winnerId = race.winnerDroneId;
@@ -308,7 +363,7 @@ export default function RaceDetailPage({ params }) {
             <div className={styles.headlineRight}>
               {race.pointsAwarded != null && (
                 <span className={styles.pointsChip}>
-                  +{race.pointsAwarded} PTS
+                  +{race.pointsAwarded} V
                 </span>
               )}
               {leadChanges > 0 && (
@@ -801,4 +856,386 @@ function mulberry32(a) {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Strategy view - rendered when race.status === 'pending'.                   */
+/*                                                                            */
+/* Top-to-bottom sections:                                                    */
+/*   1. StatusBar  - centered text. "RACE LOCKS IN MM:SS" or pulsing teal     */
+/*                   "RACE IN PROGRESS". Not a card.                          */
+/*   2. H2HStrip   - thin card, single horizontal row of comparison stats.    */
+/*   3. Drone cards - two side-by-side, drone-management style (radar +      */
+/*                    form dots + stat strip), each links to /drones/[id].   */
+/*   4. TrackSection - full-width card. Desktop: image left + info right.    */
+/* -------------------------------------------------------------------------- */
+
+function RaceStrategyView({ race }) {
+  // Hydrate each drone with its `recentRaces` (for form dots) + applied skin.
+  // The race endpoint doesn't return recentRaces; /api/drones/[id] does.
+  const [details, setDetails] = useState({ drone1: null, drone2: null });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const ids = [race.drone1?.id, race.drone2?.id].filter(Boolean);
+      if (ids.length < 2) return;
+      const results = await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/drones/${id}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
+        ),
+      );
+      if (cancelled) return;
+      setDetails({
+        drone1: results[0]?.data ?? null,
+        drone2: results[1]?.data ?? null,
+      });
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [race.drone1?.id, race.drone2?.id]);
+
+  const drone1 = details.drone1 ?? race.drone1;
+  const drone2 = details.drone2 ?? race.drone2;
+
+  const lvl1 = drone1?.level ?? 1;
+  const lvl2 = drone2?.level ?? 1;
+  const radarMax = calculatePerStatCap(Math.max(lvl1, lvl2));
+
+  return (
+    <NavShell>
+      <div className={styles.matchupPage}>
+        <StatusBar scheduledAt={race.scheduledAt} />
+        <H2HStrip race={race} drone1={drone1} drone2={drone2} />
+        <div className={styles.matchupGrid}>
+          <MatchupDroneCard drone={drone1} radarMax={radarMax} />
+          <MatchupDroneCard drone={drone2} radarMax={radarMax} />
+        </div>
+        <TrackSection race={race} />
+      </div>
+    </NavShell>
+  );
+}
+
+/** Centered status text. "RACE LOCKS IN MM:SS" countdown, or pulsing teal
+ *  "RACE IN PROGRESS" once the schedule passes. The parent page polls
+ *  /api/races/[id] every 5s so the whole page flips to results view as
+ *  soon as the cron executes. */
+function StatusBar({ scheduledAt }) {
+  const compute = () => {
+    if (!scheduledAt) return 0;
+    return Math.max(0, new Date(scheduledAt).getTime() - Date.now());
+  };
+  const [remaining, setRemaining] = useState(compute);
+  useEffect(() => {
+    setRemaining(compute());
+    const id = setInterval(() => setRemaining(compute()), 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduledAt]);
+
+  if (remaining <= 0) {
+    return (
+      <div className={cn(styles.statusBar, styles.statusBarLive)}>
+        RACE IN PROGRESS
+      </div>
+    );
+  }
+
+  const total = Math.floor(remaining / 1000);
+  const mins = String(Math.floor(total / 60)).padStart(2, '0');
+  const secs = String(total % 60).padStart(2, '0');
+
+  return (
+    <div className={styles.statusBar}>
+      RACE LOCKS IN {mins}:{secs}
+    </div>
+  );
+}
+
+/** Single-row comparison card: drone1 name · H2H · ELO · WIN RATE · drone2 name. */
+function H2HStrip({ race, drone1, drone2 }) {
+  if (!drone1 || !drone2) return null;
+
+  const elo1 = drone1.eloRating ?? 0;
+  const elo2 = drone2.eloRating ?? 0;
+  const wr1 =
+    drone1.totalRaces > 0
+      ? `${Math.round(((drone1.wins ?? 0) / drone1.totalRaces) * 100)}%`
+      : '-';
+  const wr2 =
+    drone2.totalRaces > 0
+      ? `${Math.round(((drone2.wins ?? 0) / drone2.totalRaces) * 100)}%`
+      : '-';
+
+  return (
+    <div className={styles.h2hStrip}>
+      <span className={styles.h2hName}>{drone1.name}</span>
+      <span className={styles.h2hSep} aria-hidden="true" />
+      {race.h2h && race.h2h.total > 0 && (
+        <>
+          <span className={styles.h2hCell}>
+            <span className={styles.h2hLabel}>H2H</span>
+            <span className={styles.h2hValue}>
+              {race.h2h.drone1Wins}-{race.h2h.drone2Wins}
+            </span>
+          </span>
+          <span className={styles.h2hSep} aria-hidden="true" />
+        </>
+      )}
+      <span className={styles.h2hCell}>
+        <span className={styles.h2hLabel}>ELO</span>
+        <span className={styles.h2hValue}>
+          {elo1} vs {elo2}
+        </span>
+      </span>
+      <span className={styles.h2hSep} aria-hidden="true" />
+      <span className={styles.h2hCell}>
+        <span className={styles.h2hLabel}>WIN RATE</span>
+        <span className={styles.h2hValue}>
+          {wr1} vs {wr2}
+        </span>
+      </span>
+      <span className={styles.h2hSep} aria-hidden="true" />
+      <span className={styles.h2hName}>{drone2.name}</span>
+    </div>
+  );
+}
+
+/** Drone card mirroring the drone-management view: image, name + level
+ *  (drone-mgmt style, no Badge), full 9-axis radar, FORM dots, stat strip.
+ *  Wraps in <Link> so clicking goes to /drones/[id] (read-only while race
+ *  is PENDING). */
+function MatchupDroneCard({ drone, radarMax }) {
+  if (!drone) {
+    return (
+      <article className={styles.matchupCard} aria-hidden="true">
+        <Skeleton variant="card" height={420} />
+      </article>
+    );
+  }
+
+  const tier = getLevelTier(drone.level);
+  const radarStats = STAT_KEYS.reduce((acc, k) => {
+    acc[k] = drone[k] ?? 0;
+    return acc;
+  }, {});
+  const radarLabels = STAT_KEYS.map((k) => RADAR_LABELS[k]);
+
+  const races = drone.recentRaces ?? [];
+  const last5 = races.slice(0, 5);
+  const dots = last5.map((r) => r.winnerDroneId === drone.id);
+  const streakInfo = (() => {
+    if (dots.length === 0) return { streak: 0, type: null };
+    const first = dots[0];
+    let streak = 1;
+    for (let i = 1; i < dots.length; i += 1) {
+      if (dots[i] === first) streak += 1;
+      else break;
+    }
+    return { streak, type: first ? 'W' : 'L' };
+  })();
+
+  const winRate =
+    drone.totalRaces > 0
+      ? `${Math.round(((drone.wins ?? 0) / drone.totalRaces) * 100)}%`
+      : '-';
+
+  return (
+    <Link
+      href={`/drones/${drone.id}`}
+      className={cn(styles.matchupCard, styles[`matchupCard_${tier}`])}
+    >
+      <div className={styles.matchupImageFrame}>
+        <DroneImage
+          drone={drone}
+          alt={drone.name}
+          className={styles.matchupImg}
+        />
+        {drone.isBot && (
+          <span className={styles.matchupBotBadge}>
+            <Bot size={11} aria-hidden="true" /> BOT
+          </span>
+        )}
+      </div>
+
+      <div className={styles.matchupNameRow}>
+        <h3 className={styles.matchupName}>{drone.name}</h3>
+        <span
+          className={styles.matchupLevel}
+          style={{ color: getLevelColor(drone.level) }}
+        >
+          LV {drone.level}
+        </span>
+      </div>
+
+      <StatRadar
+        axes={STAT_KEYS}
+        stats={radarStats}
+        labels={radarLabels}
+        maxValue={radarMax}
+        className={styles.matchupRadar}
+      />
+
+      <div className={styles.matchupFormStrip}>
+        <span className={styles.matchupFormLabel}>Form</span>
+        <div className={styles.matchupFormDots}>
+          {dots.length > 0 ? (
+            dots.map((won, i) => (
+              <span
+                key={i}
+                className={cn(
+                  styles.matchupFormDot,
+                  won
+                    ? styles.matchupFormDotWin
+                    : styles.matchupFormDotLoss,
+                )}
+                aria-label={won ? 'Win' : 'Loss'}
+              />
+            ))
+          ) : (
+            <span className={styles.matchupFormEmpty}>-</span>
+          )}
+        </div>
+        {streakInfo.type && (
+          <span
+            className={cn(
+              styles.matchupFormStreak,
+              streakInfo.type === 'W'
+                ? styles.matchupFormStreakWin
+                : styles.matchupFormStreakLoss,
+            )}
+          >
+            {streakInfo.type}
+            {streakInfo.streak}
+          </span>
+        )}
+      </div>
+
+      <div className={styles.matchupStatStrip}>
+        <div className={styles.matchupStatItem}>
+          <span className={styles.matchupStatLabel}>Total Races</span>
+          <span className={styles.matchupStatValue}>
+            {drone.totalRaces ?? 0}
+          </span>
+        </div>
+        <div className={styles.matchupStatItem}>
+          <span className={styles.matchupStatLabel}>Wins</span>
+          <span className={styles.matchupStatValue}>{drone.wins ?? 0}</span>
+        </div>
+        <div className={styles.matchupStatItem}>
+          <span className={styles.matchupStatLabel}>Losses</span>
+          <span className={styles.matchupStatValue}>{drone.losses ?? 0}</span>
+        </div>
+        <div className={styles.matchupStatItem}>
+          <span className={styles.matchupStatLabel}>Win Rate</span>
+          <span className={styles.matchupStatValue}>{winRate}</span>
+        </div>
+        <div className={styles.matchupStatItem}>
+          <span className={styles.matchupStatLabel}>ELO</span>
+          <span className={styles.matchupStatValue}>
+            {drone.eloRating ?? 0}
+          </span>
+        </div>
+      </div>
+
+      <div className={styles.matchupSkinBlock}>
+        <span className={styles.matchupSkinLabel}>Skin Equipped</span>
+        <span className={styles.matchupSkinName}>
+          {drone.appliedSkin?.name ?? 'None'}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+/** Full-width track card. Desktop: image left (16/9, radius-md), info right
+ *  (name + difficulty + specs + conditions). Mobile: stacks vertically. */
+function TrackSection({ race }) {
+  const track = race.track;
+  if (!track) return null;
+  const WeatherIcon = WEATHER_ICONS[race.weather] ?? Cloud;
+  const TimeIcon = TIME_ICONS[race.timeOfDay] ?? Sun;
+  const diff = Number(track.difficulty) || 0;
+  const difficultyColor = getDifficultyColor(diff);
+
+  return (
+    <div className={styles.trackSection}>
+      <div className={styles.trackImageBox}>
+        {track.imageUrl ? (
+          <img
+            src={track.imageUrl}
+            alt={track.name}
+            className={styles.trackSectionImg}
+          />
+        ) : (
+          <div className={styles.trackImagePlaceholder} aria-hidden="true" />
+        )}
+      </div>
+
+      <div className={styles.trackInfo}>
+        <h2 className={styles.trackName}>{track.name}</h2>
+
+        <div
+          className={styles.trackDiffRow}
+          style={{ '--diff-color': difficultyColor }}
+        >
+          <span className={styles.trackDiffLabel}>Difficulty</span>
+          <span className={styles.trackDiffDots} aria-hidden="true">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  styles.trackDiffDot,
+                  i < diff && styles.trackDiffDotOn,
+                )}
+              />
+            ))}
+          </span>
+          <span className={styles.trackDiffScore}>{diff}/10</span>
+        </div>
+
+        <div className={styles.trackSpecRow}>
+          <TrackSpec label="Straights" value={track.straights ?? 0} />
+          <TrackSpecSep />
+          <TrackSpec label="Turns" value={track.turns ?? 0} />
+          <TrackSpecSep />
+          <TrackSpec label="Laps" value={track.laps ?? 3} />
+          <TrackSpecSep />
+          <TrackSpec
+            label="Length"
+            value={(track.length ?? '-').toString().toUpperCase()}
+          />
+        </div>
+
+        <div className={styles.trackCondRow}>
+          <span className={styles.trackCondPill}>
+            <WeatherIcon size={13} aria-hidden="true" />
+            {WEATHER_LABELS[race.weather] ?? race.weather ?? '-'}
+          </span>
+          <span className={styles.trackCondPill}>
+            <TimeIcon size={13} aria-hidden="true" />
+            {TIME_LABELS[race.timeOfDay] ?? race.timeOfDay ?? '-'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TrackSpec({ label, value }) {
+  return (
+    <span className={styles.trackSpecItem}>
+      <span className={styles.trackSpecLabel}>{label}</span>
+      <span className={styles.trackSpecValue}>{value}</span>
+    </span>
+  );
+}
+
+function TrackSpecSep() {
+  return <span className={styles.trackSpecSep} aria-hidden="true" />;
 }

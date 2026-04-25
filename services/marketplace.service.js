@@ -108,7 +108,7 @@ export async function buyListing(buyerId, listingId) {
     .limit(1);
   if (!buyer) throw new ApiError('Buyer not found', 404);
   if (buyer.points < listing.price) {
-    throw new ApiError('Insufficient points', 400);
+    throw new ApiError('Insufficient volts', 400);
   }
 
   const platformFee = Math.floor(listing.price * 0.05);

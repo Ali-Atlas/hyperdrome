@@ -66,7 +66,7 @@ export default function NavShell({ children }) {
           {user.username ?? user.email}
         </div>
         <div className={styles.points}>
-          POINTS: {(user.points ?? 0).toLocaleString()}
+          VOLTS: {(user.points ?? 0).toLocaleString()}
         </div>
         <button
           type="button"
@@ -113,7 +113,7 @@ export default function NavShell({ children }) {
             </span>
             <span className={styles.mobileSep}>|</span>
             <span className={styles.mobilePoints}>
-              POINTS: {(user.points ?? 0).toLocaleString()}
+              VOLTS: {(user.points ?? 0).toLocaleString()}
             </span>
           </div>
         )}

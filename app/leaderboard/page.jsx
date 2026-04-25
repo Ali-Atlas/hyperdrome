@@ -18,10 +18,10 @@ const PAGE_SIZE = 25;
 
 const BRACKETS = [
   { value: 'all',   label: 'All Levels' },
-  { value: '1-5',   label: 'Lv 1-5' },
-  { value: '6-10',  label: 'Lv 6-10' },
-  { value: '11-15', label: 'Lv 11-15' },
-  { value: '16-20', label: 'Lv 16-20' },
+  { value: '1-5',   label: 'LV 1-5' },
+  { value: '6-10',  label: 'LV 6-10' },
+  { value: '11-15', label: 'LV 11-15' },
+  { value: '16-20', label: 'LV 16-20' },
 ];
 
 function daysRemaining(endIso) {
@@ -185,8 +185,8 @@ export default function LeaderboardPage() {
       },
       {
         key: 'seasonPoints',
-        label: 'Points Earned',
-        shortLabel: 'Pts',
+        label: 'Volts Earned',
+        shortLabel: 'V',
         sortable: true,
         align: 'right',
         render: (r) => <span className={styles.mono}>{r.seasonPoints}</span>,
@@ -214,7 +214,7 @@ export default function LeaderboardPage() {
               className={styles.levelSuffix}
               style={{ color: getLevelColor(r.level) }}
             >
-              {' '}| Lv {r.level}
+              {' '}| LV {r.level}
             </span>
           </span>
         ),
@@ -331,7 +331,7 @@ export default function LeaderboardPage() {
                 >
                   <Coins size={12} />
                 </span>
-                Point Prizes
+                Volt Prizes
               </span>
               <span className={styles.rewardInline}>
                 <span
@@ -427,7 +427,7 @@ export default function LeaderboardPage() {
           </span>
           <span className={styles.yourRankDivider} aria-hidden="true" />
           <span className={styles.yourRankSegment}>
-            <span className={styles.yourRankLabel}>Season Pts</span>
+            <span className={styles.yourRankLabel}>Season V</span>
             <span className={styles.yourRankValue}>
               {myStats.seasonPoints ?? 0}
             </span>
@@ -486,7 +486,7 @@ function PodiumCard({ rank, entry, tab }) {
                 style={{ color: getLevelColor(droneLevel) }}
               >
                 {' '}
-                · Lv {droneLevel}
+                · LV {droneLevel}
               </span>
             )}
           </div>
@@ -516,7 +516,7 @@ function PodiumCard({ rank, entry, tab }) {
         <PodiumStat label="Wins" value={empty ? '-' : wins} />
         <PodiumStat label="ELO" value={empty ? '-' : entry.eloRating} />
         {tab === 'players' && (
-          <PodiumStat label="Season Pts" value={empty ? '-' : seasonPts ?? 0} />
+          <PodiumStat label="Season V" value={empty ? '-' : seasonPts ?? 0} />
         )}
       </dl>
     </>

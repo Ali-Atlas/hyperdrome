@@ -107,21 +107,52 @@ async function rollSkinDropForWinner(userId, cfg) {
 /* Core race cycle                                                            */
 /* -------------------------------------------------------------------------- */
 
+/** PENDING window length in seconds. Cron creates each PENDING race
+ *  with `scheduled_at = NOW() + PENDING_WINDOW_SECONDS` and phase 2
+ *  executes any PENDING whose scheduled time has passed. The cron's
+ *  own tick interval is independent (admin_config.race_interval_seconds)
+ *  and dictates how soon AFTER the schedule a race actually executes. */
+const PENDING_WINDOW_SECONDS = 180; // 3 minutes
+
 /**
- * Run one full race cycle across every bracket.
+ * Run one full race cycle. Two phases per tick:
  *
- * Every active drone races every cycle. Bot backfill guarantees each
- * non-empty bracket has an even number of drones, so there are no byes.
+ *   PHASE 2  Execute PENDING races whose scheduled_at <= NOW().
+ *            Run first so drones whose pending window just expired
+ *            free up before phase 1 tries to match them again.
  *
- * @returns {Promise<{ racesRun: number, botsActivated: number, bracketSummary: Record<string, number> }>}
+ *   PHASE 1  Match unmatched active drones (those NOT currently in a
+ *            PENDING race) into new PENDING races for the next window.
+ *
+ * Both phases are gated by the `racing_enabled` admin_config flag at
+ * the cron handler level (see app/api/races/run/route.js) - the flag
+ * is a system-wide kill switch: when off, neither phase runs and any
+ * already-PENDING races sit on the queue until the flag flips back on.
+ *
+ * @returns {Promise<{
+ *   pendingExecuted: number,
+ *   pendingCreated: number,
+ *   botsActivated: number,
+ *   bracketSummary: Record<string, number>
+ * }>}
  */
 export async function runRaceCycle() {
   const cfg = await loadConfig();
+
+  // PHASE 2 - execute any ready PENDING races first.
+  const pendingExecuted = await executeReadyPendingRaces(cfg);
+
+  // PHASE 1 - match unmatched active drones into new PENDING races.
   const bracketSummary = {};
-  let racesRun = 0;
+  let pendingCreated = 0;
   let botsActivated = 0;
 
-  const buckets = await getActiveDronesByBracket();
+  // Drones currently in a PENDING race must be excluded from the next
+  // round of matchmaking; otherwise they'd get re-paired into another
+  // PENDING before their first one executes.
+  const pendingDroneIds = await getDroneIdsInPendingRaces();
+
+  const buckets = await getActiveDronesByBracket(pendingDroneIds);
 
   for (const bracket of Object.keys(buckets)) {
     const activated = await ensureBotBackfill(
@@ -132,8 +163,8 @@ export async function runRaceCycle() {
     botsActivated += activated;
   }
 
-  // Re-fetch after backfill so we have the freshly-activated bots.
-  const updatedBuckets = await getActiveDronesByBracket();
+  // Re-fetch after backfill so newly-activated bots are visible.
+  const updatedBuckets = await getActiveDronesByBracket(pendingDroneIds);
 
   for (const [bracket, bracketDrones] of Object.entries(updatedBuckets)) {
     if (bracketDrones.length < 2) {
@@ -144,70 +175,163 @@ export async function runRaceCycle() {
     bracketSummary[bracket] = pairs.length;
 
     for (const [d1, d2] of pairs) {
-      await runSingleRace(d1, d2, cfg);
-      racesRun += 1;
+      await createPendingRace(d1, d2, cfg);
+      pendingCreated += 1;
     }
   }
 
-  return { racesRun, botsActivated, bracketSummary };
+  return { pendingExecuted, pendingCreated, botsActivated, bracketSummary };
 }
 
-async function runSingleRace(d1, d2, cfg) {
-  // Matchmaking guarantees d1.level === d2.level, so either drone's level
-  // is the race level used to filter eligible tracks.
+/** Distinct drone ids that are participants in any PENDING race. */
+async function getDroneIdsInPendingRaces() {
+  const rows = await db
+    .select({ d1: races.drone1Id, d2: races.drone2Id })
+    .from(races)
+    .where(eq(races.status, 'pending'));
+  const set = new Set();
+  for (const r of rows) {
+    set.add(r.d1);
+    set.add(r.d2);
+  }
+  return set;
+}
+
+/**
+ * Phase 1 step: snapshot conditions + ELO and write a PENDING race row.
+ * The race engine is NOT invoked here. Result fields (winner, times,
+ * raceLog, points, ELO change) stay default/null until phase 2.
+ */
+async function createPendingRace(d1, d2, cfg) {
+  // Matchmaking guarantees d1.level === d2.level.
   const raceLevel = d1.level ?? d2.level ?? null;
   const track = await getRandomTrack(raceLevel);
   const weather = randomWeather();
   const timeOfDay = randomTimeOfDay();
+  const scheduledAt = new Date(Date.now() + PENDING_WINDOW_SECONDS * 1000);
 
-  const result = simulateRace(d1, d2, track, weather, timeOfDay);
+  await db.insert(races).values({
+    status: 'pending',
+    scheduledAt,
+    drone1Id: d1.id,
+    drone2Id: d2.id,
+    trackId: track.id,
+    timeOfDay,
+    weather,
+    // ELO is snapshotted at PENDING creation - this is the canonical
+    // value for both display during the strategy window AND the
+    // race-engine calculation at execution time.
+    drone1EloBefore: d1.eloRating,
+    drone2EloBefore: d2.eloRating,
+    xpWinner: cfg.xpPerWin,
+    xpLoser: cfg.xpPerLoss,
+    // winnerDroneId, drone1Time, drone2Time, drone1EloChange,
+    // drone2EloChange, pointsAwarded, raceLog all stay null/default
+    // until phase 2 fills them in.
+  });
+  // Mark cfg as deliberately unused beyond xp values so future
+  // refactors don't get confused; tooling-level no-op.
+  return cfg;
+}
+
+/**
+ * Phase 2: find every PENDING race whose scheduled_at has passed and
+ * run the engine + apply results. Each is updated in place (UPDATE, not
+ * INSERT) so the original createdAt and scheduledAt are preserved.
+ *
+ * @returns {Promise<number>} count of races executed
+ */
+async function executeReadyPendingRaces(cfg) {
+  const ready = await db
+    .select()
+    .from(races)
+    .where(
+      and(
+        eq(races.status, 'pending'),
+        sql`${races.scheduledAt} <= NOW()`,
+      ),
+    );
+
+  let executed = 0;
+  for (const race of ready) {
+    try {
+      await executePendingRace(race, cfg);
+      executed += 1;
+    } catch (err) {
+      console.error(
+        `[race.service] failed to execute pending race ${race.id}:`,
+        err,
+      );
+    }
+  }
+  return executed;
+}
+
+/**
+ * Run the simulation for a single PENDING race row, write all result
+ * fields, and apply downstream effects (drone/user updates, level-ups,
+ * slot unlocks, skin drops). Uses snapshotted ELO from the PENDING
+ * row for points + ELO calculation; uses LIVE drone stats at the
+ * moment of execution for the simulator (so any allocations during
+ * the strategy window apply).
+ */
+async function executePendingRace(pending, cfg) {
+  const [d1, d2, track] = await Promise.all([
+    db.select().from(drones).where(eq(drones.id, pending.drone1Id)).limit(1).then((r) => r[0]),
+    db.select().from(drones).where(eq(drones.id, pending.drone2Id)).limit(1).then((r) => r[0]),
+    db.select().from(tracks).where(eq(tracks.id, pending.trackId)).limit(1).then((r) => r[0]),
+  ]);
+  if (!d1 || !d2 || !track) {
+    console.error(
+      `[race.service] pending race ${pending.id} references missing drone/track; skipping`,
+    );
+    return;
+  }
+
+  const result = simulateRace(d1, d2, track, pending.weather, pending.timeOfDay);
   const winner = result.winnerId === d1.id ? d1 : d2;
   const loser = result.winnerId === d1.id ? d2 : d1;
 
-  // Snapshot pre-race ELO before we touch drones, and compute signed
-  // deltas so the race-detail page can show ELO + (+N / -N) without
-  // reconstructing history.
-  const drone1EloBefore = d1.eloRating;
-  const drone2EloBefore = d2.eloRating;
+  // Snapshotted ELO from the PENDING row drives both points and ELO
+  // change calculations - decouples results from any drift in live
+  // ELO between matchmaking and execution.
+  const winnerEloBefore =
+    winner.id === d1.id ? pending.drone1EloBefore : pending.drone2EloBefore;
+  const loserEloBefore =
+    loser.id === d1.id ? pending.drone1EloBefore : pending.drone2EloBefore;
 
   const pointsAwarded = calculateRacePoints(
     track.difficulty,
-    winner.eloRating,
-    loser.eloRating,
+    winnerEloBefore,
+    loserEloBefore,
     { basePoints: cfg.pointsPerWinBase },
   );
   const { newWinnerElo, newLoserElo } = calculateNewElo(
-    winner.eloRating,
-    loser.eloRating,
+    winnerEloBefore,
+    loserEloBefore,
   );
 
   const drone1EloAfter = d1.id === winner.id ? newWinnerElo : newLoserElo;
   const drone2EloAfter = d2.id === winner.id ? newWinnerElo : newLoserElo;
-  const drone1EloChange = drone1EloAfter - drone1EloBefore;
-  const drone2EloChange = drone2EloAfter - drone2EloBefore;
+  const drone1EloChange = drone1EloAfter - pending.drone1EloBefore;
+  const drone2EloChange = drone2EloAfter - pending.drone2EloBefore;
 
-  // Insert the race row
-  await db.insert(races).values({
-    drone1Id: d1.id,
-    drone2Id: d2.id,
-    trackId: track.id,
-    winnerDroneId: winner.id,
-    pointsAwarded,
-    xpWinner: cfg.xpPerWin,
-    xpLoser: cfg.xpPerLoss,
-    timeOfDay,
-    weather,
-    drone1Time: String(result.drone1Time),
-    drone2Time: String(result.drone2Time),
-    drone1EloBefore,
-    drone2EloBefore,
-    drone1EloChange,
-    drone2EloChange,
-    raceLog: result.raceLog,
-  });
+  // Promote PENDING -> COMPLETED with full results.
+  await db
+    .update(races)
+    .set({
+      status: 'completed',
+      winnerDroneId: winner.id,
+      pointsAwarded,
+      drone1Time: String(result.drone1Time),
+      drone2Time: String(result.drone2Time),
+      drone1EloChange,
+      drone2EloChange,
+      raceLog: result.raceLog,
+    })
+    .where(eq(races.id, pending.id));
 
-  // Update winner drone (points are paid into the owning player's wallet
-  // further down, NOT into the deprecated drones.unspent_points column).
+  // Drone updates - identical to the previous immediate-execute flow.
   await db
     .update(drones)
     .set({
@@ -218,7 +342,6 @@ async function runSingleRace(d1, d2, cfg) {
     })
     .where(eq(drones.id, winner.id));
 
-  // Update loser drone
   await db
     .update(drones)
     .set({
@@ -229,7 +352,7 @@ async function runSingleRace(d1, d2, cfg) {
     })
     .where(eq(drones.id, loser.id));
 
-  // Update user totals (only for non-bot drones)
+  // User wallet updates (only non-bot owners).
   if (winner.userId && !winner.isBot) {
     await db
       .update(users)
@@ -242,23 +365,26 @@ async function runSingleRace(d1, d2, cfg) {
       .where(eq(users.id, winner.userId));
   }
   if (loser.userId && !loser.isBot) {
+    // Consolation reward: every loss still pays 2 points to the wallet
+    // (and 2 to seasonPoints) so player progression doesn't stall on a
+    // losing streak. Wins still pay base + difficulty + upset via
+    // calculateRacePoints; the loss payout is a flat 2.
     await db
       .update(users)
-      .set({ totalRaces: sql`${users.totalRaces} + 1` })
+      .set({
+        totalRaces: sql`${users.totalRaces} + 1`,
+        points: sql`${users.points} + 2`,
+        seasonPoints: sql`${users.seasonPoints} + 2`,
+      })
       .where(eq(users.id, loser.userId));
   }
 
-  // Level-up checks
   await checkAndLevelUp(winner.id);
   await checkAndLevelUp(loser.id);
 
-  // Active-drone slot unlocks - check both participants' owners since the
-  // loser also gains a totalRaces increment and shouldn't be stuck behind a
-  // win-gated unlock.
   if (winner.userId && !winner.isBot) await maybeUnlockSlot(winner.userId, cfg);
   if (loser.userId && !loser.isBot) await maybeUnlockSlot(loser.userId, cfg);
 
-  // Skin drop for winner (only for non-bot owners)
   if (winner.userId && !winner.isBot) {
     await rollSkinDropForWinner(winner.userId, cfg);
   }
@@ -277,7 +403,9 @@ export async function getRaces(filters = {}, pagination = {}) {
   const { page = 1, limit = 20 } = pagination;
   const offset = (page - 1) * limit;
 
-  const conditions = [];
+  // Always exclude PENDING races from the public list - they have no
+  // winner / times / log so they'd render as broken rows.
+  const conditions = [eq(races.status, 'completed')];
   if (filters.trackId) conditions.push(eq(races.trackId, filters.trackId));
   if (filters.weather) conditions.push(eq(races.weather, filters.weather));
   if (filters.timeOfDay) conditions.push(eq(races.timeOfDay, filters.timeOfDay));
@@ -301,7 +429,7 @@ export async function getRaces(filters = {}, pagination = {}) {
     );
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = and(...conditions);
 
   const rows = await db
     .select({ race: races, track: tracks })
@@ -375,7 +503,10 @@ export async function getRaceById(raceId) {
     ]),
   );
 
-  // Upset: pre-race ELO gap of 50+ in the loser's favour.
+  // Upset: pre-race ELO gap of 50+ in the loser's favour. Only meaningful
+  // for completed races - PENDING rows have no winner yet so isUpset is
+  // forced false (the ternary below would otherwise pick drone2EloBefore
+  // when winnerDroneId is null, producing nonsense).
   const winnerEloBefore =
     race.winnerDroneId === race.drone1Id
       ? race.drone1EloBefore
@@ -385,6 +516,7 @@ export async function getRaceById(raceId) {
       ? race.drone2EloBefore
       : race.drone1EloBefore;
   const isUpset =
+    race.winnerDroneId != null &&
     winnerEloBefore != null &&
     loserEloBefore != null &&
     winnerEloBefore + 50 <= loserEloBefore;
@@ -416,14 +548,16 @@ export async function getRaceById(raceId) {
 
   // Head-to-head: count across either drone-slot orientation, including
   // this race (keeps the tally stable as users browse old races).
+  // Restricted to completed races - PENDING shouldn't count toward h2h.
   const { rows: [h2hRow] } = await db.execute(sql`
     SELECT
       COUNT(*)::int AS total,
       SUM(CASE WHEN winner_drone_id = ${race.drone1Id} THEN 1 ELSE 0 END)::int AS drone1_wins,
       SUM(CASE WHEN winner_drone_id = ${race.drone2Id} THEN 1 ELSE 0 END)::int AS drone2_wins
     FROM races
-    WHERE (drone1_id = ${race.drone1Id} AND drone2_id = ${race.drone2Id})
-       OR (drone1_id = ${race.drone2Id} AND drone2_id = ${race.drone1Id})
+    WHERE status = 'completed'
+      AND ((drone1_id = ${race.drone1Id} AND drone2_id = ${race.drone2Id})
+        OR (drone1_id = ${race.drone2Id} AND drone2_id = ${race.drone1Id}))
   `);
   const h2h = {
     total: h2hRow?.total ?? 0,
@@ -442,12 +576,15 @@ export async function getRaceById(raceId) {
   };
 }
 
-/** Calculate when the next race cycle will run. */
+/** Calculate when the next race cycle will run. Based on the latest
+ *  completed race + the cron interval; PENDING races are still in
+ *  flight so they don't anchor "next race" time. */
 export async function getNextRaceTime() {
   const cfg = await loadConfig();
   const [latest] = await db
     .select({ createdAt: races.createdAt })
     .from(races)
+    .where(eq(races.status, 'completed'))
     .orderBy(desc(races.createdAt))
     .limit(1);
   const last = latest?.createdAt ?? new Date();
@@ -456,7 +593,7 @@ export async function getNextRaceTime() {
 }
 
 /**
- * Recent races for a single drone, newest first.
+ * Recent COMPLETED races for a single drone, newest first.
  * @param {string} droneId
  * @param {number} limit
  */
@@ -464,7 +601,12 @@ export async function getDroneRaceHistory(droneId, limit = 10) {
   return db
     .select()
     .from(races)
-    .where(or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)))
+    .where(
+      and(
+        eq(races.status, 'completed'),
+        or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)),
+      ),
+    )
     .orderBy(desc(races.createdAt))
     .limit(limit);
 }
@@ -476,6 +618,8 @@ export async function getDroneRaceHistory(droneId, limit = 10) {
  *  @param {{ userId?: string }} [filters]
  */
 export async function getTotalRaceCount(filters = {}) {
+  // Only completed races count toward the public "total" - PENDING are
+  // mid-flight and shouldn't inflate the header tally.
   if (filters.userId) {
     const userDrones = await db
       .select({ id: drones.id })
@@ -487,10 +631,196 @@ export async function getTotalRaceCount(filters = {}) {
       .select({ count: sql`count(*)::int` })
       .from(races)
       .where(
-        or(inArray(races.drone1Id, ids), inArray(races.drone2Id, ids)),
+        and(
+          eq(races.status, 'completed'),
+          or(inArray(races.drone1Id, ids), inArray(races.drone2Id, ids)),
+        ),
       );
     return row?.count ?? 0;
   }
-  const [row] = await db.select({ count: sql`count(*)::int` }).from(races);
+  const [row] = await db
+    .select({ count: sql`count(*)::int` })
+    .from(races)
+    .where(eq(races.status, 'completed'));
   return row?.count ?? 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pending race queries (strategy-window views)                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Shape one PENDING race row + joined drone/track/skin data into the
+ * response shape used by /api/races/upcoming and /api/races/upcoming/[droneId].
+ *
+ * Intentionally drops image fields - the frontend resolves drone images
+ * via the existing getDroneImage(drone) util (which uses level + skin)
+ * and tracks via track.imageUrl directly. Stats are nested into a single
+ * object for ergonomic client-side rendering.
+ */
+function shapePendingRace(race, track, drone1, drone2, viewerUserId) {
+  const buildDrone = (d) => {
+    if (!d) return null;
+    return {
+      id: d.id,
+      name: d.name,
+      level: d.level,
+      elo: d.eloRating,
+      ownerId: d.userId ?? null,
+      ownerName: d.ownerName ?? null,
+      stats: {
+        speed: d.speed,
+        turning: d.turning,
+        acceleration: d.acceleration,
+        durability: d.durability,
+        nightVision: d.nightVision,
+        batteryCapacity: d.batteryCapacity,
+        rainHandling: d.rainHandling,
+        windResistance: d.windResistance,
+        consistency: d.consistency,
+      },
+      isBot: d.isBot,
+      appliedSkin: d.appliedSkin
+        ? {
+            id: d.appliedSkin.id,
+            name: d.appliedSkin.name,
+            rarity: d.appliedSkin.rarity,
+            imageUrl: d.appliedSkin.imageUrl,
+          }
+        : null,
+      imageUrl: d.imageUrl,
+    };
+  };
+
+  // userDroneId: id of whichever side the viewer owns. If they own
+  // both (rare same-bracket self-vs-self edge case), prefer drone1.
+  let userDroneId = null;
+  if (viewerUserId) {
+    if (drone1?.userId === viewerUserId) userDroneId = drone1.id;
+    else if (drone2?.userId === viewerUserId) userDroneId = drone2.id;
+  }
+
+  return {
+    id: race.id,
+    status: race.status,
+    scheduledAt: race.scheduledAt,
+    track: {
+      id: track.id,
+      name: track.name,
+      imageUrl: track.imageUrl,
+      difficulty: track.difficulty,
+      straights: track.straights,
+      turns: track.turns,
+      laps: track.laps,
+      length: track.length,
+    },
+    conditions: {
+      weather: race.weather,
+      timeOfDay: race.timeOfDay,
+    },
+    drone1: buildDrone(drone1),
+    drone2: buildDrone(drone2),
+    userDroneId,
+  };
+}
+
+/** Load drone rows + applied-skin rows + owner usernames for a set of ids. */
+async function loadDronesWithJoins(droneIds) {
+  if (droneIds.length === 0) return {};
+  const rows = await db
+    .select({
+      drone: drones,
+      appliedSkin: skins,
+      ownerName: users.username,
+    })
+    .from(drones)
+    .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
+    .leftJoin(users, eq(drones.userId, users.id))
+    .where(inArray(drones.id, droneIds));
+  return Object.fromEntries(
+    rows.map(({ drone, appliedSkin, ownerName }) => [
+      drone.id,
+      { ...drone, appliedSkin, ownerName },
+    ]),
+  );
+}
+
+/**
+ * Every PENDING race that the given user has a drone in.
+ * @param {string} userId
+ */
+export async function getUpcomingRacesForUser(userId) {
+  // Find user's drones first so we can scope the race query.
+  const userDrones = await db
+    .select({ id: drones.id })
+    .from(drones)
+    .where(eq(drones.userId, userId));
+  if (userDrones.length === 0) return [];
+  const droneIds = userDrones.map((d) => d.id);
+
+  const rows = await db
+    .select({ race: races, track: tracks })
+    .from(races)
+    .leftJoin(tracks, eq(races.trackId, tracks.id))
+    .where(
+      and(
+        eq(races.status, 'pending'),
+        or(
+          inArray(races.drone1Id, droneIds),
+          inArray(races.drone2Id, droneIds),
+        ),
+      ),
+    )
+    .orderBy(races.scheduledAt);
+
+  if (rows.length === 0) return [];
+
+  const allDroneIds = new Set();
+  rows.forEach(({ race }) => {
+    allDroneIds.add(race.drone1Id);
+    allDroneIds.add(race.drone2Id);
+  });
+  const droneMap = await loadDronesWithJoins(Array.from(allDroneIds));
+
+  return rows.map(({ race, track }) =>
+    shapePendingRace(
+      race,
+      track,
+      droneMap[race.drone1Id],
+      droneMap[race.drone2Id],
+      userId,
+    ),
+  );
+}
+
+/**
+ * The single PENDING race a specific drone is in, or null.
+ * Caller is responsible for any access checks (the route layer
+ * verifies the drone belongs to the authenticated user).
+ * @param {string} droneId
+ * @param {string} viewerUserId - ownership context used to set userDroneId
+ */
+export async function getUpcomingRaceForDrone(droneId, viewerUserId) {
+  const [row] = await db
+    .select({ race: races, track: tracks })
+    .from(races)
+    .leftJoin(tracks, eq(races.trackId, tracks.id))
+    .where(
+      and(
+        eq(races.status, 'pending'),
+        or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)),
+      ),
+    )
+    .orderBy(races.scheduledAt)
+    .limit(1);
+
+  if (!row) return null;
+  const droneMap = await loadDronesWithJoins([row.race.drone1Id, row.race.drone2Id]);
+  return shapePendingRace(
+    row.race,
+    row.track,
+    droneMap[row.race.drone1Id],
+    droneMap[row.race.drone2Id],
+    viewerUserId,
+  );
 }

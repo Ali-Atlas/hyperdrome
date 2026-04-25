@@ -14,6 +14,7 @@ import {
   Moon,
   ChevronRight,
 } from 'lucide-react';
+import Link from 'next/link';
 import NavShell from '@/components/ui/NavShell';
 import DataTable from '@/components/ui/DataTable';
 import FilterBar from '@/components/ui/FilterBar';
@@ -97,6 +98,7 @@ export default function RacesPage() {
   const [racingPaused, setRacingPaused] = useState(false);
   const [myRaces, setMyRaces] = useState(false);
   const [pageSize, setPageSize] = useState(50);
+  const [upcomingRaces, setUpcomingRaces] = useState([]);
   const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
   const fetchRaces = useCallback(async () => {
@@ -162,6 +164,33 @@ export default function RacesPage() {
     const id = setInterval(fetchRaces, 30_000);
     return () => clearInterval(id);
   }, [fetchRaces]);
+
+  // PENDING races for the banner. Polled separately so the banner count
+  // stays accurate without re-running the main race-list query.
+  useEffect(() => {
+    if (!user?.id) {
+      setUpcomingRaces([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/races/upcoming');
+        const body = await res.json();
+        if (!cancelled && res.ok && body?.data?.races) {
+          setUpcomingRaces(body.data.races);
+        }
+      } catch {
+        /* keep stale list */
+      }
+    };
+    load();
+    const id = setInterval(load, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [user?.id]);
 
   const filteredItems = useMemo(() => {
     let items = data.items;
@@ -295,8 +324,8 @@ export default function RacesPage() {
       },
       {
         key: 'pointsAwarded',
-        label: 'Points Awarded',
-        shortLabel: 'Pts',
+        label: 'Volts Awarded',
+        shortLabel: 'V',
         sortable: true,
         render: (row) => (
           <span className={styles.mono}>{row.pointsAwarded}</span>
@@ -338,6 +367,19 @@ export default function RacesPage() {
   return (
     <NavShell>
       <div className={styles.page}>
+        {upcomingRaces.length > 0 && (
+          <Link
+            href={`/races/${upcomingRaces[0].id}`}
+            className={styles.upcomingBanner}
+          >
+            <span className={styles.upcomingBannerDot} aria-hidden="true" />
+            <span className={styles.upcomingBannerText}>
+              You have {upcomingRaces.length} upcoming{' '}
+              {upcomingRaces.length === 1 ? 'race' : 'races'}
+            </span>
+            <span className={styles.upcomingBannerCta}>VIEW MATCHUP →</span>
+          </Link>
+        )}
         <div className={styles.topStrip}>
           <div className={styles.totalRacesGroup}>
             <div className={styles.totalRaces}>

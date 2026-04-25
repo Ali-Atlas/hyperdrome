@@ -18,7 +18,7 @@ import styles from './page.module.css';
 export const metadata = {
   title: 'Drone Manager - Competitive Idle Drone Racing',
   description:
-    'Build, optimize, and dominate the circuit. Own drones, allocate stats, and race automatically every 2 minutes. Earn points, trade skins, climb the leaderboard.',
+    'Build, optimize, and dominate the circuit. Own drones, allocate stats, and race automatically every 2 minutes. Earn volts, trade skins, climb the leaderboard.',
   openGraph: {
     title: 'Drone Manager - Competitive Idle Drone Racing',
     description:
@@ -51,7 +51,7 @@ const HOW_STEPS = [
 const STATS = [
   { label: 'Total Races Run', value: '1.2M+' },
   { label: 'Active Players', value: '45,000+' },
-  { label: 'Total Rewards Distributed', value: '3.5M pts' },
+  { label: 'Total Rewards Distributed', value: '3.5M V' },
 ];
 
 const FEATURES = [

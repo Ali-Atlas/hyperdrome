@@ -1,9 +1,16 @@
+.wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  margin: 0 auto;
+  outline: none;
+}
+
 .radar {
   display: block;
   width: 100%;
   height: auto;
-  max-width: 220px;
-  margin: 0 auto;
   overflow: visible;
 }
 
@@ -32,10 +39,72 @@
   fill: var(--accent-primary);
 }
 
+/* Opponent variant - desaturated grey so two radars can sit side-by-side
+   in a matchup view without the secondary one competing visually with
+   the primary (own) chart. */
+.dataFillOpponent {
+  fill: rgba(160, 160, 160, 0.1);
+  stroke: var(--text-secondary);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 4px rgba(160, 160, 160, 0.25));
+  transition:
+    points var(--duration-normal) var(--ease-out),
+    fill var(--duration-normal) var(--ease-out);
+}
+
+.dataDotOpponent {
+  fill: var(--text-secondary);
+}
+
 .label {
   font-family: var(--font-mono);
   font-size: 8px;
-  fill: var(--text-secondary);
+  fill: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-weight: var(--font-bold);
+}
+
+/* Hover tooltip: compact two-column table of stat name + numeric value.
+   Positioned above the radar; flips below if it would clip the top
+   of the viewport via simple top-anchored placement. */
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.tooltipTable {
+  border-collapse: collapse;
+}
+
+.tooltipTable td {
+  padding: 1px 0;
+  vertical-align: baseline;
+}
+
+.tooltipName {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-right: var(--space-3);
+}
+
+.tooltipValue {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+  text-align: right;
 }

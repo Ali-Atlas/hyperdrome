@@ -13,7 +13,7 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'What is Drone Manager?',
-        a: 'Passive competitive drone racing. You own drones, allocate stats, and they race automatically every 5 minutes. A weighted simulator decides the winner. Wins pay points and XP. See the Game Guide for the full breakdown.',
+        a: 'Passive competitive drone racing. You own drones, allocate stats, and they race automatically every 5 minutes. A weighted simulator decides the winner. Wins pay volts and XP. See the Game Guide for the full breakdown.',
       },
       {
         q: 'Is it free to play?',
@@ -33,7 +33,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What\'s the max level?',
-        a: '20. Past Level 20 the XP bar pins to full and stops counting toward level. ELO, season points, and skin progression keep going.',
+        a: '20. Past Level 20 the XP bar pins to full and stops counting toward level. ELO, season volts, and skin progression keep going.',
       },
       {
         q: 'How is the season timer counted?',
@@ -55,15 +55,15 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What happens when my drone levels up?',
-        a: '+20 to its Total Stat Budget. Per-stat cap rises by 4 or 5. +20 points pay into your wallet. At levels 6, 11, and 16 the drone crosses a tier boundary and its appearance changes.',
+        a: '+20 to its Total Stat Budget. Per-stat cap rises by 4 or 5. +20 volts pay into your wallet. At levels 6, 11, and 16 the drone crosses a tier boundary and its appearance changes.',
       },
       {
         q: 'Can I reset my drone\'s stats?',
         a: 'No. Stat allocations are permanent. Plan before you spend.',
       },
       {
-        q: 'What does Total Points Invested mean?',
-        a: 'The lifetime sum of points spent upgrading that drone\'s stats. It\'s a value indicator on the marketplace. It doesn\'t affect race math.',
+        q: 'What does Total Volts Invested mean?',
+        a: 'The lifetime sum of volts spent upgrading that drone\'s stats. It\'s a value indicator on the marketplace. It doesn\'t affect race math.',
       },
       {
         q: 'Do all my drones share XP?',
@@ -71,7 +71,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Can I deactivate a drone?',
-        a: 'Yes. Toggle it off from its detail page. An inactive drone doesn\'t race and doesn\'t earn XP or points.',
+        a: 'Yes. Toggle it off from its detail page. An inactive drone doesn\'t race and doesn\'t earn XP or volts.',
       },
       {
         q: 'What if I have more drones than active slots?',
@@ -83,7 +83,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What do I start with?',
-        a: 'A Level 1 drone with all 9 stats at 1, TSB 29, ELO 1000, active. Wallet 0 points. 1 active drone slot.',
+        a: 'A Level 1 drone with all 9 stats at 1, TSB 29, ELO 1000, active. Wallet 0 volts. 1 active drone slot.',
       },
     ],
   },
@@ -112,7 +112,7 @@ const FAQ_SECTIONS = [
         a: 'Rain Handling, Wind Resistance (in wind), and Night Vision (at night) all scale the same way. At stat 0 the multiplier is 0.5x. At 50 it\'s 1.0x (neutral). At 75+ it caps at 1.5x. The multiplier hits every segment score for the whole race.',
       },
       {
-        q: 'Should I focus one stat or spread points?',
+        q: 'Should I focus one stat or spread volts?',
         a: 'Both work. A specialist (e.g. 70 turning, low everything else) wins on turn-heavy tracks and dies on straight-heavy ones. A balanced build wins less hard but loses less hard. Per-stat caps slow extreme specialization at low level.',
       },
       {
@@ -125,7 +125,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'How much does it cost to fully max a stat?',
-        a: '460 points to raise one stat from 1 to 100. Costs are 1 per upgrade in the 1-9 band, 2 in 10-19, 3 in 20-29, all the way to 10 per upgrade in 90-99.',
+        a: '460 volts to raise one stat from 1 to 100. Costs are 1 per upgrade in the 1-9 band, 2 in 10-19, 3 in 20-29, all the way to 10 per upgrade in 90-99.',
       },
       {
         q: 'What\'s TSB?',
@@ -151,7 +151,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What is an UPSET?',
-        a: 'A win by a lower-rated drone over a higher-rated one. The race is flagged UPSET in the log. The winner gets a points bonus = floor((loserElo - winnerElo) / 100).',
+        a: 'A win by a lower-rated drone over a higher-rated one. The race is flagged UPSET in the log. The winner gets a volts bonus = floor((loserElo - winnerElo) / 100).',
       },
       {
         q: 'Why did my drone race a bot?',
@@ -197,26 +197,26 @@ const FAQ_SECTIONS = [
   },
 
   {
-    category: 'Points',
+    category: 'Volts',
     items: [
       {
-        q: 'How do I earn points?',
+        q: 'How do I earn volts?',
         a: 'Win races. Sell on the marketplace. Get the +20 wallet bonus on every level-up.',
       },
       {
-        q: 'Do losers earn points?',
-        a: 'No. Losers earn 4 XP only. Winner takes the points.',
+        q: 'Do losers earn volts?',
+        a: 'No. Losers earn 4 XP only. Winner takes the volts.',
       },
       {
         q: 'How much do I earn per win?',
-        a: 'Base 3 + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)). Range: 3 points (difficulty-1, even matchup) up to 12+ on a hard track with a big upset.',
+        a: 'Base 3 + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)). Range: 3 volts (difficulty-1, even matchup) up to 12+ on a hard track with a big upset.',
       },
       {
-        q: 'Are points shared between my drones?',
+        q: 'Are volts shared between my drones?',
         a: 'Yes. One wallet per player. Spend it where you want, on any drone.',
       },
       {
-        q: 'What can I spend points on?',
+        q: 'What can I spend volts on?',
         a: 'Stat upgrades, marketplace listings (drones and unbound skins), and packs (Starter 500, Premium 2,000, Legendary 10,000).',
       },
     ],
@@ -261,7 +261,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What\'s the minimum listing price?',
-        a: '10 points.',
+        a: '10 volts.',
       },
       {
         q: 'Can I cancel a listing?',
@@ -286,20 +286,20 @@ const FAQ_SECTIONS = [
     category: 'Economy',
     items: [
       {
-        q: 'How do I earn points?',
-        a: 'By racing. Winners earn more than losers. You can also purchase Point Chests with $TOKEN when the token economy goes live in Season 2.',
+        q: 'How do I earn volts?',
+        a: 'By racing. Winners earn more than losers. You can also purchase Volt Chests with $TOKEN when the token economy goes live in Season 2.',
       },
       {
         q: 'Can I make real money playing?',
-        a: 'You can build drones and sell them on the Marketplace. A well-built drone with smart stats, good skins, and eventually mods is worth more than a base drone. Your time and skill translate to asset value. The points-to-token cashout coming in Season 2 will provide a direct exit path with conversion controls.',
+        a: 'You can build drones and sell them on the Marketplace. A well-built drone with smart stats, good skins, and eventually mods is worth more than a base drone. Your time and skill translate to asset value. The volts-to-token cashout coming in Season 2 will provide a direct exit path with conversion controls.',
       },
       {
         q: 'Is this pay-to-win?',
-        a: 'No. Buying points lets you acquire drones faster, but drone power comes from leveling (earned through racing, no shortcut) and stat allocation (strategic decisions with no respec). A well-built cheap drone beats a badly-built expensive one.',
+        a: 'No. Buying volts lets you acquire drones faster, but drone power comes from leveling (earned through racing, no shortcut) and stat allocation (strategic decisions with no respec). A well-built cheap drone beats a badly-built expensive one.',
       },
       {
         q: 'What is the 5% marketplace rake?',
-        a: 'Every sale on the Marketplace has a 5% fee deducted from the sale price. This is the protocol\'s revenue and helps control point supply in the economy.',
+        a: 'Every sale on the Marketplace has a 5% fee deducted from the sale price. This is the protocol\'s revenue and helps control volt supply in the economy.',
       },
     ],
   },
@@ -324,15 +324,15 @@ const FAQ_SECTIONS = [
         a: 'No. Each skin is a single instance. When a player owns it, no one else can. Sell or apply changes ownership.',
       },
       {
-        q: 'What\'s in the Starter Pack (500 points)?',
+        q: 'What\'s in the Starter Pack (500 volts)?',
         a: '3 skins. Slot 1: Common. Slot 2: Common. Slot 3: Rare 70% / Epic 25% / Legendary 5%.',
       },
       {
-        q: 'What\'s in the Premium Pack (2,000 points)?',
+        q: 'What\'s in the Premium Pack (2,000 volts)?',
         a: '3 skins. Slot 1: Rare. Slot 2: Epic 60% / Legendary 40%. Slot 3: Common 40% / Rare 35% / Epic 20% / Legendary 5%.',
       },
       {
-        q: 'What\'s in the Legendary Pack (10,000 points)?',
+        q: 'What\'s in the Legendary Pack (10,000 volts)?',
         a: '3 skins. Slot 1: Epic. Slot 2: Legendary. Slot 3: Rare 30% / Epic 50% / Legendary 20%.',
       },
       {
@@ -363,7 +363,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What resets at season-end?',
-        a: 'Season points and the leaderboard. New season starts at 0 for everyone.',
+        a: 'Season volts and the leaderboard. New season starts at 0 for everyone.',
       },
       {
         q: 'What carries over?',
@@ -389,7 +389,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Will there be a token?',
-        a: 'Season 2 introduces the tokenized economy on MegaETH. Points maintain a stable USD value. $TOKEN is used to purchase Point Chests and as the settlement currency when the Marketplace moves on-chain. Specific token details will be announced in collaboration with the MegaETH team.',
+        a: 'Season 2 introduces the tokenized economy on MegaETH. Volts maintain a stable USD value. $TOKEN is used to purchase Volt Chests and as the settlement currency when the Marketplace moves on-chain. Specific token details will be announced in collaboration with the MegaETH team.',
       },
     ],
   },

@@ -801,3 +801,487 @@
     font-size: var(--text-xs);
   }
 }
+
+/* ==========================================================================
+ * Matchup view (race.status === 'pending')
+ *
+ *   1. StatusBar      - centered text, no card
+ *   2. H2HStrip       - thin card, single horizontal row
+ *   3. Matchup grid   - two drone-management style cards side-by-side
+ *   4. TrackSection   - full-width card, image left + info right (desktop)
+ * ========================================================================== */
+
+.matchupPage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ---- 1. Status bar ---- */
+
+.statusBar {
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  letter-spacing: 0.06em;
+  padding: var(--space-2) 0;
+}
+
+.statusBarLive {
+  color: var(--accent-primary);
+  animation: matchupStatusPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes matchupStatusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* ---- 2. H2H comparison strip ---- */
+
+.h2hStrip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.h2hName {
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.h2hCell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.h2hLabel {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-semibold);
+}
+
+.h2hValue {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+  letter-spacing: 0.03em;
+}
+
+.h2hSep {
+  width: 1px;
+  height: 14px;
+  background: var(--border-default);
+  flex-shrink: 0;
+}
+
+/* ---- 3. Drone matchup cards ---- */
+
+.matchupGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+.matchupCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.matchupCard:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 18px rgba(3, 218, 198, 0.12);
+}
+
+.matchupCard_steel {
+  border-color: rgba(138, 155, 168, 0.45);
+}
+.matchupCard_orange {
+  border-color: rgba(255, 140, 66, 0.5);
+}
+.matchupCard_purple {
+  border-color: rgba(187, 134, 252, 0.5);
+}
+.matchupCard_gold {
+  border-color: rgba(255, 215, 0, 0.5);
+}
+
+.matchupImageFrame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.matchupImg {
+  max-width: 72%;
+  max-height: 90%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 12px rgba(3, 218, 198, 0.22));
+}
+
+.matchupBotBadge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  background: rgba(255, 140, 66, 0.18);
+  color: var(--level-orange);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  letter-spacing: 0.06em;
+}
+
+.matchupNameRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.matchupName {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.matchupLevel {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.matchupRadar {
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  align-self: center;
+}
+
+.matchupFormStrip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.matchupFormLabel {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-semibold);
+}
+
+.matchupFormDots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.matchupFormDot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  display: inline-block;
+}
+
+.matchupFormDotWin {
+  background: var(--accent-primary);
+  box-shadow: 0 0 6px rgba(3, 218, 198, 0.5);
+}
+
+.matchupFormDotLoss {
+  background: var(--accent-error);
+}
+
+.matchupFormEmpty {
+  color: var(--text-tertiary);
+}
+
+.matchupFormStreak {
+  margin-left: auto;
+  font-weight: var(--font-bold);
+  letter-spacing: 0.05em;
+}
+
+.matchupFormStreakWin {
+  color: var(--accent-primary);
+}
+
+.matchupFormStreakLoss {
+  color: var(--accent-error);
+}
+
+.matchupStatStrip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-mono);
+}
+
+.matchupStatItem {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.matchupStatLabel {
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.matchupStatValue {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+
+.matchupSkinBlock {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+}
+
+.matchupSkinLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.matchupSkinName {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+}
+
+/* ---- 4. Track section ---- */
+
+.trackSection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
+  padding: var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.trackImageBox {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.trackSectionImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.trackImagePlaceholder {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-elevated);
+}
+
+.trackInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.trackName {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.trackDiffRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+}
+
+.trackDiffLabel {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: var(--font-semibold);
+}
+
+.trackDiffDots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.trackDiffDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.trackDiffDotOn {
+  background: var(--diff-color);
+  box-shadow: 0 0 6px var(--diff-color);
+}
+
+.trackDiffScore {
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+  letter-spacing: 0.04em;
+}
+
+.trackSpecRow {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.trackSpecItem {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.trackSpecLabel {
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+}
+
+.trackSpecValue {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+
+.trackSpecSep {
+  width: 1px;
+  height: 14px;
+  background: var(--border-default);
+  flex-shrink: 0;
+}
+
+.trackCondRow {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.trackCondPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: var(--font-semibold);
+}
+
+.trackCondPill svg {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .matchupGrid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+  .trackSection {
+    grid-template-columns: 1fr;
+  }
+  .h2hStrip {
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+  .statusBar {
+    font-size: var(--text-base);
+  }
+}

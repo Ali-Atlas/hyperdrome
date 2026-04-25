@@ -2,7 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Sun,
+  Cloud,
+  CloudRain,
+  CloudDrizzle,
+  Wind,
+  CloudFog,
+  Sunrise,
+  Sunset,
+  Moon,
+  Bot,
+} from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import btnStyles from '@/components/ui/Button/Button.module.css';
@@ -11,8 +24,55 @@ import DroneImage from '@/components/ui/DroneImage';
 import EmptyState from '@/components/ui/EmptyState';
 import RacingStatusPill from '@/components/ui/RacingStatusPill';
 import Skeleton from '@/components/ui/Skeleton';
+import StatRadar from '@/components/ui/StatRadar';
+import { calculatePerStatCap } from '@/lib/game-engine/economy';
 import { useSession } from '@/hooks/useSession';
 import styles from './page.module.css';
+
+const RADAR_AXES = [
+  'speed',
+  'turning',
+  'acceleration',
+  'durability',
+  'nightVision',
+  'batteryCapacity',
+  'rainHandling',
+  'windResistance',
+  'consistency',
+];
+
+/* Icon maps shared with the upcoming-race widget. Mirrors the race
+   detail page's mapping so visuals stay consistent. */
+const WEATHER_ICONS = {
+  clear: Sun,
+  clouds: Cloud,
+  rain: CloudDrizzle,
+  heavy_rain: CloudRain,
+  wind: Wind,
+  haze: Cloud,
+  fog: CloudFog,
+};
+const TIME_ICONS = {
+  dawn: Sunrise,
+  day: Sun,
+  dusk: Sunset,
+  night: Moon,
+};
+const WEATHER_LABEL = {
+  clear: 'Clear',
+  clouds: 'Clouds',
+  rain: 'Rain',
+  heavy_rain: 'Heavy Rain',
+  wind: 'Wind',
+  haze: 'Haze',
+  fog: 'Fog',
+};
+const TIME_LABEL = {
+  dawn: 'Dawn',
+  day: 'Day',
+  dusk: 'Dusk',
+  night: 'Night',
+};
 
 const SPOTLIGHT_STATS = [
   ['speed', 'SPEED'],
@@ -43,6 +103,7 @@ export default function DashboardPage() {
   const [racingPaused, setRacingPaused] = useState(false);
   const [myStats, setMyStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [upcomingRaces, setUpcomingRaces] = useState([]);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -64,11 +125,35 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // Upcoming PENDING races for the current user. Polled separately on a
+  // tighter 15s cadence than fetchAll so the countdown stays accurate.
+  const fetchUpcoming = useCallback(async () => {
+    if (!user?.id) {
+      setUpcomingRaces([]);
+      return;
+    }
+    try {
+      const res = await fetch('/api/races/upcoming');
+      const body = await res.json();
+      if (res.ok && body?.data?.races) {
+        setUpcomingRaces(body.data.races);
+      }
+    } catch {
+      /* keep stale list on transient failure */
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     fetchAll();
     const id = setInterval(fetchAll, 30_000);
     return () => clearInterval(id);
   }, [fetchAll]);
+
+  useEffect(() => {
+    fetchUpcoming();
+    const id = setInterval(fetchUpcoming, 15_000);
+    return () => clearInterval(id);
+  }, [fetchUpcoming]);
 
   const recentRaces = useMemo(() => {
     if (!myDrones.length) return [];
@@ -79,6 +164,18 @@ export default function DashboardPage() {
       )
       .slice(0, 10);
   }, [liveFeed, myDrones]);
+
+  /* Map: userDroneId -> upcoming race. Built from the cached
+     /api/races/upcoming list so cycling drones in the spotlight is
+     instant - no per-drone fetch needed for any drone the bulk endpoint
+     already returned. */
+  const upcomingByDroneId = useMemo(() => {
+    const map = new Map();
+    for (const r of upcomingRaces) {
+      if (r.userDroneId) map.set(r.userDroneId, r);
+    }
+    return map;
+  }, [upcomingRaces]);
 
   const activeDrones = useMemo(
     () => myDrones.filter((d) => d.active),
@@ -130,6 +227,10 @@ export default function DashboardPage() {
       ? ((spotlightDrone.wins / spotlightDrone.totalRaces) * 100).toFixed(1) +
         '%'
       : '-';
+
+  const spotlightUpcoming = spotlightDrone
+    ? upcomingByDroneId.get(spotlightDrone.id) ?? null
+    : null;
 
   return (
     <NavShell>
@@ -191,7 +292,7 @@ export default function DashboardPage() {
                         color: getLevelColor(spotlightDrone.level),
                       }}
                     >
-                      Level {spotlightDrone.level}
+                      LV {spotlightDrone.level}
                     </span>
                   </div>
                   <div className={styles.spotlightImage}>
@@ -257,7 +358,14 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          {/* ---- Row 1 col 2: Live Race Feed ---- */}
+          {/* ---- Row 1 col 2: Next Race for selected spotlight drone ---- */}
+          <NextRacePanel
+            spotlightDrone={spotlightDrone}
+            race={spotlightUpcoming}
+            totalCount={upcomingRaces.length}
+          />
+
+          {/* ---- Row 2 col 2 (and below): Live Race Feed ---- */}
           <Card className={cn(styles.liveFeed, styles.areaFeed)}>
             <h2 className={styles.sectionHeading}>Live Race Feed</h2>
             <div className={cn(styles.cardBody, styles.feedBody)}>
@@ -321,7 +429,7 @@ export default function DashboardPage() {
                   <span>Opponent</span>
                   <span>Track</span>
                   <span>Result</span>
-                  <span className={styles.alignRight}>Points Earned</span>
+                  <span className={styles.alignRight}>Volts Earned</span>
                 </div>
                 {recentRaces.map((r) => {
                   const myDroneIds = new Set(myDrones.map((d) => d.id));
@@ -471,5 +579,208 @@ function NextRaceCountdown({ targetDate, paused }) {
         {paused ? <RacingStatusPill paused /> : 'Until Next Race'}
       </div>
     </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* NEXT RACE PANEL - sits in the dashboard grid alongside the spotlight       */
+/* (replaces the prior standalone "Next Race" card above the grid). Tracks    */
+/* the spotlight's currently-selected drone and renders that drone's          */
+/* upcoming race; cycling the spotlight cycles which race is shown.           */
+/*                                                                             */
+/* Layout: header bar with countdown · two drones side-by-side with mini      */
+/* radar charts under each · track strip with conditions · "view full         */
+/* matchup" link. Empty state when the selected drone has no PENDING race.   */
+/* -------------------------------------------------------------------------- */
+
+function NextRacePanel({ spotlightDrone, race, totalCount }) {
+  return (
+    <Card className={cn(styles.nextRacePanel, styles.areaNextRace)}>
+      <div className={styles.sectionHeadingRow}>
+        <h2 className={styles.sectionHeading}>Next Race</h2>
+        {race?.scheduledAt && (
+          <LocksInCountdown
+            targetDate={race.scheduledAt}
+            className={styles.locksInCountdown}
+          />
+        )}
+      </div>
+
+      {race ? (
+        <NextRaceMatchup race={race} totalCount={totalCount} />
+      ) : (
+        <div className={styles.nextRaceEmpty}>
+          {spotlightDrone
+            ? 'No upcoming race'
+            : 'Activate a drone to see its next race'}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** The matchup body inside NextRacePanel - shown only when there's a
+ *  pending race for the currently spotlighted drone. */
+function NextRaceMatchup({ race, totalCount }) {
+  const isUserDrone1 = race.userDroneId === race.drone1?.id;
+  const userDrone = isUserDrone1 ? race.drone1 : race.drone2;
+  const opponent = isUserDrone1 ? race.drone2 : race.drone1;
+  const moreCount = Math.max(0, (totalCount ?? 0) - 1);
+
+  // Shared radar max for both sides: the higher of the two drones'
+  // per-level stat caps. Both radars then render on the same scale so
+  // a stronger drone's polygon is visibly larger than a weaker one's,
+  // and the matchup correctly shows the strength gap instead of each
+  // radar auto-scaling to its own drone (which flattens differences).
+  const radarMax = Math.max(
+    calculatePerStatCap(userDrone?.level ?? 1),
+    calculatePerStatCap(opponent?.level ?? 1),
+  );
+
+  return (
+    <div className={styles.nextRaceBody}>
+      <div className={styles.matchupRow}>
+        <NextRaceDroneSide
+          drone={userDrone}
+          tone="own"
+          isOwn
+          radarMax={radarMax}
+        />
+        <div className={styles.vsDivider}>VS</div>
+        <NextRaceDroneSide
+          drone={opponent}
+          tone="opponent"
+          radarMax={radarMax}
+        />
+      </div>
+
+      <div className={styles.trackStrip}>
+        <span className={styles.trackName}>
+          {race.track?.name ?? 'Unknown track'}
+        </span>
+        <span className={styles.trackSpecs}>
+          <span>DIFF {race.track?.difficulty}/10</span>
+          <span className={styles.trackSpecsSep}>·</span>
+          <span>{race.track?.straights}S</span>
+          <span className={styles.trackSpecsSep}>·</span>
+          <span>{race.track?.turns}T</span>
+          <span className={styles.trackSpecsSep}>·</span>
+          <span>{race.track?.laps} LAPS</span>
+          <span className={styles.trackSpecsSep}>·</span>
+          <span>{(race.track?.length ?? '').toUpperCase()}</span>
+        </span>
+        <span className={styles.conditionPills}>
+          <ConditionPill kind="weather" value={race.conditions?.weather} />
+          <ConditionPill kind="time" value={race.conditions?.timeOfDay} />
+        </span>
+      </div>
+
+      <div className={styles.nextRaceFooter}>
+        <Link
+          href={`/races/${race.id}`}
+          className={styles.viewMatchupLink}
+        >
+          VIEW FULL MATCHUP →
+        </Link>
+        {moreCount > 0 && (
+          <span className={styles.moreUpcomingLink}>
+            {moreCount} MORE UPCOMING
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+/** Compact MM:SS countdown for the "LOCKS IN" timer in the section heading. */
+function LocksInCountdown({ targetDate, className }) {
+  const compute = () => {
+    if (!targetDate) return 0;
+    return Math.max(0, new Date(targetDate).getTime() - Date.now());
+  };
+  const [remaining, setRemaining] = useState(compute);
+  useEffect(() => {
+    setRemaining(compute());
+    const id = setInterval(() => setRemaining(compute()), 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetDate]);
+
+  if (remaining <= 0) {
+    return (
+      <span className={cn(styles.locksIn, styles.locksInExpired, className)}>
+        RACING NOW
+      </span>
+    );
+  }
+  const total = Math.floor(remaining / 1000);
+  const mins = Math.floor(total / 60);
+  const secs = String(total % 60).padStart(2, '0');
+  return (
+    <span className={cn(styles.locksIn, className)}>
+      LOCKS IN {mins}:{secs}
+    </span>
+  );
+}
+
+/** One side of the dashboard NEXT RACE matchup - drone image, name +
+ *  level badge, and a compact stat-shape radar. The radar tone shifts
+ *  to grey for the opponent so the user's own drone stays the visual
+ *  anchor when both charts sit side-by-side. `radarMax` is shared
+ *  between the two sides so polygon size = absolute strength. */
+function NextRaceDroneSide({ drone, tone = 'own', isOwn = false, radarMax }) {
+  if (!drone) return <div className={styles.matchupSide} aria-hidden="true" />;
+  return (
+    <div className={styles.matchupSide}>
+      {isOwn && <span className={styles.youBadge}>YOU</span>}
+      {drone.isBot && (
+        <span className={styles.botBadge} title="Bot drone">
+          <Bot size={10} aria-hidden="true" /> BOT
+        </span>
+      )}
+      <div className={styles.matchupImageFrame}>
+        <DroneImage drone={drone} alt={drone.name} />
+      </div>
+      <div className={styles.matchupName}>
+        {drone.name}
+        <span
+          className={styles.matchupLevel}
+          style={{ color: getLevelColor(drone.level) }}
+        >
+          {' '}LV {drone.level}
+        </span>
+      </div>
+      <div className={styles.matchupRadar}>
+        <StatRadar
+          axes={RADAR_AXES}
+          stats={drone.stats ?? {}}
+          tone={tone}
+          maxValue={radarMax}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Small icon + label pill for weather + time-of-day conditions. */
+function ConditionPill({ kind, value }) {
+  if (!value) return null;
+  const Icon = kind === 'weather'
+    ? (WEATHER_ICONS[value] ?? Cloud)
+    : (TIME_ICONS[value] ?? Sun);
+  const label = kind === 'weather'
+    ? (WEATHER_LABEL[value] ?? value)
+    : (TIME_LABEL[value] ?? value);
+  return (
+    <span
+      className={cn(
+        styles.conditionPill,
+        styles[`conditionPill_${kind}_${value}`],
+      )}
+    >
+      <Icon size={10} aria-hidden="true" />
+      <span>{label.toUpperCase()}</span>
+    </span>
   );
 }

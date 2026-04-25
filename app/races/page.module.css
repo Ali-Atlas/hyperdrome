@@ -4,6 +4,49 @@
   gap: var(--space-4);
 }
 
+/* Upcoming-races banner shown at the top of the races list page when
+   the user has any PENDING races. Compact, teal-tinted, links to the
+   strategy-window detail page for the soonest race. */
+.upcomingBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px var(--space-3);
+  background: rgba(3, 218, 198, 0.1);
+  border: 1px solid rgba(3, 218, 198, 0.3);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.upcomingBanner:hover {
+  background: rgba(3, 218, 198, 0.16);
+}
+
+.upcomingBannerDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent-primary);
+  box-shadow: 0 0 6px var(--accent-primary);
+  animation: pulse 1.5s infinite;
+}
+
+.upcomingBannerText {
+  flex: 1;
+}
+
+.upcomingBannerCta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+  letter-spacing: 0.06em;
+}
+
 /* ---- Top info strip: total races (left) + live indicator + mini clock (right) ---- */
 
 .topStrip {

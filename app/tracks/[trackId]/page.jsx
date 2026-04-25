@@ -234,7 +234,7 @@ export default async function TrackDetailPage({ params }) {
                   },
                   {
                     key: 'points',
-                    label: 'Pts',
+                    label: 'V',
                     align: 'right',
                     render: (r) => (
                       <span className={styles.mono}>{r.pointsAwarded}</span>
@@ -298,7 +298,7 @@ function LevelBracket({ min, max }) {
         '--level-to': getLevelColor(max),
       }}
     >
-      Lv {min}-{max}
+      LV {min}-{max}
     </span>
   );
 }

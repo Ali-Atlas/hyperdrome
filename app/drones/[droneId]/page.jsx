@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   ChevronDown,
-  Info,
   Sun,
   Moon,
   Cloud,
@@ -269,8 +268,10 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
     }
   };
 
+  const [toggleError, setToggleError] = useState(null);
   const toggleActive = async (next) => {
     setTogglePending(true);
+    setToggleError(null);
     try {
       const res = await fetch(`/api/drones/${drone.id}/toggle`, {
         method: 'POST',
@@ -279,17 +280,25 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
       });
       const body = await res.json();
       if (!res.ok) {
-        showToast(body?.error || 'Toggle failed', 'error');
+        const msg = next
+          ? 'Max active drones reached'
+          : body?.error || 'Toggle failed';
+        setToggleError(msg);
       } else {
-        showToast(next ? 'Drone activated' : 'Drone deactivated', 'success');
         await onReload();
       }
     } catch (err) {
-      showToast(String(err), 'error');
+      setToggleError(String(err));
     } finally {
       setTogglePending(false);
     }
   };
+
+  useEffect(() => {
+    if (!toggleError) return undefined;
+    const id = setTimeout(() => setToggleError(null), 3000);
+    return () => clearTimeout(id);
+  }, [toggleError]);
 
   const performance = useMemo(
     () => analyzeDronePerformance(editedStats),
@@ -320,6 +329,10 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
       ? ((drone.wins / drone.totalRaces) * 100).toFixed(1) + '%'
       : '-';
 
+  const inPendingRace = (drone.recentRaces ?? []).some(
+    (r) => r.status === 'pending',
+  );
+
   const raceRows = (drone.recentRaces ?? []).map((r) => {
     const isDrone1 = r.drone1Id === drone.id;
     const won = r.winnerDroneId === drone.id;
@@ -348,35 +361,57 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
             <h2 className={styles.sectionHeading}>Drone</h2>
             <div className={styles.leftInner}>
               <div className={styles.droneNameBlock}>
-                <div className={styles.droneName}>{drone.name}</div>
-                <div className={styles.droneLevel}>
-                  <span
-                    className={styles.metaLevel}
-                    style={{ color: getLevelColor(drone.level) }}
-                  >
-                    Lv {drone.level}
-                  </span>
-                  <span className={styles.metaSep}>|</span>
-                  <span className={styles.metaOwner}>
-                    Owner:{' '}
-                    {drone.owner?.username ? (
-                      !isOwner && drone.owner.id ? (
-                        <Link
-                          href={`/profile/${drone.owner.id}`}
-                          className={styles.ownerLink}
-                        >
-                          {drone.owner.username}
-                        </Link>
+                <div className={styles.droneNameMeta}>
+                  <div className={styles.droneName}>{drone.name}</div>
+                  <div className={styles.droneLevel}>
+                    <span
+                      className={styles.metaLevel}
+                      style={{ color: getLevelColor(drone.level) }}
+                    >
+                      LV {drone.level}
+                    </span>
+                    <span className={styles.metaSep}>|</span>
+                    <span className={styles.metaOwner}>
+                      Owner:{' '}
+                      {drone.owner?.username ? (
+                        !isOwner && drone.owner.id ? (
+                          <Link
+                            href={`/profile/${drone.owner.id}`}
+                            className={styles.ownerLink}
+                          >
+                            {drone.owner.username}
+                          </Link>
+                        ) : (
+                          drone.owner.username
+                        )
+                      ) : drone.isBot ? (
+                        'Bot'
                       ) : (
-                        drone.owner.username
-                      )
-                    ) : drone.isBot ? (
-                      'Bot'
-                    ) : (
-                      '-'
-                    )}
-                  </span>
+                        '-'
+                      )}
+                    </span>
+                  </div>
                 </div>
+                {isOwner && (
+                  <div className={styles.activeControl}>
+                    <span className={styles.activeControlLabel}>Active</span>
+                    <Toggle
+                      checked={drone.active}
+                      onChange={toggleActive}
+                      disabled={togglePending || inPendingRace}
+                    />
+                    {inPendingRace && (
+                      <span className={styles.activeControlNote}>
+                        In active race
+                      </span>
+                    )}
+                    {toggleError && !inPendingRace && (
+                      <span className={styles.activeControlError}>
+                        {toggleError}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className={styles.droneImageFrame}>
@@ -394,6 +429,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   stats={editedStats}
                   labels={radarLabels}
                   className={styles.radar}
+                  maxValue={cap}
                 />
 
                 <div className={styles.droneMeta}>
@@ -461,7 +497,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     </div>
                     <div className={styles.statStripItem}>
                       <span className={styles.statStripLabel}>
-                        Points Invested
+                        Volts Invested
                       </span>
                       <span className={styles.statStripValue}>
                         {drone.totalPointsInvested ?? 0}
@@ -496,12 +532,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                 </h2>
                 {isOwner && (
                   <div className={styles.availablePoints}>
-                    Available Points:{' '}
+                    Available Volts:{' '}
                     <span className={styles.availableValue}>
                       {availablePoints}
                     </span>
                     <span className={styles.balanceNote}>
-                      Your balance: {playerPoints} pts
+                      Your balance: {playerPoints} V
                     </span>
                   </div>
                 )}
@@ -526,21 +562,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
 
               {isOwner ? (
                 <div className={styles.actions}>
-                  <div className={styles.activeBlock}>
-                    <span className={styles.activeLabel}>Set Active</span>
-                    <Toggle
-                      checked={drone.active}
-                      onChange={toggleActive}
-                      disabled={togglePending}
-                    />
-                    <span
-                      className={styles.activeHelp}
-                      title="Active means this drone races each cycle. Up to 3 drones can be active per player."
-                      aria-label="Set Active - active drones race each cycle. Up to 3 drones can be active per player."
-                    >
-                      <Info size={12} aria-hidden="true" />
-                    </span>
-                  </div>
                   <div className={styles.buttonGroup}>
                     <Button
                       variant="primary"
@@ -570,7 +591,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     <ShoppingCart size={11} />
                     Buy{' '}
                     <span className={styles.buyPrice}>
-                      {listing.price.toLocaleString()} pts
+                      {listing.price.toLocaleString()} V
                     </span>
                   </a>
                 </div>
@@ -650,7 +671,7 @@ function RaceHistoryTable({ rows }) {
         },
         {
           key: 'pointsEarned',
-          label: 'Points Earned',
+          label: 'Volts Earned',
           align: 'right',
           render: (r) => <span className={styles.mono}>{r.pointsEarned}</span>,
         },

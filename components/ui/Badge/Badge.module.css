@@ -42,9 +42,13 @@
 }
 
 /* ---- Level tiers ---- */
+/* Level badges across the app use --font-mono + --font-bold + the
+   matching tier color (steel / orange / purple / gold). The base .badge
+   sets mono + medium; .level upgrades to bold. */
 .level {
   background: rgba(138, 155, 168, 0.15);
   color: var(--level-steel);
+  font-weight: var(--font-bold);
 }
 
 .level.steel {

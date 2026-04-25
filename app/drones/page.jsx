@@ -16,10 +16,10 @@ import styles from './page.module.css';
 
 const TIERS = ['steel', 'orange', 'purple', 'gold'];
 const TIER_LABELS = {
-  steel: 'Lv 1-5',
-  orange: 'Lv 6-10',
-  purple: 'Lv 11-15',
-  gold: 'Lv 16-20',
+  steel: 'LV 1-5',
+  orange: 'LV 6-10',
+  purple: 'LV 11-15',
+  gold: 'LV 16-20',
 };
 
 const SORTS = {
@@ -371,7 +371,7 @@ function DroneCard({ drone }) {
             className={styles.levelChip}
             style={{ color: getLevelColor(drone.level) }}
           >
-            L{drone.level}
+            LV {drone.level}
           </span>
         </header>
 

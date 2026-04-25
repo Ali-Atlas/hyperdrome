@@ -32,17 +32,17 @@ const SECTIONS = [
       { type: 'subheading', text: 'What is Drone Manager' },
       {
         type: 'paragraph',
-        text: 'Passive competitive drone racing. You own drones, allocate stats, and they race automatically every 5 minutes. A weighted simulation decides each race using your stats vs. the opponent\'s, the track layout, the rolled weather, the time of day, and a small dampened random variance. Wins pay points and XP. Points spend on stat upgrades, marketplace buys, and packs. Seasons run 30 days.',
+        text: 'Passive competitive drone racing. You own drones, allocate stats, and they race automatically every 5 minutes. A weighted simulation decides each race using your stats vs. the opponent\'s, the track layout, the rolled weather, the time of day, and a small dampened random variance. Wins pay volts and XP. Volts spend on stat upgrades, marketplace buys, and packs. Seasons run 30 days.',
       },
       { type: 'subheading', text: 'Creating your account' },
       {
         type: 'paragraph',
-        text: 'Sign up with email. We send a magic link. No password. On first sign-in you get a free Level 1 starter drone, your wallet starts at 0 points, your account starts at ELO 1000 with 1 active drone slot.',
+        text: 'Sign up with email. We send a magic link. No password. On first sign-in you get a free Level 1 starter drone, your wallet starts at 0 volts, your account starts at ELO 1000 with 1 active drone slot.',
       },
       { type: 'subheading', text: 'Your first drone' },
       {
         type: 'paragraph',
-        text: 'Level 1, all 9 stats at 1, Total Stat Budget of 29, active by default. It enters the next race cycle automatically. The 9 stats sum to 9 already, so you have 20 points of TSB headroom to allocate as you earn. Every upgrade costs points from your wallet, so the first wins fund the first upgrades.',
+        text: 'Level 1, all 9 stats at 1, Total Stat Budget of 29, active by default. It enters the next race cycle automatically. The 9 stats sum to 9 already, so you have 20 points of TSB headroom to allocate as you earn. Every upgrade costs volts from your wallet, so the first wins fund the first upgrades.',
       },
     ],
   },
@@ -81,38 +81,38 @@ const SECTIONS = [
       { type: 'subheading', text: 'Per-Stat Cap' },
       {
         type: 'paragraph',
-        text: 'No single stat can exceed the cap for your level. Formula: cap = min(100, 10 + floor(4.5 * level)). Level 1: 14. Level 5: 32. Level 10: 55. Level 15: 77. Level 20: 100. The cap stops you from dumping every point into one stat early.',
+        text: 'No single stat can exceed the cap for your level. Formula: cap = min(100, 10 + floor(4.5 * level)). Level 1: 14. Level 5: 32. Level 10: 55. Level 15: 77. Level 20: 100. The cap stops you from dumping every volt into one stat early.',
       },
 
       { type: 'subheading', text: 'Stat upgrade costs' },
       {
         type: 'paragraph',
-        text: 'Each upgrade point comes from your wallet. Cost depends on the stat\'s current value: 1 + floor(currentValue / 10). Costs scale in 10-point bands.',
+        text: 'Each upgrade volt comes from your wallet. Cost depends on the stat\'s current value: 1 + floor(currentValue / 10). Costs scale in 10-volt bands.',
       },
       {
         type: 'costTable',
         rows: [
-          { range: 'Stat 1 -> 9', cost: '1 point per upgrade' },
-          { range: 'Stat 10 -> 19', cost: '2 points per upgrade' },
-          { range: 'Stat 20 -> 29', cost: '3 points per upgrade' },
-          { range: 'Stat 30 -> 39', cost: '4 points per upgrade' },
-          { range: 'Stat 40 -> 49', cost: '5 points per upgrade' },
-          { range: 'Stat 50 -> 59', cost: '6 points per upgrade' },
-          { range: 'Stat 60 -> 69', cost: '7 points per upgrade' },
-          { range: 'Stat 70 -> 79', cost: '8 points per upgrade' },
-          { range: 'Stat 80 -> 89', cost: '9 points per upgrade' },
-          { range: 'Stat 90 -> 99', cost: '10 points per upgrade' },
+          { range: 'Stat 1 -> 9', cost: '1 volt per upgrade' },
+          { range: 'Stat 10 -> 19', cost: '2 volts per upgrade' },
+          { range: 'Stat 20 -> 29', cost: '3 volts per upgrade' },
+          { range: 'Stat 30 -> 39', cost: '4 volts per upgrade' },
+          { range: 'Stat 40 -> 49', cost: '5 volts per upgrade' },
+          { range: 'Stat 50 -> 59', cost: '6 volts per upgrade' },
+          { range: 'Stat 60 -> 69', cost: '7 volts per upgrade' },
+          { range: 'Stat 70 -> 79', cost: '8 volts per upgrade' },
+          { range: 'Stat 80 -> 89', cost: '9 volts per upgrade' },
+          { range: 'Stat 90 -> 99', cost: '10 volts per upgrade' },
         ],
       },
       {
         type: 'paragraph',
-        text: 'Raising one stat from 1 to 100 costs 460 points total. The first 9 points are cheap. Past 50 it gets expensive fast.',
+        text: 'Raising one stat from 1 to 100 costs 460 volts total. The first 9 volts are cheap. Past 50 it gets expensive fast.',
       },
 
       { type: 'subheading', text: 'No respec' },
       {
         type: 'paragraph',
-        text: 'Stat allocations are permanent. Once a point is spent on a stat, it stays there.',
+        text: 'Stat allocations are permanent. Once a volt is spent on a stat, it stays there.',
       },
     ],
   },
@@ -125,7 +125,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'How races work' },
       {
         type: 'paragraph',
-        text: 'Every 5 minutes the race cycle runs. All active drones get matched and raced. Result lands in your race log with the segment-by-segment data, the ELO change, the points payout, the XP, and the race conditions that rolled.',
+        text: 'Every 5 minutes the race cycle runs. All active drones get matched and raced. Result lands in your race log with the segment-by-segment data, the ELO change, the volts payout, the XP, and the race conditions that rolled.',
       },
 
       { type: 'subheading', text: 'Matchmaking' },
@@ -185,7 +185,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Difficulty' },
       {
         type: 'paragraph',
-        text: 'Difficulty drives the points payout. Winner gets a bonus of floor(difficulty / 2). Difficulty 1 pays +0. Difficulty 2-3 pays +1. Difficulty 4-5 pays +2. Difficulty 6-7 pays +3. Difficulty 8-9 pays +4. Difficulty 10 pays +5. The difficulty also signals layout intensity: more turns, longer length, tighter angles.',
+        text: 'Difficulty drives the volts payout. Winner gets a bonus of floor(difficulty / 2). Difficulty 1 pays +0. Difficulty 2-3 pays +1. Difficulty 4-5 pays +2. Difficulty 6-7 pays +3. Difficulty 8-9 pays +4. Difficulty 10 pays +5. The difficulty also signals layout intensity: more turns, longer length, tighter angles.',
       },
 
       { type: 'subheading', text: 'Length' },
@@ -209,7 +209,7 @@ const SECTIONS = [
           { name: 'Circuit Alpha', desc: '5 straights, 5 turns. Medium. Difficulty 4. Levels 1-10. Even split favors balanced builds.' },
           { name: 'Skyline Drift', desc: '3 straights, 7 turns. Medium. Difficulty 5. Levels 6-15. Heavy turn count rewards turning + durability.' },
           { name: 'Voltage Loop', desc: '4 straights, 8 turns. Long. Difficulty 7. Levels 6-20. Long means battery matters. 12 segments per lap.' },
-          { name: 'Tempest Run', desc: '2 straights, 8 turns. Long. Difficulty 9. Levels 11-20. Top-bracket points. Tight, technical, battery-heavy.' },
+          { name: 'Tempest Run', desc: '2 straights, 8 turns. Long. Difficulty 9. Levels 11-20. Top-bracket volts. Tight, technical, battery-heavy.' },
           { name: 'Horizon Express', desc: '9 straights, 1 turn. Medium. Difficulty 1. Levels 1-10. Almost pure straights. Speed dominates.' },
         ],
       },
@@ -239,7 +239,7 @@ const SECTIONS = [
         items: [
           { name: '+20 TSB', desc: 'Total Stat Budget grows by 20. More points to allocate across the 9 stats.' },
           { name: 'Higher per-stat cap', desc: 'Each stat\'s cap rises by 4-5. More headroom for specialists.' },
-          { name: '+20 points', desc: 'Paid into your wallet on every level-up. Spendable anywhere.' },
+          { name: '+20 volts', desc: 'Paid into your wallet on every level-up. Spendable anywhere.' },
           { name: 'Possible tier change', desc: 'Levels 6, 11, and 16 cross a tier boundary, which changes the drone\'s appearance.' },
         ],
       },
@@ -247,7 +247,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Level cap' },
       {
         type: 'paragraph',
-        text: 'Level 20 is the max. After that, XP gains stop counting toward level and the bar pins to full. ELO, points, season points, and skin progression keep going.',
+        text: 'Level 20 is the max. After that, XP gains stop counting toward level and the bar pins to full. ELO, volts, season volts, and skin progression keep going.',
       },
 
       { type: 'subheading', text: 'Drone tiers' },
@@ -292,41 +292,41 @@ const SECTIONS = [
       { type: 'subheading', text: 'Upsets' },
       {
         type: 'paragraph',
-        text: 'When a lower-rated drone beats a higher-rated one, the race is flagged UPSET in the log. The winner gets a points bonus on top of the base payout: floor((loserElo - winnerElo) / 100). 100 ELO underdog: +1 point. 250 underdog: +2. 500 underdog: +5.',
+        text: 'When a lower-rated drone beats a higher-rated one, the race is flagged UPSET in the log. The winner gets a volts bonus on top of the base payout: floor((loserElo - winnerElo) / 100). 100 ELO underdog: +1 volt. 250 underdog: +2. 500 underdog: +5.',
       },
     ],
   },
 
   {
     id: 'points-economy',
-    title: 'Points and Economy',
+    title: 'Volts and Economy',
     Icon: Coins,
     blocks: [
       {
         type: 'paragraph',
-        text: 'Points are the only currency. One wallet per player, shared across all your drones.',
+        text: 'Volts are the only currency. One wallet per player, shared across all your drones.',
       },
 
       { type: 'subheading', text: 'Race rewards' },
       {
         type: 'paragraph',
-        text: 'Winner payout = 3 base + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)). Losers get 0 points (XP only).',
+        text: 'Winner payout = 3 base + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)). Losers get 0 volts (XP only).',
       },
       {
         type: 'list',
         items: [
-          { name: 'Min payout', desc: '3 points. Difficulty-1 track, no upset.' },
-          { name: 'Mid payout', desc: '5 points. Difficulty-5 track (+2), even matchup.' },
-          { name: 'Strong payout', desc: '7 points. Difficulty-9 track (+4), even matchup.' },
-          { name: 'Big upset', desc: '12 points. Difficulty-9 track (+4), 500 ELO underdog (+5).' },
+          { name: 'Min payout', desc: '3 volts. Difficulty-1 track, no upset.' },
+          { name: 'Mid payout', desc: '5 volts. Difficulty-5 track (+2), even matchup.' },
+          { name: 'Strong payout', desc: '7 volts. Difficulty-9 track (+4), even matchup.' },
+          { name: 'Big upset', desc: '12 volts. Difficulty-9 track (+4), 500 ELO underdog (+5).' },
         ],
       },
 
-      { type: 'subheading', text: 'Other point income' },
+      { type: 'subheading', text: 'Other volt income' },
       {
         type: 'list',
         items: [
-          { name: 'Level-up bonus', desc: '+20 points per level. Paid into your wallet on the level-up.' },
+          { name: 'Level-up bonus', desc: '+20 volts per level. Paid into your wallet on the level-up.' },
           { name: 'Marketplace sale', desc: '95% of the sale price (5% platform fee).' },
         ],
       },
@@ -358,7 +358,7 @@ const SECTIONS = [
         type: 'list',
         items: [
           { name: 'Platform fee', desc: '5% of the sale price. The seller gets the remaining 95%.' },
-          { name: 'Minimum listing price', desc: '10 points. Below that, the listing is rejected.' },
+          { name: 'Minimum listing price', desc: '10 volts. Below that, the listing is rejected.' },
           { name: 'Active drones', desc: 'You can list a drone while it\'s racing. Listing doesn\'t deactivate it. The drone keeps racing for you until it sells.' },
           { name: 'Drone transfer', desc: 'A purchased drone arrives with its level, XP, full stat sheet, ELO rating, race history, and any applied skins intact.' },
           { name: 'Bound skins', desc: 'A skin applied to a drone transfers with the drone. It can\'t be sold separately once applied.' },
@@ -425,7 +425,7 @@ const SECTIONS = [
         text: 'Three pack tiers, all paid from your wallet. Each pack opens 3 skins drawn from the unowned skin vault. Each slot has a guaranteed minimum rarity or a probability table.',
       },
 
-      { type: 'subheading', text: 'Starter Pack - 500 points' },
+      { type: 'subheading', text: 'Starter Pack - 500 volts' },
       {
         type: 'list',
         items: [
@@ -435,7 +435,7 @@ const SECTIONS = [
         ],
       },
 
-      { type: 'subheading', text: 'Premium Pack - 2,000 points' },
+      { type: 'subheading', text: 'Premium Pack - 2,000 volts' },
       {
         type: 'list',
         items: [
@@ -445,7 +445,7 @@ const SECTIONS = [
         ],
       },
 
-      { type: 'subheading', text: 'Legendary Pack - 10,000 points' },
+      { type: 'subheading', text: 'Legendary Pack - 10,000 volts' },
       {
         type: 'list',
         items: [
@@ -478,7 +478,7 @@ const SECTIONS = [
       {
         type: 'list',
         items: [
-          { name: 'Season points', desc: 'Reset to 0 at season-end.' },
+          { name: 'Season volts', desc: 'Reset to 0 at season-end.' },
           { name: 'Leaderboard', desc: 'Wiped. New season starts fresh.' },
         ],
       },
@@ -490,7 +490,7 @@ const SECTIONS = [
           { name: 'Drone stats and level', desc: 'Permanent.' },
           { name: 'XP', desc: 'Permanent.' },
           { name: 'ELO', desc: 'Permanent.' },
-          { name: 'Points wallet', desc: 'Permanent.' },
+          { name: 'Volts wallet', desc: 'Permanent.' },
           { name: 'Owned drones and skins', desc: 'Permanent.' },
           { name: 'Active drone slots', desc: 'Permanent.' },
         ],
@@ -584,7 +584,7 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'Rewards and Progression' },
       {
         type: 'paragraph',
-        text: 'Winners earn 10 XP and points. Losers earn 4 XP. ELO ratings adjust based on the outcome. Upsets (beating a higher-rated opponent by 50+ ELO) earn recognition. XP drives leveling which unlocks higher stat caps and access to harder tracks. Points fund your economy: buying packs, skins, and drones on the Marketplace.',
+        text: 'Winners earn 10 XP and volts. Losers earn 4 XP. ELO ratings adjust based on the outcome. Upsets (beating a higher-rated opponent by 50+ ELO) earn recognition. XP drives leveling which unlocks higher stat caps and access to harder tracks. Volts fund your economy: buying packs, skins, and drones on the Marketplace.',
       },
       { type: 'subheading', text: 'Active Drone Slots' },
       {
@@ -598,20 +598,20 @@ const PRE_SECTIONS = [
     title: 'The Economy',
     Icon: Wallet,
     blocks: [
-      { type: 'subheading', text: 'Points' },
+      { type: 'subheading', text: 'Volts' },
       {
         type: 'paragraph',
-        text: 'Points are the in-game currency. You earn them by racing. Winners earn more than losers. Points buy Packs, Skins on the Marketplace, and drones from other players. Points carry a stable USD-denominated value that does not fluctuate with token prices.',
+        text: 'Volts are the in-game currency. You earn them by racing. Winners earn more than losers. Volts buy Packs, Skins on the Marketplace, and drones from other players. Volts carry a stable USD-denominated value that does not fluctuate with token prices.',
       },
       { type: 'subheading', text: 'The Marketplace' },
       {
         type: 'paragraph',
-        text: 'The Marketplace is where players trade drones and skins with each other. All listings are priced in points. A 5% rake is applied to every sale. This is the protocol\'s revenue. Active drones can be listed but deactivate on sale. Skins transfer with their drone when sold.',
+        text: 'The Marketplace is where players trade drones and skins with each other. All listings are priced in volts. A 5% rake is applied to every sale. This is the protocol\'s revenue. Active drones can be listed but deactivate on sale. Skins transfer with their drone when sold.',
       },
       { type: 'subheading', text: 'Packs' },
       {
         type: 'paragraph',
-        text: 'Packs cost points and contain random drones and skins. Three tiers (Starter, Premium, and Legendary) offer different rarity odds. Packs are the primary way to acquire new drones and skins without buying directly from other players.',
+        text: 'Packs cost volts and contain random drones and skins. Three tiers (Starter, Premium, and Legendary) offer different rarity odds. Packs are the primary way to acquire new drones and skins without buying directly from other players.',
       },
       { type: 'subheading', text: 'Building Value' },
       {
@@ -817,10 +817,10 @@ export default function GuidePage() {
                     Season 2 introduces the tokenized economy layer. Drones, Skins, and Mods become on-chain assets on MegaETH. The Marketplace transitions to on-chain settlement with the existing 5% protocol rake.
                   </p>
                   <p className={styles.paragraph}>
-                    Points carry a stable USD-denominated value independent of token price. All token-to-points and points-to-token conversions use live market rates at the time of transaction. Players can enter the economy by purchasing Point Chests with $TOKEN, and exit by selling built drones and assets on the Marketplace.
+                    Volts carry a stable USD-denominated value independent of token price. All token-to-volts and volts-to-token conversions use live market rates at the time of transaction. Players can enter the economy by purchasing Volt Chests with $TOKEN, and exit by selling built drones and assets on the Marketplace.
                   </p>
                   <p className={styles.paragraph}>
-                    Points-to-token cashout will be available with controls to maintain economic stability: a conversion fee, per-account cooldown period, minimum threshold, and a dynamic exchange rate tied to treasury health. These controls reward committed players and prevent automated farming.
+                    Volts-to-token cashout will be available with controls to maintain economic stability: a conversion fee, per-account cooldown period, minimum threshold, and a dynamic exchange rate tied to treasury health. These controls reward committed players and prevent automated farming.
                   </p>
                   <p className={styles.paragraph}>
                     Specific token mechanics and integration details will be finalized in collaboration with the MegaETH team.

@@ -477,7 +477,7 @@ export default function MarketplacePage() {
                 className={cn(styles.tab, tab === 'points' && styles.tabActive)}
                 onClick={() => setTab('points')}
               >
-                Points
+                Volts
               </button>
             </div>
             {tab !== 'packs' && tab !== 'points' && (
@@ -499,7 +499,7 @@ export default function MarketplacePage() {
             <span className={styles.balanceValue}>
               {userPoints.toLocaleString()}
             </span>
-            <span className={styles.balanceUnit}>pts</span>
+            <span className={styles.balanceUnit}>V</span>
           </div>
         </div>
 
@@ -563,7 +563,7 @@ export default function MarketplacePage() {
             <div className={styles.filtersInner}>
               <div className={styles.filterBody}>
                 <div className={styles.filterGroup}>
-                  <label className={styles.filterLabel}>Price (pts)</label>
+                  <label className={styles.filterLabel}>Price (volts)</label>
                   <div className={styles.rangeRow}>
                     <input
                       type="number"
@@ -816,13 +816,13 @@ export default function MarketplacePage() {
             <div className={styles.modalRow}>
               <span className={styles.modalRowLabel}>Price</span>
               <strong className={styles.mono}>
-                {buyModal.price.toLocaleString()} pts
+                {buyModal.price.toLocaleString()} V
               </strong>
             </div>
             <div className={styles.modalRow}>
               <span className={styles.modalRowLabel}>Your balance after</span>
               <strong className={styles.mono}>
-                {(userPoints - buyModal.price).toLocaleString()} pts
+                {(userPoints - buyModal.price).toLocaleString()} V
               </strong>
             </div>
             <div className={styles.modalActions}>
@@ -835,7 +835,7 @@ export default function MarketplacePage() {
                 disabled={userPoints < buyModal.price}
               >
                 {userPoints < buyModal.price
-                  ? `Need +${(buyModal.price - userPoints).toLocaleString()} pts`
+                  ? `Need +${(buyModal.price - userPoints).toLocaleString()} V`
                   : 'Confirm Purchase'}
               </Button>
             </div>
@@ -900,7 +900,7 @@ export default function MarketplacePage() {
                   <option key={item.id} value={item.id}>
                     {item.name}
                     {listingType === 'drone'
-                      ? ` - Lv ${item.level}`
+                      ? ` - LV ${item.level}`
                       : ` - ${item.rarity}`}
                   </option>
                 ),
@@ -909,7 +909,7 @@ export default function MarketplacePage() {
           </div>
 
           <div className={styles.formRow}>
-            <label className={styles.filterLabel}>Price (pts)</label>
+            <label className={styles.filterLabel}>Price (volts)</label>
             <input
               type="number"
               inputMode="numeric"
@@ -919,8 +919,8 @@ export default function MarketplacePage() {
               onChange={(e) => setListingPrice(e.target.value)}
             />
             <div className={styles.feeInfo}>
-              Platform fee: <strong>5% ({fee} pts)</strong> · You receive:{' '}
-              <strong className={styles.mono}>{payout} pts</strong>
+              Platform fee: <strong>5% ({fee} V)</strong> · You receive:{' '}
+              <strong className={styles.mono}>{payout} V</strong>
             </div>
           </div>
 
@@ -1111,7 +1111,7 @@ function SalesTape({ transactions }) {
                 </span>
                 <span className={styles.tapePrice}>
                   {Number(t.price).toLocaleString()}
-                  <span className={styles.tapePriceUnit}>pts</span>
+                  <span className={styles.tapePriceUnit}>V</span>
                 </span>
               </li>
             );
@@ -1208,7 +1208,7 @@ function PointsShowcase() {
   return (
     <div className={styles.pointsShowcase}>
       <div className={styles.pointsHeader}>
-        <h2 className={styles.pointsTitle}>GET POINTS</h2>
+        <h2 className={styles.pointsTitle}>GET VOLTS</h2>
         <p className={styles.pointsSubtitle}>Better value the more you buy</p>
       </div>
       <div className={styles.pointsGrid}>
@@ -1251,7 +1251,7 @@ function PointsCard({ opt }) {
       >
         <img
           src={opt.chest}
-          alt={`${opt.tier} treasure chest containing ${opt.points.toLocaleString()} points`}
+          alt={`${opt.tier} treasure chest containing ${opt.points.toLocaleString()} volts`}
           className={styles.pointsChestImg}
         />
       </div>
@@ -1263,7 +1263,7 @@ function PointsCard({ opt }) {
       >
         {opt.points.toLocaleString()}
       </div>
-      <div className={styles.pointsLabel}>POINTS</div>
+      <div className={styles.pointsLabel}>VOLTS</div>
       <div className={styles.pointsPrice}>
         {opt.price.toLocaleString()} $TOKEN
       </div>
@@ -1307,10 +1307,10 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
               className={cn(styles.packBtn, styles.packBtnGold)}
             >
               {!canAfford
-                ? `Need +${pointsShort.toLocaleString()} pts`
-                : `Open Pack · ${pack.price.toLocaleString()} pts`}
+                ? `Need +${pointsShort.toLocaleString()} V`
+                : `Open Pack · ${pack.price.toLocaleString()} V`}
             </Button>
-            <span className={styles.heroHint}>Earn points by racing</span>
+            <span className={styles.heroHint}>Earn volts by racing</span>
           </div>
         </div>
         <div className={styles.heroCardWrap} aria-hidden="true">
@@ -1456,7 +1456,7 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
         <h3 className={styles.packName}>{pack.name}</h3>
         <span className={styles.packPrice}>
           {pack.price.toLocaleString()}
-          <span className={styles.packPriceUnit}>pts</span>
+          <span className={styles.packPriceUnit}>V</span>
         </span>
       </div>
       <OddsText packId={pack.id} />
@@ -1473,8 +1473,8 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
           )}
         >
           {!canAfford
-            ? `Need +${pointsShort.toLocaleString()} pts`
-            : `Open Pack · ${pack.price.toLocaleString()} pts`}
+            ? `Need +${pointsShort.toLocaleString()} V`
+            : `Open Pack · ${pack.price.toLocaleString()} V`}
         </Button>
       </div>
     </article>
@@ -1633,7 +1633,7 @@ function ListingCard({
               className={styles.listingLevel}
               style={{ color: getLevelColor(drone.level) }}
             >
-              Lv {drone.level}
+              LV {drone.level}
             </span>
           )}
           {!isDrone && rarity && (
@@ -1661,7 +1661,7 @@ function ListingCard({
           <span className={styles.price}>
             {listing.price.toLocaleString()}
           </span>
-          <span className={styles.priceUnit}>pts</span>
+          <span className={styles.priceUnit}>V</span>
         </div>
 
         <div className={styles.seller}>
@@ -1716,7 +1716,7 @@ function ListingCard({
             >
               {canAfford
                 ? 'Buy Now'
-                : `Need +${pointsShort.toLocaleString()} pts`}
+                : `Need +${pointsShort.toLocaleString()} V`}
             </Button>
           )}
         </div>

@@ -79,7 +79,7 @@ export async function openPack(userId, packType) {
   if (!user) throw new ApiError('User not found', 404);
   if (user.points < price) {
     throw new ApiError(
-      `Not enough points. Need +${(price - user.points).toLocaleString()} more.`,
+      `Not enough volts. Need +${(price - user.points).toLocaleString()} more.`,
       400,
     );
   }
