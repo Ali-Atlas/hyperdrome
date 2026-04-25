@@ -117,6 +117,19 @@ const LIVE_TICKER = {
   lastPull: { username: 'MKT_ORBIT', rarity: 'legendary', name: 'Mach Zero' },
 };
 
+/** Points purchase options for the GET POINTS tab. 3 visual tiers
+ *  (teal / purple / gold), 6 packs total. Bonus % scales nonlinearly
+ *  to nudge bigger purchases. All buttons stay disabled until token-
+ *  payment integration ships. */
+const POINTS_OPTIONS = [
+  { id: 1, points: 500,    price: 50,    tier: 'teal',   bonus: null,           chest: '/chests/chest-teal.webp' },
+  { id: 2, points: 1200,   price: 100,   tier: 'teal',   bonus: '+20% BONUS',   chest: '/chests/chest-teal.webp' },
+  { id: 3, points: 3500,   price: 250,   tier: 'purple', bonus: '+40% BONUS',   chest: '/chests/chest-purple.webp' },
+  { id: 4, points: 8000,   price: 500,   tier: 'purple', bonus: '+60% BONUS',   chest: '/chests/chest-purple.webp' },
+  { id: 5, points: 22000,  price: 1000,  tier: 'gold',   bonus: '+100% BONUS',  chest: '/chests/chest-gold.webp' },
+  { id: 6, points: 60000,  price: 2500,  tier: 'gold',   bonus: '+140% BONUS',  chest: '/chests/chest-gold.webp', bestValue: true },
+];
+
 const RARITY_LIST = ['common', 'rare', 'epic', 'legendary'];
 const RARITY_LABELS = {
   common: 'Common',
@@ -139,7 +152,7 @@ export default function MarketplacePage() {
   const { user } = useSession();
   const { showToast } = useToast();
 
-  const [tab, setTab] = useState('drones'); // 'drones' | 'skins' | 'packs'
+  const [tab, setTab] = useState('drones'); // 'drones' | 'skins' | 'packs' | 'points'
   const [view, setView] = useState('all'); // 'all' | 'mine'
   const [packOpening, setPackOpening] = useState(null); // pack id currently being opened
   const [packReveal, setPackReveal] = useState(null); // { awarded, packType }
@@ -457,8 +470,17 @@ export default function MarketplacePage() {
               >
                 Packs
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'points'}
+                className={cn(styles.tab, tab === 'points' && styles.tabActive)}
+                onClick={() => setTab('points')}
+              >
+                Points
+              </button>
             </div>
-            {tab !== 'packs' && (
+            {tab !== 'packs' && tab !== 'points' && (
               <Button
                 variant="primary"
                 size="sm"
@@ -481,8 +503,8 @@ export default function MarketplacePage() {
           </div>
         </div>
 
-        {/* ---- Sub-toolbar: view toggle + search (hidden on Packs tab) ---- */}
-        {tab !== 'packs' && (
+        {/* ---- Sub-toolbar: view toggle + search (hidden on Packs/Points tabs) ---- */}
+        {tab !== 'packs' && tab !== 'points' && (
         <div className={styles.subToolbar}>
           <div className={styles.viewToggle} role="tablist">
             <button
@@ -530,8 +552,13 @@ export default function MarketplacePage() {
         )}
 
         {/* ---- Main layout: sticky filter rail + grid / packs showcase ---- */}
-        <div className={cn(styles.body, tab === 'packs' && styles.bodyPacks)}>
-          {tab !== 'packs' && (
+        <div
+          className={cn(
+            styles.body,
+            (tab === 'packs' || tab === 'points') && styles.bodyPacks,
+          )}
+        >
+          {tab !== 'packs' && tab !== 'points' && (
           <aside className={styles.filters}>
             <div className={styles.filtersInner}>
               <div className={styles.filterBody}>
@@ -670,7 +697,9 @@ export default function MarketplacePage() {
           )}
 
           <div className={styles.content}>
-            {tab === 'packs' ? (
+            {tab === 'points' ? (
+              <PointsShowcase />
+            ) : tab === 'packs' ? (
               <PacksShowcase
                 userPoints={userPoints}
                 openingId={packOpening}
@@ -683,7 +712,7 @@ export default function MarketplacePage() {
                 <Skeleton variant="card" height={260} />
                 <Skeleton variant="card" height={260} />
               </div>
-            ) : tab !== 'packs' && filteredListings.length === 0 ? (
+            ) : filteredListings.length === 0 ? (
               <EmptyState
                 title={
                   view === 'mine'
@@ -763,8 +792,8 @@ export default function MarketplacePage() {
 
         {/* ---- Recent sales tape (always expanded). A compact activity
              feed rather than a table - sits below the grid as a market
-             pulse section. Hidden on the Packs tab. ---- */}
-        {tab !== 'packs' && (
+             pulse section. Hidden on the Packs and Points tabs. ---- */}
+        {tab !== 'packs' && tab !== 'points' && (
           <SalesTape transactions={transactions} />
         )}
       </div>
@@ -1168,6 +1197,87 @@ function LiveTicker() {
         </span>
       </span>
     </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* GET POINTS tab - 6-card grid for purchasing points with $TOKEN.            */
+/* -------------------------------------------------------------------------- */
+
+function PointsShowcase() {
+  return (
+    <div className={styles.pointsShowcase}>
+      <div className={styles.pointsHeader}>
+        <h2 className={styles.pointsTitle}>GET POINTS</h2>
+        <p className={styles.pointsSubtitle}>Better value the more you buy</p>
+      </div>
+      <div className={styles.pointsGrid}>
+        {POINTS_OPTIONS.map((opt) => (
+          <PointsCard key={opt.id} opt={opt} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PointsCard({ opt }) {
+  return (
+    <article className={styles.pointsCard}>
+      {/* Fixed-height pill area so the chest below sits at the same
+          vertical position whether the card has 0, 1, or 2 pills.
+          Pills cluster at the BOTTOM of the area (justify-content:
+          flex-end), so absent pills become empty space above. */}
+      <div className={styles.pointsPillsArea}>
+        {opt.bestValue && (
+          <span className={styles.pointsBestValuePill}>BEST VALUE</span>
+        )}
+        {opt.bonus && (
+          <span
+            className={cn(
+              styles.pointsBonusPill,
+              styles[`pointsBonusPill_${opt.tier}`],
+            )}
+          >
+            {opt.bonus}
+          </span>
+        )}
+      </div>
+      <div
+        className={cn(
+          styles.chestFrame,
+          styles[`chestFrame_${opt.tier}`],
+          opt.bestValue && styles.chestFrameBestValue,
+        )}
+      >
+        <img
+          src={opt.chest}
+          alt={`${opt.tier} treasure chest containing ${opt.points.toLocaleString()} points`}
+          className={styles.pointsChestImg}
+        />
+      </div>
+      <div
+        className={cn(
+          styles.pointsAmount,
+          styles[`pointsAmount_${opt.tier}`],
+        )}
+      >
+        {opt.points.toLocaleString()}
+      </div>
+      <div className={styles.pointsLabel}>POINTS</div>
+      <div className={styles.pointsPrice}>
+        {opt.price.toLocaleString()} $TOKEN
+      </div>
+      <button
+        type="button"
+        className={cn(
+          styles.pointsBuyBtn,
+          styles[`pointsBuyBtn_${opt.tier}`],
+        )}
+        disabled
+      >
+        Buy
+      </button>
+    </article>
   );
 }
 

@@ -2496,3 +2496,324 @@
     gap: var(--space-2);
   }
 }
+
+/* ==========================================================================
+ * GET POINTS tab - chest cards across 3 tiers, no card chrome by default,
+ * subtle hover border for interactivity feedback. Top tier (best value)
+ * gets a gold border + pulse + glow + chest drop-shadow treatment.
+ * ========================================================================== */
+
+.pointsShowcase {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.pointsHeader {
+  text-align: center;
+  margin-bottom: var(--space-6);
+}
+
+.pointsTitle {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.pointsSubtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.pointsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  /* All rows share the height of the tallest row, so every card is
+     the same width AND height regardless of how many pills it holds. */
+  grid-auto-rows: 1fr;
+  gap: var(--space-4);
+}
+
+.pointsCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-4);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-lg);
+  /* Whole card reads as clickable - the click target will open a
+     large chest preview modal with a buy CTA + open-animation
+     reveal. Same pattern intended for skins/packs later. */
+  cursor: pointer;
+}
+
+/* Hover: chest gently bobs up and down. No border, no glow change,
+   no other hover treatment - just a soft levitation cue that draws
+   the eye to the chest you're considering buying. */
+.pointsCard:hover .pointsChestImg {
+  animation: chestBob 1.6s ease-in-out infinite;
+}
+
+@keyframes chestBob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Single-row pill rail above the chest. Pills sit side-by-side
+   (BEST VALUE left, bonus right) so the rail height is the same
+   for every card - 1 pill, 2 pills, or 0 pills - and the chest
+   below always lands at the same Y. */
+.pointsPillsArea {
+  min-height: 24px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: var(--space-2);
+  width: 100%;
+}
+
+/* "BEST VALUE" pill (top tier only, sits to the LEFT of the bonus pill) */
+.pointsBestValuePill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--rarity-legendary);
+  color: #000;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+}
+
+/* Bonus pill (options 2-6) */
+.pointsBonusPill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pointsBonusPill_teal {
+  background: rgba(3, 218, 198, 0.15);
+  color: var(--accent-primary);
+}
+
+.pointsBonusPill_purple {
+  background: rgba(187, 134, 252, 0.15);
+  color: var(--accent-secondary);
+}
+
+.pointsBonusPill_gold {
+  background: rgba(255, 215, 0, 0.15);
+  color: var(--rarity-legendary);
+}
+
+/* Chest frame: positions a soft elliptical neon "puddle" UNDER the
+   chest only (not around the whole silhouette). The chest image sits
+   on top in normal flow; the glow lives in a `::before` pseudo placed
+   just below the image's bottom edge, blurred for softness, with a
+   per-tier color via the `--chest-glow` custom property.
+   `isolation: isolate` keeps the negative z-index scoped so the glow
+   doesn't leak under the card itself. */
+.chestFrame {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+}
+
+.chestFrame::before {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 58%;
+  height: 24px;
+  /* Single radial gradient with a sharp bright plateau (full alpha
+     held through 25% radius) before fading to transparent at 70%.
+     This produces a visibly punchy core instead of the washed-out
+     soft-fade look two stacked gradients gave. Light blur smooths
+     the falloff edge without smearing the bright center. */
+  background: radial-gradient(
+    ellipse at center,
+    var(--chest-glow, transparent) 0%,
+    var(--chest-glow, transparent) 25%,
+    transparent 70%
+  );
+  filter: blur(6px);
+  z-index: -1;
+  pointer-events: none;
+  opacity: 1;
+}
+
+.chestFrame_teal   { --chest-glow: rgba(3, 218, 198, 1); }
+.chestFrame_purple { --chest-glow: rgba(187, 134, 252, 1); }
+.chestFrame_gold   { --chest-glow: rgba(255, 215, 0, 1); }
+
+/* Best-value tile: bigger and softer gold puddle so option 6 reads
+   even more premium than the standard-gold option 5. */
+.chestFrameBestValue {
+  --chest-glow: rgba(255, 215, 0, 1);
+}
+.chestFrameBestValue::before {
+  width: 70%;
+  height: 32px;
+  filter: blur(10px);
+}
+
+/* The chest itself: subtle dark contact shadow so the 3D render is
+   grounded on the floor and doesn't float - colored glow lives under
+   the chest via the frame's pseudo-element. */
+.pointsChestImg {
+  width: 100%;
+  max-height: 130px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55));
+}
+
+/* Big points number, tier-colored */
+.pointsAmount {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  line-height: 1.1;
+  margin-top: var(--space-2);
+}
+
+.pointsAmount_teal {
+  color: var(--accent-primary);
+}
+
+.pointsAmount_purple {
+  color: var(--accent-secondary);
+}
+
+.pointsAmount_gold {
+  color: var(--rarity-legendary);
+}
+
+/* "POINTS" label sits tight under the number. */
+.pointsLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+
+/* $TOKEN price - smaller and closer to the points label. */
+.pointsPrice {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  margin-top: var(--space-1);
+}
+
+/* Buy button - disabled until token-payment integration ships. Hover
+   rule kept for future enabled state per spec. Compact desktop sizing;
+   shrinks further on tablet and mobile via the responsive blocks. */
+.pointsBuyBtn {
+  width: 100%;
+  max-width: 140px;
+  min-height: 32px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #000;
+  margin-top: var(--space-2);
+  cursor: pointer;
+  transition: filter var(--duration-fast) var(--ease-out);
+}
+
+.pointsBuyBtn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+/* Disabled state intentionally looks identical to enabled - only
+   `cursor: not-allowed` signals it's not yet clickable. The visual
+   stays bright and full-saturation so the page reads as live. */
+.pointsBuyBtn:disabled {
+  cursor: not-allowed;
+}
+
+.pointsBuyBtn_teal {
+  background: var(--accent-primary);
+}
+
+.pointsBuyBtn_purple {
+  background: var(--accent-secondary);
+}
+
+.pointsBuyBtn_gold {
+  background: var(--rarity-legendary);
+}
+
+.pointsComingSoon {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  margin-top: var(--space-2);
+}
+
+/* Responsive - 3 cols → 2 cols → 1 col, with progressively smaller
+   buy buttons at each breakpoint. */
+@media (max-width: 900px) {
+  .pointsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pointsBuyBtn {
+    max-width: 120px;
+    min-height: 28px;
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 600px) {
+  .pointsGrid {
+    grid-template-columns: 1fr;
+    max-width: 340px;
+    margin: 0 auto;
+  }
+  .pointsAmount {
+    font-size: var(--text-xl);
+  }
+  .pointsChestImg {
+    max-height: 110px;
+  }
+  .pointsBuyBtn {
+    max-width: 110px;
+    min-height: 24px;
+    padding: 3px 8px;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+}
