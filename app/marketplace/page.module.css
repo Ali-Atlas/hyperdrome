@@ -1531,6 +1531,11 @@
 /* ---------- Big tilted legendary card (right side of hero) ---------- */
 
 .heroCardWrap {
+  /* `position: relative` is the positioning context for the absolute
+     particle layer. No glow / border / background here - the L card's
+     own static box-shadow is the focal point and we don't want a
+     rectangular halo reading as a frame around it. */
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1612,6 +1617,95 @@
   }
   50% {
     transform: rotateY(-14deg) rotateX(6deg) translateY(-10px);
+  }
+}
+
+/* ==========================================================================
+ * Legendary pack ambient particle FX + border glow pulse - scoped to
+ * the L card area only (`.heroCardWrap` is the bounding box).
+ * The particle layer sits as a sibling of `.bigLegendaryCard` inside
+ * `.heroCardWrap`, so particles spawn from the L-card's edges and
+ * drift outward. The L card itself keeps its existing float animation
+ * and visual identity - we only style the parent and an absolute layer.
+ * ========================================================================== */
+
+.particleLayer {
+  /* Locked to the L card's exact dimensions and centered inside
+     heroCardWrap. Without this, the layer would inherit heroCardWrap's
+     full width (which goes to 100% of the article on <=1100px when
+     heroGrid collapses to one column), and particles would scatter
+     across the whole hero. With it locked to 220x310, particles
+     spawn on/just above the L card itself - which is the goal. */
+  position: absolute;
+  width: 220px;
+  height: 310px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2;
+}
+
+.particle {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform, opacity;
+  border-radius: var(--radius-full);
+  animation-name: particleFloat;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+  animation-iteration-count: 1;
+}
+
+/* ---- Size (depth parallax) ---- */
+.particle_sm {
+  width: 3px;
+  height: 3px;
+}
+.particle_md {
+  width: 5px;
+  height: 5px;
+}
+.particle_lg {
+  width: 7px;
+  height: 7px;
+}
+
+/* ---- Color + glow ---- */
+.particle_gold {
+  background: var(--color-legendary-glow);
+  box-shadow: 0 0 5px rgba(255, 215, 0, 0.85);
+}
+.particle_white {
+  background: var(--color-legendary-glow-white);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.95);
+}
+.particle_amber {
+  background: var(--color-legendary-glow-amber);
+  box-shadow: 0 0 5px rgba(255, 165, 0, 0.75);
+}
+
+/* Smooth straight-line drift. Position interpolates ONLY between 0%
+ * and 100% so the trajectory is a single uninterrupted line - no
+ * mid-flight anchor points, no scale changes, no rotation, no kinks.
+ * Opacity fades in over the first 20% and out over the last 30%, so
+ * the dot appears smoothly at its spawn point and dissipates at the
+ * end of its drift. */
+@keyframes particleFloat {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(var(--dx, 0px), var(--dy, -80px));
+    opacity: 0;
   }
 }
 
@@ -1835,6 +1929,10 @@
   }
   .bigCardL {
     font-size: 110px;
+  }
+  .particleLayer {
+    width: 180px;
+    height: 250px;
   }
 }
 

@@ -1173,7 +1173,10 @@ function LiveTicker() {
 
 /* Hero legendary pack. Left column = copy + odds + possible pulls +
    CTA; right column = a big tilted gold "L" card that slowly floats.
-   The over-the-top treatment Captain wanted. */
+   Ambient particle FX + border-glow pulse are scoped to the L-card
+   container (`.heroCardWrap`) so the attention-pull is right on the
+   pack art, not the surrounding article. The L card itself stays
+   untouched - particles are a sibling, glow pulse is on the parent. */
 function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
   return (
     <article
@@ -1201,6 +1204,7 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
           </div>
         </div>
         <div className={styles.heroCardWrap} aria-hidden="true">
+          <LegendaryParticles />
           <div className={styles.bigLegendaryCard}>
             <span className={styles.bigCardL}>L</span>
             <span className={styles.bigCardLabel}>Legendary</span>
@@ -1208,6 +1212,114 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
         </div>
       </div>
     </article>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Ambient particle FX over the Legendary Pack hero.                          */
+/* -------------------------------------------------------------------------- */
+
+let particleNextId = 0;
+
+/** Roll a single particle. Single smooth upward trajectory - no
+ *  radial bursts, no direction reversals. Each particle:
+ *  - spawns somewhere on the card's surface
+ *  - drifts gently upward (never sideways or downward)
+ *  - has a small per-particle horizontal sway (consistent direction)
+ *  - shrinks + fades over its lifetime
+ *  Eye reads it as a continuous rising glitter rather than zigzagging
+ *  dots. */
+function spawnParticle() {
+  // Size variety for depth parallax - small/medium/large round dots.
+  const sizeRoll = Math.random();
+  const size = sizeRoll < 0.55 ? 'sm' : sizeRoll < 0.85 ? 'md' : 'lg';
+
+  // Color hierarchy: 55% gold, 30% white, 15% amber.
+  const r = Math.random();
+  const color = r < 0.55 ? 'gold' : r < 0.85 ? 'white' : 'amber';
+
+  // Spawn distribution: 75% halo around the card, 25% on the card itself.
+  let left;
+  let top;
+  if (Math.random() < 0.75) {
+    let attempts = 0;
+    do {
+      left = -25 + Math.random() * 150;
+      top = -10 + Math.random() * 125;
+      attempts += 1;
+    } while (
+      left >= 10 && left <= 90 && top >= 10 && top <= 90 && attempts < 8
+    );
+  } else {
+    left = 15 + Math.random() * 70;
+    top = 15 + Math.random() * 70;
+  }
+
+  // Single smooth upward drift. Horizontal sway ±20px, vertical 60-110px.
+  const dx = (Math.random() - 0.5) * 40;
+  const dy = -60 - Math.random() * 50;
+
+  return {
+    id: particleNextId++,
+    size,
+    color,
+    left,
+    top,
+    dx,
+    dy,
+    duration: 2600 + Math.random() * 1400, // 2.6-4s
+    born: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+  };
+}
+
+const PARTICLE_MAX_LIFETIME_MS = 4200;
+const PARTICLE_MAX_COUNT = 24;
+const PARTICLE_SPAWN_INTERVAL_MS = 180;
+
+/**
+ * 20-30 particles continuously emitted from the legendary card edges,
+ * drifting upward + outward with sinusoidal horizontal motion, fading +
+ * shrinking over their 2-4s lifetime. Pure CSS keyframes; only the
+ * spawn/prune loop is in JS.
+ */
+function LegendaryParticles() {
+  const [particles, setParticles] = useState([]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setParticles((prev) => {
+        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        // Drop dead particles, then add a new one, capping at PARTICLE_MAX_COUNT.
+        const alive = prev.filter((p) => now - p.born < PARTICLE_MAX_LIFETIME_MS);
+        const next = [...alive, spawnParticle()];
+        return next.length > PARTICLE_MAX_COUNT
+          ? next.slice(next.length - PARTICLE_MAX_COUNT)
+          : next;
+      });
+    }, PARTICLE_SPAWN_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className={styles.particleLayer} aria-hidden="true">
+      {particles.map((p) => (
+        <span
+          key={p.id}
+          className={cn(
+            styles.particle,
+            styles[`particle_${p.size}`],
+            styles[`particle_${p.color}`],
+          )}
+          style={{
+            left: `${p.left}%`,
+            top: `${p.top}%`,
+            animationDuration: `${p.duration}ms`,
+            '--dx': `${p.dx}px`,
+            '--dy': `${p.dy}px`,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 

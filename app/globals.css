@@ -28,6 +28,11 @@
   --accent-error: #CF6679;
   --accent-success: #03DAC6;
   --accent-warning: #F5C518;
+  /* Legendary pack ambient particle palette - tied to the legendary
+     rarity color but semantically about the FX, not the rarity badge. */
+  --color-legendary-glow: #FFD700;
+  --color-legendary-glow-white: #FFFFFF;
+  --color-legendary-glow-amber: #FFA500;
 
   /* ---- Rarity Colors ---- */
   --rarity-common: #9E9E9E;
