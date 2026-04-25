@@ -162,7 +162,12 @@
 }
 
 .section {
-  scroll-margin-top: 80px;
+  /* Clears the 60px mobile nav bar + 50px sticky tocMobile trigger
+     (and gives ~20px breathing room) so the section heading lands
+     just below the sticky overlay, not under it. On desktop the
+     NavShell is a left sidebar with no top occlusion, so this just
+     adds gentle breathing room above the section. */
+  scroll-margin-top: 130px;
 }
 
 .sectionCard {
@@ -300,14 +305,14 @@
 }
 
 /* ==========================================================================
- * Season 2 preview - prepended above the regular guide content. Purple
- * left-border accent and pill mark it as future content (intentional
- * exception to the no-left-border-on-links rule, scoped to this block).
+ * Season 2 preview - prepended above the regular guide content. The pill
+ * is the only differentiator. NEVER add a left-border (or any border)
+ * accent to this block or any other section in the Guide / FAQ.
  * ========================================================================== */
 
 .s2Section {
   margin-bottom: var(--space-8);
-  scroll-margin-top: 80px;
+  scroll-margin-top: 130px;
 }
 
 .s2Pill {

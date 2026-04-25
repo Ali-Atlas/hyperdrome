@@ -181,6 +181,18 @@ const FAQ_SECTIONS = [
         q: 'Why did I lose to a lower-stat drone?',
         a: 'Three usual culprits. Variance (consistency-dampened randomness) rolled their way. Weather hit your weak stat (e.g. heavy rain on a low rain-handling drone). Battery degradation on later laps stacked against you.',
       },
+      {
+        q: 'How are races assigned?',
+        a: 'Races run in automated batches. When a batch triggers, the system pairs active drones within level brackets (1-5, 6-10, 11-15, 16-20) based on ELO rating. If your drone is active, it races every batch.',
+      },
+      {
+        q: 'What is the strategy window?',
+        a: 'After matchmaking, races enter a three-minute pending state. You can see your opponent, the track, and conditions. In Season 2, this is where you\'ll swap Mods to adapt. For now, use it to study your matchups and learn opponent patterns.',
+      },
+      {
+        q: 'What happens if I deactivate a drone between races?',
+        a: 'The change takes effect after the current race batch resolves. You cannot pull a drone out of a pending race.',
+      },
     ],
   },
 
@@ -271,6 +283,28 @@ const FAQ_SECTIONS = [
   },
 
   {
+    category: 'Economy',
+    items: [
+      {
+        q: 'How do I earn points?',
+        a: 'By racing. Winners earn more than losers. You can also purchase Point Chests with $TOKEN when the token economy goes live in Season 2.',
+      },
+      {
+        q: 'Can I make real money playing?',
+        a: 'You can build drones and sell them on the Marketplace. A well-built drone with smart stats, good skins, and eventually mods is worth more than a base drone. Your time and skill translate to asset value. The points-to-token cashout coming in Season 2 will provide a direct exit path with conversion controls.',
+      },
+      {
+        q: 'Is this pay-to-win?',
+        a: 'No. Buying points lets you acquire drones faster, but drone power comes from leveling (earned through racing, no shortcut) and stat allocation (strategic decisions with no respec). A well-built cheap drone beats a badly-built expensive one.',
+      },
+      {
+        q: 'What is the 5% marketplace rake?',
+        a: 'Every sale on the Marketplace has a 5% fee deducted from the sale price. This is the protocol\'s revenue and helps control point supply in the economy.',
+      },
+    ],
+  },
+
+  {
     category: 'Skins and Packs',
     items: [
       {
@@ -338,6 +372,24 @@ const FAQ_SECTIONS = [
       {
         q: 'What are season rewards?',
         a: 'Top finishers earn rewards distributed at the season cutover.',
+      },
+    ],
+  },
+
+  {
+    category: 'Season 2',
+    items: [
+      {
+        q: 'What are Mods?',
+        a: 'Equippable drone modifications coming in Season 2 that affect race performance. Each Mod boosts one stat at the cost of another. They bind permanently to a drone but can be swapped freely within that drone\'s collection between races.',
+      },
+      {
+        q: 'What is the pre-race strategy window used for in Season 2?',
+        a: 'During the three-minute pending window, you\'ll be able to swap equipped Mods on your drone based on the opponent matchup and track conditions. This is where build strategy happens. Adapt your loadout to counter opponents and optimize for specific tracks.',
+      },
+      {
+        q: 'Will there be a token?',
+        a: 'Season 2 introduces the tokenized economy on MegaETH. Points maintain a stable USD value. $TOKEN is used to purchase Point Chests and as the settlement currency when the Marketplace moves on-chain. Specific token details will be announced in collaboration with the MegaETH team.',
       },
     ],
   },

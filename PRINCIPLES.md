@@ -68,3 +68,4 @@ These rules apply to all user-facing copy in the app (page text, labels, tooltip
 - **Numbers as digits.** "5 minutes" not "five minutes". "3 laps" not "three laps". Match the rest of the codebase (the seed, the validators, the existing UI).
 - **Active voice, present tense.** "The simulator picks a winner." not "A winner is picked by the simulator."
 - **Match the source of truth.** Game-mechanic copy must match `lib/game-engine/`, `services/`, and `lib/db/seed.js`. If a number changes there, the copy follows. Don't paraphrase formulas. Don't round.
+- **No left-border (or any border) accents on Guide / FAQ section blocks.** Section differentiation in `app/guide` and `app/faq` is done with the existing pill, the section heading bar, and spacing. Never add `border-left`, `border-right`, `border-top`, or `border-bottom` to a section wrapper as a visual accent. This applies even when prescribed copy or prior conversation suggests otherwise.

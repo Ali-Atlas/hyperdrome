@@ -14,6 +14,8 @@ import {
   Package,
   Calendar,
   Zap,
+  Timer,
+  Wallet,
   ChevronDown,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
@@ -545,8 +547,83 @@ const SEASON_2_PREVIEW = {
   Icon: Sparkles,
 };
 
-/** TOC entries: the Season 2 preview block sits above the regular SECTIONS. */
-const TOC_ENTRIES = [SEASON_2_PREVIEW, ...SECTIONS];
+/**
+ * Overview sections that sit above the deep-dive SECTIONS array.
+ * Conceptual primers; the existing SECTIONS hold the detailed mechanics.
+ */
+const PRE_SECTIONS = [
+  {
+    id: 'how-racing-works',
+    title: 'How Racing Works',
+    Icon: Timer,
+    blocks: [
+      { type: 'subheading', text: 'Race Batches' },
+      {
+        type: 'paragraph',
+        text: 'Races run in automated batches on a regular cycle. When a batch triggers, the system pairs active drones within their level bracket (1-5, 6-10, 11-15, 16-20) using ELO ratings. Higher-rated drones face higher-rated opponents. If a bracket has an odd number of drones, a bot fills the gap to ensure everyone races.',
+      },
+      { type: 'subheading', text: 'Track Assignment' },
+      {
+        type: 'paragraph',
+        text: 'Each race is assigned a track filtered by the drones\' level range. Tracks have minimum and maximum level requirements, difficulty ratings, and unique characteristics: different ratios of straights to turns, varying lengths, and signature conditions.',
+      },
+      { type: 'subheading', text: 'The Strategy Window' },
+      {
+        type: 'paragraph',
+        text: 'When matchmaking completes, races enter a three-minute pending state before execution. During this window you can see your upcoming matchup: your drone vs the opponent, the track layout, weather, and time of day. Study the matchup and prepare. In Season 2, this window is where you\'ll swap Mods to adapt your loadout.',
+      },
+      {
+        type: 'paragraph',
+        text: 'When the timer expires, the race locks and executes. You cannot change your active drone during a pending race. Activate or deactivate drones between race batches.',
+      },
+      { type: 'subheading', text: 'Race Simulation' },
+      {
+        type: 'paragraph',
+        text: 'The race engine simulates each race segment by segment across 3 laps. Segments are either straights or turns, and different stats carry different weight on each type. Weather conditions (clear, rain, wind) and time of day (day, night) apply modifiers to relevant stats. Battery degrades across laps. Lap 1 runs clean, later laps test your Battery Capacity stat. The drone with the lowest total time wins.',
+      },
+      { type: 'subheading', text: 'Rewards and Progression' },
+      {
+        type: 'paragraph',
+        text: 'Winners earn 10 XP and points. Losers earn 4 XP. ELO ratings adjust based on the outcome. Upsets (beating a higher-rated opponent by 50+ ELO) earn recognition. XP drives leveling which unlocks higher stat caps and access to harder tracks. Points fund your economy: buying packs, skins, and drones on the Marketplace.',
+      },
+      { type: 'subheading', text: 'Active Drone Slots' },
+      {
+        type: 'paragraph',
+        text: 'You start with 1 active drone slot. Slot 2 unlocks at 500 total races, slot 3 at 2,000 races. Only active drones enter race batches. Changes to active/inactive status take effect after the current race batch resolves.',
+      },
+    ],
+  },
+  {
+    id: 'the-economy',
+    title: 'The Economy',
+    Icon: Wallet,
+    blocks: [
+      { type: 'subheading', text: 'Points' },
+      {
+        type: 'paragraph',
+        text: 'Points are the in-game currency. You earn them by racing. Winners earn more than losers. Points buy Packs, Skins on the Marketplace, and drones from other players. Points carry a stable USD-denominated value that does not fluctuate with token prices.',
+      },
+      { type: 'subheading', text: 'The Marketplace' },
+      {
+        type: 'paragraph',
+        text: 'The Marketplace is where players trade drones and skins with each other. All listings are priced in points. A 5% rake is applied to every sale. This is the protocol\'s revenue. Active drones can be listed but deactivate on sale. Skins transfer with their drone when sold.',
+      },
+      { type: 'subheading', text: 'Packs' },
+      {
+        type: 'paragraph',
+        text: 'Packs cost points and contain random drones and skins. Three tiers (Starter, Premium, and Legendary) offer different rarity odds. Packs are the primary way to acquire new drones and skins without buying directly from other players.',
+      },
+      { type: 'subheading', text: 'Building Value' },
+      {
+        type: 'paragraph',
+        text: 'A drone\'s market value comes from the time and skill invested in building it. Level, stat allocation, equipped skins, and eventually mods all contribute. There is no stat respec. A well-built drone with smart stat allocation is genuinely scarce and valuable. This is how players create real value: not by farming currency, but by building something worth buying.',
+      },
+    ],
+  },
+];
+
+/** TOC entries: Season 2 preview, then conceptual primers, then deep-dives. */
+const TOC_ENTRIES = [SEASON_2_PREVIEW, ...PRE_SECTIONS, ...SECTIONS];
 
 export default function GuidePage() {
   const [activeId, setActiveId] = useState(SEASON_2_PREVIEW.id);
@@ -579,12 +656,23 @@ export default function GuidePage() {
 
   const handleTocClick = (e, id) => {
     e.preventDefault();
-    const el = sectionRefs.current[id];
-    if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 24;
-    window.scrollTo({ top, behavior: 'smooth' });
     setActiveId(id);
     setMobileOpen(false);
+    // Two RAFs: the first lets React flush the setMobileOpen state,
+    // the second lets the browser relayout (the open dropdown was
+    // taking ~250px of vertical space; collapsing it shifts the page
+    // upward). Only THEN do we read the section's position and
+    // scrollIntoView, so the scroll target reflects post-collapse
+    // layout. Without this, the scroll resolved against pre-collapse
+    // coords and the user landed just below the section heading
+    // after the layout shifted up around the smooth scroll.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = sectionRefs.current[id];
+        if (!el) return;
+        el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
+    });
   };
 
   const activeSection =
@@ -684,25 +772,25 @@ export default function GuidePage() {
                 <div className={styles.sectionBody}>
                   <h3 className={styles.subheading}>Trait Mods</h3>
                   <p className={styles.paragraph}>
-                    Mods are equippable drone modifications that directly impact race outcomes. Skins are permanent visual reskins for your drone. Mods are strategic hardware. Each Mod offers a tradeoff: boost one stat at the cost of another. There are no pure power upgrades, only build diversity.
-                  </p>
-
-                  <h3 className={styles.subheading}>Pre-Race Strategy Window</h3>
-                  <p className={styles.paragraph}>
-                    When a race batch is pending, you&apos;ll see your opponents, the track, and the conditions before the race locks. You&apos;ll have a two-minute window to equip or swap your Mods. Study their build. Read the weather. Adapt your loadout. When the timer hits zero, your configuration locks and the race runs. Commit to your strategy or miss your chance.
+                    Mods are equippable drone modifications that directly impact race outcomes. Unlike Skins, which are permanent visual reskins, Mods are strategic hardware. Each Mod offers a tradeoff: boost one stat at the cost of another. There are no pure power upgrades, only build diversity.
                   </p>
 
                   <h3 className={styles.subheading}>Mod Rarity</h3>
                   <p className={styles.paragraph}>
-                    Common Mods offer subtle adjustments. Small bonus, small penalty. Rare and Epic Mods push harder in both directions, creating sharper tradeoffs and more specialized builds. Legendary Mods break conventional rules entirely with unique mechanics that change how your drone behaves during a race.
+                    Common Mods offer subtle adjustments. Small bonus, small penalty. Rare and Epic Mods push harder in both directions, creating sharper tradeoffs and more specialized builds. Legendary Mods introduce unique mechanics that change how your drone behaves during a race.
+                  </p>
+
+                  <h3 className={styles.subheading}>Mod Strategy</h3>
+                  <p className={styles.paragraph}>
+                    When a race batch enters its pending window, you can see your opponent&apos;s drone, the track, and the conditions. Use the three-minute strategy window to swap which Mods are actively equipped on your drone from its collection. Study their build, read the conditions, adapt your loadout. When the timer hits zero, configurations lock and the race executes. In Season 1, the strategy window lets you study your matchup. In Season 2, it becomes your preparation phase.
                   </p>
 
                   <h3 className={styles.subheading}>Skins vs Mods</h3>
                   <p className={styles.paragraph}>
-                    Skins are cosmetic. They permanently reskin your drone&apos;s appearance and are bound on equip. You buy them on the Marketplace or pull them from Packs. They look different but change nothing about race performance.
+                    Skins are cosmetic. They permanently bind to a drone and change its appearance. You can swap which Skin is actively displayed on your drone at any time, but a Skin cannot be transferred to a different drone. Skins have no impact on race performance.
                   </p>
                   <p className={styles.paragraph}>
-                    Mods are functional. They modify your drone&apos;s racing characteristics and can be swapped between races during the strategy window. They are tradeable on the Marketplace and will have their own Mod Packs.
+                    Mods are functional. They permanently bind to a drone and modify its racing characteristics. Within a drone&apos;s collection, you swap Mods freely between races. Want the same Mod on two drones? You need two copies. A drone with a deep Mod collection is more versatile and more valuable on the Marketplace.
                   </p>
 
                   <h3 className={styles.subheading}>Mod Examples</h3>
@@ -724,14 +812,24 @@ export default function GuidePage() {
                     ))}
                   </div>
 
+                  <h3 className={styles.subheading}>On-Chain Economy</h3>
                   <p className={styles.paragraph}>
-                    Mods, Mod Packs, and the pre-race strategy window will launch with Season 2. The Marketplace will expand with a dedicated MODS tab alongside the existing Drones, Skins, and Packs tabs.
+                    Season 2 introduces the tokenized economy layer. Drones, Skins, and Mods become on-chain assets on MegaETH. The Marketplace transitions to on-chain settlement with the existing 5% protocol rake.
+                  </p>
+                  <p className={styles.paragraph}>
+                    Points carry a stable USD-denominated value independent of token price. All token-to-points and points-to-token conversions use live market rates at the time of transaction. Players can enter the economy by purchasing Point Chests with $TOKEN, and exit by selling built drones and assets on the Marketplace.
+                  </p>
+                  <p className={styles.paragraph}>
+                    Points-to-token cashout will be available with controls to maintain economic stability: a conversion fee, per-account cooldown period, minimum threshold, and a dynamic exchange rate tied to treasury health. These controls reward committed players and prevent automated farming.
+                  </p>
+                  <p className={styles.paragraph}>
+                    Specific token mechanics and integration details will be finalized in collaboration with the MegaETH team.
                   </p>
                 </div>
               </Card>
             </section>
 
-            {SECTIONS.map(({ id, title, Icon, blocks }) => (
+            {[...PRE_SECTIONS, ...SECTIONS].map(({ id, title, Icon, blocks }) => (
               <section
                 key={id}
                 id={id}
