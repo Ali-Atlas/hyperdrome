@@ -4,6 +4,134 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-25 - Guide + FAQ revision: tone, detail, writing rules
+
+**Captain ask (cumulative):** drop the TOC vertical left border, hover state on TOC links should go accent. Make the project no-em-dashes (replace with hyphens). Drop "X but not Y" / "X, not Y" rhetorical contrasts. Tighten copy in Captain's voice (terse, declarative, no editorial closers). Smaller text and smaller padding on both pages. Add a lot more detail to Guide content. Add a lot more questions to FAQ across all angles, accurate to the source.
+
+**Files modified (5):**
+- MOD `PRINCIPLES.md` - new "Writing Style" section codifying: no em/en dashes anywhere; no "X but not Y" rhetorical constructs; no editorial closers; declarative not promotional; short sentences; numerical digits not words; active voice; copy must match source-of-truth code in `lib/game-engine/`, `services/`, `lib/db/seed.js`. Also swept the file's own pre-existing em dashes so the rules doc no longer violates its own rule (lines 9-14, 18-23, 27-31, 36-42, 49-50). Only line 63 still contains the literal em-dash and en-dash characters, escaped inside inline code, where the rule defines them.
+- MOD `app/guide/page.jsx` - full rewrite of every section's copy. Numbers and formulas pulled directly from source: TSB = 9 + 20*level (`lib/game-engine/economy.js:86-89`); per-stat cap = min(100, 10 + floor(4.5 * level)) (economy:98-101); upgrade cost = 1 + floor(currentValue / 10) (economy:59-61); XP-to-next = 300 * level^2 (economy:110-113); race points = 3 + floor(diff/2) + max(0, floor((loserElo - winnerElo)/100)) (economy:125-133); ELO K=32 (economy:142); race interval 300s, XP 10 win / 4 loss, level-up bonus 20 wallet pts, season 30d, slot unlocks 500 / 2000 races, marketplace fee 5%, min listing 10pts (`lib/db/seed.js:35-53`, `services/drone.service.js:275`); segment weights (race-simulator:71-83); weather/night multipliers 0.5/1.0/1.5 clamped (race-simulator:87-102); battery degradation formula (race-simulator:107-113); track length multipliers 0.8/1.0/1.2 (race-simulator:44-48); 7 tracks verbatim from seed:24-32 with full specs; pack contents from `services/pack.service.js:8-35`; skin counts 30/15/8/3 from seed:106-127; skin drop rates 5/2/0.5/0.1% from seed:47-50; tier mapping from `lib/utils.js:19-25`. Cost table widened to all 10 bands (1-9 through 90-99) with the per-band cost. Added a third-column current-track listing with all 7 tracks and their straights/turns/length/difficulty/level-range. Sub-sections expanded to cover what TSB / cap / cost / weather / battery / matchmaking / slots actually compute, with worked examples. All em dashes removed. All "X but not Y" rewritten to standalone declarative sentences. Editorial closers cut.
+- MOD `app/guide/page.module.css` - removed the 2px transparent left border on `.tocLink` (and the active-state border-color override) per the visual ask. Added `.tocLink:hover { color: var(--accent-primary) }`. Active state is now color-only. Body text dropped from `--text-sm` to `--text-xs` (12px). Section heading bar from `--text-base` to `--text-sm`. Section body padding from `--space-5` to `--space-4`. Heading bar padding from `space-3 space-4` to `space-2 space-3`. TOC link padding from `space-2 space-3` to `space-1 space-2`. Inter-block gap from `--space-4` to `--space-3`. Inter-section gap from `--space-5` to `--space-4`. List row term column narrowed from 220px to 180px on mobile-first, 200px at 1024+, 220px at 1440+ (was 240px). Cost-table column 1 cell font becomes mono. Page title from `--text-4xl` to `--text-3xl`, mobile from `--text-3xl` to `--text-2xl`. List-row gap, cost-row gap, and listRow padding-bottom all dropped one space token.
+- MOD `app/faq/page.jsx` - rewrote the question set. Was 5 categories x 4 questions = 20 Q&As. Now 9 categories x 4-11 questions = 67 Q&As. New categories: Stats (10), ELO (4), Points (5), Seasons (4). Existing categories expanded: General 4 -> 7, Drones 5 -> 10, Racing 4 -> 11, Marketplace 4 -> 8, Skins and Packs 4 -> 11. Every numeric answer pulled from source (same code refs as the Guide). Edge cases covered: tie handling (race-simulator:185 awards drone1 on equality), bot backfill triggering (`lib/game-engine/matchmaking.js:84-125`), drone vs player ELO separation, applied vs unapplied skin sale rules, vault-sold-out pack open rejection (`services/pack.service.js:103-108`), tier-aware vs replacement skin behavior at level-up, slot unlock check timing, weather scale 0.5/1.0/1.5, multi-stat priority. All in declarative style, no em dashes, no "X but not Y", no editorial closers. Apostrophes inside JS string literals escaped with `\'`.
+- MOD `app/faq/page.module.css` - section heading from `--text-base` to `--text-sm`. Question button text from `--text-sm` to `--text-xs`, padding from `space-4 space-5` to `space-3 space-4`. Answer text from `--text-sm` to `--text-xs`, padding from `0 space-5 space-4` to `0 space-4 space-3`. Page title from `--text-4xl` to `--text-3xl`. Card gap from `--space-5` to `--space-4`. Hover state on the question button now flips text color to accent (was background tint), and chevron color follows. Mobile padding tightened by one space token throughout.
+
+**Why these specific font/padding choices:** project rule says no hardcoded sizes; only `globals.css` tokens. The next size below `--text-sm` is `--text-xs` (0.75rem). Going below that is not possible without violating the design-system rule, so `--text-xs` is the floor for body copy. Padding similarly stepped down by one token band per element.
+
+**Verified:**
+- `npm run lint` -> 0 errors, 3 warnings (all pre-existing, untouched).
+- `npm run build` -> Compiled successfully. Both `/guide` and `/faq` still listed as static prerendered routes.
+- Em dash sweep: `grep -n "—\|–"` against both pages and both CSS modules returns empty.
+- No browser verification yet by Mercenary. Captain to spot-check at 1440 / 1024 / 375 in the live dev server.
+
+---
+
+## 2026-04-25 — Game Guide + FAQ pages
+
+**Captain ask:** add `/guide` and `/faq` as in-app reference pages, both linked from the NavShell sidebar after Marketplace (BookOpen for Guide, HelpCircle for FAQ). Guide is a single-page document with sticky TOC scroll-spy on desktop and a dropdown TOC on mobile. FAQ is collapsible accordion sections with single-open-at-a-time behavior. Copy was prescribed in full.
+
+**Scope flag:** 5 files — one over the ATLAS 4-file rule. Captain approved explicitly before implementation.
+
+**Files added (4) / modified (1):**
+- MOD `components/ui/NavShell/index.jsx` — added `BookOpen` and `HelpCircle` imports; appended two entries to `NAV_LINKS` after Marketplace. Mobile drawer + desktop sidebar pick the new entries up automatically (the renderer just maps over the array).
+- NEW `app/guide/page.jsx` (`'use client'`) — single source-of-truth `SECTIONS` array drives both the TOC and the rendered content. Each section is a `<Card>` with a flush silver `sectionHeading` bar (`#252525` bg, `#F0F0F0` text — the dashboard pattern). Body uses block dispatch on `{ type: 'subheading' | 'paragraph' | 'list' | 'costTable' }`. Scroll-spy: a single `IntersectionObserver` with `rootMargin: '-20% 0px -60% 0px'` watches every section ref; the topmost intersecting one wins. TOC anchors smooth-scroll on click and update `activeId` immediately so the highlight feels responsive even before the observer settles. Section icons used: Rocket, Sliders, Flag, Map, TrendingUp, Trophy, Coins, Store, Sparkles, Package, Calendar, Zap.
+- NEW `app/guide/page.module.css` — `.layout` is single-column on mobile, `220px 1fr` at ≥1024 (`240px 1fr` at ≥1440). Desktop `.toc` is `position: sticky; top: var(--space-6)` with `max-height: calc(100vh - var(--space-12))` so it scrolls independently when the contents overflow. Active TOC link = `var(--accent-primary)` color + matching left border. Mobile `.tocMobile` is a sticky `<button>` that toggles a list dropdown; chevron rotates 180° on open. `.section { scroll-margin-top: 80px }` keeps the smooth-scrolled anchor below the mobile nav bar. `.costTable` uses CSS grid rows for the stat-cost tier table; `.listRow` is a 220px-term + 1fr-desc grid that collapses to a single column under 600px.
+- NEW `app/faq/page.jsx` (`'use client'`) — `FAQ_SECTIONS` is `[{ category, items: [{ q, a }] }]`. Single integer `openKey` for the entire page (composite key `${categoryIdx}-${itemIdx}`) → only one answer open at a time across all categories. Each row is a `<button aria-expanded aria-controls>` with the question + a `ChevronDown` that rotates 180° on open; the answer panel below has `role="region" aria-labelledby={buttonId}`.
+- NEW `app/faq/page.module.css` — categories stack inside a max-width-880px column. Smooth accordion uses the modern grid-rows trick (`grid-template-rows: 0fr → 1fr` with `overflow: hidden` on the inner wrapper) — no JS height measurement. Chevron transitions `transform`, color flips to `var(--accent-primary)` when open. Question button hover is `rgba(255,255,255,0.03)`. Section heading bar matches the Guide bar exactly.
+
+**Design-system fidelity:**
+- Every color/spacing/font value comes from `globals.css` variables (or the literal silver `#252525` / `#F0F0F0` / `#3F3F3F` already used by the dashboard `sectionHeading`).
+- Both pages reuse the `Card` primitive; nothing duplicates Card styles. The `sectionHeading` is a flush bar inside the card, full-bleed via the Card's existing `overflow: hidden`.
+- No new dependencies. No Tailwind. No inline styles.
+- `prefers-reduced-motion` is already handled globally and overrides the chevron / accordion / scroll-spy transitions automatically.
+- A11y: TOC is `<nav aria-label>`, sections are `<section id>`, accordion has the full ARIA wiring (`aria-expanded`, `aria-controls`, `role="region"`, `aria-labelledby`), all interactive elements have visible `:focus-visible` outlines.
+
+**Verified:**
+- `npm run lint` → 0 errors, 3 warnings (all pre-existing, unrelated to this change).
+- `npm run build` → ✓ Compiled successfully. Both `/faq` and `/guide` listed as `○ (Static)` prerendered pages — no server work, no API routes touched, fully cacheable at the edge.
+- No browser verification by Mercenary — Captain has a dev server already running on PID 70337; the second `npm run dev` invocation correctly refused to start a duplicate. Captain to spot-check at 1440 / 1024 / 375 in the browser.
+
+---
+
+## 2026-04-25 — Visual regression audit + DronePlaceholder/DroneImage primitives
+
+**Captain ask:** audit the app for drone-image, level-color, and rarity-color regressions; fix what's broken; add a reusable SVG silhouette fallback so a missing/broken drone image never falls back to alt text.
+
+**Audit findings (5 checks):**
+1. **Drone images** — wiring correct everywhere. `public/drones/` has tier-1.webp ... tier-4.webp + default.png; `getDroneImageByLevel` resolves `/drones/tier-N.webp` to match files; all six surfaces (dashboard:197, drones-index:380, drones-detail:690, races-detail:634, leaderboard-podium:430, marketplace:1394) call through `getDroneImage`. `app/profile/[userId]` is a stub with no images — left untouched (adding images would be a feature change).
+2. **Image fallback** — was missing. No `onError` handling existed; broken images showed alt text + browser broken-icon. Now handled by the new `DroneImage` wrapper.
+3. **Level tints on cards** — already correct. Marketplace `card_level_*`, drones-index `level_*`, race-detail `level_*` all applied. Dashboard spotlight does NOT apply level tint (per spec). Note: dashboard CSS still defines `.level_steel/.level_orange/.level_purple/.level_gold` (page.module.css:94-127) but never references them in JSX — dead CSS, left alone since "no layout changes."
+4. **Level badge colors** — already correct. `getLevelColor` returns `var(--level-${tier})`; globals.css:43-46 has the right hex values; Badge.module.css pulls the var; every surface uses `getLevelColor` consistently.
+5. **Rarity-rare** — globals.css:33 `--rarity-rare: #4A9EFF` correct, Badge correct, marketplace CSS correct. **One bug:** `SkinMini` in `app/marketplace/page.jsx:1530` hardcoded `rare: '#03DAC6'` (old teal) — used by both pack-reveal modal and skin listing cards. Fixed to `#4A9EFF`.
+
+**Files added (2) / modified (6):**
+- NEW `components/ui/DronePlaceholder/index.jsx` + `DronePlaceholder.module.css` — pure JSX server-safe component. Renders an inline SVG quadcopter silhouette (4 rotor circles at corners, X-shaped arms, central body) with `fill={getLevelColor(level)} opacity="0.15"`. SVG `viewBox="0 0 100 100"` + `preserveAspectRatio="xMidYMid meet"`; the module CSS sets `display: block; width: 100%; height: 100%` so the SVG fills whatever frame the caller's className provides — no layout impact. Props: `{ level=1, className, ariaLabel }`.
+- NEW `components/ui/DroneImage/index.jsx` — `'use client'` wrapper. Resolves `src = getDroneImage(drone)`, tracks load failure with `useState`, swaps to `<DronePlaceholder level={drone?.level ?? 1}>` on `onError`. Uses the React 19 "derived state on prop change" pattern (track previous `src` in state, reset error flag inline when it changes) instead of `useEffect` + `setState` — the latter trips the new `react-hooks/set-state-in-effect` rule. Forwards `...rest` so callers can pass `loading="eager"`, etc.
+- MOD `app/marketplace/page.jsx` — `SkinMini.colors.rare: '#03DAC6'` → `'#4A9EFF'`; `getDroneImage` import dropped; `<img src={getDroneImage(drone)}>` at the listing card replaced with `<DroneImage drone={drone} ... />`.
+- MOD `app/dashboard/page.jsx` — spotlight image replaced with `<DroneImage drone={spotlightDrone} alt={spotlightDrone.name} />`. **No level tint added to the spotlight**, per Captain's instruction.
+- MOD `app/drones/page.jsx` — drone-card image replaced with `<DroneImage drone={drone} ... className={styles.droneImg} />`.
+- MOD `app/drones/[droneId]/page.jsx` — local helper named `DroneImage` (lines 687-696) deleted (it duplicated what the new primitive does); call site updated to use the new primitive with `loading="eager"` preserved.
+- MOD `app/races/[raceId]/page.jsx` — `DroneCard` image replaced with `<DroneImage drone={drone} ... className={styles.droneImg} />`.
+- MOD `app/leaderboard/page.jsx` — `PodiumCard` image replaced with `<DroneImage drone={entry} alt={name ?? 'Unclaimed'} />`. The unused `imageUrl = getDroneImage(entry)` local was removed. When tab=players the `entry` is a user (no `level`/`appliedSkin`); the wrapper falls through to `tier-1` steel silhouette via the existing `level ?? 1` default — no behavior change versus before.
+
+**Unchanged on purpose:**
+- `globals.css` rarity tokens — already correct (`--rarity-rare: #4A9EFF`).
+- `components/ui/Badge` — already pulls `var(--rarity-*)` and `var(--level-*)` correctly.
+- Other `#03DAC6` literals (race-difficulty pill teal, TrackSvg racing line, landing-page SVG accent) — intentional accent uses, not rarity.
+- Marketplace `.sil_rainbow` conic-gradient (page.module.css:1379) keeps `#03DAC6` as one of four decorative wheel colors — not literal rarity.
+- Dashboard `.level_*` CSS classes (dead since the JSX never applies them) — left alone since spec says "no layout changes."
+- `app/profile/[userId]/page.jsx` — currently a stub returning `<div>Player Profile</div>`. Adding drone images here would be a new feature.
+
+**Quadcopter silhouette shape:** four rotor circles (r=13) at corners (22,22 / 78,22 / 22,78 / 78,78), two rotated rectangles forming an X-arm (8×72, rotate ±45° around center), central rounded-rectangle body (24×24, rx=5). Reads as a top-down quadcopter at any size; tints to steel / orange / purple / gold based on level.
+
+**Verified:**
+- `npm run lint` → 0 errors, 3 warnings. Down from 8 warnings before this change because 5 raw `<img>` tags collapsed into one wrapped instance inside `DroneImage`. Remaining 3: `DroneImage` itself + the two tracks pages (pre-existing, untouched).
+- No browser verification by Mercenary — UI surfaces would need a real "tier-N.webp missing" scenario to exercise the placeholder; the simplest manual test is to temporarily rename a `tier-N.webp` file in `public/drones/` and reload one of the six surfaces.
+
+**Rule exception:** 8 files (2 new components + 6 modifications) — exceeds the 4-file cap. Pre-approved by Captain.
+
+**Captain to spot-check:**
+- Marketplace skins tab: rare-rarity skin previews (`SkinMini`) and skin listing cards now show in BLUE (#4A9EFF), not teal.
+- Dashboard / drone manager / drone detail / marketplace / leaderboard podium / race detail: rename `public/drones/tier-1.webp` to break it, reload — all six surfaces should show a steel-tinted quadcopter silhouette at 15% opacity instead of the broken-image icon + alt text. Restore the file when done.
+- Dashboard spotlight: no level-tinted background, only skin-rarity glow when an epic/legendary skin is equipped.
+
+---
+
+## 2026-04-24 — Laps system (all races = 3 laps)
+
+**Captain ask:** add laps to the race engine. Tracks get a `laps` column (NOT NULL DEFAULT 3); simulator runs the shuffled segment sequence once per lap (same order every lap); battery degradation compounds by `currentLap / totalLaps` so it hurts most on the final lap; weather + time-of-day stay constant; final time is the sum across all laps; economy stays untouched (points do NOT scale with laps). Minimal data-only UI: Laps shown on tracks index cards, track detail specs, race detail track info, and a Lap column in the race-log table. No CSS changes.
+
+**Files modified (6):**
+- MOD `lib/db/schema.js` — `tracks.laps: integer NOT NULL DEFAULT 3`.
+- MOD `lib/db/seed.js` — `laps: 3` on all 7 `TRACK_DATA` entries. Existing rows picked up the default via `drizzle-kit push`, so no re-seed was needed.
+- MOD `lib/game-engine/race-simulator.js` — `simulateRace` now wraps the segment loop in an outer `for lap in 1..totalLaps`, reusing the same shuffled segment sequence each lap (matches "same segment sequence" requirement). `scoreSegment` signature changed from `(segmentIndex, totalSegments)` to `(currentLap, totalLaps)`; the old second-half battery gate was replaced with `degradation = ((100 - batteryCapacity)/100) * 0.3 * (currentLap/totalLaps)`, applied every segment — lap 1 ≈ 0.10× factor, lap 2 ≈ 0.20×, lap 3 full 0.30×. Each log entry gains a `lap` field; `segment` is a global counter across all laps (1..30 for 3 laps × 10 segments). Return payload now includes `laps` at the top level.
+- MOD `app/races/[raceId]/page.jsx` — added a `<TrackStat label="Laps" value={race.track?.laps ?? 3} />` + divider to the existing `trackStatsRow`; added a `lap` column (right-aligned, mono) to the race-log `DataTable` between `#` and `Segment`. No CSS, no primitive changes.
+- MOD `app/tracks/page.jsx` — added `<Spec label="Laps" value={track.laps} />` + separator to the `TrackCard` specs row.
+- MOD `app/tracks/[trackId]/page.jsx` — added `laps` to the `Specs` helper (prop + new spec row between Turns and Length), passed `laps={track.laps}` from the caller.
+
+**Unchanged on purpose:**
+- `services/race.service.js` — the race row already spreads the full track row into the response, so `race.track.laps` flows through automatically. No service edits needed.
+- `lib/game-engine/economy.js` — `calculateRacePoints(trackDifficulty, winnerElo, loserElo, config)` has no laps dependency. Leaving it alone prevents economy inflation if lap counts change later.
+- Race log data shape decision: went with a flat array + `lap` field on every entry (+ a "Lap" column in the existing DataTable) instead of grouping by lap with LAP N section headers. Existing helpers (`computeWinnerGaps`, `countLeadChanges`, `computeWinnerCumTimes`, `generateCommentary`, `GapSparkline`) all iterate `race.raceLog` flatly and continue to work unchanged.
+
+**DB migration:** `npx drizzle-kit push` reported `[✓] Changes applied`. The NOT NULL DEFAULT 3 on the new column backfilled all existing track rows to 3 — no historical data rewrite needed.
+
+**Verified:**
+- `npm run lint` → 0 errors, 8 `<img>` warnings (all pre-existing, none introduced).
+- No `npm run build` per Captain's follow-up.
+- No browser verification by Mercenary.
+
+**Gotcha worth flagging:** races persisted BEFORE this change have `raceLog` entries without a `lap` field. The Lap column renders `-` for those rows (handled via `r.lap ?? '-'`), and derived-gap/commentary helpers are unaffected since they don't read `.lap`. New races written post-push will carry `lap` on every segment.
+
+**Rule exception:** 6 files modified (exceeds the 4-file cap). Pre-approved by Captain in the plan-confirmation step.
+
+**Captain to spot-check:**
+- `/tracks` — each card shows Straights · Turns · **Laps 3** · Length in the specs row.
+- `/tracks/[trackId]` — title-row specs include Laps 3 between Turns and Length.
+- `/races/[raceId]` — track info row shows Laps 3 alongside Straights/Turns/Length; race log table has a Lap column (1/2/3).
+- Wait one race cycle (or admin-trigger) and confirm new races have raceLog entries with `lap` populated and drone times roughly 3× prior race times (since we now run 3× the segments).
+
+---
+
 ## 2026-04-23 — Tracks index + detail pages + /api/tracks/[trackId] + NavShell "Tracks" link
 
 **Captain ask:** build the Tracks feature end-to-end — a new sidebar link (Map icon, between Races and Leaderboard), a two-column track-card index at `/tracks`, a detail page at `/tracks/[trackId]` with hero banner + TRACK STATS / TOP PERFORMERS / RECENT RACES cards, and a new `GET /api/tracks/[trackId]` endpoint returning track + stats + top-5 win-rate + last-10 races. Use existing design system (Card, DataTable, Badge, level colors, flush header bars). Difficulty rendered as 10 dots colored by tier (1-3 teal, 4-6 purple, 7-10 red). Level bracket badge renders as a min→max tier-color gradient. Each track gets a signature neon accent color (cyan/green/orange/white/purple/yellow/red) keyed by name.

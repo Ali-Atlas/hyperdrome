@@ -673,3 +673,75 @@
     font-size: var(--text-xs);
   }
 }
+
+/* ==========================================================================
+ * Pagination - mirrors the races page pattern (numbered + chevron-next).
+ * Inlined here rather than extracted to a shared primitive to keep blast
+ * radius small for this UI pass.
+ * ========================================================================== */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: var(--space-3) 0;
+}
+
+.pageNum {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.pageNum:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pageNumActive {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-subtle);
+}
+
+.pageEllipsis {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 0 6px;
+  user-select: none;
+}
+
+.pageNext {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-left: var(--space-2);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.pageNext:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.pageNext:disabled {
+  cursor: not-allowed;
+}

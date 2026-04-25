@@ -2,14 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Trophy, Sparkles, Coins, Award } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Trophy, Sparkles, Coins, Award, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import DataTable from '@/components/ui/DataTable';
 import Toggle from '@/components/ui/Toggle';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from '@/hooks/useSession';
-import { cn, getDroneImage, getLevelColor } from '@/lib/utils';
+import { cn, getLevelColor } from '@/lib/utils';
+import DroneImage from '@/components/ui/DroneImage';
+import PlayerAvatar from '@/components/ui/PlayerAvatar';
 import styles from './page.module.css';
+
+const PAGE_SIZE = 25;
 
 const BRACKETS = [
   { value: 'all',   label: 'All Levels' },
@@ -41,6 +46,7 @@ function computeWinRate(wins, races) {
 /* -------------------------------------------------------------------------- */
 
 export default function LeaderboardPage() {
+  const router = useRouter();
   const { user } = useSession();
   const [tab, setTab] = useState('players');
   const [bracket, setBracket] = useState('all');
@@ -50,6 +56,14 @@ export default function LeaderboardPage() {
   const [myStats, setMyStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [myDroneIds, setMyDroneIds] = useState(new Set());
+  const [page, setPage] = useState(1);
+  // Reset to page 1 whenever the data set changes (tab / bracket / bots toggle).
+  const [trackedDataKey, setTrackedDataKey] = useState(`${tab}|${bracket}|${includeBots}`);
+  const dataKey = `${tab}|${bracket}|${includeBots}`;
+  if (dataKey !== trackedDataKey) {
+    setTrackedDataKey(dataKey);
+    setPage(1);
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -107,6 +121,15 @@ export default function LeaderboardPage() {
     () => items.slice(3).map((row, i) => ({ ...row, __rank: i + 4 })),
     [items],
   );
+  const totalPages = Math.max(1, Math.ceil(rest.length / PAGE_SIZE));
+  const pageStart = (page - 1) * PAGE_SIZE;
+  const pageRows = rest.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const handleRowClick = (row) => {
+    if (!row?.id) return;
+    if (tab === 'players') router.push(`/profile/${row.id}`);
+    else router.push(`/drones/${row.id}`);
+  };
 
   const rowIsMine = (row) => {
     if (tab === 'players') return user?.id && row.id === user.id;
@@ -365,7 +388,7 @@ export default function LeaderboardPage() {
         <DataTable
           sortable
           columns={columns}
-          data={rest}
+          data={pageRows}
           loading={loading}
           emptyMessage={
             tab === 'players'
@@ -373,8 +396,17 @@ export default function LeaderboardPage() {
               : 'No drones match the current filters.'
           }
           rowClassName={(row) => (rowIsMine(row) ? styles.myRow : null)}
+          onRowClick={handleRowClick}
           className={styles.rankingsTable}
         />
+
+        {totalPages > 1 && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        )}
       </div>
 
       {/* ---- Sticky "Your Rank" bar (logged-in users only) ---- */}
@@ -427,7 +459,6 @@ function PodiumCard({ rank, entry, tab }) {
   const totalRaces = entry?.totalRaces ?? 0;
   const winRate = computeWinRate(wins, totalRaces);
   const seasonPts = tab === 'players' ? entry?.seasonPoints : null;
-  const imageUrl = getDroneImage(entry);
 
   const rankClass =
     rank === 1 ? styles.gold : rank === 2 ? styles.silver : styles.bronze;
@@ -470,7 +501,11 @@ function PodiumCard({ rank, entry, tab }) {
       </div>
 
       <div className={styles.podiumImageFrame}>
-        <img src={imageUrl} alt={name ?? 'Unclaimed'} />
+        {tab === 'players' ? (
+          <PlayerAvatar ariaLabel={name ?? 'Unclaimed'} />
+        ) : (
+          <DroneImage drone={entry} alt={name ?? 'Unclaimed'} />
+        )}
       </div>
 
       <dl className={styles.podiumStats}>
@@ -511,4 +546,52 @@ function PodiumStat({ label, value }) {
       <dd>{value}</dd>
     </div>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pagination - same numbered pattern as the races page                        */
+/* -------------------------------------------------------------------------- */
+
+function Pagination({ page, totalPages, onPageChange }) {
+  const pages = getVisiblePages(page, totalPages);
+  return (
+    <nav className={styles.pagination} aria-label="Pagination">
+      {pages.map((p, i) =>
+        p === '...' ? (
+          <span key={`ell-${i}`} className={styles.pageEllipsis}>…</span>
+        ) : (
+          <button
+            key={p}
+            type="button"
+            className={cn(styles.pageNum, p === page && styles.pageNumActive)}
+            onClick={() => onPageChange(p)}
+            aria-current={p === page ? 'page' : undefined}
+          >
+            {p}
+          </button>
+        ),
+      )}
+      <button
+        type="button"
+        className={styles.pageNext}
+        disabled={page >= totalPages}
+        onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+        aria-label="Next page"
+      >
+        <ChevronRight size={14} />
+      </button>
+    </nav>
+  );
+}
+
+function getVisiblePages(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = [1];
+  if (current > 3) pages.push('...');
+  const lo = Math.max(2, current - 1);
+  const hi = Math.min(total - 1, current + 1);
+  for (let i = lo; i <= hi; i++) pages.push(i);
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
 }

@@ -43,7 +43,36 @@ async function loadConfig() {
     skinDropRateRare:      num('skin_drop_rate_rare', 0.02),
     skinDropRateEpic:      num('skin_drop_rate_epic', 0.005),
     skinDropRateLegendary: num('skin_drop_rate_legendary', 0.001),
+    slot2UnlockRaces:      num('slot_2_unlock_races', 500),
+    slot3UnlockRaces:      num('slot_3_unlock_races', 2000),
   };
+}
+
+/**
+ * Bump activeDroneSlots once a player crosses the configured race-count
+ * thresholds. Idempotent: only updates when the new tier is higher than
+ * the current. Called after each race for both participants' owners.
+ */
+async function maybeUnlockSlot(userId, cfg) {
+  if (!userId) return;
+  const [u] = await db
+    .select({
+      totalRaces: users.totalRaces,
+      activeDroneSlots: users.activeDroneSlots,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!u) return;
+  let target = u.activeDroneSlots;
+  if (u.totalRaces >= cfg.slot3UnlockRaces && target < 3) target = 3;
+  else if (u.totalRaces >= cfg.slot2UnlockRaces && target < 2) target = 2;
+  if (target > u.activeDroneSlots) {
+    await db
+      .update(users)
+      .set({ activeDroneSlots: target })
+      .where(eq(users.id, userId));
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -223,6 +252,12 @@ async function runSingleRace(d1, d2, cfg) {
   await checkAndLevelUp(winner.id);
   await checkAndLevelUp(loser.id);
 
+  // Active-drone slot unlocks - check both participants' owners since the
+  // loser also gains a totalRaces increment and shouldn't be stuck behind a
+  // win-gated unlock.
+  if (winner.userId && !winner.isBot) await maybeUnlockSlot(winner.userId, cfg);
+  if (loser.userId && !loser.isBot) await maybeUnlockSlot(loser.userId, cfg);
+
   // Skin drop for winner (only for non-bot owners)
   if (winner.userId && !winner.isBot) {
     await rollSkinDropForWinner(winner.userId, cfg);
@@ -249,6 +284,20 @@ export async function getRaces(filters = {}, pagination = {}) {
   if (filters.droneId) {
     conditions.push(
       or(eq(races.drone1Id, filters.droneId), eq(races.drone2Id, filters.droneId)),
+    );
+  }
+  if (filters.userId) {
+    const userDrones = await db
+      .select({ id: drones.id })
+      .from(drones)
+      .where(eq(drones.userId, filters.userId));
+    if (userDrones.length === 0) return [];
+    const userDroneIds = userDrones.map((d) => d.id);
+    conditions.push(
+      or(
+        inArray(races.drone1Id, userDroneIds),
+        inArray(races.drone2Id, userDroneIds),
+      ),
     );
   }
 
@@ -420,8 +469,28 @@ export async function getDroneRaceHistory(droneId, limit = 10) {
     .limit(limit);
 }
 
-/** Total race count (used by the races page header). */
-export async function getTotalRaceCount() {
+/** Total race count (used by the races page header).
+ *  When `filters.userId` is set, counts only races where one of the user's
+ *  drones raced in either slot - so the header value matches the "Your
+ *  Races" toggle on the races page.
+ *  @param {{ userId?: string }} [filters]
+ */
+export async function getTotalRaceCount(filters = {}) {
+  if (filters.userId) {
+    const userDrones = await db
+      .select({ id: drones.id })
+      .from(drones)
+      .where(eq(drones.userId, filters.userId));
+    if (userDrones.length === 0) return 0;
+    const ids = userDrones.map((d) => d.id);
+    const [row] = await db
+      .select({ count: sql`count(*)::int` })
+      .from(races)
+      .where(
+        or(inArray(races.drone1Id, ids), inArray(races.drone2Id, ids)),
+      );
+    return row?.count ?? 0;
+  }
   const [row] = await db.select({ count: sql`count(*)::int` }).from(races);
   return row?.count ?? 0;
 }

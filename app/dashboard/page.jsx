@@ -6,8 +6,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import btnStyles from '@/components/ui/Button/Button.module.css';
-import { cn, getDroneImage, getLevelColor } from '@/lib/utils';
+import { cn, getLevelColor } from '@/lib/utils';
+import DroneImage from '@/components/ui/DroneImage';
 import EmptyState from '@/components/ui/EmptyState';
+import RacingStatusPill from '@/components/ui/RacingStatusPill';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from '@/hooks/useSession';
 import styles from './page.module.css';
@@ -193,8 +195,8 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <div className={styles.spotlightImage}>
-                    <img
-                      src={getDroneImage(spotlightDrone)}
+                    <DroneImage
+                      drone={spotlightDrone}
                       alt={spotlightDrone.name}
                     />
                   </div>
@@ -339,7 +341,7 @@ export default function DashboardPage() {
                         {won ? (
                           <span className={styles.resultWin}>WIN</span>
                         ) : (
-                          <span className={styles.resultLossPill}>LOSS</span>
+                          <span className={styles.resultLoss}>LOSS</span>
                         )}
                       </span>
                       <span
@@ -466,7 +468,7 @@ function NextRaceCountdown({ targetDate, paused }) {
         </div>
       </div>
       <div className={styles.countdownTagline}>
-        {paused ? 'Racing Paused' : 'Until Next Race'}
+        {paused ? <RacingStatusPill paused /> : 'Until Next Race'}
       </div>
     </>
   );

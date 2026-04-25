@@ -55,6 +55,7 @@ export default async function TrackDetailPage({ params }) {
             <Specs
               straights={track.straights}
               turns={track.turns}
+              laps={track.laps}
               length={track.length}
             />
           </div>
@@ -262,7 +263,7 @@ function StatCell({ label, value, sub }) {
   );
 }
 
-function Specs({ straights, turns, length }) {
+function Specs({ straights, turns, laps, length }) {
   return (
     <span className={styles.specs}>
       <span className={styles.spec}>
@@ -273,6 +274,11 @@ function Specs({ straights, turns, length }) {
       <span className={styles.spec}>
         <span className={styles.specLabel}>Turns</span>
         <span className={styles.specValue}>{turns}</span>
+      </span>
+      <span className={styles.specSep} aria-hidden="true" />
+      <span className={styles.spec}>
+        <span className={styles.specLabel}>Laps</span>
+        <span className={styles.specValue}>{laps}</span>
       </span>
       <span className={styles.specSep} aria-hidden="true" />
       <span className={styles.spec}>

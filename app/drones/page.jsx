@@ -8,10 +8,10 @@ import Skeleton from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 import {
   cn,
-  getDroneImage,
   getLevelColor,
   getLevelTier,
 } from '@/lib/utils';
+import DroneImage from '@/components/ui/DroneImage';
 import styles from './page.module.css';
 
 const TIERS = ['steel', 'orange', 'purple', 'gold'];
@@ -376,8 +376,8 @@ function DroneCard({ drone }) {
         </header>
 
         <div className={styles.imageFrame}>
-          <img
-            src={getDroneImage(drone)}
+          <DroneImage
+            drone={drone}
             alt={drone.name}
             className={styles.droneImg}
           />

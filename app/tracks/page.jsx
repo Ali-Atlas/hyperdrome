@@ -48,6 +48,8 @@ function TrackCard({ track }) {
             <SpecSep />
             <Spec label="Turns" value={track.turns} />
             <SpecSep />
+            <Spec label="Laps" value={track.laps} />
+            <SpecSep />
             <Spec label="Length" value={track.length} upper />
           </div>
         </div>

@@ -14,10 +14,11 @@ export const GET = withApiHandler(
       weather: url.searchParams.get('weather') || undefined,
       timeOfDay: url.searchParams.get('time_of_day') || undefined,
       droneId: url.searchParams.get('drone_id') || undefined,
+      userId: url.searchParams.get('user_id') || undefined,
     };
     const [items, total] = await Promise.all([
       getRaces(filters, pagination),
-      getTotalRaceCount(),
+      getTotalRaceCount({ userId: filters.userId }),
     ]);
     return ok({ items, total, page: pagination.page, limit: pagination.limit });
   },

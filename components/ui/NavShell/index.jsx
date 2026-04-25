@@ -10,6 +10,8 @@ import {
   Map,
   Trophy,
   Store,
+  BookOpen,
+  HelpCircle,
   Menu,
   LogIn,
   LogOut,
@@ -25,6 +27,8 @@ const NAV_LINKS = [
   { href: '/tracks',      label: 'Tracks',      Icon: Map },
   { href: '/leaderboard', label: 'Leaderboard', Icon: Trophy },
   { href: '/marketplace', label: 'Marketplace', Icon: Store },
+  { href: '/guide',       label: 'Guide',       Icon: BookOpen },
+  { href: '/faq',         label: 'FAQ',         Icon: HelpCircle },
 ];
 
 /**

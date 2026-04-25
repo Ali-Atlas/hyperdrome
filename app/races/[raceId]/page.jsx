@@ -19,7 +19,8 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
-import { cn, getDroneImage, getLevelTier } from '@/lib/utils';
+import { cn, getLevelTier } from '@/lib/utils';
+import DroneImage from '@/components/ui/DroneImage';
 import styles from './page.module.css';
 
 const WEATHER_ICONS = {
@@ -429,6 +430,8 @@ export default function RaceDetailPage({ params }) {
               <TrackStatDivider />
               <TrackStat label="Turns" value={race.track?.turns ?? 0} />
               <TrackStatDivider />
+              <TrackStat label="Laps" value={race.track?.laps ?? 3} />
+              <TrackStatDivider />
               <TrackStat
                 label="Length"
                 value={race.track?.length ?? '-'}
@@ -463,6 +466,14 @@ export default function RaceDetailPage({ params }) {
                     align: 'right',
                     render: (r) => (
                       <span className={styles.logMono}>{r.segment}</span>
+                    ),
+                  },
+                  {
+                    key: 'lap',
+                    label: 'Lap',
+                    align: 'right',
+                    render: (r) => (
+                      <span className={styles.logMono}>{r.lap ?? '-'}</span>
                     ),
                   },
                   {
@@ -620,8 +631,8 @@ function DroneCard({ drone, isWinner, time, eloBefore, eloChange, showUpset }) {
         </h2>
 
         <div className={styles.droneImageFrame}>
-          <img
-            src={getDroneImage(drone)}
+          <DroneImage
+            drone={drone}
             alt={drone.name}
             className={styles.droneImg}
           />

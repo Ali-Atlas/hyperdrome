@@ -8,15 +8,30 @@ const { marketplaceListings, drones, skins, users, droneOwnershipHistory } = sch
 /* Create                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/** Minimum price (in points) for any marketplace listing. Blocks 1-pt spam. */
+const MIN_LISTING_PRICE = 10;
+
 /**
- * List a drone or skin for sale. Verifies ownership and (for drones) that
- * the item is inactive.
+ * List a drone or skin for sale. Verifies ownership.
+ *
+ * Active drones ARE listable - they keep racing while listed and are only
+ * deactivated on sale completion (April 2026 rule change).
+ *
+ * Skins that are currently applied to a drone are bound and cannot be
+ * listed independently; they transfer with the drone on its sale.
+ *
  * @param {string} userId
  * @param {'drone'|'skin'} itemType
  * @param {string} itemId
  * @param {number} price
  */
 export async function createListing(userId, itemType, itemId, price) {
+  if (!Number.isInteger(price) || price < MIN_LISTING_PRICE) {
+    throw new ApiError(
+      `Minimum listing price is ${MIN_LISTING_PRICE} points`,
+      400,
+    );
+  }
   if (itemType === 'drone') {
     const [drone] = await db
       .select()
@@ -25,9 +40,6 @@ export async function createListing(userId, itemType, itemId, price) {
       .limit(1);
     if (!drone) throw new ApiError('Drone not found', 404);
     if (drone.userId !== userId) throw new ApiError('You do not own this drone', 403);
-    if (drone.active) {
-      throw new ApiError('Deactivate the drone before listing it', 400);
-    }
   } else {
     const [skin] = await db
       .select()
@@ -36,6 +48,17 @@ export async function createListing(userId, itemType, itemId, price) {
       .limit(1);
     if (!skin) throw new ApiError('Skin not found', 404);
     if (skin.userId !== userId) throw new ApiError('You do not own this skin', 403);
+    const [boundDrone] = await db
+      .select({ id: drones.id })
+      .from(drones)
+      .where(eq(drones.appliedSkinId, itemId))
+      .limit(1);
+    if (boundDrone) {
+      throw new ApiError(
+        'This skin is bound to a drone and transfers with it - list the drone instead',
+        400,
+      );
+    }
   }
 
   const [listing] = await db
@@ -138,15 +161,30 @@ export async function buyListing(buyerId, listingId) {
         ),
       );
 
-    // Transfer drone + unequip any applied skin (skin stays with seller)
+    // Capture the applied skin so we can transfer its ownership to the buyer
+    // along with the drone (skins are permanently bound to drones).
+    const [droneRow] = await db
+      .select({ appliedSkinId: drones.appliedSkinId })
+      .from(drones)
+      .where(eq(drones.id, listing.droneId))
+      .limit(1);
+
+    // Transfer drone, keep the skin equipped, deactivate on sale
     await db
       .update(drones)
       .set({
         userId: buyerId,
-        appliedSkinId: null,
         active: false,
       })
       .where(eq(drones.id, listing.droneId));
+
+    // Bound skin transfers with the drone
+    if (droneRow?.appliedSkinId) {
+      await db
+        .update(skins)
+        .set({ userId: buyerId })
+        .where(eq(skins.id, droneRow.appliedSkinId));
+    }
 
     // New ownership row for buyer
     await db.insert(droneOwnershipHistory).values({

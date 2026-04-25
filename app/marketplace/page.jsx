@@ -13,7 +13,8 @@ import Skeleton from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
-import { cn, getDroneImage, getLevelColor, getLevelTier } from '@/lib/utils';
+import { cn, getLevelColor, getLevelTier } from '@/lib/utils';
+import DroneImage from '@/components/ui/DroneImage';
 import styles from './page.module.css';
 
 const PACK_DEFS = [
@@ -1390,8 +1391,8 @@ function ListingCard({
 
       <div className={styles.listingImage}>
         {isDrone ? (
-          <img
-            src={getDroneImage(drone)}
+          <DroneImage
+            drone={drone}
             alt={drone?.name ?? 'Drone'}
             className={styles.droneImg}
           />
@@ -1527,7 +1528,7 @@ function StatMiniBar({ label, value }) {
 function SkinMini({ rarity = 'common' }) {
   const colors = {
     common: '#9E9E9E',
-    rare: '#03DAC6',
+    rare: '#4A9EFF',
     epic: '#BB86FC',
     legendary: '#FFD700',
   };

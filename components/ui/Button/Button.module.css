@@ -39,37 +39,22 @@
   background: var(--accent-primary);
   color: #000;
 }
-.primary:hover:not(:disabled) {
-  filter: brightness(1.1);
-  transform: scale(1.02);
-}
 
 .secondary {
   background: transparent;
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
 }
-.secondary:hover:not(:disabled) {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-}
 
 .danger {
   background: var(--accent-error);
   color: #000;
-}
-.danger:hover:not(:disabled) {
-  filter: brightness(1.1);
-  transform: scale(1.02);
 }
 
 .ghost {
   background: transparent;
   color: var(--text-secondary);
   border: none;
-}
-.ghost:hover:not(:disabled) {
-  color: var(--accent-primary);
 }
 
 /* ---- Sizes ---- */

@@ -491,12 +491,14 @@
   z-index: 2;
 }
 
-/* Rarity-tinted skin card backgrounds */
+/* Rarity-tinted skin card backgrounds. Chained with .listingCard to
+   beat the Card primitive's .card { background: var(--bg-card) } rule
+   on cross-module specificity tiebreak (same fix as the level tints). */
 .card_common {
   /* Commons are neutral - no tint, just the default card bg. */
 }
 
-.card_rare {
+.listingCard.card_rare {
   background: linear-gradient(
       180deg,
       rgba(74, 158, 255, 0.16) 0%,
@@ -506,7 +508,7 @@
   border-color: rgba(74, 158, 255, 0.45);
 }
 
-.card_epic {
+.listingCard.card_epic {
   background: linear-gradient(
       180deg,
       rgba(187, 134, 252, 0.18) 0%,
@@ -516,7 +518,7 @@
   border-color: rgba(187, 134, 252, 0.5);
 }
 
-.card_legendary {
+.listingCard.card_legendary {
   background: linear-gradient(
       180deg,
       rgba(255, 215, 0, 0.2) 0%,
@@ -526,10 +528,12 @@
   border-color: rgba(255, 215, 0, 0.55);
 }
 
-/* Level-tier-tinted drone card backgrounds. 2px level-colored border
-   stays the same width on hover (no layout shift) - hover just
-   saturates the border + adds a matching glow. */
-.card_level_steel {
+/* Level-tier-tinted drone card backgrounds. Selectors are chained with
+   .listingCard so the combined specificity (0,0,2,0) wins against the
+   shared Card primitive's .card { background: var(--bg-card) } rule
+   (0,0,1,0), which would otherwise erase the level tint via cross-module
+   source-order tiebreak. Hover effects also stripped per Captain. */
+.listingCard.card_level_steel {
   background: linear-gradient(
       180deg,
       rgba(138, 155, 168, 0.18) 0%,
@@ -539,12 +543,8 @@
   border-width: 2px;
   border-color: rgba(138, 155, 168, 0.5);
 }
-.card_level_steel:hover {
-  border-color: rgba(138, 155, 168, 0.9);
-  box-shadow: 0 0 20px rgba(138, 155, 168, 0.18);
-}
 
-.card_level_orange {
+.listingCard.card_level_orange {
   background: linear-gradient(
       180deg,
       rgba(255, 140, 66, 0.18) 0%,
@@ -554,12 +554,8 @@
   border-width: 2px;
   border-color: rgba(255, 140, 66, 0.55);
 }
-.card_level_orange:hover {
-  border-color: rgba(255, 140, 66, 0.95);
-  box-shadow: 0 0 20px rgba(255, 140, 66, 0.2);
-}
 
-.card_level_purple {
+.listingCard.card_level_purple {
   background: linear-gradient(
       180deg,
       rgba(187, 134, 252, 0.18) 0%,
@@ -569,12 +565,8 @@
   border-width: 2px;
   border-color: rgba(187, 134, 252, 0.55);
 }
-.card_level_purple:hover {
-  border-color: rgba(187, 134, 252, 0.95);
-  box-shadow: 0 0 20px rgba(187, 134, 252, 0.22);
-}
 
-.card_level_gold {
+.listingCard.card_level_gold {
   background: linear-gradient(
       180deg,
       rgba(255, 215, 0, 0.18) 0%,
@@ -583,10 +575,6 @@
     var(--bg-card);
   border-width: 2px;
   border-color: rgba(255, 215, 0, 0.55);
-}
-.card_level_gold:hover {
-  border-color: rgba(255, 215, 0, 0.95);
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.22);
 }
 
 /* Skin-rarity indicator on drone cards. Layered ON TOP of the level

@@ -29,7 +29,8 @@ import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
-import { cn, getDroneImage, getLevelColor } from '@/lib/utils';
+import { cn, getLevelColor } from '@/lib/utils';
+import DroneImage from '@/components/ui/DroneImage';
 import {
   STAT_KEYS,
   calculateStatUpgradeCost,
@@ -379,7 +380,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
               </div>
 
               <div className={styles.droneImageFrame}>
-                <DroneImage drone={drone} />
+                <DroneImage
+                  drone={drone}
+                  alt={drone?.name ?? 'Drone'}
+                  className={styles.droneImg}
+                  loading="eager"
+                />
               </div>
 
               <div className={styles.droneBody}>
@@ -684,13 +690,3 @@ function RaceProfileColumn({ label, items, tone }) {
   );
 }
 
-function DroneImage({ drone }) {
-  return (
-    <img
-      src={getDroneImage(drone)}
-      alt={drone?.name ?? 'Drone'}
-      className={styles.droneImg}
-      loading="eager"
-    />
-  );
-}

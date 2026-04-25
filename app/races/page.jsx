@@ -17,6 +17,9 @@ import {
 import NavShell from '@/components/ui/NavShell';
 import DataTable from '@/components/ui/DataTable';
 import FilterBar from '@/components/ui/FilterBar';
+import Toggle from '@/components/ui/Toggle';
+import RacingStatusPill from '@/components/ui/RacingStatusPill';
+import { useSession } from '@/hooks/useSession';
 import { cn, getLevelColor } from '@/lib/utils';
 import styles from './page.module.css';
 
@@ -83,6 +86,7 @@ function parseBracket(b) {
 
 export default function RacesPage() {
   const router = useRouter();
+  const { user } = useSession();
   const [data, setData] = useState({ items: [], total: 0 });
   const [tracks, setTracks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -91,16 +95,19 @@ export default function RacesPage() {
   const [search, setSearch] = useState('');
   const [nextRaceAt, setNextRaceAt] = useState(null);
   const [racingPaused, setRacingPaused] = useState(false);
-  const limit = 20;
+  const [myRaces, setMyRaces] = useState(false);
+  const [pageSize, setPageSize] = useState(50);
+  const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
   const fetchRaces = useCallback(async () => {
     const params = new URLSearchParams({
       page: String(page),
-      limit: String(limit),
+      limit: String(pageSize),
     });
     if (filters.weather) params.set('weather', filters.weather);
     if (filters.time_of_day) params.set('time_of_day', filters.time_of_day);
     if (filters.track_id) params.set('track_id', filters.track_id);
+    if (myRaces && user?.id) params.set('user_id', user.id);
     try {
       const res = await fetch(`/api/races?${params.toString()}`);
       const body = await res.json();
@@ -112,7 +119,7 @@ export default function RacesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, filters]);
+  }, [page, pageSize, filters, myRaces, user?.id]);
 
   const fetchNextRace = useCallback(async () => {
     try {
@@ -326,36 +333,34 @@ export default function RacesPage() {
     },
   ];
 
-  const totalPages = Math.max(1, Math.ceil(data.total / limit));
+  const totalPages = Math.max(1, Math.ceil(data.total / pageSize));
 
   return (
     <NavShell>
       <div className={styles.page}>
         <div className={styles.topStrip}>
-          <div className={styles.totalRaces}>
-            TOTAL RACES:{' '}
-            <span className={styles.totalRacesValue}>
-              {data.total.toLocaleString()}
-            </span>
-          </div>
-          <div className={styles.liveGroup}>
-            <div
-              className={cn(
-                styles.liveBox,
-                racingPaused && styles.liveBoxPaused,
-              )}
-            >
-              <span
-                className={cn(
-                  styles.liveDot,
-                  racingPaused && styles.liveDotPaused,
-                )}
-                aria-hidden="true"
-              />
-              <span className={styles.liveLabel}>
-                {racingPaused ? 'RACING PAUSED' : 'LIVE'}
+          <div className={styles.totalRacesGroup}>
+            <div className={styles.totalRaces}>
+              <span className={styles.totalRacesLabel}>Total Races:</span>
+              <span className={styles.totalRacesValue}>
+                {data.total.toLocaleString()}
               </span>
             </div>
+            {user?.id && (
+              <div className={styles.myRacesToggleWrap}>
+                <span className={styles.totalRacesLabel}>Your Races</span>
+                <Toggle
+                  checked={myRaces}
+                  onChange={(next) => {
+                    setMyRaces(next);
+                    setPage(1);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+          <div className={styles.liveGroup}>
+            <RacingStatusPill paused={racingPaused} />
             {!racingPaused && nextRaceAt && (
               <div className={styles.miniCountdown}>
                 <span className={styles.miniCountdownLabel}>Next race in</span>
@@ -385,13 +390,32 @@ export default function RacesPage() {
           onRowClick={(row) => router.push(`/races/${row.id}`)}
         />
 
-        {totalPages > 1 && (
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
-        )}
+        <div className={styles.paginationRow}>
+          {totalPages > 1 && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          )}
+          <label className={styles.pageSizeWrap}>
+            <span className={styles.pageSizeLabel}>Per page</span>
+            <select
+              className={styles.pageSizeSelect}
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
     </NavShell>
   );

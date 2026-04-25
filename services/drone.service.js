@@ -10,6 +10,11 @@ import {
 } from '@/lib/game-engine/economy.js';
 import { ApiError } from '@/lib/api/response.js';
 
+/** Hard cap on drone level. Levels beyond this are not awarded; XP can
+ *  accumulate but the drone stays at level 20 with no further TSB or
+ *  player-wallet bonus payouts. */
+const MAX_LEVEL = 20;
+
 const { drones, users, skins, races, tracks } = schema;
 
 /* -------------------------------------------------------------------------- */
@@ -263,13 +268,18 @@ export async function checkAndLevelUp(droneId) {
   let bonusPoints = 0;
   let leveled = false;
 
-  while (xp >= xpToNext) {
+  while (xp >= xpToNext && level < MAX_LEVEL) {
     xp -= xpToNext;
     level += 1;
     tsb = calculateTSB(level);
     bonusPoints += 20;
     xpToNext = calculateXPToNextLevel(level);
     leveled = true;
+  }
+  // Hit the cap with leftover XP - clamp the bar to "full" so the UI
+  // doesn't show a misleading 90% etc. on a maxed drone.
+  if (level >= MAX_LEVEL && xp > xpToNext) {
+    xp = xpToNext;
   }
 
   if (!leveled) {
