@@ -27,6 +27,7 @@ import {
   getLevelTier,
   getDifficultyColor,
 } from '@/lib/utils';
+import { useSession } from '@/hooks/useSession';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
@@ -895,6 +896,7 @@ function mulberry32(a) {
 /* -------------------------------------------------------------------------- */
 
 function RaceStrategyView({ race }) {
+  const { user } = useSession();
   // Hydrate each drone with its `recentRaces` (for form dots) + applied skin.
   // The race endpoint doesn't return recentRaces; /api/drones/[id] does.
   const [details, setDetails] = useState({ drone1: null, drone2: null });
@@ -926,6 +928,14 @@ function RaceStrategyView({ race }) {
   const drone1 = details.drone1 ?? race.drone1;
   const drone2 = details.drone2 ?? race.drone2;
 
+  // Render the user's drone on the left/top, opponent on the right/bottom.
+  // Falls back to the race-engine ordering when no session or neither drone
+  // belongs to the viewer.
+  const userDroneIsDrone1 = !!(user?.id && drone1?.userId === user.id);
+  const userDroneIsDrone2 = !!(user?.id && drone2?.userId === user.id);
+  const leftDrone = userDroneIsDrone2 ? drone2 : drone1;
+  const rightDrone = userDroneIsDrone2 ? drone1 : drone2;
+
   const lvl1 = drone1?.level ?? 1;
   const lvl2 = drone2?.level ?? 1;
   const radarMax = calculatePerStatCap(Math.max(lvl1, lvl2));
@@ -937,13 +947,13 @@ function RaceStrategyView({ race }) {
         <H2HStrip race={race} drone1={drone1} drone2={drone2} />
         <div className={styles.matchupGrid}>
           <MatchupDroneCard
-            drone={drone1}
-            opponent={drone2}
+            drone={leftDrone}
+            opponent={rightDrone}
             radarMax={radarMax}
           />
           <MatchupDroneCard
-            drone={drone2}
-            opponent={drone1}
+            drone={rightDrone}
+            opponent={leftDrone}
             radarMax={radarMax}
           />
         </div>

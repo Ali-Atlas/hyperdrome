@@ -464,16 +464,20 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                 {isOwner && (
                   <div className={styles.activeControl}>
                     <span className={styles.activeControlLabel}>Active</span>
-                    <Toggle
-                      checked={drone.active}
-                      onChange={toggleActive}
-                      disabled={togglePending || inPendingRace}
-                    />
-                    {inPendingRace && (
-                      <span className={styles.activeControlNote}>
-                        In active race
-                      </span>
-                    )}
+                    <span
+                      className={cn(
+                        styles.activeToggleWrap,
+                        inPendingRace && styles.activeToggleLocked,
+                      )}
+                      data-tooltip="In active race"
+                    >
+                      <Toggle
+                        checked={drone.active}
+                        onChange={toggleActive}
+                        disabled={togglePending || inPendingRace}
+                        className={styles.activeToggle}
+                      />
+                    </span>
                     {toggleError && !inPendingRace && (
                       <span className={styles.activeControlError}>
                         {toggleError}
