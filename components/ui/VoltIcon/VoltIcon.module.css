@@ -1,0 +1,8 @@
+.icon {
+  display: inline-block;
+  vertical-align: middle;
+  align-self: center;
+  color: var(--accent-primary);
+  margin-right: 0;
+  flex-shrink: 0;
+}

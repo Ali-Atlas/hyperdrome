@@ -30,6 +30,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
 import { cn, getLevelColor } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
+import VoltIcon from '@/components/ui/VoltIcon';
 import {
   STAT_KEYS,
   calculateStatUpgradeCost,
@@ -532,12 +533,14 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                 </h2>
                 {isOwner && (
                   <div className={styles.availablePoints}>
-                    Available Volts:{' '}
+                    Available{' '}
                     <span className={styles.availableValue}>
+                      <VoltIcon size={13} />
                       {availablePoints}
                     </span>
                     <span className={styles.balanceNote}>
-                      Your balance: {playerPoints} V
+                      Your balance: <VoltIcon size={11} />
+                      {playerPoints}
                     </span>
                   </div>
                 )}
@@ -591,7 +594,8 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     <ShoppingCart size={11} />
                     Buy{' '}
                     <span className={styles.buyPrice}>
-                      {listing.price.toLocaleString()} V
+                      <VoltIcon size={11} />
+                      {listing.price.toLocaleString()}
                     </span>
                   </a>
                 </div>

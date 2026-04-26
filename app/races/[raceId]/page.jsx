@@ -28,6 +28,7 @@ import {
   getDifficultyColor,
 } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
+import VoltIcon from '@/components/ui/VoltIcon';
 import {
   STAT_KEYS,
   calculatePerStatCap,
@@ -363,7 +364,8 @@ export default function RaceDetailPage({ params }) {
             <div className={styles.headlineRight}>
               {race.pointsAwarded != null && (
                 <span className={styles.pointsChip}>
-                  +{race.pointsAwarded} V
+                  +<VoltIcon size={11} />
+                  {race.pointsAwarded}
                 </span>
               )}
               {leadChanges > 0 && (

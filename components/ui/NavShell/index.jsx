@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
+import VoltIcon from '@/components/ui/VoltIcon';
 import styles from './NavShell.module.css';
 
 const NAV_LINKS = [
@@ -66,7 +67,8 @@ export default function NavShell({ children }) {
           {user.username ?? user.email}
         </div>
         <div className={styles.points}>
-          VOLTS: {(user.points ?? 0).toLocaleString()}
+          <VoltIcon size={14} style={{ marginRight: 4 }} />
+          {(user.points ?? 0).toLocaleString()}
         </div>
         <button
           type="button"
@@ -113,7 +115,8 @@ export default function NavShell({ children }) {
             </span>
             <span className={styles.mobileSep}>|</span>
             <span className={styles.mobilePoints}>
-              VOLTS: {(user.points ?? 0).toLocaleString()}
+              <VoltIcon size={13} style={{ marginRight: 4 }} />
+              {(user.points ?? 0).toLocaleString()}
             </span>
           </div>
         )}

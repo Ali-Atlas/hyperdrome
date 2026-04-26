@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
 import { cn, getLevelColor, getLevelTier } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
+import VoltIcon from '@/components/ui/VoltIcon';
 import styles from './page.module.css';
 
 const PACK_DEFS = [
@@ -496,10 +497,12 @@ export default function MarketplacePage() {
             <span className={styles.balanceDot} aria-hidden="true">
               ·
             </span>
-            <span className={styles.balanceValue}>
-              {userPoints.toLocaleString()}
+            <span className={styles.balanceValueWrap}>
+              <VoltIcon size={13} />
+              <span className={styles.balanceValue}>
+                {userPoints.toLocaleString()}
+              </span>
             </span>
-            <span className={styles.balanceUnit}>V</span>
           </div>
         </div>
 
@@ -530,7 +533,7 @@ export default function MarketplacePage() {
                 )}
                 onClick={() => setView('mine')}
               >
-                Your Listings ({myActiveListings.length})
+                Your Listings<span className={styles.viewTabCount}>({myActiveListings.length})</span>
               </button>
             )}
           </div>
@@ -816,13 +819,15 @@ export default function MarketplacePage() {
             <div className={styles.modalRow}>
               <span className={styles.modalRowLabel}>Price</span>
               <strong className={styles.mono}>
-                {buyModal.price.toLocaleString()} V
+                <VoltIcon size={13} />
+                {buyModal.price.toLocaleString()}
               </strong>
             </div>
             <div className={styles.modalRow}>
               <span className={styles.modalRowLabel}>Your balance after</span>
               <strong className={styles.mono}>
-                {(userPoints - buyModal.price).toLocaleString()} V
+                <VoltIcon size={13} />
+                {(userPoints - buyModal.price).toLocaleString()}
               </strong>
             </div>
             <div className={styles.modalActions}>
@@ -834,9 +839,14 @@ export default function MarketplacePage() {
                 onClick={handleBuy}
                 disabled={userPoints < buyModal.price}
               >
-                {userPoints < buyModal.price
-                  ? `Need +${(buyModal.price - userPoints).toLocaleString()} V`
-                  : 'Confirm Purchase'}
+                {userPoints < buyModal.price ? (
+                  <>
+                    Need +<VoltIcon size={11} />
+                    {(buyModal.price - userPoints).toLocaleString()}
+                  </>
+                ) : (
+                  'Confirm Purchase'
+                )}
               </Button>
             </div>
           </div>
@@ -919,8 +929,16 @@ export default function MarketplacePage() {
               onChange={(e) => setListingPrice(e.target.value)}
             />
             <div className={styles.feeInfo}>
-              Platform fee: <strong>5% ({fee} V)</strong> · You receive:{' '}
-              <strong className={styles.mono}>{payout} V</strong>
+              Platform fee:{' '}
+              <strong>
+                5% (<VoltIcon size={11} />
+                {fee})
+              </strong>{' '}
+              · You receive:{' '}
+              <strong className={styles.mono}>
+                <VoltIcon size={11} />
+                {payout}
+              </strong>
             </div>
           </div>
 
@@ -1110,8 +1128,8 @@ function SalesTape({ transactions }) {
                   {t.buyer?.username ? ` · by ${t.buyer.username}` : ''}
                 </span>
                 <span className={styles.tapePrice}>
+                  <VoltIcon size={11} />
                   {Number(t.price).toLocaleString()}
-                  <span className={styles.tapePriceUnit}>V</span>
                 </span>
               </li>
             );
@@ -1261,9 +1279,9 @@ function PointsCard({ opt }) {
           styles[`pointsAmount_${opt.tier}`],
         )}
       >
+        <VoltIcon size={28} className={styles.pointsAmountIcon} style={{ color: 'currentColor' }} />
         {opt.points.toLocaleString()}
       </div>
-      <div className={styles.pointsLabel}>VOLTS</div>
       <div className={styles.pointsPrice}>
         {opt.price.toLocaleString()} $TOKEN
       </div>
@@ -1306,9 +1324,17 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
               loading={isOpening}
               className={cn(styles.packBtn, styles.packBtnGold)}
             >
-              {!canAfford
-                ? `Need +${pointsShort.toLocaleString()} V`
-                : `Open Pack · ${pack.price.toLocaleString()} V`}
+              {!canAfford ? (
+                <>
+                  Need +<VoltIcon size={12} />
+                  {pointsShort.toLocaleString()}
+                </>
+              ) : (
+                <>
+                  Open Pack · <VoltIcon size={12} />
+                  {pack.price.toLocaleString()}
+                </>
+              )}
             </Button>
             <span className={styles.heroHint}>Earn volts by racing</span>
           </div>
@@ -1455,8 +1481,8 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
       <div className={styles.packHead}>
         <h3 className={styles.packName}>{pack.name}</h3>
         <span className={styles.packPrice}>
+          <VoltIcon size={14} />
           {pack.price.toLocaleString()}
-          <span className={styles.packPriceUnit}>V</span>
         </span>
       </div>
       <OddsText packId={pack.id} />
@@ -1472,9 +1498,17 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
             pack.buttonVariant === 'gold' && styles.packBtnGold,
           )}
         >
-          {!canAfford
-            ? `Need +${pointsShort.toLocaleString()} V`
-            : `Open Pack · ${pack.price.toLocaleString()} V`}
+          {!canAfford ? (
+            <>
+              Need +<VoltIcon size={12} />
+              {pointsShort.toLocaleString()}
+            </>
+          ) : (
+            <>
+              Open Pack · <VoltIcon size={12} />
+              {pack.price.toLocaleString()}
+            </>
+          )}
         </Button>
       </div>
     </article>
@@ -1658,10 +1692,10 @@ function ListingCard({
         )}
 
         <div className={styles.priceRow}>
+          <VoltIcon size={13} />
           <span className={styles.price}>
             {listing.price.toLocaleString()}
           </span>
-          <span className={styles.priceUnit}>V</span>
         </div>
 
         <div className={styles.seller}>
@@ -1714,9 +1748,14 @@ function ListingCard({
               disabled={!canAfford}
               className={styles.cardBtn}
             >
-              {canAfford
-                ? 'Buy Now'
-                : `Need +${pointsShort.toLocaleString()} V`}
+              {canAfford ? (
+                'Buy Now'
+              ) : (
+                <>
+                  Need +<VoltIcon size={11} />
+                  {pointsShort.toLocaleString()}
+                </>
+              )}
             </Button>
           )}
         </div>

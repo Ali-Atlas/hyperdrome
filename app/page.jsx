@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import ScrollReveal from '@/components/util/ScrollReveal';
+import VoltIcon from '@/components/ui/VoltIcon';
 import styles from './page.module.css';
 
 export const metadata = {
@@ -51,7 +52,7 @@ const HOW_STEPS = [
 const STATS = [
   { label: 'Total Races Run', value: '1.2M+' },
   { label: 'Active Players', value: '45,000+' },
-  { label: 'Total Rewards Distributed', value: '3.5M V' },
+  { label: 'Total Rewards Distributed', value: '3.5M', isVolts: true },
 ];
 
 const FEATURES = [
@@ -173,9 +174,12 @@ export default async function LandingPage() {
 
         {/* ---- Stats ticker ---- */}
         <ScrollReveal as="section" className={styles.statsBar}>
-          {STATS.map(({ label, value }) => (
+          {STATS.map(({ label, value, isVolts }) => (
             <div key={label} className={styles.stat}>
-              <div className={styles.statValue}>{value}</div>
+              <div className={styles.statValue}>
+                {isVolts && <VoltIcon size={20} />}
+                {value}
+              </div>
               <div className={styles.statLabel}>{label}</div>
             </div>
           ))}

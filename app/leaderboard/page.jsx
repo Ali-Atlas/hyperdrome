@@ -12,6 +12,7 @@ import { useSession } from '@/hooks/useSession';
 import { cn, getLevelColor } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import PlayerAvatar from '@/components/ui/PlayerAvatar';
+import VoltIcon from '@/components/ui/VoltIcon';
 import styles from './page.module.css';
 
 const PAGE_SIZE = 25;
@@ -427,8 +428,9 @@ export default function LeaderboardPage() {
           </span>
           <span className={styles.yourRankDivider} aria-hidden="true" />
           <span className={styles.yourRankSegment}>
-            <span className={styles.yourRankLabel}>Season V</span>
+            <span className={styles.yourRankLabel}>Season</span>
             <span className={styles.yourRankValue}>
+              <VoltIcon size={12} />
               {myStats.seasonPoints ?? 0}
             </span>
           </span>
@@ -516,7 +518,19 @@ function PodiumCard({ rank, entry, tab }) {
         <PodiumStat label="Wins" value={empty ? '-' : wins} />
         <PodiumStat label="ELO" value={empty ? '-' : entry.eloRating} />
         {tab === 'players' && (
-          <PodiumStat label="Season V" value={empty ? '-' : seasonPts ?? 0} />
+          <PodiumStat
+            label="Season"
+            value={
+              empty ? (
+                '-'
+              ) : (
+                <>
+                  <VoltIcon size={12} />
+                  {seasonPts ?? 0}
+                </>
+              )
+            }
+          />
         )}
       </dl>
     </>
