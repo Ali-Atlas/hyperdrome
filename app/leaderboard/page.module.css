@@ -2,8 +2,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  /* Room at the bottom so the sticky "Your Rank" bar never covers content. */
-  padding-bottom: 56px;
+  /* Room for the stacked sticky bars: countdown bar (~34px) below the
+     "Your Rank" bar (~50px). */
+  padding-bottom: 90px;
 }
 
 /* ==========================================================================
@@ -541,7 +542,8 @@
 
 .yourRankBar {
   position: fixed;
-  bottom: 0;
+  /* Sits above the global countdown bar (34px high). */
+  bottom: 34px;
   left: 0;
   right: 0;
   z-index: 9;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -147,6 +147,138 @@ export default function NavShell({ children }) {
       )}
 
       <main className={styles.main}>{children}</main>
+
+      {user && <CountdownBar />}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Countdown bar - fixed bottom strip showing the next-batch + race-locks    */
+/* timers. Polls /api/races/next every 30s and /api/races/upcoming every    */
+/* 15s. Renders only for authenticated users (gated above).                  */
+/* -------------------------------------------------------------------------- */
+
+function CountdownBar() {
+  const [batchAt, setBatchAt] = useState(null);
+  const [paused, setPaused] = useState(false);
+  const [raceLockAt, setRaceLockAt] = useState(null);
+  const [raceLockId, setRaceLockId] = useState(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  // Poll the next-batch endpoint. 30s cadence as specced; the timer
+  // continues to count locally between polls.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await fetch('/api/races/next');
+        const body = await res.json();
+        if (cancelled || !body?.data) return;
+        if (body.data.paused) {
+          setPaused(true);
+          setBatchAt(null);
+          return;
+        }
+        setPaused(false);
+        setBatchAt(body.data.nextRaceAt ? new Date(body.data.nextRaceAt).getTime() : null);
+      } catch {
+        /* keep stale */
+      }
+    };
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  // Poll the user's pending races. 15s matches the dashboard.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await fetch('/api/races/upcoming');
+        const body = await res.json();
+        if (cancelled || !body?.data) return;
+        const races = body.data.races ?? [];
+        if (races.length === 0) {
+          setRaceLockAt(null);
+          setRaceLockId(null);
+          return;
+        }
+        // Already sorted by scheduled_at ascending; take the first.
+        const next = races[0];
+        setRaceLockAt(next.scheduledAt ? new Date(next.scheduledAt).getTime() : null);
+        setRaceLockId(next.id);
+      } catch {
+        /* keep stale */
+      }
+    };
+    tick();
+    const id = setInterval(tick, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  // 1s ticker drives the visible MM:SS for both items.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const formatRemaining = (target) => {
+    if (target == null) return null;
+    const remaining = Math.max(0, Math.floor((target - now) / 1000));
+    const mins = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const secs = String(remaining % 60).padStart(2, '0');
+    return `${mins}:${secs}`;
+  };
+
+  const batchText = formatRemaining(batchAt);
+  const raceLockText = formatRemaining(raceLockAt);
+  const raceLockExpired = raceLockAt != null && raceLockAt - now <= 0;
+
+  const showRaceItem = raceLockAt != null;
+
+  return (
+    <div className={styles.countdownBar} aria-label="Race timing">
+      {paused ? (
+        <span className={styles.countdownPaused}>Racing paused</span>
+      ) : (
+        <span className={styles.countdownItem}>
+          <span className={styles.countdownLabel}>Next batch in</span>
+          <span className={styles.countdownValue}>
+            {batchText ?? '--:--'}
+          </span>
+        </span>
+      )}
+
+      {showRaceItem && (
+        <>
+          <span className={styles.countdownSep} aria-hidden="true">
+            ·
+          </span>
+          {raceLockExpired ? (
+            <span className={styles.countdownItem}>
+              <span className={styles.countdownInProgress}>
+                Race in progress
+              </span>
+            </span>
+          ) : (
+            <Link
+              href={raceLockId ? `/races/${raceLockId}` : '#'}
+              className={styles.countdownItemLink}
+            >
+              <span className={styles.countdownLabel}>Race locks in</span>
+              <span className={styles.countdownValue}>{raceLockText}</span>
+            </Link>
+          )}
+        </>
+      )}
     </div>
   );
 }
