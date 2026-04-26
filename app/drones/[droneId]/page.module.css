@@ -279,10 +279,11 @@
 
 .skinLabel {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
 }
 
 .skinSelect {
@@ -334,6 +335,53 @@
   flex-shrink: 0;
 }
 
+/* Skin dropdown list (shown when .skinSelect is clicked) */
+.skinList {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.skinListItem {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.skinListName {
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.skinListNote {
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 9px;
+}
+
+.skinListEmpty {
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.skinListLink {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
 /* ==========================================================================
  * Mod equipped block - hex chip + name + stat effect, swap select, bind btn
  * ========================================================================== */
@@ -350,17 +398,41 @@
 
 .modLabel {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
 }
 
-.modCurrent {
+.modSelector {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
   min-width: 0;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.modSelector:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+}
+
+.modSelector:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.modSelector svg {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .modCurrentText {
@@ -368,6 +440,66 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1;
+}
+
+.modSwapList {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.modSwapList li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.modSwapItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.modSwapItem:hover:not(:disabled) {
+  background: rgba(3, 218, 198, 0.06);
+}
+
+.modSwapItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modSwapName {
+  flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.modSwapRarity {
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.modSwapCurrent {
+  font-size: 9px;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .modName {

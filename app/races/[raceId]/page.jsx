@@ -1176,13 +1176,6 @@ function MatchupDroneCard({ drone, opponent, radarMax }) {
         </div>
       </div>
 
-      <div className={styles.matchupSkinBlock}>
-        <span className={styles.matchupSkinLabel}>Skin Equipped</span>
-        <span className={styles.matchupSkinName}>
-          {drone.appliedSkin?.name ?? 'None'}
-        </span>
-      </div>
-
       {drone.appliedMod && (
         <div className={styles.matchupModBlock}>
           <ModPlaceholder rarity={drone.appliedMod.rarity} size={28} />

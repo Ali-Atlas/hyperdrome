@@ -305,6 +305,8 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   const [unboundMods, setUnboundMods] = useState([]);
   const [modActionPending, setModActionPending] = useState(false);
   const [showBindList, setShowBindList] = useState(false);
+  const [showSkinList, setShowSkinList] = useState(false);
+  const [showSwapList, setShowSwapList] = useState(false);
 
   useEffect(() => {
     if (!isOwner) return;
@@ -577,53 +579,111 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     <button
                       type="button"
                       className={styles.skinSelect}
+                      onClick={() => setShowSkinList((v) => !v)}
                       disabled={!isOwner}
+                      aria-expanded={showSkinList}
                     >
                       <span className={styles.skinSwatch} aria-hidden="true" />
                       <span className={styles.skinName}>
                         {drone.appliedSkin?.name ?? 'None'}
                       </span>
-                      {isOwner && <ChevronDown size={14} aria-hidden="true" />}
+                      {isOwner && (
+                        <ChevronDown size={14} aria-hidden="true" />
+                      )}
                     </button>
+                    {showSkinList && (
+                      <ul className={styles.skinList}>
+                        {drone.appliedSkin ? (
+                          <li className={styles.skinListItem}>
+                            <span className={styles.skinListName}>
+                              {drone.appliedSkin.name}
+                            </span>
+                            <span className={styles.skinListNote}>
+                              Permanently bound
+                            </span>
+                          </li>
+                        ) : (
+                          <li className={styles.skinListEmpty}>
+                            No skins available -{' '}
+                            <Link
+                              href="/marketplace"
+                              className={styles.skinListLink}
+                            >
+                              visit marketplace
+                            </Link>
+                          </li>
+                        )}
+                      </ul>
+                    )}
                   </div>
 
                   <div className={styles.modBlock}>
                     <span className={styles.modLabel}>Mod Equipped</span>
-                    {drone.boundMods && drone.boundMods.length > 0 ? (
-                      <>
-                        <div className={styles.modCurrent}>
-                          <ModPlaceholder
-                            rarity={drone.appliedMod?.rarity ?? 'common'}
-                            size={36}
-                          />
-                          <div className={styles.modCurrentText}>
-                            <span className={styles.modName}>
-                              {drone.appliedMod?.name ?? 'NONE'}
-                            </span>
-                            {drone.appliedMod?.description && (
-                              <span className={styles.modEffect}>
-                                {drone.appliedMod.description}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        {isOwner && drone.boundMods.length > 1 && (
-                          <select
-                            className={styles.modSelect}
-                            value={drone.appliedModId ?? ''}
-                            onChange={(e) => equipModFn(e.target.value)}
-                            disabled={modActionPending}
-                            aria-label="Swap equipped mod"
-                          >
-                            {drone.boundMods.map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.name} - {m.rarity}
-                              </option>
-                            ))}
-                          </select>
+                    <button
+                      type="button"
+                      className={styles.modSelector}
+                      onClick={() => setShowSwapList((v) => !v)}
+                      disabled={
+                        !isOwner ||
+                        modActionPending ||
+                        !drone.boundMods ||
+                        drone.boundMods.length === 0
+                      }
+                      aria-expanded={showSwapList}
+                    >
+                      <ModPlaceholder
+                        rarity={drone.appliedMod?.rarity ?? 'common'}
+                        size={36}
+                      />
+                      <div className={styles.modCurrentText}>
+                        <span className={styles.modName}>
+                          {drone.appliedMod?.name ?? 'None'}
+                        </span>
+                        {drone.appliedMod?.description && (
+                          <span className={styles.modEffect}>
+                            {drone.appliedMod.description}
+                          </span>
                         )}
-                      </>
-                    ) : (
+                      </div>
+                      {isOwner && drone.boundMods?.length > 0 && (
+                        <ChevronDown size={14} aria-hidden="true" />
+                      )}
+                    </button>
+                    {showSwapList && drone.boundMods?.length > 0 && (
+                      <ul className={styles.modSwapList}>
+                        {drone.boundMods.map((m) => (
+                          <li key={m.id}>
+                            <button
+                              type="button"
+                              className={styles.modSwapItem}
+                              onClick={() => {
+                                setShowSwapList(false);
+                                equipModFn(m.id);
+                              }}
+                              disabled={modActionPending}
+                            >
+                              <span className={styles.modSwapName}>
+                                {m.name}
+                              </span>
+                              <span
+                                className={cn(
+                                  styles.modSwapRarity,
+                                  styles[`modBindRarity_${m.rarity}`],
+                                )}
+                              >
+                                {m.rarity}
+                              </span>
+                              {m.id === drone.appliedModId && (
+                                <span className={styles.modSwapCurrent}>
+                                  current
+                                </span>
+                              )}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {(!drone.boundMods || drone.boundMods.length === 0) && (
                       <span className={styles.modEmpty}>
                         NONE -{' '}
                         <Link href="/marketplace" className={styles.modEmptyLink}>
