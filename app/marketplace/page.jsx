@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Plus, ChevronDown, ChevronRight, Check } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -175,6 +175,9 @@ export default function MarketplacePage() {
 
   // Modals
   const [buyModal, setBuyModal] = useState(null);
+  const [buyPending, setBuyPending] = useState(false);
+  const [buySuccess, setBuySuccess] = useState(null);
+  const [buyError, setBuyError] = useState(null);
   const [listModal, setListModal] = useState(false);
   const [listingType, setListingType] = useState('drone');
   const [listingItemId, setListingItemId] = useState('');
@@ -336,24 +339,46 @@ export default function MarketplacePage() {
   // keeps the same height and the pagination below never jumps.
   const placeholderCount = Math.max(0, PAGE_SIZE - pagedListings.length);
 
+  const closePurchaseModal = () => {
+    if (buyPending) return;
+    setBuyModal(null);
+    setBuyPending(false);
+    setBuySuccess(null);
+    setBuyError(null);
+  };
+
   const handleBuy = async () => {
-    if (!buyModal) return;
+    if (!buyModal || buyPending) return;
+    setBuyPending(true);
+    setBuyError(null);
     try {
       const res = await fetch(`/api/marketplace/${buyModal.id}/buy`, {
         method: 'POST',
       });
       const body = await res.json();
       if (!res.ok) {
-        showToast(body?.error || 'Purchase failed', 'error');
-      } else {
-        showToast('Purchase complete', 'success');
-        setBuyModal(null);
-        await fetchListings();
-        await fetchTransactions();
-        await fetchMine();
+        setBuyError(body?.error || 'Purchase failed');
+        return;
       }
+      const itemName =
+        buyModal.drone?.name ??
+        buyModal.mod?.name ??
+        buyModal.skin?.name ??
+        'Item';
+      setBuySuccess({ name: itemName });
+      // Refresh listings in the background while the success view holds
+      // for ~1.5s, then close the modal cleanly.
+      Promise.all([fetchListings(), fetchTransactions(), fetchMine()]).catch(
+        () => {},
+      );
+      setTimeout(() => {
+        setBuyModal(null);
+        setBuySuccess(null);
+      }, 1500);
     } catch (err) {
-      showToast(String(err), 'error');
+      setBuyError(String(err));
+    } finally {
+      setBuyPending(false);
     }
   };
 
@@ -824,55 +849,23 @@ export default function MarketplacePage() {
         )}
       </div>
 
-      {/* ---- Buy modal ---- */}
+      {/* ---- Purchase confirmation modal (drones / mods / skins) ---- */}
       <Modal
         isOpen={!!buyModal}
-        onClose={() => setBuyModal(null)}
+        onClose={closePurchaseModal}
         title="Confirm Purchase"
         size="sm"
+        className={styles.purchaseModal}
       >
         {buyModal && (
-          <div className={styles.modalBody}>
-            <div className={styles.modalRow}>
-              <span className={styles.modalRowLabel}>Item</span>
-              <strong>
-                {buyModal.drone?.name ?? buyModal.skin?.name ?? '-'}
-              </strong>
-            </div>
-            <div className={styles.modalRow}>
-              <span className={styles.modalRowLabel}>Price</span>
-              <strong className={styles.mono}>
-                <VoltIcon size={13} />
-                {buyModal.price.toLocaleString()}
-              </strong>
-            </div>
-            <div className={styles.modalRow}>
-              <span className={styles.modalRowLabel}>Your balance after</span>
-              <strong className={styles.mono}>
-                <VoltIcon size={13} />
-                {(userPoints - buyModal.price).toLocaleString()}
-              </strong>
-            </div>
-            <div className={styles.modalActions}>
-              <Button variant="secondary" onClick={() => setBuyModal(null)}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleBuy}
-                disabled={userPoints < buyModal.price}
-              >
-                {userPoints < buyModal.price ? (
-                  <>
-                    Need +<VoltIcon size={11} style={{ color: 'currentColor' }} />
-                    {(buyModal.price - userPoints).toLocaleString()}
-                  </>
-                ) : (
-                  'Confirm Purchase'
-                )}
-              </Button>
-            </div>
-          </div>
+          <PurchaseModalBody
+            listing={buyModal}
+            userPoints={userPoints}
+            pending={buyPending}
+            success={buySuccess}
+            error={buyError}
+            onConfirm={handleBuy}
+          />
         )}
       </Modal>
 
@@ -1847,6 +1840,203 @@ function StatMiniBar({ label, value }) {
 /* -------------------------------------------------------------------------- */
 /* Skin preview placeholder                                                   */
 /* -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+/* Purchase confirmation modal body. Branches on listing.itemType to render   */
+/* an item-specific hero + meta block; shared bottom (price, balance, CTA).   */
+/* Kept as a sibling fn within this file to keep the marketplace             */
+/* purchase flow co-located with its modal state.                            */
+/* -------------------------------------------------------------------------- */
+
+function PurchaseModalBody({
+  listing,
+  userPoints,
+  pending,
+  success,
+  error,
+  onConfirm,
+}) {
+  if (success) {
+    return (
+      <div className={styles.purchaseSuccess}>
+        <span className={styles.purchaseSuccessIcon} aria-hidden="true">
+          <Check size={36} />
+        </span>
+        <div className={styles.purchaseSuccessText}>Purchased</div>
+        <div className={styles.purchaseSuccessName}>{success.name}</div>
+      </div>
+    );
+  }
+
+  const isDrone = listing.itemType === 'drone';
+  const isMod = listing.itemType === 'mod';
+  const isSkin = listing.itemType === 'skin';
+  const drone = listing.drone;
+  const mod = listing.mod;
+  const skin = listing.skin;
+
+  const itemName = drone?.name ?? mod?.name ?? skin?.name ?? 'Item';
+  const sellerName = listing.seller?.username;
+  const canAfford = userPoints >= listing.price;
+  const shortBy = canAfford ? 0 : listing.price - userPoints;
+
+  return (
+    <div className={styles.purchaseBody}>
+      <div className={styles.purchaseHero}>
+        {isDrone && drone && (
+          <DroneImage
+            drone={drone}
+            alt={drone.name}
+            className={styles.purchaseDroneImg}
+          />
+        )}
+        {isMod && mod && (
+          <ModPlaceholder rarity={mod.rarity} size={120} />
+        )}
+        {isSkin && skin && (
+          <div className={styles.purchaseSkinBox}>
+            <SkinMini rarity={skin.rarity} />
+          </div>
+        )}
+      </div>
+
+      <div className={styles.purchaseTitleRow}>
+        <h3 className={styles.purchaseName}>{itemName}</h3>
+        {isDrone && drone?.level != null && (
+          <span
+            className={styles.purchaseLevel}
+            style={{ color: getLevelColor(drone.level) }}
+          >
+            LV {drone.level}
+          </span>
+        )}
+        {isMod && mod?.rarity && (
+          <span
+            className={cn(styles.rarityTag, styles[`rarity_${mod.rarity}`])}
+          >
+            {RARITY_LABELS[mod.rarity]}
+          </span>
+        )}
+        {isSkin && skin?.rarity && (
+          <span
+            className={cn(styles.rarityTag, styles[`rarity_${skin.rarity}`])}
+          >
+            {RARITY_LABELS[skin.rarity]}
+          </span>
+        )}
+      </div>
+
+      {isDrone && drone && (
+        <div className={styles.purchaseMeta}>
+          <div className={styles.purchaseStatBars}>
+            <PurchaseStatBar label="SPD" value={drone.speed ?? 0} />
+            <PurchaseStatBar label="TRN" value={drone.turning ?? 0} />
+            <PurchaseStatBar label="ACC" value={drone.acceleration ?? 0} />
+            <PurchaseStatBar label="DUR" value={drone.durability ?? 0} />
+          </div>
+          <div className={styles.purchaseKpiRow}>
+            <span className={styles.purchaseKpi}>
+              <span className={styles.purchaseKpiLabel}>ELO</span>
+              <span className={styles.purchaseKpiValue}>
+                {drone.eloRating ?? 0}
+              </span>
+            </span>
+            <span className={styles.purchaseKpi}>
+              <span className={styles.purchaseKpiLabel}>W/L</span>
+              <span className={styles.purchaseKpiValue}>
+                {drone.wins ?? 0} / {drone.losses ?? 0}
+              </span>
+            </span>
+          </div>
+          {drone.appliedSkin?.name && (
+            <div className={styles.purchaseExtra}>
+              Skin equipped: {drone.appliedSkin.name}
+            </div>
+          )}
+        </div>
+      )}
+
+      {isMod && mod && (
+        <div className={styles.purchaseMeta}>
+          {(mod.specialAbility || mod.description) && (
+            <p className={styles.purchaseDesc}>
+              {mod.specialAbility ?? mod.description}
+            </p>
+          )}
+          <div className={styles.purchaseCompat}>Compatible with any drone</div>
+        </div>
+      )}
+
+      {isSkin && skin && (
+        <div className={styles.purchaseMeta}>
+          {skin.description && (
+            <p className={styles.purchaseDesc}>{skin.description}</p>
+          )}
+          <div className={styles.purchaseCompat}>Compatible with any drone</div>
+        </div>
+      )}
+
+      {sellerName && (
+        <div className={styles.purchaseSeller}>Seller: {sellerName}</div>
+      )}
+
+      <hr className={styles.purchaseDivider} aria-hidden="true" />
+
+      <div className={styles.purchasePriceRow}>
+        <VoltIcon size={20} />
+        <span className={styles.purchasePrice}>
+          {listing.price.toLocaleString()}
+        </span>
+      </div>
+      <div className={styles.purchaseBalance}>
+        Your balance: <VoltIcon size={11} />
+        {userPoints.toLocaleString()}
+      </div>
+
+      <button
+        type="button"
+        className={cn(
+          styles.purchaseCta,
+          !canAfford && styles.purchaseCtaShort,
+        )}
+        onClick={onConfirm}
+        disabled={!canAfford || pending}
+      >
+        {pending ? (
+          <span className={styles.purchaseProcessing}>Processing...</span>
+        ) : !canAfford ? (
+          <>
+            Need +
+            <VoltIcon size={13} style={{ color: 'currentColor' }} />
+            {shortBy.toLocaleString()}
+          </>
+        ) : (
+          'Confirm Purchase'
+        )}
+      </button>
+
+      {error && <div className={styles.purchaseError}>{error}</div>}
+
+      <p className={styles.purchaseFee}>5% marketplace fee included</p>
+    </div>
+  );
+}
+
+function PurchaseStatBar({ label, value }) {
+  const pct = Math.min(100, Math.max(0, value || 0));
+  return (
+    <div className={styles.purchaseStatRow}>
+      <span className={styles.purchaseStatLabel}>{label}</span>
+      <div className={styles.purchaseStatTrack}>
+        <div
+          className={styles.purchaseStatFill}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className={styles.purchaseStatValue}>{value}</span>
+    </div>
+  );
+}
 
 function SkinMini({ rarity = 'common' }) {
   const colors = {
