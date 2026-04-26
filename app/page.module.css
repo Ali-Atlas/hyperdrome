@@ -347,10 +347,6 @@
   min-height: 220px;
 }
 
-.featureCard:hover {
-  border-color: var(--border-accent);
-}
-
 .featureIcon {
   color: var(--accent-primary);
 }

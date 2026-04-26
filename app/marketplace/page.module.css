@@ -475,7 +475,10 @@
     box-shadow var(--duration-normal) var(--ease-out);
 }
 
-.listingCard:hover {
+/* Hover only when the card is wrapped in a clickable Link (drone
+   listings). Skin and mod listings sit inside a non-clickable .cardWrap
+   div and stay static. */
+.cardLink:hover .listingCard {
   border-color: rgba(3, 218, 198, 0.4);
 }
 
@@ -2312,10 +2315,6 @@
 
 .tapeRow:last-child {
   border-bottom: none;
-}
-
-.tapeRow:hover {
-  background: rgba(255, 255, 255, 0.025);
 }
 
 .tapeTypePill {
