@@ -69,3 +69,10 @@ These rules apply to all user-facing copy in the app (page text, labels, tooltip
 - **Active voice, present tense.** "The simulator picks a winner." not "A winner is picked by the simulator."
 - **Match the source of truth.** Game-mechanic copy must match `lib/game-engine/`, `services/`, and `lib/db/seed.js`. If a number changes there, the copy follows. Don't paraphrase formulas. Don't round.
 - **No left-border (or any border) accents on Guide / FAQ section blocks.** Section differentiation in `app/guide` and `app/faq` is done with the existing pill, the section heading bar, and spacing. Never add `border-left`, `border-right`, `border-top`, or `border-bottom` to a section wrapper as a visual accent. This applies even when prescribed copy or prior conversation suggests otherwise.
+
+## Commit and Push Hygiene
+
+- **Scoped commits only.** Stage and commit only the files inside the scope of the task you were given. If the task is "Guide/FAQ", touch only `app/guide`, `app/faq`, and the rules docs that govern them. Never use `git add -A`, `git add .`, or `git commit -a`.
+- **Working tree is shared.** Other dirty files (pages, services, schema, untracked feature folders) are almost always in-progress work by another agent or session. Never bundle them into your commit, even when the user says "push" or "push all". If you think a non-scope file should be included, list it explicitly in your reply and let the user decide.
+- **Sweep before staging.** Run `git status` and identify what is yours vs theirs. Stage by exact path. After committing, list every non-scope dirty file in your reply so the user knows what's still outstanding.
+- **Push by default targets `origin/main`.** Don't switch branches, don't force-push, don't skip hooks unless the user explicitly says so.

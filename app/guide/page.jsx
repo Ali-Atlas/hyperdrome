@@ -81,13 +81,13 @@ const SECTIONS = [
       { type: 'subheading', text: 'Per-Stat Cap' },
       {
         type: 'paragraph',
-        text: 'No single stat can exceed the cap for your level. Formula: cap = min(100, 10 + floor(4.5 * level)). Level 1: 14. Level 5: 32. Level 10: 55. Level 15: 77. Level 20: 100. The cap stops you from dumping every volt into one stat early.',
+        text: 'No single stat can exceed the cap for your level. Formula: cap = min(100, 10 + floor(4.5 * level)). Level 1: 14. Level 5: 32. Level 10: 55. Level 15: 77. Level 20: 100. The cap stops you from dumping your entire budget into one stat early.',
       },
 
       { type: 'subheading', text: 'Stat upgrade costs' },
       {
         type: 'paragraph',
-        text: 'Each upgrade volt comes from your wallet. Cost depends on the stat\'s current value: 1 + floor(currentValue / 10). Costs scale in 10-volt bands.',
+        text: 'Each upgrade is paid in volts from your wallet. Cost depends on the stat\'s current value: 1 + floor(currentValue / 10). Costs scale in 10-step bands.',
       },
       {
         type: 'costTable',
@@ -112,7 +112,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'No respec' },
       {
         type: 'paragraph',
-        text: 'Stat allocations are permanent. Once a volt is spent on a stat, it stays there.',
+        text: 'Stat allocations are permanent. Once volts are spent on an upgrade, the upgrade is permanent.',
       },
     ],
   },
@@ -298,7 +298,7 @@ const SECTIONS = [
   },
 
   {
-    id: 'points-economy',
+    id: 'volts-economy',
     title: 'Volts and Economy',
     Icon: Coins,
     blocks: [

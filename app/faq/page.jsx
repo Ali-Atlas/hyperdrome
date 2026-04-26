@@ -112,7 +112,7 @@ const FAQ_SECTIONS = [
         a: 'Rain Handling, Wind Resistance (in wind), and Night Vision (at night) all scale the same way. At stat 0 the multiplier is 0.5x. At 50 it\'s 1.0x (neutral). At 75+ it caps at 1.5x. The multiplier hits every segment score for the whole race.',
       },
       {
-        q: 'Should I focus one stat or spread volts?',
+        q: 'Should I focus one stat or spread evenly?',
         a: 'Both work. A specialist (e.g. 70 turning, low everything else) wins on turn-heavy tracks and dies on straight-heavy ones. A balanced build wins less hard but loses less hard. Per-stat caps slow extreme specialization at low level.',
       },
       {
