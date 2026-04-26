@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, ChevronDown, ChevronRight, Check } from 'lucide-react';
+import { Search, Plus, ChevronDown, ChevronRight, X } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -17,6 +17,7 @@ import { cn, getLevelColor, getLevelTier } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
+import SkinThumb from '@/components/ui/SkinThumb';
 import styles from './page.module.css';
 
 const PACK_DEFS = [
@@ -374,7 +375,7 @@ export default function MarketplacePage() {
       setTimeout(() => {
         setBuyModal(null);
         setBuySuccess(null);
-      }, 1500);
+      }, 2000);
     } catch (err) {
       setBuyError(String(err));
     } finally {
@@ -853,9 +854,9 @@ export default function MarketplacePage() {
       <Modal
         isOpen={!!buyModal}
         onClose={closePurchaseModal}
-        title="Confirm Purchase"
-        size="sm"
+        chromeless
         className={styles.purchaseModal}
+        overlayClassName={styles.purchaseOverlay}
       >
         {buyModal && (
           <PurchaseModalBody
@@ -865,6 +866,7 @@ export default function MarketplacePage() {
             success={buySuccess}
             error={buyError}
             onConfirm={handleBuy}
+            onClose={closePurchaseModal}
           />
         )}
       </Modal>
@@ -1011,7 +1013,7 @@ export default function MarketplacePage() {
                   )}
                 >
                   <div className={styles.revealImage}>
-                    <SkinMini rarity={skin.rarity} />
+                    <SkinThumb skin={skin} rarity={skin.rarity} alt={skin.name} />
                   </div>
                   <div className={styles.revealName}>{skin.name}</div>
                   <Badge variant="rarity" value={skin.rarity} />
@@ -1370,7 +1372,7 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
             >
               {!canAfford ? (
                 <>
-                  Need +<VoltIcon size={12} style={{ color: 'currentColor' }} />
+                  Need <VoltIcon size={15} style={{ color: 'currentColor' }} />
                   {pointsShort.toLocaleString()}
                 </>
               ) : (
@@ -1544,7 +1546,7 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
         >
           {!canAfford ? (
             <>
-              Need +<VoltIcon size={12} style={{ color: 'currentColor' }} />
+              Need <VoltIcon size={15} style={{ color: 'currentColor' }} />
               {pointsShort.toLocaleString()}
             </>
           ) : (
@@ -1574,24 +1576,29 @@ function PossibleGroup({ items }) {
 }
 
 /* Tier image used as the drone-outline silhouette inside each possible card.
-   Rarity maps to tier so the silhouette roughly matches the drone-class the
-   skin would apply to (common→tier 1, legendary→tier 4). */
+   All rarities use the tier-4 silhouette regardless - the cards are
+   placeholders for what could drop, not previews of the recipient drone. */
 const POSSIBLE_TIER_IMG = {
-  common: '/drones/tier-1.webp',
-  rare: '/drones/tier-2.webp',
-  epic: '/drones/tier-3.webp',
+  common: '/drones/tier-4.webp',
+  rare: '/drones/tier-4.webp',
+  epic: '/drones/tier-4.webp',
   legendary: '/drones/tier-4.webp',
 };
 
 function PossibleCard({ item }) {
+  const isLegendary = item.rarity === 'legendary';
   return (
     <div className={cn(styles.possibleCard, styles[`possibleCard_${item.rarity}`])}>
       <div className={styles.possibleInner}>
-        <div
-          className={cn(styles.possibleDrone, styles[`possibleDrone_${item.rarity}`])}
-          style={{ '--drone-img': `url(${POSSIBLE_TIER_IMG[item.rarity]})` }}
-          aria-hidden="true"
-        />
+        {isLegendary ? (
+          <span className={styles.possibleL} aria-hidden="true">L</span>
+        ) : (
+          <div
+            className={cn(styles.possibleDrone, styles[`possibleDrone_${item.rarity}`])}
+            style={{ '--drone-img': `url(${POSSIBLE_TIER_IMG[item.rarity]})` }}
+            aria-hidden="true"
+          />
+        )}
         {item.mystery && <span className={styles.possibleMystery}>?</span>}
       </div>
       <span className={styles.possibleName}>{item.name}</span>
@@ -1708,7 +1715,7 @@ function ListingCard({
         ) : isMod ? (
           <ModPlaceholder rarity={rarity} size={92} />
         ) : (
-          <SkinMini rarity={rarity} />
+          <SkinThumb skin={skin} rarity={rarity} alt={skin?.name} />
         )}
       </div>
 
@@ -1807,7 +1814,7 @@ function ListingCard({
                 'Buy Now'
               ) : (
                 <>
-                  Need +<VoltIcon size={11} style={{ color: 'currentColor' }} />
+                  Need <VoltIcon size={14} style={{ color: 'currentColor' }} />
                   {pointsShort.toLocaleString()}
                 </>
               )}
@@ -1838,15 +1845,19 @@ function StatMiniBar({ label, value }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Skin preview placeholder                                                   */
+/* Cinematic purchase modal body. Branches on listing.itemType to render      */
+/* an item-specific hero + compact details; shared bottom (price, CTA, fee).  */
+/* The hero uses a CSS floating animation; on success a radial glow pulse     */
+/* radiates from the item and the body collapses to PURCHASED + name. The    */
+/* parent controls the auto-close timer (handleBuy at ~2s).                  */
 /* -------------------------------------------------------------------------- */
 
-/* -------------------------------------------------------------------------- */
-/* Purchase confirmation modal body. Branches on listing.itemType to render   */
-/* an item-specific hero + meta block; shared bottom (price, balance, CTA).   */
-/* Kept as a sibling fn within this file to keep the marketplace             */
-/* purchase flow co-located with its modal state.                            */
-/* -------------------------------------------------------------------------- */
+const RARITY_GLOW = {
+  common: '#9E9E9E',
+  rare: '#03DAC6',
+  epic: '#BB86FC',
+  legendary: '#FFD700',
+};
 
 function PurchaseModalBody({
   listing,
@@ -1855,19 +1866,8 @@ function PurchaseModalBody({
   success,
   error,
   onConfirm,
+  onClose,
 }) {
-  if (success) {
-    return (
-      <div className={styles.purchaseSuccess}>
-        <span className={styles.purchaseSuccessIcon} aria-hidden="true">
-          <Check size={36} />
-        </span>
-        <div className={styles.purchaseSuccessText}>Purchased</div>
-        <div className={styles.purchaseSuccessName}>{success.name}</div>
-      </div>
-    );
-  }
-
   const isDrone = listing.itemType === 'drone';
   const isMod = listing.itemType === 'mod';
   const isSkin = listing.itemType === 'skin';
@@ -1880,204 +1880,179 @@ function PurchaseModalBody({
   const canAfford = userPoints >= listing.price;
   const shortBy = canAfford ? 0 : listing.price - userPoints;
 
+  // Glow color: drone uses level tier color, mod/skin uses rarity color.
+  // Set as a CSS custom property so the .module.css rule can read it via
+  // var(--glow-color) without hardcoding per-rarity selectors.
+  const rarity = mod?.rarity ?? skin?.rarity ?? 'common';
+  const glowColor = isDrone
+    ? getLevelColor(drone?.level ?? 1)
+    : (RARITY_GLOW[rarity] ?? RARITY_GLOW.common);
+
+  const totalRaces = (drone?.wins ?? 0) + (drone?.losses ?? 0);
+  const winRate = totalRaces > 0
+    ? Math.round(((drone?.wins ?? 0) / totalRaces) * 100)
+    : 0;
+
+  const showClose = !pending && !success;
+
   return (
-    <div className={styles.purchaseBody}>
+    <div
+      className={cn(styles.purchaseStage, success && styles.purchaseStageSuccess)}
+      style={{ '--glow-color': glowColor }}
+    >
+      {showClose && (
+        <button
+          type="button"
+          className={styles.purchaseCloseBtn}
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
+      )}
+
       <div className={styles.purchaseHero}>
-        {isDrone && drone && (
-          <DroneImage
-            drone={drone}
-            alt={drone.name}
-            className={styles.purchaseDroneImg}
-          />
-        )}
-        {isMod && mod && (
-          <ModPlaceholder rarity={mod.rarity} size={120} />
-        )}
-        {isSkin && skin && (
-          <div className={styles.purchaseSkinBox}>
-            <SkinMini rarity={skin.rarity} />
-          </div>
-        )}
+        {success && <span className={styles.purchaseGlowPulse} aria-hidden="true" />}
+        <div className={styles.purchaseHeroFloat}>
+          {isDrone && drone && (
+            <DroneImage
+              drone={drone}
+              alt={drone.name}
+              className={styles.purchaseHeroImg}
+            />
+          )}
+          {isMod && mod && (
+            <span className={styles.purchaseHeroMod}>
+              <ModPlaceholder rarity={mod.rarity} size={200} />
+            </span>
+          )}
+          {isSkin && skin && (
+            <SkinThumb
+              skin={skin}
+              rarity={skin.rarity}
+              alt={skin.name}
+              className={styles.purchaseHeroSkin}
+            />
+          )}
+        </div>
       </div>
 
-      <div className={styles.purchaseTitleRow}>
-        <h3 className={styles.purchaseName}>{itemName}</h3>
-        {isDrone && drone?.level != null && (
-          <span
-            className={styles.purchaseLevel}
-            style={{ color: getLevelColor(drone.level) }}
-          >
-            LV {drone.level}
-          </span>
-        )}
-        {isMod && mod?.rarity && (
-          <span
-            className={cn(styles.rarityTag, styles[`rarity_${mod.rarity}`])}
-          >
-            {RARITY_LABELS[mod.rarity]}
-          </span>
-        )}
-        {isSkin && skin?.rarity && (
-          <span
-            className={cn(styles.rarityTag, styles[`rarity_${skin.rarity}`])}
-          >
-            {RARITY_LABELS[skin.rarity]}
-          </span>
-        )}
-      </div>
+      {success ? (
+        <div className={styles.purchaseSuccessBlock}>
+          <div className={styles.purchaseSuccessHeading}>PURCHASED</div>
+          <div className={styles.purchaseSuccessName}>{success.name}</div>
+        </div>
+      ) : (
+        <>
+          <div className={styles.purchaseTitleRow}>
+            <h3 className={styles.purchaseName}>{itemName}</h3>
+            {isDrone && drone?.level != null && (
+              <span
+                className={styles.purchaseLevel}
+                style={{ color: getLevelColor(drone.level) }}
+              >
+                LV {drone.level}
+              </span>
+            )}
+            {isMod && mod?.rarity && (
+              <span
+                className={cn(styles.rarityTag, styles[`rarity_${mod.rarity}`])}
+              >
+                {RARITY_LABELS[mod.rarity]}
+              </span>
+            )}
+            {isSkin && skin?.rarity && (
+              <span
+                className={cn(styles.rarityTag, styles[`rarity_${skin.rarity}`])}
+              >
+                {RARITY_LABELS[skin.rarity]}
+              </span>
+            )}
+          </div>
 
-      {isDrone && drone && (
-        <div className={styles.purchaseMeta}>
-          <div className={styles.purchaseStatBars}>
-            <PurchaseStatBar label="SPD" value={drone.speed ?? 0} />
-            <PurchaseStatBar label="TRN" value={drone.turning ?? 0} />
-            <PurchaseStatBar label="ACC" value={drone.acceleration ?? 0} />
-            <PurchaseStatBar label="DUR" value={drone.durability ?? 0} />
-          </div>
-          <div className={styles.purchaseKpiRow}>
-            <span className={styles.purchaseKpi}>
-              <span className={styles.purchaseKpiLabel}>ELO</span>
-              <span className={styles.purchaseKpiValue}>
-                {drone.eloRating ?? 0}
-              </span>
-            </span>
-            <span className={styles.purchaseKpi}>
-              <span className={styles.purchaseKpiLabel}>W/L</span>
-              <span className={styles.purchaseKpiValue}>
-                {drone.wins ?? 0} / {drone.losses ?? 0}
-              </span>
-            </span>
-          </div>
-          {drone.appliedSkin?.name && (
-            <div className={styles.purchaseExtra}>
-              Skin equipped: {drone.appliedSkin.name}
+          {isMod && mod && (mod.specialAbility || mod.description) && (
+            <div className={styles.purchaseModDesc}>
+              {mod.specialAbility ?? mod.description}
             </div>
           )}
-        </div>
-      )}
 
-      {isMod && mod && (
-        <div className={styles.purchaseMeta}>
-          {(mod.specialAbility || mod.description) && (
-            <p className={styles.purchaseDesc}>
-              {mod.specialAbility ?? mod.description}
-            </p>
+          {isDrone && drone && (
+            <div className={styles.purchaseDetails}>
+              <span className={styles.purchaseDet}>
+                <span className={styles.purchaseDetLabel}>SPD</span>
+                {drone.speed ?? 0}
+              </span>
+              <span className={styles.purchaseDet}>
+                <span className={styles.purchaseDetLabel}>TRN</span>
+                {drone.turning ?? 0}
+              </span>
+              <span className={styles.purchaseDet}>
+                <span className={styles.purchaseDetLabel}>ACC</span>
+                {drone.acceleration ?? 0}
+              </span>
+              <span className={styles.purchaseDet}>
+                <span className={styles.purchaseDetLabel}>DUR</span>
+                {drone.durability ?? 0}
+              </span>
+              <span className={styles.purchaseDet}>
+                <span className={styles.purchaseDetLabel}>ELO</span>
+                {drone.eloRating ?? 0}
+              </span>
+              <span className={styles.purchaseDet}>
+                <span className={styles.purchaseDetLabel}>WIN</span>
+                {winRate}%
+              </span>
+            </div>
           )}
-          <div className={styles.purchaseCompat}>Compatible with any drone</div>
-        </div>
-      )}
 
-      {isSkin && skin && (
-        <div className={styles.purchaseMeta}>
-          {skin.description && (
-            <p className={styles.purchaseDesc}>{skin.description}</p>
+          {(isSkin || isMod) && (
+            <div className={styles.purchaseCompat}>Compatible with any drone</div>
           )}
-          <div className={styles.purchaseCompat}>Compatible with any drone</div>
-        </div>
+
+          {sellerName && (
+            <div className={styles.purchaseSeller}>Listed by {sellerName}</div>
+          )}
+
+          <hr className={styles.purchaseDivider} aria-hidden="true" />
+
+          <div className={styles.purchasePriceRow}>
+            <VoltIcon size={24} />
+            <span className={styles.purchasePrice}>
+              {listing.price.toLocaleString()}
+            </span>
+          </div>
+          <div className={styles.purchaseBalance}>
+            Your balance: <VoltIcon size={12} />
+            {userPoints.toLocaleString()}
+          </div>
+
+          <button
+            type="button"
+            className={cn(
+              styles.purchaseCta,
+              !canAfford && styles.purchaseCtaShort,
+            )}
+            onClick={onConfirm}
+            disabled={!canAfford || pending}
+          >
+            {pending ? (
+              <span className={styles.purchaseProcessing}>Processing...</span>
+            ) : !canAfford ? (
+              <>
+                Need <VoltIcon size={16} style={{ color: 'currentColor' }} />
+                {shortBy.toLocaleString()}
+              </>
+            ) : (
+              'Confirm Purchase'
+            )}
+          </button>
+
+          {error && <div className={styles.purchaseError}>{error}</div>}
+
+          <p className={styles.purchaseFee}>5% marketplace fee included</p>
+        </>
       )}
-
-      {sellerName && (
-        <div className={styles.purchaseSeller}>Seller: {sellerName}</div>
-      )}
-
-      <hr className={styles.purchaseDivider} aria-hidden="true" />
-
-      <div className={styles.purchasePriceRow}>
-        <VoltIcon size={20} />
-        <span className={styles.purchasePrice}>
-          {listing.price.toLocaleString()}
-        </span>
-      </div>
-      <div className={styles.purchaseBalance}>
-        Your balance: <VoltIcon size={11} />
-        {userPoints.toLocaleString()}
-      </div>
-
-      <button
-        type="button"
-        className={cn(
-          styles.purchaseCta,
-          !canAfford && styles.purchaseCtaShort,
-        )}
-        onClick={onConfirm}
-        disabled={!canAfford || pending}
-      >
-        {pending ? (
-          <span className={styles.purchaseProcessing}>Processing...</span>
-        ) : !canAfford ? (
-          <>
-            Need +
-            <VoltIcon size={13} style={{ color: 'currentColor' }} />
-            {shortBy.toLocaleString()}
-          </>
-        ) : (
-          'Confirm Purchase'
-        )}
-      </button>
-
-      {error && <div className={styles.purchaseError}>{error}</div>}
-
-      <p className={styles.purchaseFee}>5% marketplace fee included</p>
     </div>
   );
 }
 
-function PurchaseStatBar({ label, value }) {
-  const pct = Math.min(100, Math.max(0, value || 0));
-  return (
-    <div className={styles.purchaseStatRow}>
-      <span className={styles.purchaseStatLabel}>{label}</span>
-      <div className={styles.purchaseStatTrack}>
-        <div
-          className={styles.purchaseStatFill}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className={styles.purchaseStatValue}>{value}</span>
-    </div>
-  );
-}
-
-function SkinMini({ rarity = 'common' }) {
-  const colors = {
-    common: '#9E9E9E',
-    rare: '#4A9EFF',
-    epic: '#BB86FC',
-    legendary: '#FFD700',
-  };
-  const color = colors[rarity] ?? colors.common;
-  return (
-    <svg viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id={`skin-${rarity}`} x1="0" x2="1">
-          <stop offset="0" stopColor={color} stopOpacity="0.18" />
-          <stop offset="1" stopColor={color} stopOpacity="0.6" />
-        </linearGradient>
-      </defs>
-      <polygon
-        points="20,70 55,25 105,25 140,70 120,80 40,80"
-        fill={`url(#skin-${rarity})`}
-        stroke={color}
-        strokeWidth="1.5"
-      />
-      <line
-        x1="55"
-        y1="25"
-        x2="40"
-        y2="80"
-        stroke={color}
-        strokeWidth="1"
-        opacity="0.5"
-      />
-      <line
-        x1="105"
-        y1="25"
-        x2="120"
-        y2="80"
-        stroke={color}
-        strokeWidth="1"
-        opacity="0.5"
-      />
-    </svg>
-  );
-}

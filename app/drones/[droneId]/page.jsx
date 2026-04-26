@@ -32,6 +32,7 @@ import { cn, getLevelColor } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
+import SkinThumb from '@/components/ui/SkinThumb';
 import {
   STAT_KEYS,
   calculateStatUpgradeCost,
@@ -587,7 +588,16 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       disabled={!isOwner}
                       aria-expanded={showSkinList}
                     >
-                      <span className={styles.skinSwatch} aria-hidden="true" />
+                      {drone.appliedSkin ? (
+                        <SkinThumb
+                          skin={drone.appliedSkin}
+                          rarity={drone.appliedSkin.rarity}
+                          alt={drone.appliedSkin.name}
+                          className={styles.skinSwatch}
+                        />
+                      ) : (
+                        <span className={styles.skinSwatch} aria-hidden="true" />
+                      )}
                       <span className={styles.skinName}>
                         {drone.appliedSkin?.name ?? 'None'}
                       </span>

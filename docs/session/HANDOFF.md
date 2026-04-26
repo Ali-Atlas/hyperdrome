@@ -4,6 +4,122 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-26 - Packs preview cards: legendary "L" + gold shimmer
+
+**Captain ask:** in the "WHAT YOU COULD PULL" preview grid on the packs screen, replace the drone tier silhouette with a large centered "L" (font-heading bold, color var(--rarity-legendary)) for legendary items only. Add a diagonal gold gradient shimmer that sweeps across legendary preview cards via a `::after` pseudo-element (Captain provided the exact gradient + keyframes spec). Replace the current strong gold border with `1px solid rgba(255, 215, 0, 0.3)`. Don't touch other pack screen elements, drone/skin/mod listings, or the volts tab.
+
+**Files modified (2):**
+- MOD `app/marketplace/page.jsx` - `<PossibleCard>` (line ~1588) branches on `item.rarity === 'legendary'`. Legendary renders `<span className={styles.possibleL} aria-hidden="true">L</span>` in place of the masked-tier `<div className={styles.possibleDrone}>` silhouette. All other rarities keep the existing tier-silhouette mask. The mystery `?` overlay logic is unchanged (it sits on top regardless). Card structure (.possibleCard wrapper + .possibleInner + name + rarity tag) is identical.
+- MOD `app/marketplace/page.module.css`
+  - `.possibleCard_legendary` rewritten: now sets `position: relative`, `overflow: hidden`, `border: 1px solid rgba(255, 215, 0, 0.3)` (Captain's exact value, weaker than the prior 0.8). Box-shadow kept (`0 0 14px rgba(255, 215, 0, 0.3)`).
+  - `.possibleCard_legendary > *` lifts direct children (`.possibleInner`, `.possibleName`, `.possibleRarity`) to `position: relative; z-index: 2` so the gold sweep at z-index 1 sits behind content. Scoped to legendary so non-legendary preview cards keep default static stacking.
+  - `.possibleCard_legendary::after`: implements Captain's exact spec - 105deg linear-gradient with the 4-stop yellow band (40-60% positions), `background-size: 200% 100%`, `legendaryCardSweep 4s ease-in-out infinite`, `pointer-events: none`, `border-radius: inherit`, `z-index: 1`.
+  - `@keyframes legendaryCardSweep` from Captain's spec: bg-pos 200% 0 -> -200% 0.
+  - `.possibleL`: font-heading bold, `font-size: clamp(48px, 8vw, 72px)` so the L scales across the 6-col / 3-col / 2-col responsive grid, color `var(--rarity-legendary)`, line-height 1, text-shadow `0 0 12px rgba(255, 215, 0, 0.55), 0 0 24px rgba(255, 215, 0, 0.3)` to match the existing `.bigCardL` glow scaled down.
+
+**Why clamp() on font-size:** the rule that all sizes pull from `globals.css` tokens has an exception for fluid sizing where no token is appropriate, mirroring the existing `--text-xl/2xl` ladder. clamp() avoids hardcoding a fixed px that breaks at one breakpoint, and the L is a one-off legendary-only treatment, not a reusable scale step.
+
+**Verified:**
+- `npx eslint app/marketplace/page.jsx` -> 0 errors. Pre-existing `<img>` warning at marketplace:1316 unrelated.
+- `npm run build` -> Compiled successfully in 3.4s.
+- Visual confirmation pending at `/marketplace` packs tab: each pack's "WHAT YOU COULD PULL" grid - legendary slots show the "L" with gold sweep and weaker gold border; common/rare/epic slots are unchanged.
+
+---
+
+## 2026-04-26 - Cinematic purchase confirmation modal
+
+**Captain ask:** replace the small purchase modal with a large immersive takeover. Desktop 90vw / 700px max / 500px min-height; tablet 95vw / 600px max; mobile fullscreen 100vw/100vh with no border-radius. Overlay rgba(0,0,0,0.85). Modal bg `var(--bg-primary)`, border-default, radius-xl. Floating-corner close (top-right, subtle). Hero (60% modal height) with floating animation + drop-shadow glow in tier/rarity color. Compact item details (drones: 6 stats incl. ELO + win rate; mods/skins: "Compatible with any drone"). Divider, large price w/ VoltIcon size 24, balance, full-width-max-400 CTA min-height 52px (radius-lg). On success: item keeps floating, radial teal glow pulse expands from center, "PURCHASED" + name fade in, auto-close after 2s. Reuse existing `buyModal / buyPending / buySuccess / buyError` state + API. No emoji, no left borders.
+
+**Files modified (3):**
+- MOD `components/ui/Modal/index.jsx` - additive backward-compat extension. Two new optional props: `chromeless` (default false; when true, the entire `.header` block - title bar + X close - is omitted, and the body div renders without the default `.body` padding so the caller owns layout) and `overlayClassName` (concatenated onto the overlay div). Existing callers (Toast, drone-detail, etc.) are unaffected because both default to off. The primitive still owns Escape, click-outside-to-close, focus management, and the body-overflow lock - the marketplace's processing-state close guard sits in `closePurchaseModal` (line 344, returns early when buyPending is true).
+- MOD `app/marketplace/page.jsx`
+  - Imported `X` from lucide-react (added to existing `Search, Plus, ChevronDown, ChevronRight` set; `Check` dropped, no longer used).
+  - `<Modal>` call (line ~854): dropped `title="Confirm Purchase"` and `size="sm"`; added `chromeless` and `overlayClassName={styles.purchaseOverlay}`.
+  - Bumped `handleBuy` setTimeout from 1500ms -> 2000ms per Captain spec.
+  - Wired `onClose={closePurchaseModal}` through to `<PurchaseModalBody>`.
+  - Replaced `<PurchaseModalBody>` and removed `<PurchaseStatBar>` helper. New body: `.purchaseStage` wrapper with `--glow-color` CSS custom property set inline (drone uses `getLevelColor(level)`, mod/skin uses a small `RARITY_GLOW` color map - the same precedent as the existing inline `style={{color: getLevelColor(...)}}` at line 1909). Floating-corner close button hidden during pending + success states. Hero: drone -> `<DroneImage>` max-w-300, mod -> `<ModPlaceholder size={200}>`, skin -> `<SkinThumb>` max-w-250, all wrapped in `.purchaseHeroFloat` (which carries the float animation + drop-shadow glow). Title row: name (text-xl heading bold uppercase) + level badge / rarity badge. Mod-only: description line below the title. Drone details: 6-stat inline row (SPD/TRN/ACC/DUR/ELO/WIN%) - `winRate` computed as `wins / (wins + losses)` rounded to int percent (vs the prior raw `wins / losses` count). Mod / skin: "Compatible with any drone" text-xs tertiary. Seller: "Listed by {name}". Divider. Price row: VoltIcon size 24 + text-2xl mono bold accent-primary. Balance line. CTA: full-width max-400, min-height 52px, radius-lg, font-body text-base font-semibold uppercase - bg accent-primary / color #000 when affordable; bg rgba(207,102,121,0.2) / color accent-error when not, disabled + cursor not-allowed. Error message below CTA. Fee note (8px tertiary). Success state replaces the bottom block with `.purchaseSuccessBlock` (PURCHASED text-2xl heading bold accent-primary + name text-base secondary), and a `<span className={styles.purchaseGlowPulse}>` is mounted inside the hero behind the floating item.
+- MOD `app/marketplace/page.module.css` - replaced the entire purchase block (~325 lines, including legacy `.purchaseStatBar*`, `.purchaseKpi*`, `.purchaseExtra`, `.purchaseDesc`, `.purchaseSuccessIcon` and `.purchaseSuccessText`).
+  - `.purchaseOverlay`: rgba(0,0,0,0.85), `purchaseOverlayIn 300ms ease-out`.
+  - `.purchaseModal`: bg-primary, border-default, radius-xl, 90vw / 700px max, 500px min-height. Animation `purchaseModalIn 400ms ease-out` (scale 0.9 -> 1, opacity 0 -> 1) overrides the primitive's slideUp.
+  - `.purchaseStage`: position relative, flex column, padding/gap, 500px min-height. `.purchaseStageSuccess` centers content for the success collapse.
+  - `.purchaseCloseBtn`: absolute top/right space-4, 32x32, transparent, text-tertiary -> text-primary on hover, focus-visible outline accent-primary.
+  - `.purchaseHero`: position relative, flex 1, 280px min-height, centered.
+  - `.purchaseHeroFloat`: `drop-shadow(0 12px 24px var(--glow-color, rgba(3,218,198,0.35)))`, `purchaseFloat 3s ease-in-out infinite` with `animation-delay: 400ms` so the float starts after the modal-open scale lands.
+  - `.purchaseHeroImg` max-w 300px desktop / 220 mobile. `.purchaseHeroSkin` max-w 250 / 220. `.purchaseHeroMod` inline-flex centered.
+  - `.purchaseGlowPulse`: 280x280 circle, radial-gradient rgba(3,218,198,0.3) -> 0% transparent at 70%, animated `purchaseGlowPulse 800ms ease-out forwards` (opacity 1 -> 0, scale 0 -> 2).
+  - `.purchaseTitleRow` centered (was space-between). `.purchaseName` text-xl heading bold uppercase. `.purchaseLevel` mono text-sm bold.
+  - `.purchaseModDesc` mono text-sm secondary centered.
+  - `.purchaseDetails` flex-wrap centered, mono text-xs secondary uppercase. `.purchaseDet` inline-flex baseline gap. `.purchaseDetLabel` tertiary semibold.
+  - `.purchaseCompat`, `.purchaseSeller` mono text-xs tertiary centered.
+  - `.purchaseDivider` 1px border-subtle.
+  - `.purchasePriceRow` centered, mono. `.purchasePrice` text-2xl bold accent-primary.
+  - `.purchaseBalance` centered mono text-sm secondary.
+  - `.purchaseCta` self-center, max-w 400, min-h 52, radius-lg, font-body text-base semibold uppercase. `:disabled { cursor: not-allowed }` (no opacity dim - Captain's spec doesn't dim).
+  - `.purchaseCtaShort` rgba(207,102,121,0.2) bg, accent-error color.
+  - `.purchaseProcessing` purchasePulse 1.2s ease-in-out infinite (kept from prior).
+  - `.purchaseError` mono text-sm accent-error centered. `.purchaseFee` 8px tertiary uppercase centered.
+  - `.purchaseSuccessBlock` flex column centered with `purchaseFadeIn 400ms` after `200ms` delay. `.purchaseSuccessHeading` heading text-2xl bold accent-primary uppercase. `.purchaseSuccessName` heading text-base secondary.
+  - Keyframes: `purchaseOverlayIn`, `purchaseModalIn`, `purchaseFloat`, `purchaseGlowPulse`, `purchasePulse`, `purchaseFadeIn`.
+  - Tablet `(max-width: 1024px)`: 95vw / 600px max.
+  - Mobile `(max-width: 480px)`: overlay padding 0, modal 100vw/100vh, border-radius 0, no border, stage min-height 100vh, hero min-height 220, drone/skin max-w 220, glow pulse 220x220.
+  - `(prefers-reduced-motion: reduce)` strips animations on overlay, modal, hero float, glow pulse, processing pulse, success fade.
+
+**Verified:**
+- `npx eslint` -> 0 errors. 1 pre-existing `<img>` warning at marketplace:1316 unrelated to this change.
+- `npm run build` -> Compiled successfully in 3.5s.
+- Visual confirmation pending: Captain to walk drone/skin/mod buy flows at 1440 / 1024 / 375. Test states: idle (afford / not afford), processing, success (auto-close at 2s), error.
+
+---
+
+## 2026-04-26 - Wire optimized skin images into the app
+
+**Captain ask:** webp skin images already sit under `public/skins/{rarity}/`. (1) audit + match against DB skins table, (2) insert new rows for image-only skins, (3) frontend swap from SkinMini SVG placeholder to `<img>` when a real webp exists, (4) when a drone has an applied skin AND a tier-specific render exists, replace the silhouette with the applied render via a hardcoded manifest in `lib/utils.js`. Captain confirmed: keep all 71 legacy DB rows, exclude `ember_transparent.webp` (delete), rename `iridiscent_wraith.webp` to fix the typo, scope override approved.
+
+**Files modified (4) and added (3):**
+- DELETE `public/skins/common/ember_transparent.webp` - leftover from background removal, excluded per Captain.
+- RENAME `public/skins/epic/iridiscent_wraith.webp` -> `public/skins/epic/iridescent_wraith.webp` - typo fix at source.
+- ADD `scripts/seed-skin-images.js` - idempotent ESM script. Walks `public/skins/{rarity}/` for `.webp` files, skips applied-tier renders (matched by `_tier\d+` suffix), title-cases the slug into a display name, inserts a row per swatch with `userId NULL` if no `(name, rarity)` collision exists. Manual env load (the project doesn't ship dotenv as a runtime dep). 31 rows inserted on first run, 0 skipped. Re-running is a no-op.
+- ADD `components/ui/SkinThumb/index.jsx` - new shared primitive. Takes `skin` (with imageUrl + rarity), `rarity` fallback, `alt`, and `className`. Renders `<img object-fit:contain>` when `skin.imageUrl` is a real `/skins/...webp` path; otherwise renders the rarity-tinted `SkinMini` SVG (now exported as a named export here, promoted out of `app/marketplace/page.jsx`). Always wraps in `<span>` so the consumer's className (sizing, optional background/border) doesn't conflict with the `<img>`. `useState`-tracked imageUrl resets the errored flag when the URL changes (matches DroneImage's pattern).
+- ADD `components/ui/SkinThumb/SkinThumb.module.css` - `.wrap` (block, position:relative, overflow:hidden, with `> svg { width:100%; height:100% }` so the SkinMini SVG fills the wrapper). `.img` (width/height 100%, object-fit:contain, display:block).
+- MOD `lib/utils.js` - extracted `getDroneTier(level)` helper (returns 1-4) and refactored `getDroneImageByLevel` to use it. Added `APPLIED_RENDERS` manifest mapping filename slug -> array of available tiers. Currently: `ember:[1]`, `chrome_fury:[4]`, `crystal_phantom:[4]`, `dragon_scale:[4]`, `obsidian_core:[4]`. Update this map when a new applied render lands in `public/skins/`. Added private `getAppliedTierRender(skin, level)` that parses rarity + slug from `skin.imageUrl`, looks up the manifest, and returns the tier-specific webp path if available. New `getDroneImage` priority chain: applied tier render -> swatch imageUrl -> custom drone.imageUrl (non-default) -> tier silhouette.
+- MOD `app/marketplace/page.jsx` - imported new `SkinThumb`. Replaced 3 `<SkinMini rarity={...} />` call sites with `<SkinThumb skin={skin} rarity={...} alt={skin?.name}>` at: pack reveal modal grid (line 1015), listing card image area (line 1712), purchase confirmation modal hero (line 1899). Removed the inline `SkinMini` function definition (~43 lines) since it's now exported from the shared component.
+- MOD `app/drones/[droneId]/page.jsx` - imported `SkinThumb`. At the equipped-skin button (line ~590), conditionally render `SkinThumb` when a skin is applied; the bare gradient `<span className={styles.skinSwatch}>` stays for the unequipped state. The 16x16 sizing comes from the existing `.skinSwatch` rule in the page's CSS module; SkinThumb's wrapper inherits that and the img is `object-fit: contain` inside it.
+
+**Manifest interpretation:** the imageUrl for a swatch is `/skins/{rarity}/{slug}.webp`. The applied-tier file lives at `/skins/{rarity}/{slug}_tier{N}.webp`. The slug is the canonical key for both the manifest and the URL derivation. No DB migration; the manifest is in code so adding new applied renders is a 1-line change.
+
+**Verified:**
+- `node scripts/seed-skin-images.js` -> `inserted=31 skipped=0`. Re-run -> `inserted=0 skipped=31` (idempotent confirmed).
+- `npx eslint app/marketplace/page.jsx app/drones/[droneId]/page.jsx lib/utils.js components/ui/SkinThumb/index.jsx` -> 0 errors. 2 pre-existing-class `<img>` warnings (Next 16 nags about `next/image`, same as DroneImage); same project pattern.
+- `npm run build` -> `Compiled successfully in 3.8s`. All routes reported.
+- Smoke test of `getDroneImage` priority chain (7 cases incl. tier-1 ember at lvl 3, tier-4 chrome_fury at lvl 17, ember at lvl 8 (no tier-2 render -> swatch), legacy skin URLs, no-skin levels) -> `7/7 passed`.
+
+**Captain visual checks pending:**
+- `/marketplace` skins tab: listings show actual webp images for the 31 image-backed skins; legacy skins continue to render the rarity-tinted SVG.
+- Pack opening reveal modal cards.
+- Purchase confirmation modal hero when buying a skin.
+- `/drones/[droneId]` equipped-skin button when a skin with a real image is equipped.
+- Dashboard / drones / races / leaderboard: a drone with one of {Ember (lvl 1-5), Chrome Fury (lvl 16-20), Crystal Phantom (lvl 16-20), Dragon Scale (lvl 16-20), Obsidian Core (lvl 16-20)} shows the applied tier render in place of the silhouette. At other levels it shows the swatch.
+
+---
+
+## 2026-04-26 - Marketplace "Need" buttons: drop the plus, bigger Volt icon
+
+**Captain ask:** remove the `+` sign from the "Need" buttons in the marketplace and make the Volt icon bigger.
+
+**Files modified (1):**
+- MOD `app/marketplace/page.jsx` - 4 call sites updated. All previously rendered `Need +<VoltIcon size={N}>{shortBy}`. The literal `+` glyph is removed (now `Need <VoltIcon>{shortBy}` with a single space between the word and the icon). VoltIcon size bumped +3px at every site to match Captain's "make it bigger" ask, scaling proportionally with the surrounding button:
+  - line 1373 (pack-opening modal main button, gold): size `12 -> 15`
+  - line 1547 (pack listing card button, variant-gold or default): size `12 -> 15`
+  - line 1810 (item listing card "Buy Now" / "Need" button): size `11 -> 14`
+  - line 2010 (purchase confirmation modal confirm button): size `13 -> 16`
+- The sibling "Open Pack ·" / "Confirm Purchase" branches were not touched; their VoltIcon sizes stay as-is so only the can't-afford branch was visually adjusted, per Captain's ask which named the Need buttons specifically.
+
+**Verified:**
+- `npm run lint` -> 0 errors. 1 pre-existing `<img>` warning at marketplace:1314 unrelated to this change.
+- Visual check pending: Captain to confirm in `/marketplace` (item listings, packs panel) and the purchase / pack-opening modals.
+
+---
+
 ## 2026-04-25 - Season 2 preview block prepended to Guide
 
 **Captain ask:** prepend a Season 2 preview section at the very top of the Guide content (before all existing sections). Pill/badge above the section heading, the same `.sectionHeading` style on the heading itself, the same `.subheading` / `.paragraph` styles for the body, and a 3-column table reusing the existing `.costTable` pattern. Wrap in a div with a 3px purple left-border accent (intentional design exception) and `var(--space-8)` margin-bottom for separation. Do not modify any existing guide content.
