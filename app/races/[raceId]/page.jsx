@@ -679,12 +679,18 @@ function DroneCard({ drone, isWinner, time, eloBefore, eloChange, showUpset }) {
         className={cn(
           styles.droneCard,
           styles[`level_${getLevelTier(drone.level)}`],
+          isWinner && styles.winnerCard,
           drone.appliedSkin?.rarity &&
             drone.appliedSkin.rarity !== 'common' &&
             styles[`skinRarity_${drone.appliedSkin.rarity}`],
         )}
       >
-        <h2 className={styles.sectionHeading}>
+        <h2
+          className={cn(
+            styles.sectionHeading,
+            isWinner ? styles.winnerHeading : styles.challengerHeading,
+          )}
+        >
           {isWinner ? 'Winner' : 'Challenger'}
         </h2>
 

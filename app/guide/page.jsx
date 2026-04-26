@@ -533,13 +533,24 @@ const SECTIONS = [
 ];
 
 const MOD_EXAMPLES = [
-  { name: 'Aero Shell',    bonus: '+5% Speed (straights)',       tradeoff: '-3% Turning' },
-  { name: 'Grip Coating',  bonus: '+4% Turning',                 tradeoff: '-2% Acceleration' },
-  { name: 'Night Optics',  bonus: '+8% Night Vision',            tradeoff: '-3% Battery Capacity' },
-  { name: 'Storm Plating', bonus: '+6% Rain Handling',           tradeoff: '-4% Speed' },
-  { name: 'Plasma Core',   bonus: '+5% Acceleration',            tradeoff: '-3% Consistency' },
-  { name: 'Phantom Drive', bonus: 'Ignores Lap 1 battery drain', tradeoff: '-5% Wind Resistance' },
+  { name: 'Streamline Plate', rarity: 'common',    bonus: '+2% Speed',                    tradeoff: '-1% Turning' },
+  { name: 'Grip Pads',        rarity: 'common',    bonus: '+2% Turning',                  tradeoff: '-1% Speed' },
+  { name: 'Steady Module',    rarity: 'common',    bonus: '+2% Consistency',              tradeoff: '-1% Speed' },
+  { name: 'Aero Shell',       rarity: 'rare',      bonus: '+4% Speed (straights)',        tradeoff: '-2% Turning' },
+  { name: 'Storm Plating',    rarity: 'rare',      bonus: '+4% Rain Handling',            tradeoff: '-3% Speed' },
+  { name: 'Night Optics',     rarity: 'rare',      bonus: '+5% Night Vision',             tradeoff: '-3% Battery' },
+  { name: 'Plasma Core',      rarity: 'epic',      bonus: '+6% Acceleration',             tradeoff: '-4% Consistency' },
+  { name: 'Stealth Aero',     rarity: 'epic',      bonus: '+6% Speed',                    tradeoff: '-4% Durability' },
+  { name: 'Typhoon Module',   rarity: 'epic',      bonus: '+8% Rain Handling',            tradeoff: '-5% Speed' },
+  { name: 'Phantom Drive',    rarity: 'legendary', bonus: 'Ignores lap 1 battery drain',  tradeoff: '-5% Wind Resistance' },
+  { name: 'Quantum Sync',     rarity: 'legendary', bonus: 'Consistency doubles on turns', tradeoff: '-4% Speed' },
+  { name: 'Storm Rider',      rarity: 'legendary', bonus: 'All weather penalties -50%',   tradeoff: '-6% Acceleration' },
 ];
+
+/** Capitalize a rarity key for table display. */
+function rarityLabel(rarity) {
+  return rarity.charAt(0).toUpperCase() + rarity.slice(1);
+}
 
 const SEASON_2_PREVIEW = {
   id: 'season-2-preview',
@@ -772,25 +783,40 @@ export default function GuidePage() {
                 <div className={styles.sectionBody}>
                   <h3 className={styles.subheading}>Trait Mods</h3>
                   <p className={styles.paragraph}>
-                    Mods are equippable drone modifications that directly impact race outcomes. Unlike Skins, which are permanent visual reskins, Mods are strategic hardware. Each Mod offers a tradeoff: boost one stat at the cost of another. There are no pure power upgrades, only build diversity.
+                    Mods are equippable drone modifications that affect race performance. Each mod provides a stat bonus in one area at the cost of a penalty in another. There are no pure upgrades, only strategic tradeoffs. The strength of both the bonus and the penalty scales with rarity.
                   </p>
 
                   <h3 className={styles.subheading}>Mod Rarity</h3>
                   <p className={styles.paragraph}>
-                    Common Mods offer subtle adjustments. Small bonus, small penalty. Rare and Epic Mods push harder in both directions, creating sharper tradeoffs and more specialized builds. Legendary Mods introduce unique mechanics that change how your drone behaves during a race.
+                    Common Mods offer small, safe adjustments: a minor bonus with a minimal penalty, netting a small overall advantage. Ideal for general-purpose builds.
                   </p>
-
-                  <h3 className={styles.subheading}>Mod Strategy</h3>
                   <p className={styles.paragraph}>
-                    When a race batch enters its pending window, you can see your opponent&apos;s drone, the track, and the conditions. Use the three-minute strategy window to swap which Mods are actively equipped on your drone from its collection. Study their build, read the conditions, adapt your loadout. When the timer hits zero, configurations lock and the race executes. In Season 1, the strategy window lets you study your matchup. In Season 2, it becomes your preparation phase.
+                    Rare Mods push harder. Moderate bonuses with moderate penalties, creating more specialized builds suited to specific tracks or conditions.
+                  </p>
+                  <p className={styles.paragraph}>
+                    Epic Mods commit to a strategy. Strong bonuses with significant penalties. An Epic mod can dominate in the right conditions but leaves you exposed in others.
+                  </p>
+                  <p className={styles.paragraph}>
+                    Legendary Mods break conventional mechanics entirely. Instead of simple stat adjustments, they introduce unique abilities, like ignoring battery degradation on the first lap or doubling consistency on turn segments. The tradeoff is a meaningful stat penalty, but the ability itself can define an entire racing strategy.
                   </p>
 
                   <h3 className={styles.subheading}>Skins vs Mods</h3>
                   <p className={styles.paragraph}>
-                    Skins are cosmetic. They permanently bind to a drone and change its appearance. You can swap which Skin is actively displayed on your drone at any time, but a Skin cannot be transferred to a different drone. Skins have no impact on race performance.
+                    Skins are cosmetic. They change how your drone looks: the color, texture, and finish of the body. Skins have no impact on race performance. They permanently bind to a drone and you can swap which skin is actively displayed at any time.
                   </p>
                   <p className={styles.paragraph}>
-                    Mods are functional. They permanently bind to a drone and modify its racing characteristics. Within a drone&apos;s collection, you swap Mods freely between races. Want the same Mod on two drones? You need two copies. A drone with a deep Mod collection is more versatile and more valuable on the Marketplace.
+                    Mods are functional. They modify your drone&apos;s racing characteristics with stat bonuses and penalties. Once bound to a drone, a mod stays in that drone&apos;s collection permanently. You can swap which mod is actively equipped between races. A drone with a deep mod collection for different tracks and conditions is more versatile and more valuable on the Marketplace.
+                  </p>
+                  <p className={styles.paragraph}>
+                    Both skins and mods transfer with the drone when sold on the Marketplace. The buyer receives the full collection.
+                  </p>
+
+                  <h3 className={styles.subheading}>Mod Strategy</h3>
+                  <p className={styles.paragraph}>
+                    Every mod is a tradeoff. Choosing the right mod means reading the matchup: your opponent&apos;s build, the track layout, and the race conditions. A mod that dominates on a rainy night track might cripple you on a clear day sprint.
+                  </p>
+                  <p className={styles.paragraph}>
+                    Before each race batch, you can see your upcoming matchup and swap your equipped mod accordingly. Building a diverse mod collection on your drone gives you options. A drone locked into one mod for every race is predictable. A drone with five mods for five scenarios is dangerous.
                   </p>
 
                   <h3 className={styles.subheading}>Mod Examples</h3>
@@ -800,12 +826,19 @@ export default function GuidePage() {
                   >
                     <div className={styles.costHeader} role="row">
                       <span role="columnheader">Mod Name</span>
+                      <span role="columnheader">Rarity</span>
                       <span role="columnheader">Bonus</span>
                       <span role="columnheader">Tradeoff</span>
                     </div>
                     {MOD_EXAMPLES.map((row, i) => (
                       <div key={i} className={styles.costRow} role="row">
                         <span role="cell">{row.name}</span>
+                        <span
+                          role="cell"
+                          className={styles[`rarity_${row.rarity}`]}
+                        >
+                          {rarityLabel(row.rarity)}
+                        </span>
                         <span role="cell">{row.bonus}</span>
                         <span role="cell">{row.tradeoff}</span>
                       </div>

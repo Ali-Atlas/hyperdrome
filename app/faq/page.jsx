@@ -381,7 +381,23 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'What are Mods?',
-        a: 'Equippable drone modifications coming in Season 2 that affect race performance. Each Mod boosts one stat at the cost of another. They bind permanently to a drone but can be swapped freely within that drone\'s collection between races.',
+        a: 'Mods are equippable drone modifications that provide a stat bonus in one area at the cost of a penalty in another. Every mod is a strategic tradeoff. There are no pure upgrades. The bonus and penalty both scale with rarity.',
+      },
+      {
+        q: 'How do Mod rarities differ?',
+        a: 'Common Mods give small safe adjustments. Rare Mods push harder with moderate bonuses and penalties. Epic Mods commit to a strategy with strong effects in both directions. Legendary Mods introduce unique mechanics that change how your drone races, with a meaningful stat penalty as the cost.',
+      },
+      {
+        q: 'Can I remove a Mod from a drone?',
+        a: 'No. Once a Mod is bound to a drone, it stays in that drone\'s collection permanently. You can swap which Mod is actively equipped at any time, but you cannot unbind it or transfer it to another drone. If you sell the drone on the Marketplace, all bound Mods transfer with it.',
+      },
+      {
+        q: 'Can I sell Mods on the Marketplace?',
+        a: 'Only unbound Mods. Ones you own but haven\'t attached to a drone yet. Once a Mod is bound to a drone, it can only be sold as part of the drone itself.',
+      },
+      {
+        q: 'How many Mods can a drone equip?',
+        a: 'One Mod is actively equipped at a time. Your drone can have multiple Mods in its collection, but only the equipped one affects racing. Swap between races to adapt to different matchups and conditions.',
       },
       {
         q: 'What is the pre-race strategy window used for in Season 2?',

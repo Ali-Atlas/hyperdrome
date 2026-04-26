@@ -190,11 +190,12 @@
   border: 1px solid rgba(3, 218, 198, 0.35);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--accent-primary);
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  box-shadow: 0 0 12px rgba(3, 218, 198, 0.2);
 }
 
 .conditionChip {
@@ -235,6 +236,22 @@
   line-height: 1.2;
   min-height: 44px;
   box-sizing: border-box;
+}
+
+/* Winner / Challenger label variants override the shared section heading
+   styling on the result-view drone cards. The winner heading is bigger
+   and accent-colored; the challenger sits quieter in secondary text. */
+.winnerHeading {
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+}
+
+.challengerHeading {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
 }
 
 /* ==========================================================================
@@ -278,6 +295,7 @@
 .gapCard {
   background: var(--bg-card);
   border: 1px solid var(--border-default);
+  min-height: 220px;
 }
 
 .logScroll {
@@ -300,6 +318,21 @@
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   transition: all var(--duration-normal) var(--ease-out);
+}
+
+/* Winner-card accent. Wins over the level-tier border by being declared
+   later with the same specificity, and over .skinRarity_* by appearing
+   after them in the cn() chain (last class wins on equal specificity). */
+.winnerCard {
+  border: 2px solid rgba(3, 218, 198, 0.5);
+  background: rgba(3, 218, 198, 0.04);
+}
+
+.winnerCard.droneCard {
+  /* Reasserted to beat .level_steel/.level_orange/etc which set
+     2px tier-colored borders. */
+  border: 2px solid rgba(3, 218, 198, 0.5);
+  background: rgba(3, 218, 198, 0.04);
 }
 
 /* Level-tier tinted drone card backgrounds + level-colored hover. */
@@ -667,6 +700,17 @@
 .logCard {
   background: var(--bg-card);
   border: 1px solid var(--border-default);
+  max-height: calc(100vh - 200px);
+}
+
+/* Sticky table header inside the scrolling log body. CSS Modules don't
+   scope bare tag selectors, so this descendant rule reaches the
+   <thead> rendered by DataTable inside .logScroll. */
+.logScroll thead {
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+  z-index: 1;
 }
 
 .sparklineWrap {
@@ -768,8 +812,14 @@
   .raceLayout .logCard {
     align-self: auto;
   }
+  .logCard {
+    max-height: none;
+  }
   .logScroll {
     overflow-y: visible;
+  }
+  .logScroll thead {
+    position: static;
   }
 }
 
