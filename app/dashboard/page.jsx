@@ -25,6 +25,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import RacingStatusPill from '@/components/ui/RacingStatusPill';
 import Skeleton from '@/components/ui/Skeleton';
 import StatRadar from '@/components/ui/StatRadar';
+import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import { calculatePerStatCap } from '@/lib/game-engine/economy';
 import { useSession } from '@/hooks/useSession';
 import styles from './page.module.css';
@@ -759,6 +760,14 @@ function NextRaceDroneSide({ drone, tone = 'own', isOwn = false, radarMax }) {
           maxValue={radarMax}
         />
       </div>
+      {drone.appliedMod && (
+        <div className={styles.matchupModLine}>
+          <ModPlaceholder rarity={drone.appliedMod.rarity} size={14} />
+          <span className={styles.matchupModLineName}>
+            {drone.appliedMod.name}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

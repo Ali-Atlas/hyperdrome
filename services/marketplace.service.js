@@ -2,7 +2,15 @@ import { and, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { ApiError } from '@/lib/api/response.js';
 
-const { marketplaceListings, drones, skins, users, droneOwnershipHistory } = schema;
+const {
+  marketplaceListings,
+  drones,
+  skins,
+  mods,
+  droneMods,
+  users,
+  droneOwnershipHistory,
+} = schema;
 
 /* -------------------------------------------------------------------------- */
 /* Create                                                                     */
@@ -12,7 +20,7 @@ const { marketplaceListings, drones, skins, users, droneOwnershipHistory } = sch
 const MIN_LISTING_PRICE = 10;
 
 /**
- * List a drone or skin for sale. Verifies ownership.
+ * List a drone, skin, or mod for sale. Verifies ownership.
  *
  * Active drones ARE listable - they keep racing while listed and are only
  * deactivated on sale completion (April 2026 rule change).
@@ -20,8 +28,11 @@ const MIN_LISTING_PRICE = 10;
  * Skins that are currently applied to a drone are bound and cannot be
  * listed independently; they transfer with the drone on its sale.
  *
+ * Mods that are bound to a drone (any drone_mods row exists) cannot be
+ * listed independently; they transfer with the drone on its sale.
+ *
  * @param {string} userId
- * @param {'drone'|'skin'} itemType
+ * @param {'drone'|'skin'|'mod'} itemType
  * @param {string} itemId
  * @param {number} price
  */
@@ -40,7 +51,7 @@ export async function createListing(userId, itemType, itemId, price) {
       .limit(1);
     if (!drone) throw new ApiError('Drone not found', 404);
     if (drone.userId !== userId) throw new ApiError('You do not own this drone', 403);
-  } else {
+  } else if (itemType === 'skin') {
     const [skin] = await db
       .select()
       .from(skins)
@@ -59,6 +70,25 @@ export async function createListing(userId, itemType, itemId, price) {
         400,
       );
     }
+  } else {
+    const [mod] = await db
+      .select()
+      .from(mods)
+      .where(eq(mods.id, itemId))
+      .limit(1);
+    if (!mod) throw new ApiError('Mod not found', 404);
+    if (mod.userId !== userId) throw new ApiError('You do not own this mod', 403);
+    const [boundRow] = await db
+      .select({ id: droneMods.id })
+      .from(droneMods)
+      .where(eq(droneMods.modId, itemId))
+      .limit(1);
+    if (boundRow) {
+      throw new ApiError(
+        'This mod is bound to a drone and transfers with it - list the drone instead',
+        400,
+      );
+    }
   }
 
   const [listing] = await db
@@ -68,6 +98,7 @@ export async function createListing(userId, itemType, itemId, price) {
       itemType,
       droneId: itemType === 'drone' ? itemId : null,
       skinId: itemType === 'skin' ? itemId : null,
+      modId: itemType === 'mod' ? itemId : null,
       price,
       status: 'active',
     })
@@ -186,6 +217,20 @@ export async function buyListing(buyerId, listingId) {
         .where(eq(skins.id, droneRow.appliedSkinId));
     }
 
+    // Bound mods transfer with the drone. Re-home every mod in the drone's
+    // collection (equipped + non-equipped) to the buyer.
+    const boundModRows = await db
+      .select({ modId: droneMods.modId })
+      .from(droneMods)
+      .where(eq(droneMods.droneId, listing.droneId));
+    const boundModIds = boundModRows.map((r) => r.modId);
+    if (boundModIds.length > 0) {
+      await db
+        .update(mods)
+        .set({ userId: buyerId })
+        .where(inArray(mods.id, boundModIds));
+    }
+
     // New ownership row for buyer
     await db.insert(droneOwnershipHistory).values({
       droneId: listing.droneId,
@@ -198,6 +243,11 @@ export async function buyListing(buyerId, listingId) {
       .update(skins)
       .set({ userId: buyerId })
       .where(eq(skins.id, listing.skinId));
+  } else if (listing.itemType === 'mod' && listing.modId) {
+    await db
+      .update(mods)
+      .set({ userId: buyerId })
+      .where(eq(mods.id, listing.modId));
   }
 
   return claimed[0];
@@ -266,9 +316,10 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
 
   const droneIds = rows.map((r) => r.droneId).filter(Boolean);
   const skinIds = rows.map((r) => r.skinId).filter(Boolean);
+  const modIds = rows.map((r) => r.modId).filter(Boolean);
   const sellerIds = [...new Set(rows.map((r) => r.sellerId))];
 
-  const [droneRows, skinRows, sellerRows] = await Promise.all([
+  const [droneRows, skinRows, modRows, sellerRows] = await Promise.all([
     droneIds.length
       ? db
           .select({ drone: drones, appliedSkin: skins })
@@ -278,6 +329,9 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
       : Promise.resolve([]),
     skinIds.length
       ? db.select().from(skins).where(inArray(skins.id, skinIds))
+      : Promise.resolve([]),
+    modIds.length
+      ? db.select().from(mods).where(inArray(mods.id, modIds))
       : Promise.resolve([]),
     db
       .select({ id: users.id, username: users.username })
@@ -292,12 +346,14 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
     ]),
   );
   const skinMap = Object.fromEntries(skinRows.map((s) => [s.id, s]));
+  const modMap = Object.fromEntries(modRows.map((m) => [m.id, m]));
   const sellerMap = Object.fromEntries(sellerRows.map((s) => [s.id, s]));
 
   return rows.map((r) => ({
     ...r,
     drone: r.droneId ? droneMap[r.droneId] : null,
     skin: r.skinId ? skinMap[r.skinId] : null,
+    mod: r.modId ? modMap[r.modId] : null,
     seller: sellerMap[r.sellerId] ?? null,
   }));
 }

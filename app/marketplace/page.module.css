@@ -802,6 +802,15 @@
   letter-spacing: 0.05em;
 }
 
+/* Mod card description: stat bonus/penalty text or legendary special line. */
+.modDesc {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+}
+
 /* Price row - the star of each card */
 .priceRow {
   display: flex;

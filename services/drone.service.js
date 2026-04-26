@@ -15,7 +15,7 @@ import { ApiError } from '@/lib/api/response.js';
  *  player-wallet bonus payouts. */
 const MAX_LEVEL = 20;
 
-const { drones, users, skins, races, tracks } = schema;
+const { drones, users, skins, mods, droneMods, races, tracks } = schema;
 
 /* -------------------------------------------------------------------------- */
 /* Reads                                                                      */
@@ -40,7 +40,8 @@ export async function getAllDronesForUser(userId) {
 }
 
 /**
- * Return a single drone with its owner username, applied skin, and last 10 races.
+ * Return a single drone with its owner username, applied skin, applied mod,
+ * the full bound-mod collection, and last 10 races.
  * @param {string} droneId
  */
 export async function getDroneById(droneId) {
@@ -58,16 +59,34 @@ export async function getDroneById(droneId) {
 
   if (!row) throw new ApiError('Drone not found', 404);
 
-  const recentRaces = await db
-    .select({
-      race: races,
-      track: tracks,
-    })
-    .from(races)
-    .leftJoin(tracks, eq(races.trackId, tracks.id))
-    .where(or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)))
-    .orderBy(desc(races.createdAt))
-    .limit(10);
+  const [recentRaces, modRows] = await Promise.all([
+    db
+      .select({
+        race: races,
+        track: tracks,
+      })
+      .from(races)
+      .leftJoin(tracks, eq(races.trackId, tracks.id))
+      .where(or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)))
+      .orderBy(desc(races.createdAt))
+      .limit(10),
+    db
+      .select({
+        bindingId: droneMods.id,
+        isEquipped: droneMods.isEquipped,
+        mod: mods,
+      })
+      .from(droneMods)
+      .innerJoin(mods, eq(droneMods.modId, mods.id))
+      .where(eq(droneMods.droneId, droneId)),
+  ]);
+
+  const boundMods = modRows.map(({ bindingId, isEquipped, mod }) => ({
+    ...mod,
+    bindingId,
+    isEquipped,
+  }));
+  const appliedMod = boundMods.find((m) => m.isEquipped) ?? null;
 
   return {
     ...row.drone,
@@ -75,6 +94,8 @@ export async function getDroneById(droneId) {
       ? { id: row.owner.id, username: row.owner.username }
       : null,
     appliedSkin: row.skin,
+    appliedMod,
+    boundMods,
     recentRaces: recentRaces.map(({ race, track }) => ({
       ...race,
       track,

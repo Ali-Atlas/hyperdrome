@@ -941,6 +941,26 @@
   height: 100%;
 }
 
+.matchupModLine {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  max-width: 100%;
+}
+
+.matchupModLineName {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .botBadge {
   position: absolute;
   top: 4px;

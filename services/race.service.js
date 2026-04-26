@@ -18,7 +18,7 @@ import { getRandomTrack } from '@/services/track.service.js';
 import { checkAndLevelUp } from '@/services/drone.service.js';
 import { ApiError } from '@/lib/api/response.js';
 
-const { drones, users, races, tracks, adminConfig, skins } = schema;
+const { drones, users, races, tracks, adminConfig, skins, mods } = schema;
 
 /* -------------------------------------------------------------------------- */
 /* Config loader                                                              */
@@ -492,14 +492,15 @@ export async function getRaceById(raceId) {
   const race = row.race;
 
   const droneRows = await db
-    .select({ drone: drones, appliedSkin: skins })
+    .select({ drone: drones, appliedSkin: skins, appliedMod: mods })
     .from(drones)
     .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
+    .leftJoin(mods, eq(drones.appliedModId, mods.id))
     .where(inArray(drones.id, [race.drone1Id, race.drone2Id]));
   const byId = Object.fromEntries(
-    droneRows.map(({ drone, appliedSkin }) => [
+    droneRows.map(({ drone, appliedSkin, appliedMod }) => [
       drone.id,
-      { ...drone, appliedSkin },
+      { ...drone, appliedSkin, appliedMod },
     ]),
   );
 
@@ -688,6 +689,14 @@ function shapePendingRace(race, track, drone1, drone2, viewerUserId) {
             imageUrl: d.appliedSkin.imageUrl,
           }
         : null,
+      appliedMod: d.appliedMod
+        ? {
+            id: d.appliedMod.id,
+            name: d.appliedMod.name,
+            rarity: d.appliedMod.rarity,
+            description: d.appliedMod.description,
+          }
+        : null,
       imageUrl: d.imageUrl,
     };
   };
@@ -724,23 +733,25 @@ function shapePendingRace(race, track, drone1, drone2, viewerUserId) {
   };
 }
 
-/** Load drone rows + applied-skin rows + owner usernames for a set of ids. */
+/** Load drone rows + applied-skin + applied-mod + owner usernames for a set of ids. */
 async function loadDronesWithJoins(droneIds) {
   if (droneIds.length === 0) return {};
   const rows = await db
     .select({
       drone: drones,
       appliedSkin: skins,
+      appliedMod: mods,
       ownerName: users.username,
     })
     .from(drones)
     .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
+    .leftJoin(mods, eq(drones.appliedModId, mods.id))
     .leftJoin(users, eq(drones.userId, users.id))
     .where(inArray(drones.id, droneIds));
   return Object.fromEntries(
-    rows.map(({ drone, appliedSkin, ownerName }) => [
+    rows.map(({ drone, appliedSkin, appliedMod, ownerName }) => [
       drone.id,
-      { ...drone, appliedSkin, ownerName },
+      { ...drone, appliedSkin, appliedMod, ownerName },
     ]),
   );
 }

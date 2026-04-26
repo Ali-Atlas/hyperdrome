@@ -31,6 +31,7 @@ import { useSession } from '@/hooks/useSession';
 import { cn, getLevelColor } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
+import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import {
   STAT_KEYS,
   calculateStatUpgradeCost,
@@ -301,6 +302,71 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
     return () => clearTimeout(id);
   }, [toggleError]);
 
+  const [unboundMods, setUnboundMods] = useState([]);
+  const [modActionPending, setModActionPending] = useState(false);
+  const [showBindList, setShowBindList] = useState(false);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    let cancelled = false;
+    fetch('/api/mods')
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled || !body?.data) return;
+        setUnboundMods(body.data.filter((m) => !m.boundDroneId));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwner, drone.id, drone.appliedModId]);
+
+  const equipModFn = async (modId) => {
+    if (!modId || modId === drone.appliedModId) return;
+    setModActionPending(true);
+    try {
+      const res = await fetch(`/api/drones/${drone.id}/mods/equip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mod_id: modId }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        showToast(body?.error || 'Equip failed', 'error');
+      } else {
+        showToast('Mod equipped', 'success');
+        await onReload();
+      }
+    } catch (err) {
+      showToast(String(err), 'error');
+    } finally {
+      setModActionPending(false);
+    }
+  };
+
+  const bindModFn = async (modId) => {
+    setModActionPending(true);
+    setShowBindList(false);
+    try {
+      const res = await fetch(`/api/drones/${drone.id}/mods/bind`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mod_id: modId }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        showToast(body?.error || 'Bind failed', 'error');
+      } else {
+        showToast('Mod bound to drone', 'success');
+        await onReload();
+      }
+    } catch (err) {
+      showToast(String(err), 'error');
+    } finally {
+      setModActionPending(false);
+    }
+  };
+
   const performance = useMemo(
     () => analyzeDronePerformance(editedStats),
     [editedStats],
@@ -519,6 +585,91 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       </span>
                       {isOwner && <ChevronDown size={14} aria-hidden="true" />}
                     </button>
+                  </div>
+
+                  <div className={styles.modBlock}>
+                    <span className={styles.modLabel}>Mod Equipped</span>
+                    {drone.boundMods && drone.boundMods.length > 0 ? (
+                      <>
+                        <div className={styles.modCurrent}>
+                          <ModPlaceholder
+                            rarity={drone.appliedMod?.rarity ?? 'common'}
+                            size={36}
+                          />
+                          <div className={styles.modCurrentText}>
+                            <span className={styles.modName}>
+                              {drone.appliedMod?.name ?? 'NONE'}
+                            </span>
+                            {drone.appliedMod?.description && (
+                              <span className={styles.modEffect}>
+                                {drone.appliedMod.description}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {isOwner && drone.boundMods.length > 1 && (
+                          <select
+                            className={styles.modSelect}
+                            value={drone.appliedModId ?? ''}
+                            onChange={(e) => equipModFn(e.target.value)}
+                            disabled={modActionPending}
+                            aria-label="Swap equipped mod"
+                          >
+                            {drone.boundMods.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name} - {m.rarity}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </>
+                    ) : (
+                      <span className={styles.modEmpty}>
+                        NONE -{' '}
+                        <Link href="/marketplace" className={styles.modEmptyLink}>
+                          visit marketplace
+                        </Link>
+                      </span>
+                    )}
+
+                    {isOwner && unboundMods.length > 0 && (
+                      <div className={styles.modBindWrap}>
+                        <button
+                          type="button"
+                          className={styles.modBindBtn}
+                          onClick={() => setShowBindList((v) => !v)}
+                          disabled={modActionPending}
+                        >
+                          Bind New Mod ({unboundMods.length})
+                        </button>
+                        {showBindList && (
+                          <ul className={styles.modBindList}>
+                            {unboundMods.map((m) => (
+                              <li key={m.id}>
+                                <button
+                                  type="button"
+                                  className={styles.modBindItem}
+                                  onClick={() => bindModFn(m.id)}
+                                  disabled={modActionPending}
+                                >
+                                  <span className={styles.modBindName}>
+                                    {m.name}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      styles.modBindRarity,
+                                      styles[`modBindRarity_${m.rarity}`],
+                                    )}
+                                  >
+                                    {m.rarity}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

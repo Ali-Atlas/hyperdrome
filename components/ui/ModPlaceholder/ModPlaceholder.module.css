@@ -1,0 +1,20 @@
+.chip {
+  display: block;
+  filter: drop-shadow(0 0 8px currentColor);
+}
+
+.rarity_common {
+  color: var(--rarity-common);
+}
+
+.rarity_rare {
+  color: var(--rarity-rare);
+}
+
+.rarity_epic {
+  color: var(--rarity-epic);
+}
+
+.rarity_legendary {
+  color: var(--rarity-legendary);
+}

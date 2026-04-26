@@ -29,6 +29,7 @@ import {
 } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
+import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import {
   STAT_KEYS,
   calculatePerStatCap,
@@ -729,6 +730,21 @@ function DroneCard({ drone, isWinner, time, eloBefore, eloChange, showUpset }) {
               </span>
             </div>
           </div>
+          {drone.appliedMod && (
+            <div className={styles.droneModRow}>
+              <ModPlaceholder rarity={drone.appliedMod.rarity} size={24} />
+              <div className={styles.droneModText}>
+                <span className={styles.droneModName}>
+                  {drone.appliedMod.name}
+                </span>
+                {drone.appliedMod.description && (
+                  <span className={styles.droneModEffect}>
+                    {drone.appliedMod.description}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </Card>
     </Link>
@@ -1151,6 +1167,22 @@ function MatchupDroneCard({ drone, radarMax }) {
           {drone.appliedSkin?.name ?? 'None'}
         </span>
       </div>
+
+      {drone.appliedMod && (
+        <div className={styles.matchupModBlock}>
+          <ModPlaceholder rarity={drone.appliedMod.rarity} size={28} />
+          <div className={styles.matchupModText}>
+            <span className={styles.matchupModName}>
+              {drone.appliedMod.name}
+            </span>
+            {drone.appliedMod.description && (
+              <span className={styles.matchupModEffect}>
+                {drone.appliedMod.description}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </Link>
   );
 }

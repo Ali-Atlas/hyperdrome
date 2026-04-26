@@ -16,6 +16,7 @@ import { useSession } from '@/hooks/useSession';
 import { cn, getLevelColor, getLevelTier } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
+import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import styles from './page.module.css';
 
 const PACK_DEFS = [
@@ -153,7 +154,7 @@ export default function MarketplacePage() {
   const { user } = useSession();
   const { showToast } = useToast();
 
-  const [tab, setTab] = useState('drones'); // 'drones' | 'skins' | 'packs' | 'points'
+  const [tab, setTab] = useState('drones'); // 'drones' | 'mods' | 'skins' | 'packs' | 'points'
   const [view, setView] = useState('all'); // 'all' | 'mine'
   const [packOpening, setPackOpening] = useState(null); // pack id currently being opened
   const [packReveal, setPackReveal] = useState(null); // { awarded, packType }
@@ -181,12 +182,14 @@ export default function MarketplacePage() {
   const [listingPending, setListingPending] = useState(false);
   const [ownedInactive, setOwnedInactive] = useState([]);
   const [ownedSkins, setOwnedSkins] = useState([]);
+  const [ownedUnboundMods, setOwnedUnboundMods] = useState([]);
 
   const fetchListings = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        item_type: tab === 'drones' ? 'drone' : 'skin',
+        item_type:
+          tab === 'drones' ? 'drone' : tab === 'mods' ? 'mod' : 'skin',
         limit: '60',
       });
       if (filters.minPrice) params.set('min_price', filters.minPrice);
@@ -202,7 +205,8 @@ export default function MarketplacePage() {
   const fetchTransactions = useCallback(async () => {
     try {
       const params = new URLSearchParams({
-        item_type: tab === 'drones' ? 'drone' : 'skin',
+        item_type:
+          tab === 'drones' ? 'drone' : tab === 'mods' ? 'mod' : 'skin',
         status: 'sold',
         limit: '20',
       });
@@ -217,12 +221,16 @@ export default function MarketplacePage() {
   const fetchMine = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const [drones, skins] = await Promise.all([
+      const [drones, skins, mods] = await Promise.all([
         fetch('/api/drones').then((r) => r.json()).catch(() => null),
         fetch('/api/skins').then((r) => r.json()).catch(() => null),
+        fetch('/api/mods').then((r) => r.json()).catch(() => null),
       ]);
       if (drones?.data) setOwnedInactive(drones.data.filter((d) => !d.active));
       if (skins?.data) setOwnedSkins(skins.data);
+      if (mods?.data) {
+        setOwnedUnboundMods(mods.data.filter((m) => !m.boundDroneId));
+      }
     } catch (err) {
       console.error(err);
     }
@@ -247,6 +255,10 @@ export default function MarketplacePage() {
       items = items.filter((l) => filters.rarities.includes(l.skin?.rarity));
     }
 
+    if (filters.rarities.length > 0 && tab === 'mods') {
+      items = items.filter((l) => filters.rarities.includes(l.mod?.rarity));
+    }
+
     if (tab === 'drones') {
       const min = filters.minLevel ? Number(filters.minLevel) : null;
       const max = filters.maxLevel ? Number(filters.maxLevel) : null;
@@ -260,6 +272,7 @@ export default function MarketplacePage() {
         (l) =>
           l.drone?.name?.toLowerCase().includes(q) ||
           l.skin?.name?.toLowerCase().includes(q) ||
+          l.mod?.name?.toLowerCase().includes(q) ||
           l.seller?.username?.toLowerCase().includes(q),
       );
     }
@@ -371,7 +384,8 @@ export default function MarketplacePage() {
         price: Number(listingPrice),
       };
       if (listingType === 'drone') payload.drone_id = listingItemId;
-      else payload.skin_id = listingItemId;
+      else if (listingType === 'skin') payload.skin_id = listingItemId;
+      else payload.mod_id = listingItemId;
       const res = await fetch('/api/marketplace', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -452,6 +466,15 @@ export default function MarketplacePage() {
                 onClick={() => setTab('drones')}
               >
                 Drones
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'mods'}
+                className={cn(styles.tab, tab === 'mods' && styles.tabActive)}
+                onClick={() => setTab('mods')}
+              >
+                Mods
               </button>
               <button
                 type="button"
@@ -631,7 +654,7 @@ export default function MarketplacePage() {
                   </div>
                 )}
 
-                {tab === 'skins' && (
+                {(tab === 'skins' || tab === 'mods') && (
                   <div className={styles.filterGroup}>
                     <label className={styles.filterLabel}>Rarity</label>
                     <div className={styles.checkList}>
@@ -890,6 +913,19 @@ export default function MarketplacePage() {
               >
                 Skin
               </button>
+              <button
+                type="button"
+                className={cn(
+                  styles.typeBtn,
+                  listingType === 'mod' && styles.typeBtnActive,
+                )}
+                onClick={() => {
+                  setListingType('mod');
+                  setListingItemId('');
+                }}
+              >
+                Mod
+              </button>
             </div>
           </div>
 
@@ -897,7 +933,9 @@ export default function MarketplacePage() {
             <label className={styles.filterLabel}>
               {listingType === 'drone'
                 ? 'Choose drone (must be inactive)'
-                : 'Choose skin'}
+                : listingType === 'skin'
+                  ? 'Choose skin'
+                  : 'Choose mod (unbound only)'}
             </label>
             <select
               className={styles.select}
@@ -905,16 +943,19 @@ export default function MarketplacePage() {
               onChange={(e) => setListingItemId(e.target.value)}
             >
               <option value="">Select one…</option>
-              {(listingType === 'drone' ? ownedInactive : ownedSkins).map(
-                (item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                    {listingType === 'drone'
-                      ? ` - LV ${item.level}`
-                      : ` - ${item.rarity}`}
-                  </option>
-                ),
-              )}
+              {(listingType === 'drone'
+                ? ownedInactive
+                : listingType === 'skin'
+                  ? ownedSkins
+                  : ownedUnboundMods
+              ).map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                  {listingType === 'drone'
+                    ? ` - LV ${item.level}`
+                    : ` - ${item.rarity}`}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -1109,8 +1150,18 @@ function SalesTape({ transactions }) {
             const name =
               t.drone?.name ??
               t.skin?.name ??
-              (t.itemType === 'drone' ? 'Drone' : 'Skin');
-            const typePill = t.itemType === 'skin' ? t.skin?.rarity : null;
+              t.mod?.name ??
+              (t.itemType === 'drone'
+                ? 'Drone'
+                : t.itemType === 'mod'
+                  ? 'Mod'
+                  : 'Skin');
+            const typePill =
+              t.itemType === 'skin'
+                ? t.skin?.rarity
+                : t.itemType === 'mod'
+                  ? t.mod?.rarity
+                  : null;
             return (
               <li key={t.id} className={styles.tapeRow}>
                 <span
@@ -1599,9 +1650,12 @@ function ListingCard({
 }) {
   const router = useRouter();
   const isDrone = listing.itemType === 'drone';
+  const isMod = listing.itemType === 'mod';
+  const isSkin = listing.itemType === 'skin';
   const drone = listing.drone;
   const skin = listing.skin;
-  const rarity = skin?.rarity;
+  const mod = listing.mod;
+  const rarity = isMod ? mod?.rarity : skin?.rarity;
 
   const goToSeller = (e) => {
     // Prevent the surrounding drone-card <Link> from also firing — nested
@@ -1618,6 +1672,12 @@ function ListingCard({
     !isDrone && rarity
       ? styles[`card_${rarity}`]
       : '';
+
+  const itemName = isDrone
+    ? drone?.name
+    : isMod
+      ? mod?.name
+      : skin?.name;
 
   const levelClass =
     isDrone && drone?.level != null
@@ -1652,6 +1712,8 @@ function ListingCard({
             alt={drone?.name ?? 'Drone'}
             className={styles.droneImg}
           />
+        ) : isMod ? (
+          <ModPlaceholder rarity={rarity} size={92} />
         ) : (
           <SkinMini rarity={rarity} />
         )}
@@ -1659,9 +1721,7 @@ function ListingCard({
 
       <div className={styles.listingBody}>
         <div className={styles.listingTitleRow}>
-          <span className={styles.listingName}>
-            {isDrone ? drone?.name : skin?.name ?? 'Unknown'}
-          </span>
+          <span className={styles.listingName}>{itemName ?? 'Unknown'}</span>
           {isDrone && drone?.level != null && (
             <span
               className={styles.listingLevel}
@@ -1685,10 +1745,12 @@ function ListingCard({
           </div>
         )}
 
+        {isMod && mod?.description && (
+          <div className={styles.modDesc}>{mod.description}</div>
+        )}
+
         {!isDrone && (
-          <div className={styles.compat}>
-            Compatible with any drone
-          </div>
+          <div className={styles.compat}>Compatible with any drone</div>
         )}
 
         <div className={styles.priceRow}>
