@@ -930,8 +930,16 @@ function RaceStrategyView({ race }) {
         <StatusBar scheduledAt={race.scheduledAt} />
         <H2HStrip race={race} drone1={drone1} drone2={drone2} />
         <div className={styles.matchupGrid}>
-          <MatchupDroneCard drone={drone1} radarMax={radarMax} />
-          <MatchupDroneCard drone={drone2} radarMax={radarMax} />
+          <MatchupDroneCard
+            drone={drone1}
+            opponent={drone2}
+            radarMax={radarMax}
+          />
+          <MatchupDroneCard
+            drone={drone2}
+            opponent={drone1}
+            radarMax={radarMax}
+          />
         </div>
         <TrackSection race={race} />
       </div>
@@ -1028,7 +1036,7 @@ function H2HStrip({ race, drone1, drone2 }) {
  *  (drone-mgmt style, no Badge), full 9-axis radar, FORM dots, stat strip.
  *  Wraps in <Link> so clicking goes to /drones/[id] (read-only while race
  *  is PENDING). */
-function MatchupDroneCard({ drone, radarMax }) {
+function MatchupDroneCard({ drone, opponent, radarMax }) {
   if (!drone) {
     return (
       <article className={styles.matchupCard} aria-hidden="true">
@@ -1042,6 +1050,12 @@ function MatchupDroneCard({ drone, radarMax }) {
     acc[k] = drone[k] ?? 0;
     return acc;
   }, {});
+  const compareStats = opponent
+    ? STAT_KEYS.reduce((acc, k) => {
+        acc[k] = opponent[k] ?? 0;
+        return acc;
+      }, {})
+    : null;
   const radarLabels = STAT_KEYS.map((k) => RADAR_LABELS[k]);
 
   const races = drone.recentRaces ?? [];
@@ -1094,6 +1108,7 @@ function MatchupDroneCard({ drone, radarMax }) {
       <StatRadar
         axes={STAT_KEYS}
         stats={radarStats}
+        compareStats={compareStats}
         labels={radarLabels}
         maxValue={radarMax}
         className={styles.matchupRadar}

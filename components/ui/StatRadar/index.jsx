@@ -54,6 +54,10 @@ function displayFor(axis) {
  * Apex labels render unconditionally; hover the chart to see a
  * tooltip with each stat's full name + numeric value.
  *
+ * Pass `compareStats` (e.g. the opponent's stat object) to color the
+ * tooltip values: teal when own > compare, red when own < compare,
+ * default text color when equal or compare is unset.
+ *
  * `tone` controls the data polygon's color treatment:
  *   'own'      - teal accent (default; current drone-management visual)
  *   'opponent' - desaturated grey for matchup comparisons where a
@@ -62,6 +66,7 @@ function displayFor(axis) {
  * @param {object} props
  * @param {string[]} props.axes
  * @param {Record<string, number>} props.stats
+ * @param {Record<string, number>} [props.compareStats]
  * @param {number} [props.maxValue]
  * @param {string[]} [props.labels]
  * @param {string} [props.className]
@@ -70,6 +75,7 @@ function displayFor(axis) {
 export default function StatRadar({
   axes,
   stats,
+  compareStats,
   maxValue,
   labels,
   className,
@@ -121,11 +127,18 @@ export default function StatRadar({
 
   const tooltipRows = useMemo(
     () =>
-      axes.map((axis) => ({
-        name: displayFor(axis),
-        value: stats[axis] ?? 0,
-      })),
-    [axes, stats],
+      axes.map((axis) => {
+        const own = stats[axis] ?? 0;
+        const compare = compareStats ? compareStats[axis] ?? 0 : null;
+        let cmp = null;
+        if (compare !== null) {
+          if (own > compare) cmp = 'win';
+          else if (own < compare) cmp = 'loss';
+          else cmp = 'tie';
+        }
+        return { name: displayFor(axis), value: own, cmp };
+      }),
+    [axes, stats, compareStats],
   );
 
   const wrapperClass = [styles.wrapper, className].filter(Boolean).join(' ');
@@ -191,7 +204,17 @@ export default function StatRadar({
               {tooltipRows.map((row) => (
                 <tr key={row.name}>
                   <td className={styles.tooltipName}>{row.name}</td>
-                  <td className={styles.tooltipValue}>{row.value}</td>
+                  <td
+                    className={[
+                      styles.tooltipValue,
+                      row.cmp === 'win' && styles.tooltipValueWin,
+                      row.cmp === 'loss' && styles.tooltipValueLoss,
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    {row.value}
+                  </td>
                 </tr>
               ))}
             </tbody>

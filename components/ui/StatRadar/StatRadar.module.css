@@ -77,13 +77,15 @@
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  min-width: 160px;
   pointer-events: none;
   white-space: nowrap;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .tooltipTable {
+  width: 100%;
   border-collapse: collapse;
 }
 
@@ -98,7 +100,7 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding-right: var(--space-3);
+  padding-right: var(--space-5);
 }
 
 .tooltipValue {
@@ -107,4 +109,13 @@
   color: var(--text-primary);
   font-weight: var(--font-bold);
   text-align: right;
+}
+
+/* Comparison coloring (used in matchup radars where compareStats is set) */
+.tooltipValueWin {
+  color: var(--accent-primary);
+}
+
+.tooltipValueLoss {
+  color: var(--accent-error);
 }

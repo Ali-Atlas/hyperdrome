@@ -643,6 +643,7 @@ function NextRaceMatchup({ race, totalCount }) {
       <div className={styles.matchupRow}>
         <NextRaceDroneSide
           drone={userDrone}
+          opponent={opponent}
           tone="own"
           isOwn
           radarMax={radarMax}
@@ -650,6 +651,7 @@ function NextRaceMatchup({ race, totalCount }) {
         <div className={styles.vsDivider}>VS</div>
         <NextRaceDroneSide
           drone={opponent}
+          opponent={userDrone}
           tone="opponent"
           radarMax={radarMax}
         />
@@ -730,7 +732,13 @@ function LocksInCountdown({ targetDate, className }) {
  *  to grey for the opponent so the user's own drone stays the visual
  *  anchor when both charts sit side-by-side. `radarMax` is shared
  *  between the two sides so polygon size = absolute strength. */
-function NextRaceDroneSide({ drone, tone = 'own', isOwn = false, radarMax }) {
+function NextRaceDroneSide({
+  drone,
+  opponent,
+  tone = 'own',
+  isOwn = false,
+  radarMax,
+}) {
   if (!drone) return <div className={styles.matchupSide} aria-hidden="true" />;
   return (
     <div className={styles.matchupSide}>
@@ -756,6 +764,7 @@ function NextRaceDroneSide({ drone, tone = 'own', isOwn = false, radarMax }) {
         <StatRadar
           axes={RADAR_AXES}
           stats={drone.stats ?? {}}
+          compareStats={opponent?.stats}
           tone={tone}
           maxValue={radarMax}
         />
