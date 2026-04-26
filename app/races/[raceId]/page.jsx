@@ -943,18 +943,19 @@ function RaceStrategyView({ race }) {
   return (
     <NavShell>
       <div className={styles.matchupPage}>
-        <StatusBar scheduledAt={race.scheduledAt} />
         <H2HStrip race={race} drone1={drone1} drone2={drone2} />
         <div className={styles.matchupGrid}>
           <MatchupDroneCard
             drone={leftDrone}
             opponent={rightDrone}
             radarMax={radarMax}
+            viewerUserId={user?.id}
           />
           <MatchupDroneCard
             drone={rightDrone}
             opponent={leftDrone}
             radarMax={radarMax}
+            viewerUserId={user?.id}
           />
         </div>
         <TrackSection race={race} />
@@ -1048,11 +1049,14 @@ function H2HStrip({ race, drone1, drone2 }) {
   );
 }
 
-/** Drone card mirroring the drone-management view: image, name + level
- *  (drone-mgmt style, no Badge), full 9-axis radar, FORM dots, stat strip.
+/** Drone card on the strategy view. Layout:
+ *   1. Name + level + viewer/owner badge above the image
+ *   2. Hero image (matches dashboard spotlight sizing)
+ *   3. Two-column row on desktop: radar | metadata (form + stat strip)
+ *   4. Mod block (always rendered; "No mod" placeholder when none)
  *  Wraps in <Link> so clicking goes to /drones/[id] (read-only while race
  *  is PENDING). */
-function MatchupDroneCard({ drone, opponent, radarMax }) {
+function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId }) {
   if (!drone) {
     return (
       <article className={styles.matchupCard} aria-hidden="true">
@@ -1093,120 +1097,143 @@ function MatchupDroneCard({ drone, opponent, radarMax }) {
       ? `${Math.round(((drone.wins ?? 0) / drone.totalRaces) * 100)}%`
       : '-';
 
+  // Owner badge: BOT for bots, YOU for the viewer's own drone, or the
+  // owner's username for any other player.
+  const isViewerDrone = !!(viewerUserId && drone.userId === viewerUserId);
+  const ownerName = drone.owner?.username ?? null;
+
   return (
     <Link
       href={`/drones/${drone.id}`}
       className={cn(styles.matchupCard, styles[`matchupCard_${tier}`])}
     >
+      <div className={styles.matchupHeader}>
+        <h3 className={styles.matchupName}>{drone.name}</h3>
+        <div className={styles.matchupHeaderMeta}>
+          <span
+            className={styles.matchupLevel}
+            style={{ color: getLevelColor(drone.level) }}
+          >
+            LV {drone.level}
+          </span>
+          {drone.isBot ? (
+            <span className={styles.matchupBotBadge}>
+              <Bot size={11} aria-hidden="true" /> BOT
+            </span>
+          ) : isViewerDrone ? (
+            <span className={styles.matchupYouBadge}>YOU</span>
+          ) : ownerName ? (
+            <span className={styles.matchupOwnerBadge}>{ownerName}</span>
+          ) : null}
+        </div>
+      </div>
+
       <div className={styles.matchupImageFrame}>
         <DroneImage
           drone={drone}
           alt={drone.name}
           className={styles.matchupImg}
         />
-        {drone.isBot && (
-          <span className={styles.matchupBotBadge}>
-            <Bot size={11} aria-hidden="true" /> BOT
-          </span>
-        )}
       </div>
 
-      <div className={styles.matchupNameRow}>
-        <h3 className={styles.matchupName}>{drone.name}</h3>
-        <span
-          className={styles.matchupLevel}
-          style={{ color: getLevelColor(drone.level) }}
-        >
-          LV {drone.level}
-        </span>
-      </div>
+      <div className={styles.matchupSplit}>
+        <div className={styles.matchupRadarCol}>
+          <StatRadar
+            axes={STAT_KEYS}
+            stats={radarStats}
+            compareStats={compareStats}
+            labels={radarLabels}
+            maxValue={radarMax}
+            className={styles.matchupRadar}
+          />
+        </div>
 
-      <StatRadar
-        axes={STAT_KEYS}
-        stats={radarStats}
-        compareStats={compareStats}
-        labels={radarLabels}
-        maxValue={radarMax}
-        className={styles.matchupRadar}
-      />
-
-      <div className={styles.matchupFormStrip}>
-        <span className={styles.matchupFormLabel}>Form</span>
-        <div className={styles.matchupFormDots}>
-          {dots.length > 0 ? (
-            dots.map((won, i) => (
+        <div className={styles.matchupMetaCol}>
+          <div className={styles.matchupFormStrip}>
+            <span className={styles.matchupFormLabel}>Form</span>
+            <div className={styles.matchupFormDots}>
+              {dots.length > 0 ? (
+                dots.map((won, i) => (
+                  <span
+                    key={i}
+                    className={cn(
+                      styles.matchupFormDot,
+                      won
+                        ? styles.matchupFormDotWin
+                        : styles.matchupFormDotLoss,
+                    )}
+                    aria-label={won ? 'Win' : 'Loss'}
+                  />
+                ))
+              ) : (
+                <span className={styles.matchupFormEmpty}>-</span>
+              )}
+            </div>
+            {streakInfo.type && (
               <span
-                key={i}
                 className={cn(
-                  styles.matchupFormDot,
-                  won
-                    ? styles.matchupFormDotWin
-                    : styles.matchupFormDotLoss,
+                  styles.matchupFormStreak,
+                  streakInfo.type === 'W'
+                    ? styles.matchupFormStreakWin
+                    : styles.matchupFormStreakLoss,
                 )}
-                aria-label={won ? 'Win' : 'Loss'}
-              />
-            ))
-          ) : (
-            <span className={styles.matchupFormEmpty}>-</span>
-          )}
-        </div>
-        {streakInfo.type && (
-          <span
-            className={cn(
-              styles.matchupFormStreak,
-              streakInfo.type === 'W'
-                ? styles.matchupFormStreakWin
-                : styles.matchupFormStreakLoss,
-            )}
-          >
-            {streakInfo.type}
-            {streakInfo.streak}
-          </span>
-        )}
-      </div>
-
-      <div className={styles.matchupStatStrip}>
-        <div className={styles.matchupStatItem}>
-          <span className={styles.matchupStatLabel}>Total Races</span>
-          <span className={styles.matchupStatValue}>
-            {drone.totalRaces ?? 0}
-          </span>
-        </div>
-        <div className={styles.matchupStatItem}>
-          <span className={styles.matchupStatLabel}>Wins</span>
-          <span className={styles.matchupStatValue}>{drone.wins ?? 0}</span>
-        </div>
-        <div className={styles.matchupStatItem}>
-          <span className={styles.matchupStatLabel}>Losses</span>
-          <span className={styles.matchupStatValue}>{drone.losses ?? 0}</span>
-        </div>
-        <div className={styles.matchupStatItem}>
-          <span className={styles.matchupStatLabel}>Win Rate</span>
-          <span className={styles.matchupStatValue}>{winRate}</span>
-        </div>
-        <div className={styles.matchupStatItem}>
-          <span className={styles.matchupStatLabel}>ELO</span>
-          <span className={styles.matchupStatValue}>
-            {drone.eloRating ?? 0}
-          </span>
-        </div>
-      </div>
-
-      {drone.appliedMod && (
-        <div className={styles.matchupModBlock}>
-          <ModPlaceholder rarity={drone.appliedMod.rarity} size={28} />
-          <div className={styles.matchupModText}>
-            <span className={styles.matchupModName}>
-              {drone.appliedMod.name}
-            </span>
-            {drone.appliedMod.description && (
-              <span className={styles.matchupModEffect}>
-                {drone.appliedMod.description}
+              >
+                {streakInfo.type}
+                {streakInfo.streak}
               </span>
             )}
           </div>
+
+          <div className={styles.matchupStatStrip}>
+            <div className={styles.matchupStatItem}>
+              <span className={styles.matchupStatLabel}>Total Races</span>
+              <span className={styles.matchupStatValue}>
+                {drone.totalRaces ?? 0}
+              </span>
+            </div>
+            <div className={styles.matchupStatItem}>
+              <span className={styles.matchupStatLabel}>Wins</span>
+              <span className={styles.matchupStatValue}>{drone.wins ?? 0}</span>
+            </div>
+            <div className={styles.matchupStatItem}>
+              <span className={styles.matchupStatLabel}>Losses</span>
+              <span className={styles.matchupStatValue}>
+                {drone.losses ?? 0}
+              </span>
+            </div>
+            <div className={styles.matchupStatItem}>
+              <span className={styles.matchupStatLabel}>Win Rate</span>
+              <span className={styles.matchupStatValue}>{winRate}</span>
+            </div>
+            <div className={styles.matchupStatItem}>
+              <span className={styles.matchupStatLabel}>ELO</span>
+              <span className={styles.matchupStatValue}>
+                {drone.eloRating ?? 0}
+              </span>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
+
+      <div className={styles.matchupModBlock}>
+        {drone.appliedMod ? (
+          <>
+            <ModPlaceholder rarity={drone.appliedMod.rarity} size={28} />
+            <div className={styles.matchupModText}>
+              <span className={styles.matchupModName}>
+                {drone.appliedMod.name}
+              </span>
+              {drone.appliedMod.description && (
+                <span className={styles.matchupModEffect}>
+                  {drone.appliedMod.description}
+                </span>
+              )}
+            </div>
+          </>
+        ) : (
+          <span className={styles.matchupModEmpty}>No mod equipped</span>
+        )}
+      </div>
     </Link>
   );
 }
