@@ -20,8 +20,21 @@ import {
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
+import DroneImage from '@/components/ui/DroneImage';
 import { cn } from '@/lib/utils';
 import styles from './page.module.css';
+
+/**
+ * Drone tier showcase data. Tier images are fixed assets in /public/drones/
+ * resolved by `DroneImage` via `getDroneImageByLevel(level)`. The level chosen
+ * here is just the tier-entry level (1, 6, 11, 16) so the right webp loads.
+ */
+const DRONE_TIERS = [
+  { tier: 1, label: 'Steel',  range: '1-5',   color: 'steel',  level: 1  },
+  { tier: 2, label: 'Orange', range: '6-10',  color: 'orange', level: 6  },
+  { tier: 3, label: 'Purple', range: '11-15', color: 'purple', level: 11 },
+  { tier: 4, label: 'Gold',   range: '16-20', color: 'gold',   level: 16 },
+];
 
 const SECTIONS = [
   {
@@ -255,6 +268,7 @@ const SECTIONS = [
         type: 'paragraph',
         text: 'Tiers map directly to level brackets and drive the drone\'s base appearance.',
       },
+      { type: 'tierShowcase' },
       {
         type: 'list',
         items: [
@@ -921,6 +935,28 @@ function Block({ block }) {
           <div key={i} className={styles.costRow} role="row">
             <span role="cell">{row.range}</span>
             <span role="cell">{row.cost}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (block.type === 'tierShowcase') {
+    return (
+      <div className={styles.tierShowcase}>
+        {DRONE_TIERS.map((t) => (
+          <div key={t.tier} className={styles.tierCard}>
+            <div className={styles.tierImage}>
+              <DroneImage
+                drone={{ level: t.level }}
+                alt={`Tier ${t.tier} drone`}
+              />
+            </div>
+            <div
+              className={cn(styles.tierLabel, styles[`tier_${t.color}`])}
+            >
+              Tier {t.tier} · {t.label}
+            </div>
+            <div className={styles.tierLevels}>L{t.range}</div>
           </div>
         ))}
       </div>

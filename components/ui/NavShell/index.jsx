@@ -242,7 +242,10 @@ function CountdownBar() {
   const raceLockText = formatRemaining(raceLockAt);
   const raceLockExpired = raceLockAt != null && raceLockAt - now <= 0;
 
-  const showRaceItem = raceLockAt != null;
+  // Hide the race item entirely while racing is paused: pending races
+  // are frozen until the kill-switch flips back on, so showing a
+  // countdown or "in progress" pulse would mislead.
+  const showRaceItem = !paused && raceLockAt != null;
 
   return (
     <div className={styles.countdownBar} aria-label="Race timing">
@@ -265,7 +268,7 @@ function CountdownBar() {
           {raceLockExpired ? (
             <span className={styles.countdownItem}>
               <span className={styles.countdownInProgress}>
-                Race in progress
+                Races in progress
               </span>
             </span>
           ) : (

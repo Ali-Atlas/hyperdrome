@@ -360,6 +360,76 @@
 }
 
 /* ==========================================================================
+ * Drone tier showcase - 4 small thumbs in a row inside the Leveling section.
+ * Static images from public/drones/, resolved by DroneImage.
+ * ========================================================================== */
+
+.tierShowcase {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.tierCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  text-align: center;
+  min-width: 0;
+}
+
+.tierImage {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* DroneImage renders an <img> at width 100% by default; constrain padding so
+   the drone has air around it inside the frame. */
+.tierImage > * {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+
+.tierLabel {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: var(--space-1);
+  white-space: nowrap;
+}
+
+.tierLevels {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+}
+
+.tier_steel  { color: var(--level-steel); }
+.tier_orange { color: var(--level-orange); }
+.tier_purple { color: var(--level-purple); }
+.tier_gold   { color: var(--level-gold); }
+
+@media (max-width: 600px) {
+  .tierShowcase {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+  }
+}
+
+/* ==========================================================================
  * Responsive
  * ========================================================================== */
 
