@@ -1585,7 +1585,7 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
           </span>
         </div>
         <div className={styles.packTopRight}>
-          {pack.pills && (
+          {pack.pills ? (
             <div className={styles.pillRow}>
               {pack.pills.map((p, i) => (
                 <span
@@ -1596,6 +1596,10 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
                 </span>
               ))}
             </div>
+          ) : (
+            /* Spacer keeps the title (and everything below it) at the
+               same y across packs that don't carry pills. */
+            <div className={styles.pillRowSpacer} aria-hidden="true" />
           )}
           <h3 className={cn(styles.packCardName, styles[`packCardName_${tone}`])}>
             {pack.name}

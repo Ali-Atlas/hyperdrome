@@ -1256,6 +1256,15 @@
   line-height: 1.4;
 }
 
+/* Inside the Premium / Starter PackCard, reserve the height of two
+   wrapped lines so the row's odds block doesn't change height
+   between cards (Premium wraps, Starter doesn't). The price, button,
+   and "WHAT YOU COULD PULL" header stay aligned across both cards. */
+.packTopRight .oddsText {
+  min-height: 28px;
+  align-content: flex-start;
+}
+
 .packCardHero .oddsText {
   font-size: 11px;
 }
@@ -2014,6 +2023,11 @@
   font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--text-secondary);
+  /* Reserve room for ~3 lines so Premium and Starter descriptions
+     occupy the same vertical block regardless of where they wrap.
+     Keeps the odds row, price, and button perfectly aligned across
+     both cards. */
+  min-height: calc(var(--text-sm) * 1.5 * 3);
 }
 
 .packPriceLarge {
