@@ -12,7 +12,7 @@ const FAQ_SECTIONS = [
     category: 'General',
     items: [
       {
-        q: 'What is Drone Manager?',
+        q: 'What is Hyperdrome?',
         a: 'Passive competitive drone racing. You own drones, allocate stats, and they race automatically every 5 minutes. A weighted simulator decides the winner. Wins pay volts and XP. See the Game Guide for the full breakdown.',
       },
       {

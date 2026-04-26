@@ -92,7 +92,7 @@ export default function NavShell({ children }) {
       <aside className={styles.sidebar} aria-label="Primary">
         <Link href="/dashboard" className={styles.logo}>
           <DroneMark />
-          <span className={styles.logoText}>Drone Manager</span>
+          <span className={styles.logoText}>Hyperdrome</span>
         </Link>
         <nav className={styles.nav}>{renderLinks()}</nav>
         <div className={styles.sidebarFooter}>{renderUserArea()}</div>
@@ -137,7 +137,7 @@ export default function NavShell({ children }) {
             <div className={styles.drawerHeader}>
               <span className={styles.logo}>
                 <DroneMark />
-                <span className={styles.logoText}>Drone Manager</span>
+                <span className={styles.logoText}>Hyperdrome</span>
               </span>
             </div>
             <nav className={styles.nav}>{renderLinks()}</nav>

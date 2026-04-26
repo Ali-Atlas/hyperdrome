@@ -21,7 +21,7 @@ export function SkinMini({ rarity = 'common' }) {
   };
   const color = colors[rarity] ?? colors.common;
   return (
-    <svg viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id={`skin-${rarity}`} x1="0" x2="1">
           <stop offset="0" stopColor={color} stopOpacity="0.18" />
@@ -29,25 +29,25 @@ export function SkinMini({ rarity = 'common' }) {
         </linearGradient>
       </defs>
       <polygon
-        points="20,70 55,25 105,25 140,70 120,80 40,80"
+        points="10,80 40,15 120,15 150,80 130,92 30,92"
         fill={`url(#skin-${rarity})`}
         stroke={color}
         strokeWidth="1.5"
       />
       <line
-        x1="55"
-        y1="25"
-        x2="40"
-        y2="80"
+        x1="40"
+        y1="15"
+        x2="30"
+        y2="92"
         stroke={color}
         strokeWidth="1"
         opacity="0.5"
       />
       <line
-        x1="105"
-        y1="25"
-        x2="120"
-        y2="80"
+        x1="120"
+        y1="15"
+        x2="130"
+        y2="92"
         stroke={color}
         strokeWidth="1"
         opacity="0.5"

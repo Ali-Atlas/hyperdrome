@@ -41,14 +41,6 @@ const PACK_DEFS = [
       { label: 'Legendary', rarity: 'legendary', chance: '5%' },
     ],
     buttonVariant: 'secondary',
-    possible: [
-      { name: 'Carbon Fiber', rarity: 'common' },
-      { name: 'Chrome Plate', rarity: 'common' },
-      { name: 'Neon Pulse', rarity: 'rare' },
-      { name: 'Prism', rarity: 'rare' },
-      { name: 'Hologram', rarity: 'rare' },
-      { name: 'Thunder Strike', rarity: 'epic', mystery: true },
-    ],
   },
   {
     id: 'premium',
@@ -74,14 +66,6 @@ const PACK_DEFS = [
       { label: 'Wild slot - any rarity', rarity: 'epic', chance: '40% / 35% / 20% / 5%' },
     ],
     buttonVariant: 'primary',
-    possible: [
-      { name: 'Neon Pulse', rarity: 'rare' },
-      { name: 'Synthwave', rarity: 'rare' },
-      { name: 'Data Stream', rarity: 'rare' },
-      { name: 'Void Walker', rarity: 'epic' },
-      { name: 'Inferno Core', rarity: 'epic' },
-      { name: 'Hyperion', rarity: 'legendary', mystery: true },
-    ],
   },
   {
     id: 'legendary',
@@ -102,16 +86,49 @@ const PACK_DEFS = [
       { label: 'Rare+ (slot 3)', rarity: 'rare', chance: '30% / 50% / 20%' },
     ],
     buttonVariant: 'gold',
-    possible: [
-      { name: 'Thunder Strike', rarity: 'epic' },
-      { name: 'Celestial Guard', rarity: 'epic' },
-      { name: 'Tidal Surge', rarity: 'epic' },
-      { name: 'Mach Zero', rarity: 'legendary' },
-      { name: 'Overdrive', rarity: 'legendary' },
-      { name: 'Apex Prime', rarity: 'legendary' },
-    ],
   },
 ];
+
+/* 6-card preview composition per pack id. Mirrors the drop-table emphasis
+ * (starter leans common, premium leans rare/epic, legendary leans epic/leg)
+ * so users see real examples of what each pack tends to yield. Items are
+ * sampled from the live image-backed catalog. Only the rarities listed
+ * here are sampled - other rarities the pack can technically drop are
+ * still drop-eligible; the preview just doesn't surface them. */
+const PREVIEW_DISTRIBUTION = {
+  starter:   ['common', 'common', 'common', 'rare', 'rare', 'epic'],
+  premium:   ['rare', 'rare', 'epic', 'epic', 'legendary', 'legendary'],
+  legendary: ['rare', 'epic', 'epic', 'legendary', 'legendary', 'legendary'],
+};
+
+/** Pick 6 sample skins from the image-backed catalog matching the pack's
+ *  preview distribution. De-duplicates within a rarity by walking a
+ *  shuffled copy of that rarity's pool with a per-rarity cursor.
+ *  @param {string} packId
+ *  @param {Record<string, Array<object>>} pool - skins keyed by rarity
+ *  @returns {Array<object>}
+ */
+function pickPreviewSamples(packId, pool) {
+  const distribution = PREVIEW_DISTRIBUTION[packId] ?? [];
+  const shuffled = {};
+  for (const rarity of Object.keys(pool ?? {})) {
+    const list = [...(pool[rarity] ?? [])];
+    for (let i = list.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    shuffled[rarity] = list;
+  }
+  const cursors = { common: 0, rare: 0, epic: 0, legendary: 0 };
+  const samples = [];
+  for (const rarity of distribution) {
+    const list = shuffled[rarity] ?? [];
+    if (list.length === 0) continue;
+    samples.push(list[cursors[rarity] % list.length]);
+    cursors[rarity] += 1;
+  }
+  return samples;
+}
 
 // Live ticker - a hardcoded sample pull. Uses a real seeded username
 // (MKT_ORBIT) so the text looks plausible, not fabricated.
@@ -1214,8 +1231,43 @@ function PacksShowcase({ userPoints, openingId, onOpen }) {
   const premium = PACK_DEFS.find((p) => p.id === 'premium');
   const starter = PACK_DEFS.find((p) => p.id === 'starter');
 
+  // Fetch the image-backed skin catalog once on mount; group by rarity
+  // and feed it to each pack's preview row. Catalog excludes the legacy
+  // placeholder rows (their image_url doesn't point to a real /skins/...
+  // .webp), so what the user sees here matches what packs can actually
+  // drop.
+  const [skinPool, setSkinPool] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/skins/catalog')
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled || !body?.data) return;
+        const grouped = {};
+        for (const skin of body.data) {
+          if (!grouped[skin.rarity]) grouped[skin.rarity] = [];
+          grouped[skin.rarity].push(skin);
+        }
+        setSkinPool(grouped);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const previews = useMemo(
+    () => ({
+      starter: pickPreviewSamples('starter', skinPool),
+      premium: pickPreviewSamples('premium', skinPool),
+      legendary: pickPreviewSamples('legendary', skinPool),
+    }),
+    [skinPool],
+  );
+
   const packProps = (pack) => ({
-    pack,
+    pack: { ...pack, possible: previews[pack.id] ?? [] },
     canAfford: userPoints >= pack.price,
     pointsShort: Math.max(0, pack.price - userPoints),
     isOpening: openingId === pack.id,
@@ -1386,10 +1438,17 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
           </div>
         </div>
         <div className={styles.heroCardWrap} aria-hidden="true">
-          <LegendaryParticles />
-          <div className={styles.bigLegendaryCard}>
-            <span className={styles.bigCardL}>L</span>
-            <span className={styles.bigCardLabel}>Legendary</span>
+          <img
+            src="/skin_packs/legendary_pack.webp"
+            alt=""
+            className={styles.heroPackImg}
+          />
+          <div className={styles.heroCardStack}>
+            <LegendaryParticles />
+            <div className={styles.bigLegendaryCard}>
+              <span className={styles.bigCardL}>L</span>
+              <span className={styles.bigCardLabel}>Legendary</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1506,57 +1565,70 @@ function LegendaryParticles() {
 }
 
 function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
+  const tone = pack.id === 'premium' ? 'premium' : 'starter';
   return (
-    <article className={cn(styles.packCard, styles[`pack_${pack.variant}`])}>
-      {pack.pills ? (
-        <div className={styles.pillRow}>
-          {pack.pills.map((p, i) => (
-            <span
-              key={i}
-              className={cn(styles.pill, styles[`pill_${p.tone}`])}
-            >
-              {p.label}
-            </span>
-          ))}
-        </div>
-      ) : (
-        /* Invisible spacer keeps Starter's header row aligned with
-           Premium's (which has the Most Popular / Save pills above). */
-        <div className={styles.pillRowSpacer} aria-hidden="true" />
+    <article
+      className={cn(
+        styles.packCard,
+        styles[`pack_${pack.variant}`],
+        styles[`packCard_${tone}`],
       )}
-      <div className={styles.packHead}>
-        <h3 className={styles.packName}>{pack.name}</h3>
-        <span className={styles.packPrice}>
-          <VoltIcon size={14} />
-          {pack.price.toLocaleString()}
-        </span>
+    >
+      <div className={styles.packTopRow}>
+        <div className={styles.packTopLeft}>
+          <span className={styles.packImgWrap} aria-hidden="true">
+            <img
+              src={`/skin_packs/${pack.id}_pack.webp`}
+              alt=""
+              className={cn(styles.packPackImg, styles[`packPackImg_${pack.id}`])}
+            />
+          </span>
+        </div>
+        <div className={styles.packTopRight}>
+          {pack.pills && (
+            <div className={styles.pillRow}>
+              {pack.pills.map((p, i) => (
+                <span
+                  key={i}
+                  className={cn(styles.pill, styles[`pill_${p.tone}`])}
+                >
+                  {p.label}
+                </span>
+              ))}
+            </div>
+          )}
+          <h3 className={cn(styles.packCardName, styles[`packCardName_${tone}`])}>
+            {pack.name}
+          </h3>
+          <p className={styles.packCardDescription}>{pack.description}</p>
+          <OddsText packId={pack.id} />
+          <span className={styles.packPriceLarge}>
+            <VoltIcon size={14} />
+            {pack.price.toLocaleString()}
+          </span>
+          <Button
+            variant={pack.buttonVariant === 'gold' ? 'secondary' : pack.buttonVariant}
+            onClick={onOpen}
+            disabled={!canAfford || isOpening}
+            loading={isOpening}
+            className={cn(
+              styles.packBtn,
+              tone === 'premium' && styles.packBtnPurple,
+              tone === 'starter' && styles.packBtnTeal,
+            )}
+          >
+            {!canAfford ? (
+              <>
+                Need <VoltIcon size={15} style={{ color: 'currentColor' }} />
+                {pointsShort.toLocaleString()}
+              </>
+            ) : (
+              'Open Pack'
+            )}
+          </Button>
+        </div>
       </div>
-      <OddsText packId={pack.id} />
       <PossibleGroup items={pack.possible} />
-      <div className={styles.packCtaRow}>
-        <Button
-          variant={pack.buttonVariant === 'gold' ? 'secondary' : pack.buttonVariant}
-          onClick={onOpen}
-          disabled={!canAfford || isOpening}
-          loading={isOpening}
-          className={cn(
-            styles.packBtn,
-            pack.buttonVariant === 'gold' && styles.packBtnGold,
-          )}
-        >
-          {!canAfford ? (
-            <>
-              Need <VoltIcon size={15} style={{ color: 'currentColor' }} />
-              {pointsShort.toLocaleString()}
-            </>
-          ) : (
-            <>
-              Open Pack · <VoltIcon size={12} style={{ color: 'currentColor' }} />
-              {pack.price.toLocaleString()}
-            </>
-          )}
-        </Button>
-      </div>
     </article>
   );
 }
@@ -1575,16 +1647,10 @@ function PossibleGroup({ items }) {
   );
 }
 
-/* Tier image used as the drone-outline silhouette inside each possible card.
-   All rarities use the tier-4 silhouette regardless - the cards are
-   placeholders for what could drop, not previews of the recipient drone. */
-const POSSIBLE_TIER_IMG = {
-  common: '/drones/tier-4.webp',
-  rare: '/drones/tier-4.webp',
-  epic: '/drones/tier-4.webp',
-  legendary: '/drones/tier-4.webp',
-};
-
+/* Renders one slot in the "WHAT YOU COULD PULL" preview grid. Items are
+   real skins sampled from the image-backed catalog. Legendary slots get
+   the gold "L" letter treatment (matches the hero's bigCardL). All other
+   rarities show the actual skin swatch via SkinThumb. */
 function PossibleCard({ item }) {
   const isLegendary = item.rarity === 'legendary';
   return (
@@ -1593,13 +1659,13 @@ function PossibleCard({ item }) {
         {isLegendary ? (
           <span className={styles.possibleL} aria-hidden="true">L</span>
         ) : (
-          <div
-            className={cn(styles.possibleDrone, styles[`possibleDrone_${item.rarity}`])}
-            style={{ '--drone-img': `url(${POSSIBLE_TIER_IMG[item.rarity]})` }}
-            aria-hidden="true"
+          <SkinThumb
+            skin={item}
+            rarity={item.rarity}
+            alt={item.name}
+            className={styles.possibleSkinThumb}
           />
         )}
-        {item.mystery && <span className={styles.possibleMystery}>?</span>}
       </div>
       <span className={styles.possibleName}>{item.name}</span>
       <span
@@ -1737,21 +1803,27 @@ function ListingCard({
           )}
         </div>
 
-        {isDrone && drone && (
-          <div className={styles.statBars}>
-            <StatMiniBar label="SPD" value={drone.speed} />
-            <StatMiniBar label="TRN" value={drone.turning} />
-            <StatMiniBar label="DUR" value={drone.durability} />
-          </div>
-        )}
+        {/* Middle slot - absorbs all variable content (drone stat bars,
+            mod description, skin compat note) so the title above and
+            the price/seller/button below stay pinned to identical
+            vertical positions across every card. */}
+        <div className={styles.cardMiddle}>
+          {isDrone && drone && (
+            <div className={styles.statBars}>
+              <StatMiniBar label="SPD" value={drone.speed} />
+              <StatMiniBar label="TRN" value={drone.turning} />
+              <StatMiniBar label="DUR" value={drone.durability} />
+            </div>
+          )}
 
-        {isMod && mod?.description && (
-          <div className={styles.modDesc}>{mod.description}</div>
-        )}
+          {isMod && mod?.description && (
+            <div className={styles.modDesc}>{mod.description}</div>
+          )}
 
-        {!isDrone && (
-          <div className={styles.compat}>Compatible with any drone</div>
-        )}
+          {!isDrone && (
+            <div className={styles.compat}>Compatible with any drone</div>
+          )}
+        </div>
 
         <div className={styles.priceRow}>
           <VoltIcon size={13} />
@@ -1794,7 +1866,7 @@ function ListingCard({
                 e.stopPropagation();
                 onCancel();
               }}
-              className={styles.cardBtn}
+              className={cn(styles.cardBtn, styles.cardBtnCancel)}
             >
               Cancel Listing
             </Button>

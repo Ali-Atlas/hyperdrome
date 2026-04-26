@@ -42,7 +42,7 @@ const SECTIONS = [
     title: 'Getting Started',
     Icon: Rocket,
     blocks: [
-      { type: 'subheading', text: 'What is Drone Manager' },
+      { type: 'subheading', text: 'What is Hyperdrome' },
       {
         type: 'paragraph',
         text: 'Passive competitive drone racing. You own drones, allocate stats, and they race automatically every 5 minutes. A weighted simulation decides each race using your stats vs. the opponent\'s, the track layout, the rolled weather, the time of day, and a small dampened random variance. Wins pay volts and XP. Volts spend on stat upgrades, marketplace buys, and packs. Seasons run 30 days.',

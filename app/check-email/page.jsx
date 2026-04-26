@@ -3,7 +3,7 @@ import { Mail } from 'lucide-react';
 import styles from './page.module.css';
 
 export const metadata = {
-  title: 'Check your email - Drone Manager',
+  title: 'Check your email - Hyperdrome',
 };
 
 export default function CheckEmailPage() {

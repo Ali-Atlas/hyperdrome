@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, like, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { ApiError } from '@/lib/api/response.js';
 
@@ -11,6 +11,27 @@ export async function getUserSkins(userId) {
     .from(skins)
     .where(eq(skins.userId, userId))
     .orderBy(desc(skins.createdAt));
+}
+
+/**
+ * Catalog of all image-backed skins (`image_url` matches `/skins/...webp`).
+ * Returns every image-backed row regardless of ownership - the marketplace
+ * uses this to populate the "WHAT YOU COULD PULL" preview cards on each
+ * pack. Excludes the legacy placeholder skins whose `image_url` points to
+ * non-existent paths (those still render as SkinMini SVG fallbacks
+ * elsewhere; they're not droppable from packs).
+ */
+export async function getCatalogImageBacked() {
+  return db
+    .select({
+      id: skins.id,
+      name: skins.name,
+      rarity: skins.rarity,
+      imageUrl: skins.imageUrl,
+    })
+    .from(skins)
+    .where(and(like(skins.imageUrl, '/skins/%'), like(skins.imageUrl, '%.webp')))
+    .orderBy(asc(skins.rarity), asc(skins.name));
 }
 
 /**
@@ -86,7 +107,10 @@ export async function removeSkin(_userId, _droneId) {
 }
 
 /**
- * Award a random unowned skin of the given rarity to a user.
+ * Award a random unowned image-backed skin of the given rarity to a user.
+ * Restricted to skins whose `image_url` points to a real `/skins/...webp`
+ * file so race drops + pack drops only yield real designed skins, not the
+ * legacy placeholder rows.
  * Returns the granted skin, or null if none are available in that pool.
  * @param {string} userId
  * @param {'common'|'rare'|'epic'|'legendary'} rarity
@@ -95,7 +119,14 @@ export async function awardSkinDrop(userId, rarity) {
   const unowned = await db
     .select()
     .from(skins)
-    .where(and(eq(skins.rarity, rarity), sql`${skins.userId} IS NULL`))
+    .where(
+      and(
+        eq(skins.rarity, rarity),
+        sql`${skins.userId} IS NULL`,
+        like(skins.imageUrl, '/skins/%'),
+        like(skins.imageUrl, '%.webp'),
+      ),
+    )
     .limit(1);
   if (unowned.length === 0) return null;
 

@@ -29,7 +29,7 @@ export default function LoginPage() {
   return (
     <main className={styles.main}>
       <div className={styles.card}>
-        <h1 className={styles.title}>Drone Manager</h1>
+        <h1 className={styles.title}>Hyperdrome</h1>
         <p className={styles.subtitle}>
           Enter your email to receive a sign-in link.
         </p>

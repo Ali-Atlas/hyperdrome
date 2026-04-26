@@ -4,6 +4,68 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-26 - Drop pool + preview cards restricted to image-backed skins
+
+**Captain ask:** (1) restrict pack drops + race drops to image-backed skins (`image_url LIKE '/skins/%' AND LIKE '%.webp'`), excluding the 71 legacy placeholder rows. (2) The "WHAT YOU COULD PULL" preview cards should show real image-backed skins from the live catalog (sampled per pack's drop emphasis), with the actual swatch via `<SkinThumb>` for non-legendary slots; legendary slots keep the gold "L" treatment. Don't change pricing, card counts, or rarity percentages.
+
+**Files modified (5):**
+- MOD `services/skin.service.js`
+  - Added `getCatalogImageBacked()` exporting all image-backed skin rows (id, name, rarity, imageUrl) regardless of ownership, ordered by rarity then name. Used by the marketplace catalog API to populate preview cards.
+  - `awardSkinDrop()` (race drop) now filters `WHERE image_url LIKE '/skins/%' AND image_url LIKE '%.webp'` so race-rolled drops can only yield real designed skins. Existing null return path on empty pool preserved.
+  - Imports added: `like`, `asc` from drizzle-orm.
+- MOD `services/pack.service.js`
+  - `openPack` candidate query gets the same `like` restriction. Existing pre-check (`if candidates.length < count`) still throws an `ApiError` BEFORE the wallet debit, so users aren't charged when the image-backed pool of a rarity is depleted. (Existing graceful behavior; Captain accepted this as the "skip with a message" path.)
+  - Imports: added `like`.
+- ADD `app/api/skins/catalog/route.js`
+  - New public GET (no auth required) returning the image-backed catalog. Wraps `getCatalogImageBacked()` via `withApiHandler({ requireAuth: false })`. Read-only browse data; no mutations.
+- MOD `app/marketplace/page.jsx`
+  - Stripped the hardcoded `possible: [...]` arrays from all 3 entries in `PACK_DEFS` (Carbon Fiber, Neon Pulse, etc. - those names referenced legacy skins anyway).
+  - Added `PREVIEW_DISTRIBUTION` constant: 6-slot rarity plan per pack id reflecting the drop-table emphasis. starter: 3 common + 2 rare + 1 epic. premium: 2 rare + 2 epic + 2 legendary. legendary: 1 rare + 2 epic + 3 legendary.
+  - Added `pickPreviewSamples(packId, pool)` helper: shuffles the pool per rarity, walks a per-rarity cursor through the distribution, returns up to 6 distinct skin objects.
+  - `<PacksShowcase>` gains a `useState` `skinPool` + `useEffect` that fetches `/api/skins/catalog` once on mount, groups by rarity, stores in state. Sample picks are `useMemo`'d on `[skinPool]` so they stabilize per render rather than reshuffling on every keystroke.
+  - `packProps()` now spreads the dynamic `possible` array into the `pack` payload via `{ ...pack, possible: previews[pack.id] ?? [] }`. Pack data downstream of this point is unchanged in shape.
+  - Removed unused `POSSIBLE_TIER_IMG` constant (was used by the old masked-tier silhouette path).
+  - Updated `<PossibleCard>` rendering: legendary slots still render the big `L` letter; non-legendary slots now render `<SkinThumb skin={item} rarity={item.rarity} alt={item.name} className={styles.possibleSkinThumb} />`. Dropped the `item.mystery` overlay (samples aren't mystery slots; mystery flag was decoration on the old hardcoded data).
+- MOD `app/marketplace/page.module.css`
+  - Removed dead rules: `.possibleShape*` (4 variants), `.possibleDrone*` (5 variants - base + 4 rarity), `.possibleMystery` (no longer rendered).
+  - Added `.possibleSkinThumb { width: 85%; height: 70%; filter: drop-shadow(0 0 6px rgba(255,255,255,0.08)); }` - matches the prior silhouette footprint inside `.possibleInner` (which is `aspect-ratio: 4/3`), so card geometry is unchanged. The faint white inner glow gives the swatch a slight lift on the dark card.
+
+**File count:** 5 files. One over the soft 4-file limit; the CSS module change is unavoidable because removing `<SkinThumb>`'s parent class would leave it auto-sized inside a flex parent and collapse. Captain's task implicitly required CSS work via the "CSS Modules only" rule.
+
+**Verified:**
+- DB smoke test: catalog query returns 31 rows (8 common, 8 rare, 8 epic, 7 legendary). Legacy 71 placeholder rows excluded.
+- `npm run lint` -> 0 errors. 8 pre-existing-pattern `<img>` warnings (DroneImage, SkinThumb, listings, tracks, pack images) - same project pattern.
+- `npm run build` -> Compiled successfully in 3.7s.
+- Visual check pending at `/marketplace` packs tab: preview cards now show real swatch images for common/rare/epic skins (Bone, Ember, Anodized Blaze, Solar Flare, etc.); legendary slots show the `L` letter as before. Pack open RNG can only deliver from the same 31 skins.
+
+---
+
+## 2026-04-26 - Wire skin pack images into the packs screen
+
+**Captain ask:** drop the three optimised pack foils (`public/skin_packs/{starter,premium,legendary}_pack.webp`) into the packs UI. Legendary pack image sits to the LEFT of the existing big gold "L" card, ~same height as the L, gentle float animation, ~6deg lean toward the L card, gold drop-shadow. Premium and starter pack images sit centered between the title row and "WHAT YOU COULD PULL" preview grid (max-width 200 / 180 respectively, hierarchical sizing), purple / teal drop-shadow. All decorative (`pointer-events: none`). On tablet/mobile (<=1100px) the legendary pack stacks above the L card with no rotation. Don't touch pack opening logic, preview cards, odds display, or the L-card animation.
+
+**Files modified (2):**
+- MOD `app/marketplace/page.jsx`
+  - `<LegendaryHero>`: inside `.heroCardWrap`, prepended `<img src="/skin_packs/legendary_pack.webp" className={styles.heroPackImg}>` and wrapped the existing `<LegendaryParticles>` + `.bigLegendaryCard` in a new `.heroCardStack` (the wrapper becomes the absolute particle layer's positioning context, so particles stay anchored to the L card's 220x310 bounds and don't scatter into the pack image area).
+  - `<PackCard>`: between `.packHead` and `<OddsText>`, conditionally renders `<img src="/skin_packs/{pack.id}_pack.webp" className={cn(styles.packPackImg, styles[`packPackImg_${pack.id}`])}>` only for `pack.id === 'starter' | 'premium'`. Legendary skips this (it has the hero treatment).
+- MOD `app/marketplace/page.module.css`
+  - `.heroGrid` grid-template-columns: `minmax(0, 1fr) 280px` -> `minmax(0, 1fr) auto`. The right column now sizes to fit the pack image + L card pair instead of locking to 280px (L-card-only width).
+  - `.heroCardWrap`: added `gap: 32px` so pack image and L card sit comfortably apart; existing flex/center/perspective preserved.
+  - New `.heroCardStack`: position relative, 220x310, flex-center, flex-shrink:0. New nearest-positioned ancestor for `.particleLayer` so particles stay locked to the L card area (matches the prior intent documented in the particleLayer comment - particles spawn from the L's edges).
+  - New `.heroPackImg`: 220x310, object-fit contain, pointer-events none, gold drop-shadow `0 8px 20px rgba(255,215,0,0.2)`, `animation: heroPackFloat 3s ease-in-out infinite`. Tilt + float are composed in the keyframe.
+  - New `.packPackImg` base + `.packPackImg_starter` (max 180, teal drop-shadow `rgba(3,218,198,0.15)`) + `.packPackImg_premium` (max 200, purple drop-shadow `rgba(187,134,252,0.2)`). `margin: 0 auto var(--space-4)` centers and gives the requested gap before the preview grid.
+  - New `@keyframes packFloat`: `translateY 0 -> -6px -> 0` (used by premium/starter and by the legendary pack on tablet/mobile where the tilt is dropped).
+  - New `@keyframes heroPackFloat`: `translateY 0 -> -6px -> 0` composed with a constant `rotate(-6deg)` so the lean tilt isn't wiped by the float transform. (CSS animations override the static `transform`, so the rotation is folded in.)
+  - <=1100px media query (the existing legendary-card responsive block): `.heroCardWrap` gets `flex-direction: column; gap: 16px;` so pack stacks above L card; `.heroCardStack` resizes to `180x250` to match the smaller L card; `.heroPackImg` resizes to `180x250` and switches `animation-name: packFloat` (no rotation when stacked vertically per Captain's spec).
+  - `prefers-reduced-motion` block extended: now also strips animations on `.heroPackImg` and `.packPackImg`.
+
+**Verified:**
+- `npx eslint app/marketplace/page.jsx` -> 0 errors. 3 `<img>` warnings (1 pre-existing + 2 new pack images). Same project pattern as DroneImage / SkinThumb / track listings.
+- `npm run build` -> Compiled successfully in 3.6s.
+- Visual confirmation pending at `/marketplace` packs tab: desktop side-by-side (legendary pack tilted left of L card with gold halo, premium pack centered above its preview grid with purple halo, starter pack centered with teal halo); tablet/mobile <=1100px (legendary pack stacks above L card, no rotation); preview-grid stacking from prior task still applies at <=1024 (premium/starter packs go to single column).
+
+---
+
 ## 2026-04-26 - Packs preview cards: legendary "L" + gold shimmer
 
 **Captain ask:** in the "WHAT YOU COULD PULL" preview grid on the packs screen, replace the drone tier silhouette with a large centered "L" (font-heading bold, color var(--rarity-legendary)) for legendary items only. Add a diagonal gold gradient shimmer that sweeps across legendary preview cards via a `::after` pseudo-element (Captain provided the exact gradient + keyframes spec). Replace the current strong gold border with `1px solid rgba(255, 215, 0, 0.3)`. Don't touch other pack screen elements, drone/skin/mod listings, or the volts tab.

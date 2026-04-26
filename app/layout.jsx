@@ -3,7 +3,7 @@ import { SessionProvider } from '@/hooks/useSession';
 import { ToastProvider } from '@/components/ui/Toast';
 
 export const metadata = {
-  title: 'Drone Manager',
+  title: 'Hyperdrome',
   description:
     'Competitive idle drone racing - build, optimize, and dominate the circuit.',
 };

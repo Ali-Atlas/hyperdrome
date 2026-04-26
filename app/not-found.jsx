@@ -3,7 +3,7 @@ import { AlertCircle } from 'lucide-react';
 import styles from './not-found.module.css';
 
 export const metadata = {
-  title: 'Page not found - Drone Manager',
+  title: 'Page not found - Hyperdrome',
 };
 
 export default function NotFound() {

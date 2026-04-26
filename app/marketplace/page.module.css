@@ -447,6 +447,10 @@
      every page has exactly N × ROWS_PER_PAGE cells. This fallback is
      used before JS has measured the container. */
   grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  /* Force every grid row to share the height of the tallest cell so
+     cards are visually identical in size across the whole page, not
+     just within their own row. */
+  grid-auto-rows: 1fr;
   gap: var(--space-2);
 }
 
@@ -468,6 +472,12 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  /* Floor every card to the same height so drone, skin, and mod cards
+     share the exact same footprint regardless of the content density.
+     Combined with .grid grid-auto-rows: 1fr, every cell on the page
+     is identical in size. */
+  min-height: 240px;
+  height: 100%;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   transition:
@@ -519,6 +529,7 @@
     ),
     var(--bg-card);
   border-color: rgba(74, 158, 255, 0.45);
+  animation: rarePulse 3s ease-in-out infinite;
 }
 
 .listingCard.card_epic {
@@ -529,6 +540,7 @@
     ),
     var(--bg-card);
   border-color: rgba(187, 134, 252, 0.5);
+  animation: epicPulse 2.5s ease-in-out infinite;
 }
 
 .listingCard.card_legendary {
@@ -700,16 +712,32 @@
   height: 100%;
 }
 
+/* Body is a 5-row grid so every card has IDENTICAL vertical anchors:
+     row 1 - title (auto height, pinned to top of body)
+     row 2 - middle (1fr, absorbs all variable content - stat bars,
+             mod desc, skin compat - so cards with denser data don't
+             push the lower rows around)
+     row 3 - price
+     row 4 - seller
+     row 5 - button (pinned to bottom of body)
+   Combined with grid-auto-rows: 1fr on .grid + height: 100% on the
+   wrappers, every card surface (image, title, price, seller, button)
+   sits at the exact same y-coordinate across the whole page. */
 .listingBody {
+  display: grid;
+  grid-template-rows: auto 1fr auto auto auto;
+  row-gap: 4px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex: 1;
+}
+
+.cardMiddle {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 10px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  /* Stretch the body to fill remaining card height so cards across the
-     row stay uniform regardless of description length. The buy button
-     row pins itself to the bottom via margin-top: auto on .cardBtnWrap. */
-  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .listingTitleRow {
@@ -888,6 +916,14 @@
   padding: 4px 6px;
   font-size: 9.5px;
   letter-spacing: 0.02em;
+}
+
+/* Owner's "Cancel Listing" button - longer text than "Buy Now", trimmed
+   down so it fits cleanly inside the card width without crowding. */
+.cardBtn.cardBtnCancel {
+  font-size: 8px;
+  letter-spacing: 0;
+  padding: 4px 4px;
 }
 
 /* Link wrapper around drone cards - stays transparent so card bg shows
@@ -1493,7 +1529,9 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  /* `auto` on the right column lets heroCardWrap size to fit the sealed
+     pack image + the gold L card side-by-side. Was `280px` (L card only). */
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 40px;
   align-items: center;
   flex: 1;
@@ -1573,15 +1611,41 @@
 /* ---------- Big tilted legendary card (right side of hero) ---------- */
 
 .heroCardWrap {
-  /* `position: relative` is the positioning context for the absolute
-     particle layer. No glow / border / background here - the L card's
-     own static box-shadow is the focal point and we don't want a
-     rectangular halo reading as a frame around it. */
+  /* No glow / border / background here - the L card's own box-shadow is
+     the focal point, framing it would compete. `display: flex` hosts the
+     sealed pack image left + the gold L stack right (`gap` between
+     them). The L card + particle layer share a `.heroCardStack` so
+     the absolute particle layer's positioning context is locked to the
+     L card's bounds, not the wider heroCardWrap. */
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 32px;
   perspective: 1200px;
+}
+
+.heroCardStack {
+  position: relative;
+  width: 220px;
+  height: 310px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Sealed legendary pack foil sitting to the left of the L card. Always
+   matches the L card's size at every breakpoint. No animation, no tilt;
+   a soft gold neon shadow underneath so it reads as hovering over a
+   surface. */
+.heroPackImg {
+  width: 220px;
+  height: 310px;
+  object-fit: contain;
+  flex-shrink: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 12px 20px rgba(255, 215, 0, 0.25));
 }
 
 .bigLegendaryCard {
@@ -1812,10 +1876,227 @@
 
 /* ---------- "What You Could Pull" section ---------- */
 
+/* ==========================================================================
+ * Premium / Starter PackCard 2-column layout. Left column hosts the
+ * sealed pack foil (the product). Right column stacks pills + name +
+ * description + odds + price + CTA, vertically centered against the
+ * pack image. "WHAT YOU COULD PULL" preview grid sits below both cols
+ * full-width. Legendary uses its own .heroGrid layout - this block does
+ * not apply there.
+ * ========================================================================== */
+
+/* Container border tokens per pack tone. `overflow: visible` so the
+   oversized pack foil can burst out of the card padding/bounds without
+   getting clipped. */
+.packCard_premium {
+  border: 1px solid rgba(187, 134, 252, 0.2);
+  overflow: visible;
+}
+
+.packCard_starter {
+  border: 1px solid rgba(3, 218, 198, 0.2);
+  overflow: visible;
+}
+
+/* Row is explicitly tall enough to contain the bigger pack inside the
+   card (no top-overflow into the page above). Right column distributes
+   its content via space-between so the pills top + button bottom hit
+   the row's edges - no wasted top/bottom gutter. The pack foil is
+   absolute, lifted off the column-bottom by `--pack-lift`, and the
+   shadow sits at the column-bottom level (= button-bottom level), so
+   the pack reads as floating above its shadow. */
+/* No min-height, no absolute pack, no wasted space. The row sizes to
+   the taller of (pack image natural height, right column content
+   stack). align-items: center vertically aligns the two columns'
+   content against each other. */
+.packTopRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  align-items: center;
+  position: relative;
+  overflow: visible;
+}
+
+.packTopLeft {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: visible;
+}
+
+.packTopRight {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* Tight gap so most adjacent elements sit close together; the price
+     line gets its own larger margins (above and below) for breathing
+     room. */
+  gap: var(--space-1);
+  min-width: 0;
+  /* Anchor the right column's box to the row's bottom and translate
+     the whole stack down so the button bottoms-out at the shadow
+     beneath the pack (translate value tracks shadow `bottom: -22px`
+     plus half the shadow height). The pack itself stays untouched. */
+  align-self: end;
+  transform: translateY(15px);
+}
+
+/* Pack foil sits in natural flex flow inside the left column, sized
+   purely by max-width. The 3D rotateY pivots the foil so the LEFT
+   face turns toward the viewer - product-shot perspective. The
+   relative-positioned wrapper hosts the shadow ::after below. */
+.packImgWrap {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+}
+
+.packPackImg {
+  display: inline-block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.packPackImg_starter {
+  max-width: 600px;
+}
+
+.packPackImg_premium {
+  max-width: 640px;
+}
+
+/* Shadow ellipse below the pack image. Anchored to the wrapper so it
+   travels with the foil regardless of column height. Crisper edge
+   (smaller blur, tighter gradient stop) and a more saturated color
+   so it reads as a defined hover-shadow, not a faded haze. */
+.packImgWrap::after {
+  content: '';
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  width: 55%;
+  height: 14px;
+  background: radial-gradient(
+    ellipse at center,
+    var(--pack-shadow, rgba(255, 255, 255, 0.1)) 0%,
+    transparent 55%
+  );
+  filter: blur(5px);
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.packCard_premium { --pack-shadow: rgba(187, 134, 252, 0.7); }
+.packCard_starter { --pack-shadow: rgba(3, 218, 198, 0.65); }
+
+.packCardName {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+.packCardName_premium { color: var(--accent-secondary); }
+.packCardName_starter { color: var(--accent-primary); }
+
+.packCardDescription {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.packPriceLarge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+  /* Extra breathing room above the price (separates it from the odds
+     row) plus a smaller gap below so the CTA reads as paired with
+     the price line. Adds to the parent's flex gap. */
+  margin: var(--space-4) 0 var(--space-2) 0;
+}
+
+/* CTA tone variants. Selector chains .packBtn + tone class so the
+   override beats the Button primitive's variant class (specificity 0,2,0
+   vs 0,1,0). Trim padding + min-height so the button reads as a tight
+   action, not a slab. */
+/* Match the legendary .packBtnGold treatment for visual parity - same
+   240px width (inherited from .packBtn), 1px tone-tinted border, bold
+   text + glow. Just swap the gold for purple/teal. align-self centers
+   the fixed-width button inside the right column. */
+.packBtn.packBtnPurple {
+  background: var(--accent-secondary);
+  color: #000;
+  border: 1px solid var(--accent-secondary);
+  font-weight: var(--font-bold);
+  letter-spacing: 0.05em;
+  align-self: flex-start;
+  box-shadow: 0 0 16px rgba(187, 134, 252, 0.3);
+}
+
+.packBtn.packBtnPurple:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 0 22px rgba(187, 134, 252, 0.45);
+}
+
+.packBtn.packBtnTeal {
+  background: var(--accent-primary);
+  color: #000;
+  border: 1px solid var(--accent-primary);
+  font-weight: var(--font-bold);
+  letter-spacing: 0.05em;
+  align-self: flex-start;
+  box-shadow: 0 0 16px rgba(3, 218, 198, 0.3);
+}
+
+.packBtn.packBtnTeal:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 0 22px rgba(3, 218, 198, 0.45);
+}
+
+/* Tablet: 45/55 split per spec. Pack stays in left column, never stacks. */
+@media (max-width: 1023px) {
+  .packTopRow {
+    grid-template-columns: 45fr 55fr;
+    gap: var(--space-4);
+  }
+}
+
+/* Mobile: collapse to single column. Pack image on top centered at
+   max 200px (smaller than the desktop hierarchy floors); CTA below
+   spans the column width. */
+@media (max-width: 767px) {
+  .packTopRow {
+    grid-template-columns: 1fr;
+  }
+  .packPackImg_starter,
+  .packPackImg_premium {
+    max-width: 200px;
+    min-height: auto;
+    margin: 0 auto;
+  }
+}
+
 .possibleGroup {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-top: var(--space-5);
 }
 
 .possibleLabel {
@@ -1829,15 +2110,15 @@
 .possibleGrid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .possibleCard {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 10px 8px 8px;
+  gap: 4px;
+  padding: 6px 4px 5px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
@@ -1845,14 +2126,53 @@
   min-width: 0;
 }
 
-.possibleCard_common    { border-color: rgba(158, 158, 158, 0.5); }
-.possibleCard_rare {
-  border-color: rgba(74, 158, 255, 0.65);
-  box-shadow: 0 0 10px rgba(74, 158, 255, 0.18);
+/* Rarity tiers each get a distinct ambient treatment so the preview
+   row reads at a glance: common is dead static, rare breathes blue,
+   epic breathes purple with a soft halo, legendary glistens gold
+   (treated separately below). */
+.possibleCard_common {
+  border: 1px solid rgba(158, 158, 158, 0.2);
 }
+
+.possibleCard_rare {
+  border: 1px solid rgba(74, 158, 255, 0.3);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(74, 158, 255, 0.18) 0%,
+      rgba(74, 158, 255, 0.04) 100%
+    ),
+    var(--bg-elevated);
+  animation: rarePulse 3s ease-in-out infinite;
+}
+
 .possibleCard_epic {
-  border-color: rgba(187, 134, 252, 0.7);
-  box-shadow: 0 0 10px rgba(187, 134, 252, 0.22);
+  border: 1px solid rgba(187, 134, 252, 0.3);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(187, 134, 252, 0.18) 0%,
+      rgba(187, 134, 252, 0.04) 100%
+    ),
+    var(--bg-elevated);
+  box-shadow: 0 0 0px rgba(187, 134, 252, 0);
+  animation: epicPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes rarePulse {
+  0%, 100% { border-color: rgba(74, 158, 255, 0.3); }
+  50%      { border-color: rgba(74, 158, 255, 0.75); }
+}
+
+@keyframes epicPulse {
+  0%, 100% {
+    border-color: rgba(187, 134, 252, 0.3);
+    box-shadow: 0 0 0px rgba(187, 134, 252, 0);
+  }
+  50% {
+    border-color: rgba(187, 134, 252, 0.75);
+    box-shadow: 0 0 14px rgba(187, 134, 252, 0.28);
+  }
 }
 /* Legendary preview cards inherit the same gold-wash treatment as
    legendary skin listing cards (.listingCard.card_legendary): a vertical
@@ -1873,6 +2193,12 @@
   box-shadow:
     inset 0 0 15px rgba(255, 215, 0, 0.06),
     0 0 8px rgba(255, 215, 0, 0.08);
+  animation: legendaryBorderPulse 4s ease-in-out infinite;
+}
+
+@keyframes legendaryBorderPulse {
+  0%, 100% { border-color: rgba(255, 215, 0, 0.4); }
+  50%      { border-color: rgba(255, 215, 0, 0.7); }
 }
 
 /* Lift card content above the diagonal sweep layer. Scoped to legendary so
@@ -1930,72 +2256,26 @@
     0 0 24px rgba(255, 215, 0, 0.3);
 }
 
+/* Inner image area is now near-square so the card reads slightly
+   thinner-and-taller per spec. The card width is grid-driven (1fr in
+   6-col), so taller inner = taller overall card. */
 .possibleInner {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Trapezoid skin shape - 2-color gradient in rarity color. */
-.possibleShape {
-  width: 70%;
-  height: 65%;
-  clip-path: polygon(18% 100%, 82% 100%, 100% 25%, 0 25%);
-}
-
-.possibleShape_common {
-  background: linear-gradient(180deg, rgba(158, 158, 158, 0.6), rgba(158, 158, 158, 0.25));
-}
-.possibleShape_rare {
-  background: linear-gradient(180deg, rgba(74, 158, 255, 0.7), rgba(74, 158, 255, 0.3));
-  filter: drop-shadow(0 0 6px rgba(74, 158, 255, 0.5));
-}
-.possibleShape_epic {
-  background: linear-gradient(180deg, rgba(187, 134, 252, 0.7), rgba(187, 134, 252, 0.3));
-  filter: drop-shadow(0 0 6px rgba(187, 134, 252, 0.5));
-}
-.possibleShape_legendary {
-  background: linear-gradient(180deg, rgba(255, 215, 0, 0.8), rgba(255, 215, 0, 0.35));
-  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.55));
-}
-
-/* Drone silhouette via CSS mask - the tier webp is used as a shape mask,
-   then filled with a solid rarity color. Produces a flat silhouette,
-   not the full photo-render. The drop-shadow follows the masked shape. */
-.possibleDrone {
+/* Real skin swatch inside each preview card. Sized to match the prior
+   silhouette footprint so the card geometry is unchanged. SkinThumb's
+   <img> uses object-fit:contain inside this box, so swatch aspect ratios
+   are preserved. */
+.possibleSkinThumb {
   width: 85%;
   height: 70%;
-  -webkit-mask: var(--drone-img) center / contain no-repeat;
-          mask: var(--drone-img) center / contain no-repeat;
-}
-.possibleDrone_common {
-  background-color: var(--rarity-common, #9E9E9E);
-  filter: drop-shadow(0 0 4px rgba(158, 158, 158, 0.45));
-}
-.possibleDrone_rare {
-  background-color: var(--rarity-rare, #4A9EFF);
-  filter: drop-shadow(0 0 8px rgba(74, 158, 255, 0.55));
-}
-.possibleDrone_epic {
-  background-color: var(--rarity-epic, #BB86FC);
-  filter: drop-shadow(0 0 10px rgba(187, 134, 252, 0.6));
-}
-.possibleDrone_legendary {
-  background-color: var(--rarity-legendary, #FFD700);
-  filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.65));
-}
-
-.possibleMystery {
-  position: absolute;
-  font-family: var(--font-heading);
-  font-size: 28px;
-  font-weight: var(--font-bold);
-  color: var(--text-primary);
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-  z-index: 1;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.08));
 }
 
 .possibleName {
@@ -2037,8 +2317,12 @@
   .heroGrid {
     grid-template-columns: 1fr;
   }
+  /* Legendary pack + L card stay side-by-side at every breakpoint per
+     spec - they're a sealed pack and its promise, never separated. The
+     pair shrinks together. */
   .heroCardWrap {
     order: -1;
+    gap: 20px;
   }
   .bigLegendaryCard {
     width: 180px;
@@ -2048,6 +2332,14 @@
     font-size: 110px;
   }
   .particleLayer {
+    width: 180px;
+    height: 250px;
+  }
+  .heroCardStack {
+    width: 180px;
+    height: 250px;
+  }
+  .heroPackImg {
     width: 180px;
     height: 250px;
   }
@@ -2939,7 +3231,13 @@
   .purchaseHeroFloat,
   .purchaseGlowPulse,
   .purchaseProcessing,
-  .purchaseSuccessBlock {
+  .purchaseSuccessBlock,
+  .possibleCard_rare,
+  .possibleCard_epic,
+  .possibleCard_legendary,
+  .possibleCard_legendary::after,
+  .listingCard.card_rare,
+  .listingCard.card_epic {
     animation: none;
   }
 }

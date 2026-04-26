@@ -17,11 +17,11 @@ import VoltIcon from '@/components/ui/VoltIcon';
 import styles from './page.module.css';
 
 export const metadata = {
-  title: 'Drone Manager - Competitive Idle Drone Racing',
+  title: 'Hyperdrome - Competitive Idle Drone Racing',
   description:
     'Build, optimize, and dominate the circuit. Own drones, allocate stats, and race automatically every 2 minutes. Earn volts, trade skins, climb the leaderboard.',
   openGraph: {
-    title: 'Drone Manager - Competitive Idle Drone Racing',
+    title: 'Hyperdrome - Competitive Idle Drone Racing',
     description:
       'Build, optimize, and dominate the circuit. Own drones, allocate stats, and race automatically every 2 minutes.',
     type: 'website',
@@ -102,7 +102,7 @@ export default async function LandingPage() {
           <span className={styles.logoMark} aria-hidden="true">
             ◢
           </span>
-          Drone Manager
+          Hyperdrome
         </Link>
         <ul className={styles.navLinks}>
           <li>
@@ -212,7 +212,7 @@ export default async function LandingPage() {
           <span className={styles.logoMark} aria-hidden="true">
             ◢
           </span>
-          Drone Manager
+          Hyperdrome
         </div>
         <ul className={styles.footerLinks}>
           <li>

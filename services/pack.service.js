@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, like, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { ApiError } from '@/lib/api/response.js';
 
@@ -95,10 +95,20 @@ export async function openPack(userId, packType) {
   // before we charge the player.
   const awarded = [];
   for (const [rarity, count] of Object.entries(counts)) {
+    // Restrict drops to image-backed skins so packs only yield real
+     // designed skins, never the legacy placeholder rows whose image_url
+     // points to non-existent paths.
     const candidates = await db
       .select()
       .from(skins)
-      .where(and(eq(skins.rarity, rarity), isNull(skins.userId)))
+      .where(
+        and(
+          eq(skins.rarity, rarity),
+          isNull(skins.userId),
+          like(skins.imageUrl, '/skins/%'),
+          like(skins.imageUrl, '%.webp'),
+        ),
+      )
       .limit(count * 4);
     if (candidates.length < count) {
       throw new ApiError(
