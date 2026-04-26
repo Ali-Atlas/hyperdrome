@@ -152,21 +152,19 @@
   box-shadow: 0 0 12px rgba(187, 134, 252, 0.1);
 }
 
-.skinRarity_legendary {
-  border-color: rgba(255, 215, 0, 0.4);
-  box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
-  animation: legendaryShimmer 4s ease-in-out infinite;
+/* Drone with a legendary skin: premium dark neutral surface, replaces
+   the gold treatment. Self-doubled selector wins over the level-tier
+   tint. Level VALUE text stays in tier color (set inline). */
+.skinRarity_legendary.skinRarity_legendary {
+  background: #0A0A0A;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+  animation: droneLegendarySkinShimmer 4s ease-in-out infinite;
 }
 
-@keyframes legendaryShimmer {
-  0%, 100% {
-    box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
-    border-color: rgba(255, 215, 0, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 28px rgba(255, 215, 0, 0.35);
-    border-color: rgba(255, 215, 0, 0.75);
-  }
+@keyframes droneLegendarySkinShimmer {
+  0%, 100% { border-color: rgba(255, 255, 255, 0.1); }
+  50% { border-color: rgba(255, 255, 255, 0.25); }
 }
 
 /* Drone name + level block pinned at the top-left of the spotlight body */

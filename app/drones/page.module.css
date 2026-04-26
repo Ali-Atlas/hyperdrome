@@ -447,21 +447,22 @@
   box-shadow: 0 0 14px rgba(187, 134, 252, 0.18);
 }
 
-.skinRarity_legendary {
-  border-color: rgba(255, 215, 0, 0.6);
-  box-shadow: 0 0 18px rgba(255, 215, 0, 0.22);
-  animation: legendaryShimmer 4s ease-in-out infinite;
+/* Drone with a legendary skin: premium dark neutral surface that
+   replaces both the level-tier tint and the prior gold shimmer.
+   Self-doubled selector wins specificity vs the chained tier rules
+   above. The level VALUE text continues to render in its tier color
+   (set inline on the level span via getLevelColor); only the card
+   frame changes. */
+.skinRarity_legendary.skinRarity_legendary {
+  background: #0A0A0A;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+  animation: droneLegendarySkinShimmer 4s ease-in-out infinite;
 }
 
-@keyframes legendaryShimmer {
-  0%, 100% {
-    box-shadow: 0 0 18px rgba(255, 215, 0, 0.22);
-    border-color: rgba(255, 215, 0, 0.6);
-  }
-  50% {
-    box-shadow: 0 0 32px rgba(255, 215, 0, 0.4);
-    border-color: rgba(255, 215, 0, 0.9);
-  }
+@keyframes droneLegendarySkinShimmer {
+  0%, 100% { border-color: rgba(255, 255, 255, 0.1); }
+  50% { border-color: rgba(255, 255, 255, 0.25); }
 }
 
 /* ---- Card header - name on top, level chip below ---- */

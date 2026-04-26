@@ -603,12 +603,26 @@
   box-shadow: 0 0 12px rgba(187, 134, 252, 0.1);
 }
 
-.skinRarity_legendary {
-  border-color: rgba(255, 215, 0, 0.4);
-  box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
-  animation: legendaryShimmer 4s ease-in-out infinite;
+/* Drone listings with a legendary skin: premium dark neutral surface,
+   replaces the prior gold treatment. Self-doubled selector beats the
+   chained .listingCard.card_level_* tier rules above. Pack cards have
+   their own .pack_gold + .cardLegendaryShimmer treatment further down
+   that stays gold and untouched. */
+.skinRarity_legendary.skinRarity_legendary {
+  background: #0A0A0A;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+  animation: droneLegendarySkinShimmer 4s ease-in-out infinite;
 }
 
+@keyframes droneLegendarySkinShimmer {
+  0%, 100% { border-color: rgba(255, 255, 255, 0.1); }
+  50% { border-color: rgba(255, 255, 255, 0.25); }
+}
+
+/* Original gold legendaryShimmer kept for pack-card sweeps further
+   down (.pack_gold::after, hero/big legendary card). Drone-card use
+   above has migrated to droneLegendarySkinShimmer. */
 @keyframes legendaryShimmer {
   0%, 100% {
     box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
