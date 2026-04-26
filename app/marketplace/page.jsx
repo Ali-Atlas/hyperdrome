@@ -1814,7 +1814,7 @@ function ListingCard({
                 'Buy Now'
               ) : (
                 <>
-                  Need +<VoltIcon size={11} />
+                  Need +<VoltIcon size={11} style={{ color: 'currentColor' }} />
                   {pointsShort.toLocaleString()}
                 </>
               )}

@@ -689,6 +689,10 @@
   gap: 4px;
   padding: 10px 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+  /* Stretch the body to fill remaining card height so cards across the
+     row stay uniform regardless of description length. The buy button
+     row pins itself to the bottom via margin-top: auto on .cardBtnWrap. */
+  flex: 1;
 }
 
 .listingTitleRow {
@@ -857,7 +861,8 @@
 
 .cardBtnWrap {
   width: 100%;
-  margin-top: 2px;
+  margin-top: auto;
+  padding-top: 6px;
 }
 
 .cardBtn {
@@ -972,6 +977,7 @@
 }
 .tickerPullText {
   color: var(--text-tertiary);
+  text-transform: lowercase;
 }
 .tickerPullRarity {
   font-weight: var(--font-bold);
