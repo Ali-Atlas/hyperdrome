@@ -841,7 +841,7 @@ export default function MarketplacePage() {
               >
                 {userPoints < buyModal.price ? (
                   <>
-                    Need +<VoltIcon size={11} />
+                    Need +<VoltIcon size={11} style={{ color: 'currentColor' }} />
                     {(buyModal.price - userPoints).toLocaleString()}
                   </>
                 ) : (
@@ -1326,12 +1326,12 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
             >
               {!canAfford ? (
                 <>
-                  Need +<VoltIcon size={12} />
+                  Need +<VoltIcon size={12} style={{ color: 'currentColor' }} />
                   {pointsShort.toLocaleString()}
                 </>
               ) : (
                 <>
-                  Open Pack · <VoltIcon size={12} />
+                  Open Pack · <VoltIcon size={12} style={{ color: 'currentColor' }} />
                   {pack.price.toLocaleString()}
                 </>
               )}
@@ -1500,12 +1500,12 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
         >
           {!canAfford ? (
             <>
-              Need +<VoltIcon size={12} />
+              Need +<VoltIcon size={12} style={{ color: 'currentColor' }} />
               {pointsShort.toLocaleString()}
             </>
           ) : (
             <>
-              Open Pack · <VoltIcon size={12} />
+              Open Pack · <VoltIcon size={12} style={{ color: 'currentColor' }} />
               {pack.price.toLocaleString()}
             </>
           )}
