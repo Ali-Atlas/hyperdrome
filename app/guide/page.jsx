@@ -713,8 +713,8 @@ const SEASON_2_PREVIEW = {
   Icon: Sparkles,
 };
 
-/** TOC entries: conceptual primers, deep-dives, then the Season 2 preview. */
-const TOC_ENTRIES = [...PRE_SECTIONS, ...SECTIONS, SEASON_2_PREVIEW];
+/** TOC entries: Season 2 preview first, then conceptual primers, then deep-dives. */
+const TOC_ENTRIES = [SEASON_2_PREVIEW, ...PRE_SECTIONS, ...SECTIONS];
 
 export default function GuidePage() {
   const [activeId, setActiveId] = useState(TOC_ENTRIES[0].id);
@@ -847,29 +847,6 @@ export default function GuidePage() {
           </nav>
 
           <div className={styles.content}>
-            {[...PRE_SECTIONS, ...SECTIONS].map(({ id, title, Icon, blocks }) => (
-              <section
-                key={id}
-                id={id}
-                ref={(el) => {
-                  sectionRefs.current[id] = el;
-                }}
-                className={styles.section}
-              >
-                <Card className={styles.sectionCard}>
-                  <div className={styles.sectionHeading}>
-                    <Icon size={14} aria-hidden="true" />
-                    <span>{title}</span>
-                  </div>
-                  <div className={styles.sectionBody}>
-                    {blocks.map((block, i) => (
-                      <Block key={i} block={block} />
-                    ))}
-                  </div>
-                </Card>
-              </section>
-            ))}
-
             <section
               id={SEASON_2_PREVIEW.id}
               ref={(el) => {
@@ -938,6 +915,29 @@ export default function GuidePage() {
                 </div>
               </Card>
             </section>
+
+            {[...PRE_SECTIONS, ...SECTIONS].map(({ id, title, Icon, blocks }) => (
+              <section
+                key={id}
+                id={id}
+                ref={(el) => {
+                  sectionRefs.current[id] = el;
+                }}
+                className={styles.section}
+              >
+                <Card className={styles.sectionCard}>
+                  <div className={styles.sectionHeading}>
+                    <Icon size={14} aria-hidden="true" />
+                    <span>{title}</span>
+                  </div>
+                  <div className={styles.sectionBody}>
+                    {blocks.map((block, i) => (
+                      <Block key={i} block={block} />
+                    ))}
+                  </div>
+                </Card>
+              </section>
+            ))}
           </div>
         </div>
       </div>

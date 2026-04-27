@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useCallback, useEffect, useMemo, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -314,6 +314,43 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   const [showSwapList, setShowSwapList] = useState(false);
   const [showSkinBindModal, setShowSkinBindModal] = useState(false);
   const [showModBindModal, setShowModBindModal] = useState(false);
+  const skinSelectorRef = useRef(null);
+  const modSelectorRef = useRef(null);
+
+  // Close the skin / mod swap dropdowns when the user clicks outside
+  // their wrapper or hits Escape. Listener only attaches while one of
+  // the menus is open, so we don't burn a global handler on every page.
+  useEffect(() => {
+    if (!showSwapSkinList && !showSwapList) return undefined;
+    const handlePointerDown = (e) => {
+      if (
+        showSwapSkinList &&
+        skinSelectorRef.current &&
+        !skinSelectorRef.current.contains(e.target)
+      ) {
+        setShowSwapSkinList(false);
+      }
+      if (
+        showSwapList &&
+        modSelectorRef.current &&
+        !modSelectorRef.current.contains(e.target)
+      ) {
+        setShowSwapList(false);
+      }
+    };
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        setShowSwapSkinList(false);
+        setShowSwapList(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showSwapSkinList, showSwapList]);
 
   useEffect(() => {
     if (!isOwner) return;
@@ -634,7 +671,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
               <div className={styles.collectibleRow}>
                 <div className={styles.skinBlock}>
                   <span className={styles.skinLabel}>Skin Equipped</span>
-                  <div className={styles.modSelectorWrap}>
+                  <div className={styles.modSelectorWrap} ref={skinSelectorRef}>
                     <button
                       type="button"
                       className={cn(
@@ -766,7 +803,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
 
                 <div className={styles.modBlock}>
                   <span className={styles.modLabel}>Mod Equipped</span>
-                  <div className={styles.modSelectorWrap}>
+                  <div className={styles.modSelectorWrap} ref={modSelectorRef}>
                     <button
                       type="button"
                       className={cn(
@@ -785,7 +822,8 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     >
                       <ModPlaceholder
                         rarity={drone.appliedMod?.rarity ?? 'common'}
-                        size={24}
+                        size={20}
+                        className={styles.modSelectorIcon}
                       />
                       <div className={styles.modCurrentText}>
                         <span className={styles.modName}>
@@ -934,18 +972,18 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   <div className={styles.buttonGroup}>
                     <Button
                       variant="primary"
+                      size="sm"
                       onClick={save}
                       disabled={!hasChanges}
                       loading={saving}
-                      className={styles.statEditorBtn}
                     >
                       Save
                     </Button>
                     <Button
                       variant="secondary"
+                      size="sm"
                       onClick={reset}
                       disabled={!hasChanges || saving}
-                      className={styles.statEditorBtn}
                     >
                       Reset
                     </Button>
