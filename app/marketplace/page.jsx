@@ -79,7 +79,7 @@ const PACK_DEFS = [
     variant: 'gold',
     contents: '3 Skins - 1 Epic guaranteed, 1 Legendary, 1 Rare or higher',
     description:
-      '1 Epic guaranteed · 1 Legendary guaranteed · 1 Rare+ wild slot. The only way to pull Mach Zero, Overdrive, or Apex Prime.',
+      '1 Epic guaranteed · 1 Legendary guaranteed · 1 Rare+ wild slot.',
     slots: [
       { variant: 'epic' },
       { variant: 'legendary' },
@@ -583,15 +583,14 @@ export default function MarketplacePage() {
                 Volts
               </button>
             </div>
-            {tab !== 'packs' && tab !== 'points' && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setListModal(true)}
-              >
-                <Plus size={12} aria-hidden="true" /> List Item
-              </Button>
-            )}
+            <Button
+              variant="primary"
+              size="sm"
+              className={styles.listItemBtn}
+              onClick={() => setListModal(true)}
+            >
+              <Plus size={10} aria-hidden="true" /> List Item
+            </Button>
           </div>
 
           <div className={styles.balance}>
@@ -972,12 +971,24 @@ export default function MarketplacePage() {
       <Modal
         isOpen={listModal}
         onClose={() => setListModal(false)}
-        title="List Item for Sale"
         size="md"
+        chromeless
       >
-        <div className={styles.modalBody}>
-          <div className={styles.formRow}>
-            <label className={styles.filterLabel}>Item Type</label>
+        <div className={styles.listFormHeader}>
+          <h2 className={styles.listFormTitle}>List Item for Sale</h2>
+          <button
+            type="button"
+            className={styles.listFormClose}
+            onClick={() => setListModal(false)}
+            aria-label="Close dialog"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className={styles.listFormBody}>
+          <div className={styles.listFormRow}>
+            <label className={styles.listFormLabel}>Item Type</label>
             <div className={styles.typeToggle}>
               <button
                 type="button"
@@ -1021,71 +1032,78 @@ export default function MarketplacePage() {
             </div>
           </div>
 
-          <div className={styles.formRow}>
-            <label className={styles.filterLabel}>
+          <div className={styles.listFormRow}>
+            <label className={styles.listFormLabel}>
               {listingType === 'drone'
                 ? 'Choose drone (must be inactive)'
                 : listingType === 'skin'
                   ? 'Choose skin (unbound only)'
                   : 'Choose mod (unbound only)'}
             </label>
-            <select
-              className={styles.select}
-              value={listingItemId}
-              onChange={(e) => setListingItemId(e.target.value)}
-            >
-              <option value="">Select one…</option>
-              {(listingType === 'drone'
-                ? ownedInactive
-                : listingType === 'skin'
-                  ? ownedSkins
-                  : ownedUnboundMods
-              ).map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                  {listingType === 'drone'
-                    ? ` - LV ${item.level}`
-                    : ` - ${item.rarity}`}
-                </option>
-              ))}
-            </select>
+            <ListingItemPicker
+              kind={listingType}
+              items={
+                listingType === 'drone'
+                  ? ownedInactive
+                  : listingType === 'skin'
+                    ? ownedSkins
+                    : ownedUnboundMods
+              }
+              selectedId={listingItemId}
+              onSelect={setListingItemId}
+            />
           </div>
 
-          <div className={styles.formRow}>
-            <label className={styles.filterLabel}>Price (volts)</label>
+          <div className={styles.listFormRow}>
+            <label className={styles.listFormLabel}>Price (volts)</label>
             <input
               type="number"
               inputMode="numeric"
-              className={styles.rangeInput}
+              className={styles.listFormInput}
               placeholder="1000"
               value={listingPrice}
               onChange={(e) => setListingPrice(e.target.value)}
             />
-            <div className={styles.feeInfo}>
+            <div className={styles.listFormFee}>
               Platform fee:{' '}
               <strong>
                 5% (<VoltIcon size={11} />
                 {fee})
               </strong>{' '}
               · You receive:{' '}
-              <strong className={styles.mono}>
+              <strong>
                 <VoltIcon size={11} />
                 {payout}
               </strong>
             </div>
           </div>
 
-          <div className={styles.modalActions}>
-            <Button variant="secondary" onClick={() => setListModal(false)}>
+          <div className={styles.listFormActions}>
+            <Button
+              variant="secondary"
+              onClick={() => setListModal(false)}
+              className={styles.listFormActionBtn}
+            >
               Cancel
             </Button>
             <Button
               variant="primary"
               onClick={handleCreateListing}
               loading={listingPending}
+              className={styles.listFormActionBtn}
             >
               List for Sale
             </Button>
+          </div>
+
+          <div className={styles.listFormFooter}>
+            <Link href="/guide" className={styles.listFormLink}>
+              Learn more in the Guide
+            </Link>
+            <span className={styles.listFormFooterDot}>·</span>
+            <Link href="/faq" className={styles.listFormLink}>
+              Read the FAQ
+            </Link>
           </div>
         </div>
       </Modal>
@@ -1632,15 +1650,56 @@ function VoltsModalBody({ opt, onClose }) {
 function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
   return (
     <article
-      className={cn(styles.packCard, styles[`pack_${pack.variant}`], styles.packCardHero)}
+      className={cn(
+        styles.packCard,
+        styles[`pack_${pack.variant}`],
+        styles.packCardHero,
+        styles.packCard_legendary,
+      )}
     >
       <div className={styles.heroGrid}>
-        <div className={styles.heroInfo}>
-          <span className={styles.packSubtitle}>Legendary Pack</span>
-          <p className={styles.heroDescription}>{pack.description}</p>
-          <OddsText packId={pack.id} />
-          <PossibleGroup items={pack.possible} />
-          <div className={styles.heroActions}>
+        <div className={styles.packTopRow}>
+          <div className={styles.packTopLeft}>
+            <span className={styles.packImgWrap} aria-hidden="true">
+              <img
+                src={`/skin_packs/${pack.id}_pack.webp`}
+                alt=""
+                className={cn(styles.packPackImg, styles.packPackImg_legendary)}
+              />
+            </span>
+          </div>
+          <div className={styles.packTopRight}>
+            <div className={styles.pillRowSpacer} aria-hidden="true" />
+            <h3
+              className={cn(styles.packCardName, styles.packCardName_legendary)}
+            >
+              {pack.name}
+            </h3>
+            <p
+              className={cn(
+                styles.packCardDescription,
+                styles.legendaryDescription,
+              )}
+            >
+              {pack.description}
+            </p>
+            <p
+              className={cn(
+                styles.packCardDescription,
+                styles.legendaryDescription,
+                styles.legendaryTagline,
+              )}
+            >
+              The only way to pull{' '}
+              <span className={styles.legendarySkinName}>Mach Zero</span>,{' '}
+              <span className={styles.legendarySkinName}>Overdrive</span>, or{' '}
+              <span className={styles.legendarySkinName}>Apex Prime</span>.
+            </p>
+            <OddsText packId={pack.id} />
+            <span className={styles.packPriceLarge}>
+              <VoltIcon size={14} />
+              {pack.price.toLocaleString()}
+            </span>
             <Button
               variant="secondary"
               onClick={onOpen}
@@ -1654,21 +1713,15 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
                   {pointsShort.toLocaleString()}
                 </>
               ) : (
-                <>
-                  Buy Pack · <VoltIcon size={12} style={{ color: 'currentColor' }} />
-                  {pack.price.toLocaleString()}
-                </>
+                'Buy Pack'
               )}
             </Button>
-            <span className={styles.heroHint}>Earn volts by racing</span>
+            <span className={cn(styles.heroHint, styles.heroHintBelow)}>
+              Earn volts by racing
+            </span>
           </div>
         </div>
         <div className={styles.heroCardWrap} aria-hidden="true">
-          <img
-            src="/skin_packs/legendary_pack.webp"
-            alt=""
-            className={styles.heroPackImg}
-          />
           <div className={styles.heroCardStack}>
             <LegendaryParticles />
             <div className={styles.bigLegendaryCard}>
@@ -1678,6 +1731,7 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
           </div>
         </div>
       </div>
+      <PossibleGroup items={pack.possible} />
     </article>
   );
 }
@@ -2011,6 +2065,7 @@ function ListingCard({
         styles.listingCard,
         rarityClass,
         levelClass,
+        isMod && styles.cardMod,
         isOwner && styles.cardMine,
         !isDrone && rarity === 'legendary' && styles.cardLegendaryShimmer,
         legendaryTheme && styles.skinRarity_legendary,
@@ -2187,6 +2242,68 @@ function ListingCard({
 }
 
 /* -------------------------------------------------------------------------- */
+/* Visual picker for the List Item modal. Mirrors the bind-skin/bind-mod      */
+/* pattern in app/drones/[droneId]: thumbnail card grid with rarity-tinted    */
+/* borders and a single-select check.                                          */
+/* -------------------------------------------------------------------------- */
+
+function ListingItemPicker({ kind, items, selectedId, onSelect }) {
+  if (!items || items.length === 0) {
+    return (
+      <div className={styles.listFormEmpty}>
+        {kind === 'drone'
+          ? 'No inactive drones available to list.'
+          : kind === 'skin'
+            ? 'No unbound skins available to list.'
+            : 'No unbound mods available to list.'}
+      </div>
+    );
+  }
+  return (
+    <div className={styles.listFormGrid}>
+      {items.map((item) => {
+        const isSelected = String(selectedId) === String(item.id);
+        const tierClass =
+          kind === 'drone' && item.level != null
+            ? styles[`listFormCard_level_${getLevelTier(item.level)}`]
+            : kind !== 'drone' && item.rarity
+              ? styles[`listFormCard_${item.rarity}`]
+              : '';
+        return (
+          <button
+            key={item.id}
+            type="button"
+            className={cn(
+              styles.listFormCard,
+              tierClass,
+              isSelected && styles.listFormCardSelected,
+            )}
+            onClick={() => onSelect(String(item.id))}
+            aria-pressed={isSelected}
+          >
+            <div className={styles.listFormCardImage}>
+              {kind === 'drone' ? (
+                <DroneImage drone={item} alt={item.name} />
+              ) : kind === 'skin' ? (
+                <SkinThumb skin={item} rarity={item.rarity} alt={item.name} />
+              ) : (
+                <ModPlaceholder rarity={item.rarity} size={64} />
+              )}
+            </div>
+            <div className={styles.listFormCardName}>{item.name}</div>
+            <div className={styles.listFormCardMeta}>
+              {kind === 'drone'
+                ? `LV ${item.level}`
+                : RARITY_LABELS[item.rarity] ?? item.rarity}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Skin slot - renders the actual skin image when image-backed, otherwise     */
 /* the marketplace-local folded-pentagon placeholder. Bypasses SkinThumb so   */
 /* the marketplace can ship its own placeholder shape without affecting       */
@@ -2227,31 +2344,25 @@ function MarketplaceSkinPlaceholder({ rarity }) {
       className={cn(styles.skinPlaceholderWrap, rarityClass)}
       aria-hidden="true"
     >
-      <svg viewBox="0 0 160 100" className={styles.skinPlaceholderSvg}>
-        {/* Center facet - lighter fill, narrow downward triangle from the
-            two top apexes converging at the sharp bottom point. */}
-        <polygon points="55,8 105,8 80,92" fill="currentColor" fillOpacity="0.24" />
-        {/* Left flap - wider, spreads out and down from the left apex. */}
-        <polygon points="55,8 8,52 80,92" fill="currentColor" fillOpacity="0.10" />
-        {/* Right flap - wider, mirror of the left flap. */}
-        <polygon points="105,8 152,52 80,92" fill="currentColor" fillOpacity="0.10" />
-        {/* Outer envelope outline. */}
-        <polygon
-          points="55,8 105,8 152,52 80,92 8,52"
+      <svg viewBox="0 0 200 130" className={styles.skinPlaceholderSvg}>
+        <polygon points="5,5 195,5 100,130" fill="currentColor" fillOpacity="0.22" />
+        <polygon points="5,5 50,95 100,130" fill="currentColor" fillOpacity="0.10" />
+        <polygon points="195,5 150,95 100,130" fill="currentColor" fillOpacity="0.10" />
+        <path
+          d="M 5,5 L 195,5 L 150,95 L 100,130 L 50,95 Z"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.8"
-          strokeOpacity="0.9"
+          strokeWidth="1.5"
+          strokeOpacity="0.7"
           strokeLinejoin="round"
         />
-        {/* Spine V lines from top apexes to bottom point. */}
         <line
-          x1="55" y1="8" x2="80" y2="92"
-          stroke="currentColor" strokeWidth="1.4" strokeOpacity="0.7"
+          x1="5" y1="5" x2="100" y2="130"
+          stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.7"
         />
         <line
-          x1="105" y1="8" x2="80" y2="92"
-          stroke="currentColor" strokeWidth="1.4" strokeOpacity="0.7"
+          x1="195" y1="5" x2="100" y2="130"
+          stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.7"
         />
       </svg>
     </span>
@@ -2431,17 +2542,18 @@ function PurchaseModalBody({
   const canAfford = userPoints >= listing.price;
   const shortBy = canAfford ? 0 : listing.price - userPoints;
 
-  // Shadow color piped via --glow-color CSS variable. Per Captain's spec:
-  // drones with a legendary skin take the legendary's primary color
-  // (border / accent) so the shadow under the drone matches its visual
-  // identity; otherwise drones use their level tier color regardless of
-  // any non-legendary skin equipped. Mods/skins use their rarity color.
+  // Shadow color piped via --glow-color CSS variable. Drones with a
+  // legendary skin and legendary skin listings both take their per-skin
+  // glow1; other drones use their level tier color; other mods/skins
+  // use the rarity color.
   const rarity = mod?.rarity ?? skin?.rarity ?? 'common';
   const glowColor = isDrone
     ? drone?.appliedSkin?.rarity === 'legendary'
       ? getLegendaryTheme(drone.appliedSkin?.name).glow1
       : getLevelColor(drone?.level ?? 1)
-    : (RARITY_GLOW[rarity] ?? RARITY_GLOW.common);
+    : isSkin && skin?.rarity === 'legendary'
+      ? getLegendaryTheme(skin?.name).glow1
+      : (RARITY_GLOW[rarity] ?? RARITY_GLOW.common);
 
   const totalRaces = (drone?.wins ?? 0) + (drone?.losses ?? 0);
   const winRate = totalRaces > 0

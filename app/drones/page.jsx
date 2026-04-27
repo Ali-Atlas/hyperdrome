@@ -107,7 +107,6 @@ export default function DronesPage() {
               onSort={setSort}
               active={fleet.active}
               total={fleet.total}
-              visibleCount={visibleDrones.length}
             />
             {visibleDrones.length === 0 ? (
               <EmptyState
@@ -289,7 +288,6 @@ function ControlBar({
   onSort,
   active,
   total,
-  visibleCount,
 }) {
   return (
     <div className={styles.controls}>
@@ -330,9 +328,6 @@ function ControlBar({
             </option>
           ))}
         </select>
-        <span className={styles.visibleCount}>
-          Showing {visibleCount}
-        </span>
       </div>
     </div>
   );

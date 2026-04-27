@@ -238,27 +238,7 @@ export default function DashboardPage() {
       <div className={styles.page}>
         <div className={styles.grid}>
           {/* ---- Row 1 col 1: Spotlight ---- */}
-          <Card
-            className={cn(
-              styles.spotlight,
-              styles.areaSpotlight,
-              spotlightDrone?.appliedSkin?.rarity === 'legendary' &&
-                styles.skinRarity_legendary,
-            )}
-            style={
-              spotlightDrone?.appliedSkin?.rarity === 'legendary'
-                ? (() => {
-                    const t = getLegendaryTheme(
-                      spotlightDrone.appliedSkin?.name,
-                    );
-                    return {
-                      '--legendary-bg': t.bg,
-                      '--legendary-glow-1': t.glow1,
-                    };
-                  })()
-                : undefined
-            }
-          >
+          <Card className={cn(styles.spotlight, styles.areaSpotlight)}>
             <div className={styles.sectionHeadingRow}>
               <h2 className={styles.sectionHeading}>
                 Active Drone Spotlight
@@ -797,13 +777,15 @@ function NextRaceDroneSide({
           maxValue={radarMax}
         />
       </div>
-      {drone.appliedMod && (
+      {drone.appliedMod ? (
         <div className={styles.matchupModLine}>
           <ModPlaceholder rarity={drone.appliedMod.rarity} size={14} />
           <span className={styles.matchupModLineName}>
             {drone.appliedMod.name}
           </span>
         </div>
+      ) : (
+        <div className={styles.matchupModLineEmpty}>No mod</div>
       )}
     </div>
   );

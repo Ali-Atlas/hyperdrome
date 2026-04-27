@@ -197,10 +197,10 @@
   height: 100%;
   min-width: 6px;
 }
-.tierSeg_steel  { background: var(--level-steel); }
-.tierSeg_orange { background: var(--level-orange); }
-.tierSeg_purple { background: var(--level-purple); }
-.tierSeg_gold   { background: var(--level-gold); }
+.tierSeg_steel  { background: rgba(138, 155, 168, 0.5); }
+.tierSeg_orange { background: rgba(255, 140, 66, 0.55); }
+.tierSeg_purple { background: rgba(187, 134, 252, 0.55); }
+.tierSeg_gold   { background: rgba(255, 215, 0, 0.55); }
 
 .tierLegend {
   display: flex;
@@ -222,10 +222,10 @@
   border-radius: 2px;
   flex-shrink: 0;
 }
-.tierSwatch_steel  { background: var(--level-steel); }
-.tierSwatch_orange { background: var(--level-orange); }
-.tierSwatch_purple { background: var(--level-purple); }
-.tierSwatch_gold   { background: var(--level-gold); }
+.tierSwatch_steel  { background: rgba(138, 155, 168, 0.5); }
+.tierSwatch_orange { background: rgba(255, 140, 66, 0.55); }
+.tierSwatch_purple { background: rgba(187, 134, 252, 0.55); }
+.tierSwatch_gold   { background: rgba(255, 215, 0, 0.55); }
 
 .tierLegendLabel {
   color: var(--text-secondary);
@@ -308,14 +308,6 @@
 .sortSelect:focus {
   outline: none;
   border-color: var(--accent-primary);
-}
-
-.visibleCount {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 /* ==========================================================================
@@ -497,6 +489,10 @@
 
 .skinRarity_legendary.skinRarity_legendary .imageFrame img {
   animation: legendaryDroneBob 4s ease-in-out infinite;
+}
+
+.cardLink:hover .skinRarity_legendary.skinRarity_legendary::before {
+  filter: brightness(1.4) saturate(1.2);
 }
 
 @keyframes legendaryRotate {

@@ -57,6 +57,24 @@
   color: var(--accent-primary);
 }
 
+/* Doubled selector outranks Button's .sm (0,0,1,0) so the list-item
+   button can override the larger sm preset. align-self: stretch makes
+   the button auto-match the height of the sibling .tabs pill row to its
+   left, regardless of pill content. border-radius matches .cardBtn (the
+   Buy Now buttons inside listing cards) for visual consistency. */
+.listItemBtn.listItemBtn {
+  align-self: stretch;
+  min-height: 0;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  gap: 4px;
+}
+
 /* Balance - right-aligned, wallet-style */
 .balance {
   display: inline-flex;
@@ -500,13 +518,99 @@
   outline-offset: 2px;
 }
 
-.listingCard:hover {
-  border-color: rgba(3, 218, 198, 0.4);
+
+/* Mods carry less body content than drones/skins; let the card collapse to
+   content height and the chip fill more of the frame. Top padding clears
+   the 20px YOUR LISTING ribbon. */
+.listingCard.cardMod {
+  min-height: 0;
 }
 
+.cardMod .listingImage {
+  aspect-ratio: 4 / 3;
+  padding: 22px var(--space-2) 4px;
+}
+
+.cardMod .listingBody {
+  row-gap: 2px;
+  padding: 8px 14px 10px;
+}
+
+.cardMod .collectionPlaceholder {
+  display: none;
+}
+
+/* Drone-only sizing. Targets the .card_level_* tier classes (drone cards
+   are the only listings that carry them). Lets card collapse to content,
+   bumps image area to 4/3 with more centered padding, tightens body. */
+.listingCard.card_level_steel,
+.listingCard.card_level_orange,
+.listingCard.card_level_purple,
+.listingCard.card_level_gold {
+  min-height: 0;
+}
+
+.card_level_steel .listingImage,
+.card_level_orange .listingImage,
+.card_level_purple .listingImage,
+.card_level_gold .listingImage {
+  aspect-ratio: 4 / 3;
+  padding: 26px var(--space-2) 10px;
+}
+
+.card_level_steel .listingBody,
+.card_level_orange .listingBody,
+.card_level_purple .listingBody,
+.card_level_gold .listingBody {
+  row-gap: 2px;
+  padding: 8px 14px 10px;
+}
+
+/* Skin-only sizing. Targets rarity classes that aren't on a mod card.
+   Frame the skin image as a square focal point and tighten the info
+   stack below it. The "Compatible with any drone" hint is hidden for
+   skins (collapse the 1fr middle row so name sits close to price). */
+.listingCard.card_common:not(.cardMod),
+.listingCard.card_rare:not(.cardMod),
+.listingCard.card_epic:not(.cardMod),
+.listingCard.card_legendary:not(.cardMod) {
+  min-height: 0;
+}
+
+.card_common:not(.cardMod) .listingImage,
+.card_rare:not(.cardMod) .listingImage,
+.card_epic:not(.cardMod) .listingImage,
+.card_legendary:not(.cardMod) .listingImage {
+  aspect-ratio: 1 / 1;
+  padding: 24px var(--space-2) 6px;
+}
+
+.card_common:not(.cardMod) .listingBody,
+.card_rare:not(.cardMod) .listingBody,
+.card_epic:not(.cardMod) .listingBody,
+.card_legendary:not(.cardMod) .listingBody {
+  row-gap: 2px;
+  padding: 8px 14px 10px;
+}
+
+.card_common:not(.cardMod) .compat,
+.card_rare:not(.cardMod) .compat,
+.card_epic:not(.cardMod) .compat,
+.card_legendary:not(.cardMod) .compat {
+  display: none;
+}
+
+.card_common:not(.cardMod) .collectionPlaceholder,
+.card_rare:not(.cardMod) .collectionPlaceholder,
+.card_epic:not(.cardMod) .collectionPlaceholder,
+.card_legendary:not(.cardMod) .collectionPlaceholder {
+  display: none;
+}
+
+/* Owner cards keep the per-tier/rarity border (no teal accent override).
+   The YOUR LISTING ribbon is the visual ownership cue. */
 .cardMine {
-  border-color: rgba(3, 218, 198, 0.5);
-  box-shadow: 0 0 18px rgba(3, 218, 198, 0.12);
+  /* intentionally empty */
 }
 
 /* "YOUR LISTING" ribbon. Absolutely positioned at the top-left corner so
@@ -522,7 +626,7 @@
   display: flex;
   align-items: center;
   padding: 0 14px 0 10px;
-  background: rgba(3, 218, 198, 0.8);
+  background: var(--accent-primary);
   color: #000;
   font-family: var(--font-mono);
   font-size: 8px;
@@ -535,11 +639,13 @@
   pointer-events: none;
 }
 
-/* Rarity-tinted skin card backgrounds. Chained with .listingCard to
-   beat the Card primitive's .card { background: var(--bg-card) } rule
-   on cross-module specificity tiebreak (same fix as the level tints). */
-.card_common {
-  /* Commons are neutral - no tint, just the default card bg. */
+/* Rarity-tinted skin/mod card backgrounds + matching 1px borders.
+   Chained with .listingCard to beat the Card primitive's
+   .card { background: var(--bg-card) } rule on cross-module specificity
+   tiebreak (same fix as the level tints). No hover transitions on the
+   border - the tier/rarity color is the constant. */
+.listingCard.card_common {
+  border-color: rgba(158, 158, 158, 0.45);
 }
 
 .listingCard.card_rare {
@@ -549,9 +655,7 @@
       rgba(74, 158, 255, 0.03) 100%
     ),
     var(--bg-card);
-  border-width: 2px;
-  border-color: rgba(74, 158, 255, 0.45);
-  animation: rarePulse 3s ease-in-out infinite;
+  border-color: rgba(74, 158, 255, 0.5);
 }
 
 .listingCard.card_epic {
@@ -561,9 +665,7 @@
       rgba(187, 134, 252, 0.03) 100%
     ),
     var(--bg-card);
-  border-width: 2px;
   border-color: rgba(187, 134, 252, 0.5);
-  animation: epicPulse 2.5s ease-in-out infinite;
 }
 
 .listingCard.card_legendary {
@@ -573,7 +675,6 @@
       rgba(255, 215, 0, 0.04) 100%
     ),
     var(--bg-card);
-  border-width: 2px;
   border-color: rgba(255, 215, 0, 0.55);
 }
 
@@ -589,7 +690,6 @@
       rgba(138, 155, 168, 0.04) 100%
     ),
     var(--bg-card);
-  border-width: 2px;
   border-color: rgba(138, 155, 168, 0.5);
 }
 
@@ -600,7 +700,6 @@
       rgba(255, 140, 66, 0.04) 100%
     ),
     var(--bg-card);
-  border-width: 2px;
   border-color: rgba(255, 140, 66, 0.55);
 }
 
@@ -611,7 +710,6 @@
       rgba(187, 134, 252, 0.04) 100%
     ),
     var(--bg-card);
-  border-width: 2px;
   border-color: rgba(187, 134, 252, 0.55);
 }
 
@@ -622,7 +720,6 @@
       rgba(255, 215, 0, 0.04) 100%
     ),
     var(--bg-card);
-  border-width: 2px;
   border-color: rgba(255, 215, 0, 0.55);
 }
 
@@ -820,15 +917,14 @@
   object-fit: contain;
 }
 
-/* Open-envelope placeholder for skins without a real image. Sized smaller
-   than real skin imgs (which fill the frame) so the swatch reads as a
-   compact motif rather than a filling shape. Color flows via currentColor
-   from the per-rarity wrapper class. */
+/* Pentagon placeholder for skins without a real image. Sized to match
+   real skin imgs (full frame). Color flows via currentColor from the
+   per-rarity wrapper class. */
 .skinPlaceholderWrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 70%;
+  width: 100%;
   height: 100%;
 }
 
@@ -1732,12 +1828,12 @@
   position: relative;
   z-index: 1;
   display: grid;
-  /* `auto` on the right column lets heroCardWrap size to fit the sealed
-     pack image + the gold L card side-by-side. Was `280px` (L card only). */
-  grid-template-columns: minmax(0, 1fr) auto;
+  /* Left column hosts the premium-style packTopRow (image + info). Right
+     column is just the L card stack (~220px), so the split skews heavily
+     left to maximize the foil's footprint. */
+  grid-template-columns: 70fr 30fr;
   gap: 40px;
   align-items: center;
-  flex: 1;
 }
 
 .heroInfo {
@@ -1811,20 +1907,25 @@
   letter-spacing: 0.1em;
 }
 
+/* "Earn volts by racing" placed directly under the Buy Pack button on
+   the legendary hero (premium/starter render the hint inline beside
+   the CTA; legendary stacks it below). */
+.heroHintBelow {
+  margin-top: var(--space-2);
+  align-self: flex-start;
+}
+
 /* ---------- Big tilted legendary card (right side of hero) ---------- */
 
 .heroCardWrap {
   /* No glow / border / background here - the L card's own box-shadow is
-     the focal point, framing it would compete. `display: flex` hosts the
-     sealed pack image left + the gold L stack right (`gap` between
-     them). The L card + particle layer share a `.heroCardStack` so
-     the absolute particle layer's positioning context is locked to the
+     the focal point. The L card + particle layer share a `.heroCardStack`
+     so the absolute particle layer's positioning context is locked to the
      L card's bounds, not the wider heroCardWrap. */
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 32px;
   perspective: 1200px;
 }
 
@@ -1838,15 +1939,14 @@
   flex-shrink: 0;
 }
 
-/* Sealed legendary pack foil sitting to the left of the L card. Always
-   matches the L card's size at every breakpoint. No animation, no tilt;
-   a soft gold neon shadow underneath so it reads as hovering over a
-   surface. */
+/* Sealed legendary pack foil sitting at the top of the left info column.
+   Matches the premium/starter pack-image hierarchy. Soft gold neon shadow
+   underneath so it reads as hovering over a surface. */
 .heroPackImg {
-  width: 220px;
-  height: 310px;
+  width: 200px;
+  height: auto;
   object-fit: contain;
-  flex-shrink: 0;
+  align-self: flex-start;
   pointer-events: none;
   filter: drop-shadow(0 12px 20px rgba(255, 215, 0, 0.25));
 }
@@ -2173,6 +2273,10 @@
   max-width: 640px;
 }
 
+.packPackImg_legendary {
+  max-width: 880px;
+}
+
 /* Shadow ellipse below the pack image. Anchored to the wrapper so it
    travels with the foil regardless of column height. Crisper edge
    (smaller blur, tighter gradient stop) and a more saturated color
@@ -2197,6 +2301,15 @@
 
 .packCard_premium { --pack-shadow: rgba(187, 134, 252, 0.7); }
 .packCard_starter { --pack-shadow: rgba(3, 218, 198, 0.65); }
+.packCard_legendary { --pack-shadow: rgba(255, 215, 0, 0.7); }
+
+/* Legendary hero: keep the inner image/info split balanced (1fr 1fr); the
+   outer heroGrid is what gives the foil its larger absolute footprint
+   compared to premium/starter. Push image + shadow down so the foil sits
+   visually anchored against the row's bottom. */
+.packCard_legendary .packImgWrap {
+  transform: translateY(24px);
+}
 
 .packCardName {
   margin: 0;
@@ -2210,6 +2323,10 @@
 
 .packCardName_premium { color: var(--accent-secondary); }
 .packCardName_starter { color: var(--accent-primary); }
+.packCardName_legendary {
+  color: var(--rarity-legendary);
+  text-shadow: 0 0 14px rgba(255, 215, 0, 0.3);
+}
 
 .packCardDescription {
   margin: 0;
@@ -2222,6 +2339,28 @@
      Keeps the odds row, price, and button perfectly aligned across
      both cards. */
   min-height: calc(var(--text-sm) * 1.5 * 3);
+}
+
+/* Legendary description block: line 1 (the contents bullet) matches
+   premium's description size exactly via inheriting .packCardDescription;
+   only the min-height reserve is dropped (legendary doesn't need vertical
+   alignment with another card). Line 2 (the flagship-skins tagline) drops
+   to a smaller mono-style line so it reads as supporting copy. */
+.legendaryDescription {
+  min-height: 0;
+}
+
+.legendaryTagline {
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: var(--text-tertiary);
+}
+
+.legendarySkinName {
+  color: var(--rarity-legendary);
+  font-weight: var(--font-bold);
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.35);
 }
 
 .packPriceLarge {
@@ -2277,10 +2416,13 @@
   box-shadow: 0 0 22px rgba(3, 218, 198, 0.45);
 }
 
-/* Tablet: 45/55 split per spec. Pack stays in left column, never stacks. */
+/* Tablet: even 50/50 split so all three pack images sit larger on tablet
+   widths (premium/starter info still has room to wrap their description
+   into the reserved 3-line min-height block). Pack stays in left column,
+   never stacks at this breakpoint. */
 @media (max-width: 1023px) {
   .packTopRow {
-    grid-template-columns: 45fr 55fr;
+    grid-template-columns: 50fr 50fr;
     gap: var(--space-4);
   }
 }
@@ -2289,14 +2431,21 @@
    max 200px (smaller than the desktop hierarchy floors); CTA below
    spans the column width. */
 @media (max-width: 767px) {
-  .packTopRow {
+  .packTopRow,
+  .packCard_legendary .packTopRow {
     grid-template-columns: 1fr;
   }
   .packPackImg_starter,
-  .packPackImg_premium {
+  .packPackImg_premium,
+  .packPackImg_legendary {
     max-width: 200px;
     min-height: auto;
     margin: 0 auto;
+  }
+  /* Mobile: cancel the desktop translate so the foil stacks cleanly
+     above the info block. */
+  .packCard_legendary .packImgWrap {
+    transform: none;
   }
 }
 
@@ -2525,12 +2674,17 @@
   .heroGrid {
     grid-template-columns: 1fr;
   }
-  /* Legendary pack + L card stay side-by-side at every breakpoint per
-     spec - they're a sealed pack and its promise, never separated. The
-     pair shrinks together. */
+  /* Tablet/mobile: L card on top centered, info stacks below. */
   .heroCardWrap {
     order: -1;
-    gap: 20px;
+    justify-self: center;
+  }
+  .heroInfo {
+    align-items: flex-start;
+  }
+  .heroPackImg {
+    align-self: center;
+    width: 180px;
   }
   .bigLegendaryCard {
     width: 180px;
@@ -2544,10 +2698,6 @@
     height: 250px;
   }
   .heroCardStack {
-    width: 180px;
-    height: 250px;
-  }
-  .heroPackImg {
     width: 180px;
     height: 250px;
   }
@@ -3588,6 +3738,279 @@
   font-size: 11px;
   color: var(--text-secondary);
   padding-top: 4px;
+}
+
+/* ==========================================================================
+ * List Item modal - chromeless Modal with custom header, picker grid,
+ * tokenized inputs/buttons, and footer links.
+ * ========================================================================== */
+
+.listFormHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--header-bar-bg);
+  border-bottom: 1px solid var(--border-default);
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.listFormTitle {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--header-bar-text);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.listFormClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.listFormClose:hover {
+  color: var(--text-primary);
+}
+
+.listFormBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.listFormRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.listFormLabel {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.listFormInput {
+  width: 100%;
+  padding: 4px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  min-height: 28px;
+  transition: border-color var(--duration-fast) var(--ease-out);
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.listFormInput::-webkit-inner-spin-button,
+.listFormInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+.listFormInput:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.listFormFee {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  padding-top: 2px;
+}
+
+.listFormFee strong {
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+}
+
+.listFormEmpty {
+  padding: var(--space-5) var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.listFormGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.listFormCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-2);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: center;
+  font-family: var(--font-mono);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.listFormCard:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+}
+
+.listFormCard_common {
+  border-color: rgba(158, 158, 158, 0.4);
+}
+.listFormCard_rare {
+  border-color: rgba(74, 158, 255, 0.4);
+}
+.listFormCard_epic {
+  border-color: rgba(187, 134, 252, 0.4);
+}
+.listFormCard_legendary {
+  border-color: rgba(255, 215, 0, 0.4);
+}
+.listFormCard_level_steel {
+  border-color: rgba(138, 155, 168, 0.45);
+}
+.listFormCard_level_orange {
+  border-color: rgba(255, 140, 66, 0.5);
+}
+.listFormCard_level_purple {
+  border-color: rgba(187, 134, 252, 0.5);
+}
+.listFormCard_level_gold {
+  border-color: rgba(255, 215, 0, 0.5);
+}
+
+.listFormCardSelected {
+  border-color: var(--accent-primary);
+  background: rgba(3, 218, 198, 0.08);
+}
+
+.listFormCardImage {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.listFormCardImage img,
+.listFormCardImage svg,
+.listFormCardImage span {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.listFormCardName {
+  width: 100%;
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listFormCardMeta {
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.listFormActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+/* Doubled selector outranks Button's variant/size classes so paired
+   buttons share an identical 44px slab regardless of variant. */
+.listFormActionBtn.listFormActionBtn {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.04em;
+}
+
+.listFormFooter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-top: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.listFormLink {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--accent-primary);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.listFormLink:hover {
+  text-decoration: underline;
+}
+
+.listFormFooterDot {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 640px) {
+  .listFormGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .listFormGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ==========================================================================
