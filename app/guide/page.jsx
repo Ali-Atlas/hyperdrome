@@ -17,6 +17,7 @@ import {
   Timer,
   Wallet,
   ChevronDown,
+  Cpu,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
@@ -45,7 +46,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'What is Hyperdrome' },
       {
         type: 'paragraph',
-        text: 'Passive competitive drone racing. You own drones, allocate stats, and they race automatically every 5 minutes. A weighted simulation decides each race using your stats vs. the opponent\'s, the track layout, the rolled weather, the time of day, and a small dampened random variance. Wins pay volts and XP. Volts spend on stat upgrades, marketplace buys, and packs. Seasons run 30 days.',
+        text: 'Passive competitive drone racing. You own drones, allocate stats, and they race automatically every 3 minutes. A weighted simulation decides each race using your stats vs. the opponent\'s, the track layout, the rolled weather, the time of day, and a small dampened random variance. Wins pay volts and XP. Volts spend on stat upgrades, marketplace buys, and packs. Seasons run 30 days.',
       },
       { type: 'subheading', text: 'Creating your account' },
       {
@@ -138,7 +139,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'How races work' },
       {
         type: 'paragraph',
-        text: 'Every 5 minutes the race cycle runs. All active drones get matched and raced. Result lands in your race log with the segment-by-segment data, the ELO change, the volts payout, the XP, and the race conditions that rolled.',
+        text: 'Every 3 minutes the race cycle runs. All active drones get matched and raced. Result lands in your race log with the segment-by-segment data, the ELO change, the volts payout, the XP, and the race conditions that rolled.',
       },
 
       { type: 'subheading', text: 'Matchmaking' },
@@ -324,14 +325,15 @@ const SECTIONS = [
       { type: 'subheading', text: 'Race rewards' },
       {
         type: 'paragraph',
-        text: 'Winner payout = 3 base + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)). Losers get 0 volts (XP only).',
+        text: 'Winner payout = 3 base + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)). Losers earn a flat 2 volts as a participation payout, so every active drone earns something every cycle.',
       },
       {
         type: 'list',
         items: [
-          { name: 'Min payout', desc: '3 volts. Difficulty-1 track, no upset.' },
-          { name: 'Mid payout', desc: '5 volts. Difficulty-5 track (+2), even matchup.' },
-          { name: 'Strong payout', desc: '7 volts. Difficulty-9 track (+4), even matchup.' },
+          { name: 'Loser payout', desc: '2 volts. Every race, regardless of result.' },
+          { name: 'Min winner payout', desc: '3 volts. Difficulty-1 track, no upset.' },
+          { name: 'Mid winner payout', desc: '5 volts. Difficulty-5 track (+2), even matchup.' },
+          { name: 'Strong winner payout', desc: '7 volts. Difficulty-9 track (+4), even matchup.' },
           { name: 'Big upset', desc: '12 volts. Difficulty-9 track (+4), 500 ELO underdog (+5).' },
         ],
       },
@@ -345,13 +347,20 @@ const SECTIONS = [
         ],
       },
 
+      { type: 'subheading', text: 'Volts buy stat allocation' },
+      {
+        type: 'paragraph',
+        text: 'You can\'t buy XP. Leveling up only happens by racing - 10 XP for a win, 4 XP for a loss. Buying volts lets you skip the stat-allocation grind on a drone you own, but it doesn\'t skip progression. A high-cap level-20 drone still has to race to get there.',
+      },
+
       { type: 'subheading', text: 'Where to spend' },
       {
         type: 'list',
         items: [
           { name: 'Stat upgrades', desc: 'Permanent. Cost depends on the stat\'s current value.' },
-          { name: 'Marketplace', desc: 'Drones and unbound skins listed by other players.' },
-          { name: 'Packs', desc: 'Starter (500), Premium (2,000), Legendary (10,000). 3 skins per pack.' },
+          { name: 'Marketplace', desc: 'Drones, unbound skins, and unbound mods listed by other players.' },
+          { name: 'Skin packs', desc: 'Starter (500), Premium (2,000), Legendary (10,000). 3 skins per pack.' },
+          { name: 'Mod capsules', desc: 'Starter (500), Premium (2,000), Legendary (10,000). 3 mods per capsule.' },
         ],
       },
     ],
@@ -364,20 +373,20 @@ const SECTIONS = [
     blocks: [
       {
         type: 'paragraph',
-        text: 'Buy and sell drones and skins from other players. Listings are visible to everyone.',
+        text: 'Buy and sell drones, skins, and mods from other players. Listings are visible to everyone.',
       },
 
       { type: 'subheading', text: 'Rules' },
       {
         type: 'list',
         items: [
-          { name: 'Platform fee', desc: '5% of the sale price. The seller gets the remaining 95%.' },
+          { name: 'Platform fee', desc: '5% of the sale price (the rake). The seller gets the remaining 95%.' },
           { name: 'Minimum listing price', desc: '10 volts. Below that, the listing is rejected.' },
           { name: 'Active drones', desc: 'You can list a drone while it\'s racing. Listing doesn\'t deactivate it. The drone keeps racing for you until it sells.' },
-          { name: 'Drone transfer', desc: 'A purchased drone arrives with its level, XP, full stat sheet, ELO rating, race history, and any applied skins intact.' },
-          { name: 'Bound skins', desc: 'A skin applied to a drone transfers with the drone. It can\'t be sold separately once applied.' },
-          { name: 'Unbound skins', desc: 'Skins you own but haven\'t applied can be listed and sold on their own.' },
-          { name: 'Cancel anytime', desc: 'Cancel your own listing before it sells. The drone or skin returns to your inventory.' },
+          { name: 'Drone transfer', desc: 'A purchased drone arrives with its level, XP, full stat sheet, ELO rating, race history, and its bound skin and mod collections intact.' },
+          { name: 'Bound skins and mods', desc: 'Anything bound to a drone transfers with the drone on sale. Bound items can\'t be listed on their own.' },
+          { name: 'Unbound skins and mods', desc: 'Items you own but haven\'t bound to a drone can be listed and sold individually.' },
+          { name: 'Cancel anytime', desc: 'Cancel your own listing before it sells. The item returns to your inventory.' },
         ],
       },
     ],
@@ -410,10 +419,14 @@ const SECTIONS = [
         text: 'Common, Rare, and Epic skins layer over the current tier silhouette. When the drone hits a new tier (level 6, 11, 16), the skin re-applies on the new silhouette. Legendary skins replace the silhouette outright and don\'t change with tier.',
       },
 
-      { type: 'subheading', text: 'Applying a skin' },
+      { type: 'subheading', text: 'Binding and swapping' },
       {
         type: 'paragraph',
-        text: 'Permanent. Once applied, a skin is bound to that drone. It can\'t be removed, swapped, or sold separately. It transfers with the drone if you sell it.',
+        text: 'Binding a skin permanently adds it to a drone\'s collection. A drone can hold any number of bound skins, and you can swap which one is actively displayed at any time without spending anything. The bind itself is permanent: a bound skin can\'t be moved to another drone or sold on its own. If you sell the drone on the marketplace, the entire skin collection transfers with it to the buyer.',
+      },
+      {
+        type: 'paragraph',
+        text: 'Skins you own but haven\'t bound yet are unbound. Unbound skins sit in your inventory and can be listed on the marketplace as standalone items.',
       },
 
       { type: 'subheading', text: 'Skin drops' },
@@ -436,7 +449,7 @@ const SECTIONS = [
     blocks: [
       {
         type: 'paragraph',
-        text: 'Three pack tiers, all paid from your wallet. Each pack opens 3 skins drawn from the unowned skin vault. Each slot has a guaranteed minimum rarity or a probability table.',
+        text: 'Two product lines: skin packs (cosmetics) and mod capsules (functional). Both lines come in three tiers - Starter, Premium, Legendary - at the same price points. Every pack opens 3 items. Each slot has a guaranteed minimum rarity or a probability table.',
       },
 
       { type: 'subheading', text: 'Starter Pack - 500 volts' },
@@ -469,11 +482,59 @@ const SECTIONS = [
         ],
       },
 
+      { type: 'subheading', text: 'Skin packs vs mod capsules' },
+      {
+        type: 'paragraph',
+        text: 'Skin packs roll skins (cosmetic). Mod capsules roll mods (functional, with bonus + tradeoff). The slot rarity tables above apply to both. Pick the line that matches what you\'re collecting; the volt prices and odds are identical.',
+      },
+
       { type: 'subheading', text: 'Vault rules' },
       {
         type: 'paragraph',
-        text: 'Skins in a pack come from the public unowned vault. If the vault runs out of a rarity at open time, the pack open is rejected and your wallet isn\'t charged.',
+        text: 'Items in a pack come from the public unowned vault. If the vault runs out of a rarity at open time, the pack open is rejected and your wallet isn\'t charged.',
       },
+    ],
+  },
+
+  {
+    id: 'mods',
+    title: 'Mods',
+    Icon: Cpu,
+    blocks: [
+      {
+        type: 'paragraph',
+        text: 'Mods are equippable drone modifications. Every mod gives a bonus in one area at the cost of a penalty in another - there are no pure upgrades, only strategic tradeoffs. The size of both the bonus and the penalty scales with rarity.',
+      },
+
+      { type: 'subheading', text: 'Binding and swapping' },
+      {
+        type: 'paragraph',
+        text: 'Same model as skins. Binding a mod permanently adds it to a drone\'s collection. A drone can hold any number of bound mods, and you can swap which one is actively equipped between races without spending anything. The bind itself is permanent: a bound mod can\'t be moved to another drone or sold on its own. If you sell the drone on the marketplace, the entire mod collection transfers with it to the buyer.',
+      },
+      {
+        type: 'paragraph',
+        text: 'Mods you own but haven\'t bound yet are unbound. Unbound mods sit in your inventory and can be listed on the marketplace as standalone items.',
+      },
+
+      { type: 'subheading', text: 'Rarity scales the tradeoff' },
+      {
+        type: 'list',
+        items: [
+          { name: 'Common', desc: 'Small bonus, minimal penalty. Net edge for general builds.' },
+          { name: 'Rare', desc: 'Moderate bonus, moderate penalty. Specialized builds for specific tracks or conditions.' },
+          { name: 'Epic', desc: 'Strong bonus, significant penalty. Dominates in the right matchup, exposed in the wrong one.' },
+          { name: 'Legendary', desc: 'Unique abilities (e.g. ignore lap-1 battery drain, double consistency on turns) with a meaningful stat penalty.' },
+        ],
+      },
+
+      { type: 'subheading', text: 'Strategy' },
+      {
+        type: 'paragraph',
+        text: 'Every mod is a tradeoff. Reading the matchup means looking at the opponent\'s build, the track layout, and the rolled conditions. A mod that wins a rainy night track can cripple you on a clear-day sprint. Each race batch shows your upcoming matchup before execution - swap the equipped mod accordingly. A drone with five mods bound for five scenarios is harder to read than one locked into a single equip.',
+      },
+
+      { type: 'subheading', text: 'Examples' },
+      { type: 'modTable' },
     ],
   },
 
@@ -566,12 +627,6 @@ function rarityLabel(rarity) {
   return rarity.charAt(0).toUpperCase() + rarity.slice(1);
 }
 
-const SEASON_2_PREVIEW = {
-  id: 'season-2-preview',
-  title: 'Season 2 Preview',
-  Icon: Sparkles,
-};
-
 /**
  * Overview sections that sit above the deep-dive SECTIONS array.
  * Conceptual primers; the existing SECTIONS hold the detailed mechanics.
@@ -595,11 +650,11 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'The Strategy Window' },
       {
         type: 'paragraph',
-        text: 'When matchmaking completes, races enter a three-minute pending state before execution. During this window you can see your upcoming matchup: your drone vs the opponent, the track layout, weather, and time of day. Study the matchup and prepare. In Season 2, this window is where you\'ll swap Mods to adapt your loadout.',
+        text: 'When matchmaking completes, races enter a two-minute pending state before execution. During this window you see the upcoming matchup: your drone vs the opponent, the track layout, the rolled weather, and the time of day. This is the window where you swap the equipped mod on your drone to adapt to the matchup. When the timer expires the race locks and executes.',
       },
       {
         type: 'paragraph',
-        text: 'When the timer expires, the race locks and executes. You cannot change your active drone during a pending race. Activate or deactivate drones between race batches.',
+        text: 'You cannot change your active drone during a pending race. Activate or deactivate drones between race batches.',
       },
       { type: 'subheading', text: 'Race Simulation' },
       {
@@ -609,7 +664,7 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'Rewards and Progression' },
       {
         type: 'paragraph',
-        text: 'Winners earn 10 XP and volts. Losers earn 4 XP. ELO ratings adjust based on the outcome. Upsets (beating a higher-rated opponent by 50+ ELO) earn recognition. XP drives leveling which unlocks higher stat caps and access to harder tracks. Volts fund your economy: buying packs, skins, and drones on the Marketplace.',
+        text: 'Winners earn 10 XP plus volts (3 base + difficulty + upset bonus). Losers earn 4 XP plus a flat 2-volt participation payout. ELO ratings adjust based on the outcome. Upsets (a lower-rated drone beating a higher-rated one) flag in the log and pay a volts bonus to the winner. XP drives leveling, which unlocks higher stat caps and access to harder tracks. Volts fund the rest of the economy: stat upgrades, packs, and Marketplace buys. You cannot buy XP - leveling only happens by racing.',
       },
       { type: 'subheading', text: 'Active Drone Slots' },
       {
@@ -626,32 +681,43 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'Volts' },
       {
         type: 'paragraph',
-        text: 'Volts are the in-game currency. You earn them by racing. Winners earn more than losers. Volts buy Packs, Skins on the Marketplace, and drones from other players. Volts carry a stable USD-denominated value that does not fluctuate with token prices.',
+        text: 'Volts are the only in-game currency. You earn them by racing - winners take 3 base plus track and upset bonuses, losers take a flat 2. Volts buy stat upgrades, packs, and other players\' listings on the Marketplace.',
       },
       { type: 'subheading', text: 'The Marketplace' },
       {
         type: 'paragraph',
-        text: 'The Marketplace is where players trade drones and skins with each other. All listings are priced in volts. A 5% rake is applied to every sale. This is the protocol\'s revenue. Active drones can be listed but deactivate on sale. Skins transfer with their drone when sold.',
+        text: 'The Marketplace is where players trade drones, skins, and mods with each other. All listings are priced in volts. A 5% rake is applied to every sale - the platform\'s only fee. Active drones can be listed and keep racing until they sell. A drone\'s entire bound skin and mod collection transfers with it.',
       },
       { type: 'subheading', text: 'Packs' },
       {
         type: 'paragraph',
-        text: 'Packs cost volts and contain random drones and skins. Three tiers (Starter, Premium, and Legendary) offer different rarity odds. Packs are the primary way to acquire new drones and skins without buying directly from other players.',
+        text: 'Two product lines: skin packs (cosmetics) and mod capsules (functional). Each comes in three tiers - Starter, Premium, and Legendary - with the same volt prices and the same slot rarity tables. Every pack opens 3 items.',
       },
-      { type: 'subheading', text: 'Building Value' },
+      { type: 'subheading', text: 'Building value' },
       {
         type: 'paragraph',
-        text: 'A drone\'s market value comes from the time and skill invested in building it. Level, stat allocation, equipped skins, and eventually mods all contribute. There is no stat respec. A well-built drone with smart stat allocation is genuinely scarce and valuable. This is how players create real value: not by farming currency, but by building something worth buying.',
+        text: 'A drone\'s market value comes from the time invested in building it. Level, stat allocation, the bound skin and mod collection, and ELO history all contribute. Stat allocations are permanent - there is no respec. A well-built drone is what other players want to own.',
       },
     ],
   },
 ];
 
-/** TOC entries: Season 2 preview, then conceptual primers, then deep-dives. */
-const TOC_ENTRIES = [SEASON_2_PREVIEW, ...PRE_SECTIONS, ...SECTIONS];
+/* -------------------------------------------------------------------------- */
+/* Season 2 Preview - upcoming changes. Rendered at the end of the guide      */
+/* with a distinct "Season 2 Preview" pill so users read it as a forward look */
+/* rather than current mechanics.                                              */
+/* -------------------------------------------------------------------------- */
+const SEASON_2_PREVIEW = {
+  id: 'season-2-preview',
+  title: 'Season 2 Preview',
+  Icon: Sparkles,
+};
+
+/** TOC entries: conceptual primers, deep-dives, then the Season 2 preview. */
+const TOC_ENTRIES = [...PRE_SECTIONS, ...SECTIONS, SEASON_2_PREVIEW];
 
 export default function GuidePage() {
-  const [activeId, setActiveId] = useState(SEASON_2_PREVIEW.id);
+  const [activeId, setActiveId] = useState(TOC_ENTRIES[0].id);
   const [mobileOpen, setMobileOpen] = useState(false);
   const sectionRefs = useRef({});
 
@@ -781,101 +847,6 @@ export default function GuidePage() {
           </nav>
 
           <div className={styles.content}>
-            <section
-              id={SEASON_2_PREVIEW.id}
-              ref={(el) => {
-                sectionRefs.current[SEASON_2_PREVIEW.id] = el;
-              }}
-              className={styles.s2Section}
-            >
-              <span className={styles.s2Pill}>Season 2 Preview</span>
-              <Card className={styles.sectionCard}>
-                <div className={styles.sectionHeading}>
-                  <Sparkles size={14} aria-hidden="true" />
-                  <span>What&apos;s Coming in Season 2</span>
-                </div>
-                <div className={styles.sectionBody}>
-                  <h3 className={styles.subheading}>Trait Mods</h3>
-                  <p className={styles.paragraph}>
-                    Mods are equippable drone modifications that affect race performance. Each mod provides a stat bonus in one area at the cost of a penalty in another. There are no pure upgrades, only strategic tradeoffs. The strength of both the bonus and the penalty scales with rarity.
-                  </p>
-
-                  <h3 className={styles.subheading}>Mod Rarity</h3>
-                  <p className={styles.paragraph}>
-                    Common Mods offer small, safe adjustments: a minor bonus with a minimal penalty, netting a small overall advantage. Ideal for general-purpose builds.
-                  </p>
-                  <p className={styles.paragraph}>
-                    Rare Mods push harder. Moderate bonuses with moderate penalties, creating more specialized builds suited to specific tracks or conditions.
-                  </p>
-                  <p className={styles.paragraph}>
-                    Epic Mods commit to a strategy. Strong bonuses with significant penalties. An Epic mod can dominate in the right conditions but leaves you exposed in others.
-                  </p>
-                  <p className={styles.paragraph}>
-                    Legendary Mods break conventional mechanics entirely. Instead of simple stat adjustments, they introduce unique abilities, like ignoring battery degradation on the first lap or doubling consistency on turn segments. The tradeoff is a meaningful stat penalty, but the ability itself can define an entire racing strategy.
-                  </p>
-
-                  <h3 className={styles.subheading}>Skins vs Mods</h3>
-                  <p className={styles.paragraph}>
-                    Skins are cosmetic. They change how your drone looks: the color, texture, and finish of the body. Skins have no impact on race performance. They permanently bind to a drone and you can swap which skin is actively displayed at any time.
-                  </p>
-                  <p className={styles.paragraph}>
-                    Mods are functional. They modify your drone&apos;s racing characteristics with stat bonuses and penalties. Once bound to a drone, a mod stays in that drone&apos;s collection permanently. You can swap which mod is actively equipped between races. A drone with a deep mod collection for different tracks and conditions is more versatile and more valuable on the Marketplace.
-                  </p>
-                  <p className={styles.paragraph}>
-                    Both skins and mods transfer with the drone when sold on the Marketplace. The buyer receives the full collection.
-                  </p>
-
-                  <h3 className={styles.subheading}>Mod Strategy</h3>
-                  <p className={styles.paragraph}>
-                    Every mod is a tradeoff. Choosing the right mod means reading the matchup: your opponent&apos;s build, the track layout, and the race conditions. A mod that dominates on a rainy night track might cripple you on a clear day sprint.
-                  </p>
-                  <p className={styles.paragraph}>
-                    Before each race batch, you can see your upcoming matchup and swap your equipped mod accordingly. Building a diverse mod collection on your drone gives you options. A drone locked into one mod for every race is predictable. A drone with five mods for five scenarios is dangerous.
-                  </p>
-
-                  <h3 className={styles.subheading}>Mod Examples</h3>
-                  <div
-                    className={cn(styles.costTable, styles.modTable)}
-                    role="table"
-                  >
-                    <div className={styles.costHeader} role="row">
-                      <span role="columnheader">Mod Name</span>
-                      <span role="columnheader">Rarity</span>
-                      <span role="columnheader">Bonus</span>
-                      <span role="columnheader">Tradeoff</span>
-                    </div>
-                    {MOD_EXAMPLES.map((row, i) => (
-                      <div key={i} className={styles.costRow} role="row">
-                        <span role="cell">{row.name}</span>
-                        <span
-                          role="cell"
-                          className={styles[`rarity_${row.rarity}`]}
-                        >
-                          {rarityLabel(row.rarity)}
-                        </span>
-                        <span role="cell">{row.bonus}</span>
-                        <span role="cell">{row.tradeoff}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <h3 className={styles.subheading}>On-Chain Economy</h3>
-                  <p className={styles.paragraph}>
-                    Season 2 introduces the tokenized economy layer. Drones, Skins, and Mods become on-chain assets on MegaETH. The Marketplace transitions to on-chain settlement with the existing 5% protocol rake.
-                  </p>
-                  <p className={styles.paragraph}>
-                    Volts carry a stable USD-denominated value independent of token price. All token-to-volts and volts-to-token conversions use live market rates at the time of transaction. Players can enter the economy by purchasing Volt Chests with $TOKEN, and exit by selling built drones and assets on the Marketplace.
-                  </p>
-                  <p className={styles.paragraph}>
-                    Volts-to-token cashout will be available with controls to maintain economic stability: a conversion fee, per-account cooldown period, minimum threshold, and a dynamic exchange rate tied to treasury health. These controls reward committed players and prevent automated farming.
-                  </p>
-                  <p className={styles.paragraph}>
-                    Specific token mechanics and integration details will be finalized in collaboration with the MegaETH team.
-                  </p>
-                </div>
-              </Card>
-            </section>
-
             {[...PRE_SECTIONS, ...SECTIONS].map(({ id, title, Icon, blocks }) => (
               <section
                 key={id}
@@ -898,6 +869,75 @@ export default function GuidePage() {
                 </Card>
               </section>
             ))}
+
+            <section
+              id={SEASON_2_PREVIEW.id}
+              ref={(el) => {
+                sectionRefs.current[SEASON_2_PREVIEW.id] = el;
+              }}
+              className={styles.s2Section}
+            >
+              <span className={styles.s2Pill}>Season 2 Preview</span>
+              <Card className={styles.sectionCard}>
+                <div className={styles.sectionHeading}>
+                  <Sparkles size={14} aria-hidden="true" />
+                  <span>What&apos;s Coming in Season 2</span>
+                </div>
+                <div className={styles.sectionBody}>
+                  <p className={styles.paragraph}>
+                    Season 2 introduces fixed supply, on-chain ownership, and a
+                    new economic layer. Season 1 collections carry forward
+                    intact and are flagged with a Season 1 badge.
+                  </p>
+
+                  <h3 className={styles.subheading}>Fixed Supply</h3>
+                  <p className={styles.paragraph}>
+                    Each legendary skin and mod has a fixed, limited supply.
+                    Early Season 1 legendaries become the rarest items in the
+                    game permanently.
+                  </p>
+                  <p className={styles.paragraph}>
+                    Epic items have small defined supply caps. Rare and common
+                    items have larger but still finite pools.
+                  </p>
+
+                  <h3 className={styles.subheading}>Pricing Reflects Scarcity</h3>
+                  <p className={styles.paragraph}>
+                    Legendary packs cost significantly more in Season 2 to
+                    reflect true scarcity. Starter and Premium pricing follows.
+                  </p>
+
+                  <h3 className={styles.subheading}>On-Chain Assets</h3>
+                  <p className={styles.paragraph}>
+                    Drones, skins, and mods become on-chain assets (ERC-721) on
+                    MegaETH. Ownership is verifiable and transferable.
+                    Marketplace transactions settle on-chain with the same 5%
+                    platform rake.
+                  </p>
+
+                  <h3 className={styles.subheading}>Season 1 Carryover</h3>
+                  <p className={styles.paragraph}>
+                    All Season 1 items carry forward to Season 2. Each carries
+                    a Season 1 badge that stays with the item permanently.
+                  </p>
+
+                  <h3 className={styles.subheading}>Volts and $TOKEN</h3>
+                  <p className={styles.paragraph}>
+                    Volts gain a defined exchange rate with $TOKEN. Conversions
+                    use cooldown periods and minimum thresholds to keep the
+                    economy stable. Specific rates and timing are finalized
+                    closer to launch.
+                  </p>
+
+                  <h3 className={styles.subheading}>Competitive Reset</h3>
+                  <p className={styles.paragraph}>
+                    ELO ratings and leaderboard positions reset at the start of
+                    Season 2. Drone level, XP, stats, owned items, and wallet
+                    balances all carry forward.
+                  </p>
+                </div>
+              </Card>
+            </section>
           </div>
         </div>
       </div>
@@ -957,6 +997,28 @@ function Block({ block }) {
               Tier {t.tier} · {t.label}
             </div>
             <div className={styles.tierLevels}>L{t.range}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (block.type === 'modTable') {
+    return (
+      <div className={cn(styles.costTable, styles.modTable)} role="table">
+        <div className={styles.costHeader} role="row">
+          <span role="columnheader">Mod Name</span>
+          <span role="columnheader">Rarity</span>
+          <span role="columnheader">Bonus</span>
+          <span role="columnheader">Tradeoff</span>
+        </div>
+        {MOD_EXAMPLES.map((row, i) => (
+          <div key={i} className={styles.costRow} role="row">
+            <span role="cell">{row.name}</span>
+            <span role="cell" className={styles[`rarity_${row.rarity}`]}>
+              {rarityLabel(row.rarity)}
+            </span>
+            <span role="cell">{row.bonus}</span>
+            <span role="cell">{row.tradeoff}</span>
           </div>
         ))}
       </div>

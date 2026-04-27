@@ -13,7 +13,7 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'What is Hyperdrome?',
-        a: 'Passive competitive drone racing. You own drones, allocate stats, and they race automatically every 5 minutes. A weighted simulator decides the winner. Wins pay volts and XP. See the Game Guide for the full breakdown.',
+        a: 'Passive competitive drone racing. You own drones, allocate stats, and they race automatically every 3 minutes. A weighted simulator decides the winner. Wins pay volts and XP. See the Game Guide for the full breakdown.',
       },
       {
         q: 'Is it free to play?',
@@ -21,11 +21,11 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Do I need to be online for races?',
-        a: 'No. The race cycle runs every 5 minutes whether you\'re logged in or not. Results land in your race log.',
+        a: 'No. The race cycle runs every 3 minutes whether you\'re logged in or not. Results land in your race log.',
       },
       {
         q: 'How often do races happen?',
-        a: 'Every 5 minutes (300 seconds). The countdown to the next cycle is on the dashboard.',
+        a: 'Every 3 minutes (180 seconds). The countdown to the next cycle is on the dashboard.',
       },
       {
         q: 'How do I sign up?',
@@ -48,6 +48,10 @@ const FAQ_SECTIONS = [
       {
         q: 'How do I get more drones?',
         a: 'Buy them on the marketplace from other players. There\'s no other way to acquire additional drones today.',
+      },
+      {
+        q: 'Can I buy XP or buy levels?',
+        a: 'No. Leveling is gated behind racing. 10 XP per win, 4 per loss. Buying volts speeds up stat allocation on a drone you already own, but it doesn\'t skip progression.',
       },
       {
         q: 'Can I have multiple active drones?',
@@ -187,7 +191,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What is the strategy window?',
-        a: 'After matchmaking, races enter a three-minute pending state. You can see your opponent, the track, and conditions. In Season 2, this is where you\'ll swap Mods to adapt. For now, use it to study your matchups and learn opponent patterns.',
+        a: 'After matchmaking, races enter a two-minute pending state. You see your opponent, the track, and the rolled conditions. This is the window where you swap the equipped mod on your drone to adapt to the matchup before the race executes.',
       },
       {
         q: 'What happens if I deactivate a drone between races?',
@@ -201,15 +205,15 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I earn volts?',
-        a: 'Win races. Sell on the marketplace. Get the +20 wallet bonus on every level-up.',
+        a: 'Race - winners take 3 base plus track difficulty and upset bonuses, losers take a flat 2-volt participation payout. Also: marketplace sales (95% of sale price), and a +20 wallet bonus on every level-up.',
       },
       {
         q: 'Do losers earn volts?',
-        a: 'No. Losers earn 4 XP only. Winner takes the volts.',
+        a: 'Yes - 2 volts every race, regardless of result. Plus 4 XP. The flat payout means every active drone earns something every cycle.',
       },
       {
-        q: 'How much do I earn per win?',
-        a: 'Base 3 + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)). Range: 3 volts (difficulty-1, even matchup) up to 12+ on a hard track with a big upset.',
+        q: 'How much does a win pay?',
+        a: 'Base 3 + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)). Range: 3 volts (difficulty-1 track, even matchup) up to 12+ on a hard track with a big upset.',
       },
       {
         q: 'Are volts shared between my drones?',
@@ -217,7 +221,11 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What can I spend volts on?',
-        a: 'Stat upgrades, marketplace listings (drones and unbound skins), and packs (Starter 500, Premium 2,000, Legendary 10,000).',
+        a: 'Stat upgrades, marketplace listings (drones, unbound skins, unbound mods), skin packs and mod capsules (Starter 500, Premium 2,000, Legendary 10,000 - 3 items per pack on either line).',
+      },
+      {
+        q: 'Can I buy XP?',
+        a: 'No. Volts buy stat allocation; XP only comes from racing. There\'s no shortcut to leveling up.',
       },
     ],
   },
@@ -273,7 +281,11 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Can I sell a skin separately?',
-        a: 'Only if the skin hasn\'t been applied to a drone. Once applied, a skin is bound to that drone and transfers with it.',
+        a: 'Only unbound skins (ones you own but haven\'t bound to a drone). Once a skin is bound to a drone, it can only be sold as part of the drone itself.',
+      },
+      {
+        q: 'Can I sell a mod separately?',
+        a: 'Same rule as skins. Unbound mods can be listed standalone. Bound mods transfer with the drone they\'re bound to.',
       },
       {
         q: 'Can I list multiple items at once?',
@@ -287,19 +299,15 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I earn volts?',
-        a: 'By racing. Winners earn more than losers. You can also purchase Volt Chests with $TOKEN when the token economy goes live in Season 2.',
-      },
-      {
-        q: 'Can I make real money playing?',
-        a: 'You can build drones and sell them on the Marketplace. A well-built drone with smart stats, good skins, and eventually mods is worth more than a base drone. Your time and skill translate to asset value. The volts-to-token cashout coming in Season 2 will provide a direct exit path with conversion controls.',
+        a: 'By racing. Winners earn 3 base + difficulty + upset bonuses. Losers earn 2 volts. Plus level-up bonuses (+20 volts each level) and marketplace sales (95% of price after the 5% rake).',
       },
       {
         q: 'Is this pay-to-win?',
-        a: 'No. Buying volts lets you acquire drones faster, but drone power comes from leveling (earned through racing, no shortcut) and stat allocation (strategic decisions with no respec). A well-built cheap drone beats a badly-built expensive one.',
+        a: 'No. Buying volts speeds up stat allocation on a drone you already own, but it doesn\'t buy XP, levels, or wins. Levels come only from racing. A well-built cheap drone beats a badly-built expensive one.',
       },
       {
         q: 'What is the 5% marketplace rake?',
-        a: 'Every sale on the Marketplace has a 5% fee deducted from the sale price. This is the protocol\'s revenue and helps control volt supply in the economy.',
+        a: 'Every sale on the Marketplace has a 5% fee deducted from the sale price. This is the platform\'s only fee and helps control volt supply in the economy.',
       },
     ],
   },
@@ -312,8 +320,16 @@ const FAQ_SECTIONS = [
         a: 'Cosmetic only. Zero effect on race math.',
       },
       {
-        q: 'Can I remove or swap a skin?',
-        a: 'No. Skin application is permanent. Once applied, it\'s bound to the drone forever.',
+        q: 'Can I swap which skin my drone is wearing?',
+        a: 'Yes. Binding adds a skin to a drone\'s collection permanently, but you can swap which bound skin is actively displayed at any time at no cost. A drone can hold any number of bound skins.',
+      },
+      {
+        q: 'Can I unbind a skin or move it to another drone?',
+        a: 'No. Bind is permanent. The skin can never leave that drone\'s collection. If the drone is sold on the marketplace, the entire skin collection transfers with it to the buyer.',
+      },
+      {
+        q: 'Are legendary skins unique?',
+        a: 'Yes. Legendary skins are one-of-a-kind drone designs - the skin replaces the drone\'s appearance entirely (it IS the drone, visually) and only one player can own a given legendary skin at a time.',
       },
       {
         q: 'How many skins exist?',
@@ -345,11 +361,15 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What if a pack rolls a rarity that\'s sold out?',
-        a: 'The open is rejected before your wallet is charged. Try again later when more skins become available in the vault.',
+        a: 'The open is rejected before your wallet is charged. Try again later when more items return to the vault.',
       },
       {
         q: 'How do tier-aware skins handle a level-up?',
         a: 'Common, Rare, and Epic skins re-apply on the new tier silhouette when the drone hits a new tier. The color scheme follows you up. Legendary skins replace the silhouette outright and don\'t change with tier.',
+      },
+      {
+        q: 'What\'s in a mod capsule?',
+        a: 'Same structure as skin packs - 3 mods per capsule, same prices (500 / 2,000 / 10,000), same slot rarity tables. The capsules roll mods instead of skins. Mods are functional (bonus + tradeoff per equip).',
       },
     ],
   },
@@ -377,35 +397,31 @@ const FAQ_SECTIONS = [
   },
 
   {
-    category: 'Season 2',
+    category: 'Mods',
     items: [
       {
         q: 'What are Mods?',
-        a: 'Mods are equippable drone modifications that provide a stat bonus in one area at the cost of a penalty in another. Every mod is a strategic tradeoff. There are no pure upgrades. The bonus and penalty both scale with rarity.',
+        a: 'Mods are equippable drone modifications. Every mod gives a bonus in one area at the cost of a penalty in another - there are no pure upgrades, only strategic tradeoffs. The bonus and penalty both scale with rarity.',
       },
       {
         q: 'How do Mod rarities differ?',
-        a: 'Common Mods give small safe adjustments. Rare Mods push harder with moderate bonuses and penalties. Epic Mods commit to a strategy with strong effects in both directions. Legendary Mods introduce unique mechanics that change how your drone races, with a meaningful stat penalty as the cost.',
+        a: 'Common gives small safe adjustments. Rare pushes harder with moderate bonuses and penalties. Epic commits to a strategy with strong effects in both directions. Legendary introduces unique mechanics (e.g. ignore lap-1 battery drain, double consistency on turns) with a meaningful stat penalty.',
       },
       {
-        q: 'Can I remove a Mod from a drone?',
-        a: 'No. Once a Mod is bound to a drone, it stays in that drone\'s collection permanently. You can swap which Mod is actively equipped at any time, but you cannot unbind it or transfer it to another drone. If you sell the drone on the Marketplace, all bound Mods transfer with it.',
+        q: 'How does Mod binding work?',
+        a: 'Same as skins. Binding adds a mod to a drone\'s collection permanently. A drone can hold any number of bound mods. You can swap which mod is actively equipped between races at no cost. The bind itself is permanent: a bound mod can\'t be moved to another drone or sold standalone.',
       },
       {
         q: 'Can I sell Mods on the Marketplace?',
-        a: 'Only unbound Mods. Ones you own but haven\'t attached to a drone yet. Once a Mod is bound to a drone, it can only be sold as part of the drone itself.',
+        a: 'Only unbound mods. Once a mod is bound to a drone, it can only be sold as part of the drone itself.',
       },
       {
-        q: 'How many Mods can a drone equip?',
-        a: 'One Mod is actively equipped at a time. Your drone can have multiple Mods in its collection, but only the equipped one affects racing. Swap between races to adapt to different matchups and conditions.',
+        q: 'How many Mods can a drone equip at once?',
+        a: 'One mod is actively equipped at a time. The drone can have many mods in its bound collection - only the equipped one affects racing. Swap between races to adapt to different matchups.',
       },
       {
-        q: 'What is the pre-race strategy window used for in Season 2?',
-        a: 'During the three-minute pending window, you\'ll be able to swap equipped Mods on your drone based on the opponent matchup and track conditions. This is where build strategy happens. Adapt your loadout to counter opponents and optimize for specific tracks.',
-      },
-      {
-        q: 'Will there be a token?',
-        a: 'Season 2 introduces the tokenized economy on MegaETH. Volts maintain a stable USD value. $TOKEN is used to purchase Volt Chests and as the settlement currency when the Marketplace moves on-chain. Specific token details will be announced in collaboration with the MegaETH team.',
+        q: 'When do I swap the equipped mod?',
+        a: 'During the two-minute strategy window after matchmaking. You see the opponent, the track, and the rolled conditions, then swap the equipped mod on your drone before the race executes.',
       },
     ],
   },

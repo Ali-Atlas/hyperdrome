@@ -845,38 +845,35 @@
   }
 }
 
-/* Legendary shimmer - a subtle diagonal sweep of light that fades across
-   the card every few seconds to make legendary listings feel alive. */
+/* Legendary shimmer on legendary skin + mod listing cards. Matches the
+   preview cards in the packs "What You Could Pull" grid exactly: same
+   pseudo-element (::after), same 135deg gold band, same `legendaryGlisten`
+   keyframe + 6s timing + opacity breathing. The three surfaces (pack
+   preview, skin listing, mod listing) read as the same effect. */
 .cardLegendaryShimmer {
   position: relative;
   overflow: hidden;
 }
 
-.cardLegendaryShimmer::before {
+.cardLegendaryShimmer::after {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    110deg,
-    transparent 25%,
-    rgba(255, 215, 0, 0.25) 50%,
-    transparent 75%
+    135deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(255, 215, 0, 0.06) 40%,
+    rgba(255, 215, 0, 0.12) 50%,
+    rgba(255, 215, 0, 0.06) 60%,
+    transparent 65%,
+    transparent 100%
   );
-  background-size: 260% 100%;
-  background-position: 200% 0;
-  animation: legendarySkinSweep 4s linear infinite;
+  background-size: 400% 400%;
+  animation: legendaryGlisten 6s ease-in-out infinite;
   pointer-events: none;
+  border-radius: inherit;
   z-index: 1;
-  mix-blend-mode: screen;
-}
-
-@keyframes legendarySkinSweep {
-  from {
-    background-position: 200% 0;
-  }
-  to {
-    background-position: -100% 0;
-  }
 }
 
 /* Card content sits above the shimmer layer */
@@ -3381,13 +3378,15 @@
    between item categories or when a category has zero items. Empty-state
    copy fills the picker grid space without the modal collapsing.
    !important on width/min-height beats the Modal primitive's size-class
-   width (.md = 600px) regardless of CSS-Module ordering. */
+   width (.md = 600px) regardless of CSS-Module ordering. Background is
+   intentionally left to the Modal primitive's `.panel` default
+   (var(--bg-elevated), grey) - only the cancel + purchase modals get
+   the cinematic black treatment. */
 .listModal {
   width: 90vw !important;
   max-width: 700px !important;
   min-height: 600px !important;
   max-height: 100vh;
-  background: var(--bg-primary) !important;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
 }
@@ -3872,7 +3871,8 @@
   .possibleCard_legendary,
   .possibleCard_legendary::after,
   .listingCard.card_rare,
-  .listingCard.card_epic {
+  .listingCard.card_epic,
+  .cardLegendaryShimmer::after {
     animation: none;
   }
 }

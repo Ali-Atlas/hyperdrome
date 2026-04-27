@@ -123,21 +123,25 @@
   cursor: pointer;
 }
 
-/* Locked-state tooltip rendered above the toggle when the drone is in
-   a pending race. Uses data-tooltip attribute so the message lives
-   alongside the markup; appears on hover/focus of the wrapper. */
+/* Locked-state tooltip rendered BELOW the toggle when the drone is in
+   a pending race. Faces inward (downward into the container body)
+   instead of upward through the header bar, so it can't be clipped by
+   the container's `overflow: hidden`. High z-index also keeps it above
+   sibling content if any wrapper introduces a stacking context.
+   Uses data-tooltip attribute so the message lives alongside the
+   markup; appears on hover/focus of the wrapper. */
 .activeToggleWrap {
   position: relative;
   display: inline-flex;
   align-items: center;
+  z-index: 30;
 }
 
 .activeToggleLocked::before {
   content: attr(data-tooltip);
   position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(100% + 6px);
+  right: 0;
   padding: 4px 8px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
@@ -152,7 +156,8 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--duration-fast) var(--ease-out);
-  z-index: 5;
+  z-index: 30;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .activeToggleLocked:hover::before,
@@ -335,33 +340,18 @@
   letter-spacing: 0.08em;
 }
 
+/* Equipped-skin slot in the trigger button: just a 24px footprint, no
+   square framing. The SkinThumb's own visuals (image or rarity-tinted
+   placeholder svg) read directly on the button background. Empty state
+   renders the same span as a transparent placeholder so the layout
+   doesn't shift. */
 .skinSwatch {
   flex-shrink: 0;
   width: 24px;
   height: 24px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-card-alt);
-  border: 1px solid var(--border-subtle);
-  overflow: hidden;
-}
-
-/* Rarity-tinted background + border for the equipped-skin slot. The
-   SkinThumb image renders on top, the tint reads behind/around it. */
-.skinSwatch_common {
-  background: rgba(158, 158, 158, 0.18);
-  border-color: rgba(158, 158, 158, 0.55);
-}
-.skinSwatch_rare {
-  background: rgba(74, 158, 255, 0.18);
-  border-color: rgba(74, 158, 255, 0.55);
-}
-.skinSwatch_epic {
-  background: rgba(187, 134, 252, 0.18);
-  border-color: rgba(187, 134, 252, 0.55);
-}
-.skinSwatch_legendary {
-  background: rgba(255, 215, 0, 0.18);
-  border-color: rgba(255, 215, 0, 0.55);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ==========================================================================
@@ -403,7 +393,9 @@
   cursor: pointer;
   text-align: left;
   min-width: 0;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
 }
 
 .modSelector:hover:not(:disabled) {
@@ -413,6 +405,23 @@
 .modSelector:disabled {
   cursor: default;
   opacity: 1;
+}
+
+/* Per-rarity trigger background. Matches the dropdown row tints exactly
+   so the equipped item reads with the same rarity color whether it's
+   shown collapsed (trigger) or open (dropdown row). Chained .modSelector
+   to beat the base background declaration. */
+.modSelector.modSelector_common {
+  background: rgba(158, 158, 158, 0.10);
+}
+.modSelector.modSelector_rare {
+  background: rgba(74, 158, 255, 0.12);
+}
+.modSelector.modSelector_epic {
+  background: rgba(187, 134, 252, 0.14);
+}
+.modSelector.modSelector_legendary {
+  background: rgba(255, 215, 0, 0.14);
 }
 
 .modSelector svg {
@@ -429,12 +438,18 @@
   flex: 1;
 }
 
+/* Hard-cap height so a deep collection (many bound skins / mods) scrolls
+   inside the dropdown instead of pushing it past the viewport.
+   `scrollbar-gutter: stable` reserves room for the scrollbar so it sits
+   on the right edge instead of overlapping the rightmost cell. */
 .modSwapList {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 200px;
+  max-height: 260px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -455,7 +470,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 6px 10px;
+  padding: 8px 10px;
   background: transparent;
   border: none;
   font-family: var(--font-mono);
@@ -463,15 +478,61 @@
   color: var(--text-primary);
   cursor: pointer;
   text-align: left;
-}
-
-.modSwapItem:hover:not(:disabled) {
-  background: rgba(3, 218, 198, 0.06);
+  transition: background var(--duration-fast) var(--ease-out);
 }
 
 .modSwapItem:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Per-rarity row backgrounds. The whole row carries the rarity tint so
+   you can scan the dropdown by color. Hover bumps the same color to a
+   stronger opacity so the lift reads as "this rarity, focused". */
+.modSwapItem_common {
+  background: rgba(158, 158, 158, 0.10);
+}
+.modSwapItem_common:hover:not(:disabled) {
+  background: rgba(158, 158, 158, 0.20);
+}
+
+.modSwapItem_rare {
+  background: rgba(74, 158, 255, 0.12);
+}
+.modSwapItem_rare:hover:not(:disabled) {
+  background: rgba(74, 158, 255, 0.22);
+}
+
+.modSwapItem_epic {
+  background: rgba(187, 134, 252, 0.14);
+}
+.modSwapItem_epic:hover:not(:disabled) {
+  background: rgba(187, 134, 252, 0.24);
+}
+
+.modSwapItem_legendary {
+  background: rgba(255, 215, 0, 0.14);
+}
+.modSwapItem_legendary:hover:not(:disabled) {
+  background: rgba(255, 215, 0, 0.24);
+}
+
+/* Per-row icon (SkinThumb or ModPlaceholder). Naked imagery - no
+   square frame around it - matching the trigger button's treatment. */
+.modSwapIcon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modSwapIcon img,
+.modSwapIcon svg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .modSwapName {

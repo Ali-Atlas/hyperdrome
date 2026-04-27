@@ -637,7 +637,11 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   <div className={styles.modSelectorWrap}>
                     <button
                       type="button"
-                      className={styles.modSelector}
+                      className={cn(
+                        styles.modSelector,
+                        drone.appliedSkin?.rarity &&
+                          styles[`modSelector_${drone.appliedSkin.rarity}`],
+                      )}
                       onClick={() => setShowSwapSkinList((v) => !v)}
                       disabled={
                         skinActionPending ||
@@ -652,10 +656,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                           skin={drone.appliedSkin}
                           rarity={drone.appliedSkin.rarity}
                           alt={drone.appliedSkin.name}
-                          className={cn(
-                            styles.skinSwatch,
-                            styles[`skinSwatch_${drone.appliedSkin.rarity}`],
-                          )}
+                          className={styles.skinSwatch}
                         />
                       ) : (
                         <span className={styles.skinSwatch} aria-hidden="true" />
@@ -710,13 +711,22 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                               <li key={s.id}>
                                 <button
                                   type="button"
-                                  className={styles.modSwapItem}
+                                  className={cn(
+                                    styles.modSwapItem,
+                                    styles[`modSwapItem_${s.rarity}`],
+                                  )}
                                   onClick={() => {
                                     setShowSwapSkinList(false);
                                     if (isOwner) equipSkinFn(s.id);
                                   }}
                                   disabled={skinActionPending || !isOwner}
                                 >
+                                  <SkinThumb
+                                    skin={s}
+                                    rarity={s.rarity}
+                                    alt={s.name}
+                                    className={styles.modSwapIcon}
+                                  />
                                   <span className={styles.modSwapName}>
                                     {s.name}
                                   </span>
@@ -759,7 +769,11 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   <div className={styles.modSelectorWrap}>
                     <button
                       type="button"
-                      className={styles.modSelector}
+                      className={cn(
+                        styles.modSelector,
+                        drone.appliedMod?.rarity &&
+                          styles[`modSelector_${drone.appliedMod.rarity}`],
+                      )}
                       onClick={() => setShowSwapList((v) => !v)}
                       disabled={
                         modActionPending ||
@@ -822,13 +836,21 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                               <li key={m.id}>
                                 <button
                                   type="button"
-                                  className={styles.modSwapItem}
+                                  className={cn(
+                                    styles.modSwapItem,
+                                    styles[`modSwapItem_${m.rarity}`],
+                                  )}
                                   onClick={() => {
                                     setShowSwapList(false);
                                     if (isOwner) equipModFn(m.id);
                                   }}
                                   disabled={modActionPending || !isOwner}
                                 >
+                                  <ModPlaceholder
+                                    rarity={m.rarity}
+                                    size={20}
+                                    className={styles.modSwapIcon}
+                                  />
                                   <span className={styles.modSwapName}>
                                     {m.name}
                                   </span>

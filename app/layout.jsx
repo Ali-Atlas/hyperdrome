@@ -6,6 +6,9 @@ export const metadata = {
   title: 'Hyperdrome',
   description:
     'Competitive idle drone racing - build, optimize, and dominate the circuit.',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 /**
