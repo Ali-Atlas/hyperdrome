@@ -886,21 +886,9 @@ export default function MarketplacePage() {
                         onCancel={() => setCancelModal(listing)}
                       />
                     );
-                    // Drone cards navigate to the public drone profile. Skin
-                    // cards have no detail page yet, so stay non-clickable.
-                    const droneId =
-                      listing.itemType === 'drone' ? listing.drone?.id : null;
-                    if (droneId) {
-                      return (
-                        <Link
-                          key={listing.id}
-                          href={`/drones/${droneId}`}
-                          className={styles.cardLink}
-                        >
-                          {card}
-                        </Link>
-                      );
-                    }
+                    // Every card type opens its own modal on click; drone
+                    // cards no longer navigate. The "View drone details"
+                    // link inside the purchase modal handles the nav case.
                     return (
                       <div key={listing.id} className={styles.cardWrap}>
                         {card}
@@ -966,8 +954,9 @@ export default function MarketplacePage() {
         onClose={() => {
           if (!cancelPending) setCancelModal(null);
         }}
-        title="Cancel Listing"
-        size="sm"
+        chromeless
+        className={styles.purchaseModal}
+        overlayClassName={styles.purchaseOverlay}
       >
         {cancelModal && (
           <CancelModalBody
@@ -1434,24 +1423,62 @@ function LiveTicker() {
 /* -------------------------------------------------------------------------- */
 
 function PointsShowcase() {
+  const [voltsModal, setVoltsModal] = useState(null);
   return (
-    <div className={styles.pointsShowcase}>
-      <div className={styles.pointsHeader}>
-        <h2 className={styles.pointsTitle}>GET VOLTS</h2>
-        <p className={styles.pointsSubtitle}>Better value the more you buy</p>
+    <>
+      <div className={styles.pointsShowcase}>
+        <div className={styles.pointsHeader}>
+          <h2 className={styles.pointsTitle}>GET VOLTS</h2>
+          <p className={styles.pointsSubtitle}>Better value the more you buy</p>
+        </div>
+        <div className={styles.pointsGrid}>
+          {POINTS_OPTIONS.map((opt) => (
+            <PointsCard
+              key={opt.id}
+              opt={opt}
+              onSelect={() => setVoltsModal(opt)}
+            />
+          ))}
+        </div>
       </div>
-      <div className={styles.pointsGrid}>
-        {POINTS_OPTIONS.map((opt) => (
-          <PointsCard key={opt.id} opt={opt} />
-        ))}
-      </div>
-    </div>
+
+      <Modal
+        isOpen={!!voltsModal}
+        onClose={() => setVoltsModal(null)}
+        chromeless
+        className={styles.voltsModal}
+        overlayClassName={styles.voltsOverlay}
+      >
+        {voltsModal && (
+          <VoltsModalBody
+            opt={voltsModal}
+            onClose={() => setVoltsModal(null)}
+          />
+        )}
+      </Modal>
+    </>
   );
 }
 
-function PointsCard({ opt }) {
+function PointsCard({ opt, onSelect }) {
+  const handleClick = (e) => {
+    if (e.target.closest('[data-stop-card-click]')) return;
+    onSelect();
+  };
   return (
-    <article className={styles.pointsCard}>
+    <article
+      className={styles.pointsCard}
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      aria-label={`Buy ${opt.points.toLocaleString()} volts for ${opt.price.toLocaleString()} TOKEN`}
+    >
       {/* Fixed-height pill area so the chest below sits at the same
           vertical position whether the card has 0, 1, or 2 pills.
           Pills cluster at the BOTTOM of the area (justify-content:
@@ -1498,15 +1525,101 @@ function PointsCard({ opt }) {
       </div>
       <button
         type="button"
+        data-stop-card-click=""
         className={cn(
           styles.pointsBuyBtn,
           styles[`pointsBuyBtn_${opt.tier}`],
         )}
-        disabled
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
       >
-        Buy
+        Buy Now
       </button>
     </article>
+  );
+}
+
+/* Volts purchase modal body. Cinematic mirror of PurchaseModalBody but
+   pricing is in $TOKEN (the on-chain currency). Hero shows the chest
+   floating, then points + bonus + $TOKEN price, then a confirm CTA.
+   Wallet integration isn't wired yet so the user's $TOKEN balance is
+   treated as 0 - the CTA stays active-styled (matching the Cancel
+   button shape/size) but communicates the shortfall via in-button
+   text, same pattern as the listing cards' "Need +X" treatment. When
+   the wallet flow lands, replace `userTokenBalance` with the real
+   balance and `onClose` with the actual purchase handler. */
+function VoltsModalBody({ opt, onClose }) {
+  const userTokenBalance = 0;
+  const shortBy = Math.max(0, opt.price - userTokenBalance);
+  const canAfford = shortBy === 0;
+  return (
+    <div className={styles.voltsStage}>
+      <button
+        type="button"
+        className={styles.purchaseCloseBtn}
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <X size={18} />
+      </button>
+
+      <div className={styles.voltsHero}>
+        <div
+          className={cn(
+            styles.chestFrame,
+            styles[`chestFrame_${opt.tier}`],
+            opt.bestValue && styles.chestFrameBestValue,
+          )}
+        >
+          <img
+            src={opt.chest}
+            alt=""
+            className={styles.pointsChestImg}
+          />
+        </div>
+      </div>
+
+      <div className={styles.voltsTitleRow}>
+        <h3 className={cn(styles.voltsAmount, styles[`pointsAmount_${opt.tier}`])}>
+          <VoltIcon size={28} style={{ color: 'currentColor' }} />
+          {opt.points.toLocaleString()}
+        </h3>
+        {opt.bonus && (
+          <span
+            className={cn(
+              styles.pointsBonusPill,
+              styles[`pointsBonusPill_${opt.tier}`],
+            )}
+          >
+            {opt.bonus}
+          </span>
+        )}
+      </div>
+
+      <div className={styles.voltsPrice}>
+        {opt.price.toLocaleString()} $TOKEN
+      </div>
+
+      <p className={styles.voltsHint}>
+        Volts spend instantly across the marketplace, packs, and stat
+        upgrades.
+      </p>
+
+      <div className={styles.voltsActions}>
+        <Button variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="primary" onClick={onClose}>
+          {canAfford ? (
+            'Buy Now'
+          ) : (
+            <>Need +{shortBy.toLocaleString()} $TOKEN</>
+          )}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -2099,11 +2212,12 @@ function SkinSlot({ skin, rarity, alt }) {
   return <MarketplaceSkinPlaceholder rarity={rarity} />;
 }
 
-/* Folded-pentagon swatch placeholder. Downward-pointing 5-corner shape with
-   a flat top and two internal V lines from the top corners to the bottom
-   point, creating three triangular facets - reads as a piece of fabric draped
-   over a triangular ridge. Fills + strokes inherit currentColor (set per
-   rarity by the wrapper), so all variants share one SVG. */
+/* Open-envelope-pointing-down swatch placeholder. Five corners: a narrow
+   top edge between the two top apexes, side anchors that spread out wide,
+   and a sharp bottom point. The center facet is a slim downward triangle
+   (the "envelope spine"); the side facets are wider flaps that fold out
+   from the spine. Fills + strokes inherit currentColor (set per rarity by
+   the wrapper) so all variants share one SVG. */
 function MarketplaceSkinPlaceholder({ rarity }) {
   const rarityClass = rarity
     ? styles[`skinPlaceholder_${rarity}`]
@@ -2114,32 +2228,30 @@ function MarketplaceSkinPlaceholder({ rarity }) {
       aria-hidden="true"
     >
       <svg viewBox="0 0 160 100" className={styles.skinPlaceholderSvg}>
-        {/* viewBox aspect 16:10 matches the .listingImage container so the
-            placeholder occupies the same footprint as a real skin image.
-            Top facet - lighter fill, sits between the top edge and the V's
-            apex at the bottom center. */}
-        <polygon points="0,0 160,0 80,100" fill="currentColor" fillOpacity="0.22" />
-        {/* Left facet - darker. */}
-        <polygon points="0,0 0,32 80,100" fill="currentColor" fillOpacity="0.10" />
-        {/* Right facet - darker. */}
-        <polygon points="160,0 160,32 80,100" fill="currentColor" fillOpacity="0.10" />
-        {/* Outer pentagon outline. */}
+        {/* Center facet - lighter fill, narrow downward triangle from the
+            two top apexes converging at the sharp bottom point. */}
+        <polygon points="55,8 105,8 80,92" fill="currentColor" fillOpacity="0.24" />
+        {/* Left flap - wider, spreads out and down from the left apex. */}
+        <polygon points="55,8 8,52 80,92" fill="currentColor" fillOpacity="0.10" />
+        {/* Right flap - wider, mirror of the left flap. */}
+        <polygon points="105,8 152,52 80,92" fill="currentColor" fillOpacity="0.10" />
+        {/* Outer envelope outline. */}
         <polygon
-          points="0,0 160,0 160,32 80,100 0,32"
+          points="55,8 105,8 152,52 80,92 8,52"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2"
-          strokeOpacity="0.85"
+          strokeWidth="1.8"
+          strokeOpacity="0.9"
           strokeLinejoin="round"
         />
-        {/* Internal V lines from top corners to bottom point. */}
+        {/* Spine V lines from top apexes to bottom point. */}
         <line
-          x1="0" y1="0" x2="80" y2="100"
-          stroke="currentColor" strokeWidth="1.6" strokeOpacity="0.7"
+          x1="55" y1="8" x2="80" y2="92"
+          stroke="currentColor" strokeWidth="1.4" strokeOpacity="0.7"
         />
         <line
-          x1="160" y1="0" x2="80" y2="100"
-          stroke="currentColor" strokeWidth="1.6" strokeOpacity="0.7"
+          x1="105" y1="8" x2="80" y2="92"
+          stroke="currentColor" strokeWidth="1.4" strokeOpacity="0.7"
         />
       </svg>
     </span>
@@ -2196,20 +2308,57 @@ function CancelModalBody({ listing, pending, onConfirm, onClose }) {
   const itemName = drone?.name ?? mod?.name ?? skin?.name ?? 'Item';
   const rarity = mod?.rarity ?? skin?.rarity;
 
+  // Same shadow-color logic as the purchase modal so cancel reads as
+  // the same visual family. Legendary drones take the legendary primary
+  // color; other drones take their level tier color; mods/skins take
+  // their rarity color.
+  const glowColor = isDrone
+    ? drone?.appliedSkin?.rarity === 'legendary'
+      ? getLegendaryTheme(drone.appliedSkin?.name).glow1
+      : getLevelColor(drone?.level ?? 1)
+    : (RARITY_GLOW[rarity ?? 'common'] ?? RARITY_GLOW.common);
+
   return (
-    <div className={styles.cancelStage}>
-      <div className={styles.cancelHero}>
-        {isDrone && drone && (
-          <DroneImage drone={drone} alt={drone.name} />
-        )}
-        {isMod && mod && <ModPlaceholder rarity={mod.rarity} size={160} />}
-        {isSkin && skin && (
-          <SkinThumb skin={skin} rarity={skin.rarity} alt={skin.name} />
-        )}
+    <div className={styles.cancelStage} style={{ '--glow-color': glowColor }}>
+      <button
+        type="button"
+        className={styles.purchaseCloseBtn}
+        onClick={onClose}
+        aria-label="Close"
+        disabled={pending}
+      >
+        <X size={18} />
+      </button>
+
+      <div className={styles.cancelHeroFrame}>
+        {/* Static ground shadow stays anchored; the item floats above it. */}
+        <span className={styles.cancelHeroShadow} aria-hidden="true" />
+        <div className={styles.cancelHero}>
+          {isDrone && drone && (
+            <DroneImage
+              drone={drone}
+              alt={drone.name}
+              className={styles.cancelHeroImg}
+            />
+          )}
+          {isMod && mod && (
+            <span className={styles.purchaseHeroMod}>
+              <ModPlaceholder rarity={mod.rarity} size={180} />
+            </span>
+          )}
+          {isSkin && skin && (
+            <SkinThumb
+              skin={skin}
+              rarity={skin.rarity}
+              alt={skin.name}
+              className={styles.cancelHeroSkin}
+            />
+          )}
+        </div>
       </div>
 
       <div className={styles.cancelTitleRow}>
-        <h3 className={styles.cancelName}>{itemName}</h3>
+        <h3 className={styles.purchaseName}>{itemName}</h3>
         {isDrone && drone?.level != null && (
           <span
             className={styles.purchaseLevel}
@@ -2219,32 +2368,35 @@ function CancelModalBody({ listing, pending, onConfirm, onClose }) {
           </span>
         )}
         {!isDrone && rarity && (
-          <span className={cn(styles.rarityTag, styles[`rarity_${rarity}`])}>
+          <span
+            className={cn(
+              styles.purchaseRarityTag,
+              styles[`rarity_${rarity}`],
+            )}
+          >
             {RARITY_LABELS[rarity]}
           </span>
         )}
       </div>
 
+      <p className={styles.cancelPrompt}>Cancel this listing?</p>
+
       <div className={styles.cancelPriceRow}>
-        <VoltIcon size={18} />
+        <VoltIcon size={20} />
         <span className={styles.cancelPriceValue}>
           {listing.price.toLocaleString()}
         </span>
       </div>
 
-      <p className={styles.cancelPrompt}>
-        Cancel this listing? The item will return to your inventory and the
-        listing will close.
-      </p>
-
       <div className={styles.cancelActions}>
-        <Button
-          variant="secondary"
+        <button
+          type="button"
+          className={styles.cancelKeepBtn}
           onClick={onClose}
           disabled={pending}
         >
           Keep Listed
-        </Button>
+        </button>
         <button
           type="button"
           className={styles.cancelDangerBtn}
@@ -2279,12 +2431,16 @@ function PurchaseModalBody({
   const canAfford = userPoints >= listing.price;
   const shortBy = canAfford ? 0 : listing.price - userPoints;
 
-  // Glow color: drone uses level tier color, mod/skin uses rarity color.
-  // Set as a CSS custom property so the .module.css rule can read it via
-  // var(--glow-color) without hardcoding per-rarity selectors.
+  // Shadow color piped via --glow-color CSS variable. Per Captain's spec:
+  // drones with a legendary skin take the legendary's primary color
+  // (border / accent) so the shadow under the drone matches its visual
+  // identity; otherwise drones use their level tier color regardless of
+  // any non-legendary skin equipped. Mods/skins use their rarity color.
   const rarity = mod?.rarity ?? skin?.rarity ?? 'common';
   const glowColor = isDrone
-    ? getLevelColor(drone?.level ?? 1)
+    ? drone?.appliedSkin?.rarity === 'legendary'
+      ? getLegendaryTheme(drone.appliedSkin?.name).glow1
+      : getLevelColor(drone?.level ?? 1)
     : (RARITY_GLOW[rarity] ?? RARITY_GLOW.common);
 
   const totalRaces = (drone?.wins ?? 0) + (drone?.losses ?? 0);
@@ -2312,6 +2468,9 @@ function PurchaseModalBody({
 
       <div className={styles.purchaseHero}>
         {success && <span className={styles.purchaseGlowPulse} aria-hidden="true" />}
+        {/* Static ground shadow under the floating item. Stays anchored
+            so the item appears to hover over its own shadow. */}
+        <span className={styles.purchaseHeroShadow} aria-hidden="true" />
         <div className={styles.purchaseHeroFloat}>
           {isDrone && drone && (
             <DroneImage
@@ -2355,14 +2514,20 @@ function PurchaseModalBody({
             )}
             {isMod && mod?.rarity && (
               <span
-                className={cn(styles.rarityTag, styles[`rarity_${mod.rarity}`])}
+                className={cn(
+                  styles.purchaseRarityTag,
+                  styles[`rarity_${mod.rarity}`],
+                )}
               >
                 {RARITY_LABELS[mod.rarity]}
               </span>
             )}
             {isSkin && skin?.rarity && (
               <span
-                className={cn(styles.rarityTag, styles[`rarity_${skin.rarity}`])}
+                className={cn(
+                  styles.purchaseRarityTag,
+                  styles[`rarity_${skin.rarity}`],
+                )}
               >
                 {RARITY_LABELS[skin.rarity]}
               </span>
@@ -2378,22 +2543,6 @@ function PurchaseModalBody({
           {isDrone && drone && (
             <div className={styles.purchaseDetails}>
               <span className={styles.purchaseDet}>
-                <span className={styles.purchaseDetLabel}>SPD</span>
-                {drone.speed ?? 0}
-              </span>
-              <span className={styles.purchaseDet}>
-                <span className={styles.purchaseDetLabel}>TRN</span>
-                {drone.turning ?? 0}
-              </span>
-              <span className={styles.purchaseDet}>
-                <span className={styles.purchaseDetLabel}>ACC</span>
-                {drone.acceleration ?? 0}
-              </span>
-              <span className={styles.purchaseDet}>
-                <span className={styles.purchaseDetLabel}>DUR</span>
-                {drone.durability ?? 0}
-              </span>
-              <span className={styles.purchaseDet}>
                 <span className={styles.purchaseDetLabel}>ELO</span>
                 {drone.eloRating ?? 0}
               </span>
@@ -2401,7 +2550,24 @@ function PurchaseModalBody({
                 <span className={styles.purchaseDetLabel}>WIN</span>
                 {winRate}%
               </span>
+              <span className={styles.purchaseDet}>
+                <span className={styles.purchaseDetLabel}>MODS</span>
+                {drone.boundModCount ?? 0}
+              </span>
+              <span className={styles.purchaseDet}>
+                <span className={styles.purchaseDetLabel}>SKINS</span>
+                {drone.boundSkinCount ?? 0}
+              </span>
             </div>
+          )}
+
+          {isDrone && drone?.id && (
+            <Link
+              href={`/drones/${drone.id}`}
+              className={styles.purchaseDroneDetailsLink}
+            >
+              View drone details →
+            </Link>
           )}
 
           {(isSkin || isMod) && (
