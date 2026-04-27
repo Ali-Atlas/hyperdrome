@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { Search, Plus, ChevronDown, ChevronRight, X, Check } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -172,6 +172,55 @@ const PACK_ODDS = {
   legendary: { common: 0,    rare: 10.0, epic: 50.0, legendary: 40.0 },
 };
 
+/* Capsule (mod) packs - parallel to skin packs but yielding mods. Content is
+ * display-only for now; opening logic will wire later. Visual structure
+ * mirrors the skin packs (variant colors, pills, three-tier hierarchy). */
+const CAPSULE_PACK_DEFS = [
+  {
+    id: 'capsule-starter',
+    name: 'Starter Capsule',
+    price: 500,
+    variant: 'gray',
+    description:
+      '3 mods to boost your drone. Common-heavy with a chance at rare.',
+    buttonVariant: 'secondary',
+  },
+  {
+    id: 'capsule-premium',
+    name: 'Premium Capsule',
+    price: 2_000,
+    variant: 'purple',
+    description:
+      'Guaranteed rare plus an epic-or-better slot. Best value for competitive upgrades.',
+    pills: [
+      { label: 'Most Popular', tone: 'accent' },
+      { label: 'Save 30% vs Singles', tone: 'muted' },
+    ],
+    buttonVariant: 'primary',
+  },
+  {
+    id: 'capsule-legendary',
+    name: 'Legendary Capsule',
+    price: 10_000,
+    variant: 'gold',
+    description:
+      '1 Epic guaranteed · 1 Legendary guaranteed · 1 Rare+ wild slot. The only way to pull exclusive legendary mods.',
+    buttonVariant: 'gold',
+  },
+];
+
+const CAPSULE_PACK_ODDS = {
+  'capsule-starter':   { common: 67, rare: 23, epic: 8,  legendary: 2  },
+  'capsule-premium':   { common: 13, rare: 45, epic: 27, legendary: 15 },
+  'capsule-legendary': { common: 0,  rare: 10, epic: 50, legendary: 40 },
+};
+
+const CAPSULE_PREVIEW_DISTRIBUTION = {
+  'capsule-starter':   ['common', 'common', 'common', 'rare', 'rare', 'epic'],
+  'capsule-premium':   ['rare', 'rare', 'epic', 'epic', 'legendary', 'legendary'],
+  'capsule-legendary': ['epic', 'epic', 'epic', 'legendary', 'legendary', 'legendary'],
+};
+
 
 export default function MarketplacePage() {
   const { user } = useSession();
@@ -185,6 +234,8 @@ export default function MarketplacePage() {
   const [packOpened, setPackOpened] = useState(false);
   const [listings, setListings] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [salesPage, setSalesPage] = useState(1);
+  const [salesHasMore, setSalesHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({
@@ -203,9 +254,18 @@ export default function MarketplacePage() {
   const [buyModal, setBuyModal] = useState(null);
   const [cancelModal, setCancelModal] = useState(null);
   const [cancelPending, setCancelPending] = useState(false);
+  // Modify-price form state on the cancel modal. Pre-filled when the
+  // modal opens and reset when it closes.
+  const [cancelEditPrice, setCancelEditPrice] = useState('');
+  const [cancelUpdatePending, setCancelUpdatePending] = useState(false);
+  const [cancelUpdateError, setCancelUpdateError] = useState(null);
   const [buyPending, setBuyPending] = useState(false);
   const [buySuccess, setBuySuccess] = useState(null);
   const [buyError, setBuyError] = useState(null);
+  // Pack purchase confirmation modal: { kind: 'skin'|'capsule', pack }
+  const [packBuyModal, setPackBuyModal] = useState(null);
+  const [packBuyError, setPackBuyError] = useState(null);
+  const [packBuyCapsuleNote, setPackBuyCapsuleNote] = useState(false);
   const [listModal, setListModal] = useState(false);
   const [listingType, setListingType] = useState('drone');
   const [listingItemId, setListingItemId] = useState('');
@@ -239,15 +299,23 @@ export default function MarketplacePage() {
         item_type:
           tab === 'drones' ? 'drone' : tab === 'mods' ? 'mod' : 'skin',
         status: 'sold',
-        limit: '20',
+        limit: '100',
+        page: String(salesPage),
       });
       const res = await fetch(`/api/marketplace?${params.toString()}`);
       const body = await res.json();
-      if (body?.data) setTransactions(body.data.items ?? []);
+      if (body?.data) {
+        const items = body.data.items ?? [];
+        setTransactions(items);
+        // Server returns up to `limit` per page; treat a full page as
+        // "probably more" so the Next button stays enabled.
+        setSalesHasMore(items.length >= 100);
+      }
     } catch {
       setTransactions([]);
+      setSalesHasMore(false);
     }
-  }, [tab]);
+  }, [tab, salesPage]);
 
   const fetchMine = useCallback(async () => {
     if (!user?.id) return;
@@ -272,6 +340,19 @@ export default function MarketplacePage() {
   useEffect(() => { fetchListings(); }, [fetchListings]);
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
   useEffect(() => { fetchMine(); }, [fetchMine]);
+  // Reset the sales pagination when the user switches tabs so they
+  // don't land on a non-existent page for the new item type.
+  useEffect(() => { setSalesPage(1); }, [tab]);
+
+  // Pre-fill the cancel modal's modify-price input with the listing's
+  // current price each time the modal opens. Reset the in-flight error
+  // so a previously failed attempt doesn't carry into a fresh open.
+  useEffect(() => {
+    if (cancelModal) {
+      setCancelEditPrice(String(cancelModal.price ?? ''));
+      setCancelUpdateError(null);
+    }
+  }, [cancelModal]);
 
   const myActiveListings = useMemo(
     () =>
@@ -418,6 +499,35 @@ export default function MarketplacePage() {
     }
   };
 
+  const handleUpdateListingPrice = async () => {
+    if (!cancelModal || cancelUpdatePending) return;
+    const num = Number(cancelEditPrice);
+    if (!Number.isFinite(num) || !Number.isInteger(num) || num < 10) {
+      setCancelUpdateError('Price must be a positive integer of at least 10');
+      return;
+    }
+    setCancelUpdatePending(true);
+    setCancelUpdateError(null);
+    try {
+      const res = await fetch(`/api/marketplace/${cancelModal.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price: num }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setCancelUpdateError(body?.error || 'Failed to update price');
+        return;
+      }
+      setCancelModal(null);
+      await fetchListings();
+    } catch (err) {
+      setCancelUpdateError(String(err));
+    } finally {
+      setCancelUpdatePending(false);
+    }
+  };
+
   const handleCancelConfirm = async () => {
     if (!cancelModal || cancelPending) return;
     setCancelPending(true);
@@ -481,12 +591,34 @@ export default function MarketplacePage() {
 
   const userPoints = user?.points ?? 0;
 
-  const handleOpenPack = async (packId) => {
+  // Click on a "Buy Pack" CTA - opens the cinematic confirmation modal.
+  // Skin packs and capsule packs share the modal layout; the kind drives
+  // image src + Confirm action + the message shown after Confirm.
+  const openPackBuyModal = (kind, pack) => {
     if (!user) {
       showToast('Sign in to buy packs.', 'error');
       return;
     }
+    setPackBuyModal({ kind, pack });
+    setPackBuyError(null);
+    setPackBuyCapsuleNote(false);
+  };
+
+  const closePackBuyModal = () => {
+    if (packOpening) return;
+    setPackBuyModal(null);
+    setPackBuyError(null);
+    setPackBuyCapsuleNote(false);
+  };
+
+  // Skin pack confirm path. Hits the existing pack-open API; on success
+  // closes the buy modal and triggers the existing reveal modal flow. On
+  // failure, surfaces the error inline in the buy modal (no toast).
+  const confirmSkinPackPurchase = async () => {
+    if (!packBuyModal || packBuyModal.kind !== 'skin') return;
+    const packId = packBuyModal.pack.id;
     setPackOpening(packId);
+    setPackBuyError(null);
     try {
       const res = await fetch('/api/marketplace/packs/open', {
         method: 'POST',
@@ -495,21 +627,25 @@ export default function MarketplacePage() {
       });
       const body = await res.json();
       if (!res.ok) {
-        showToast(body?.error || 'Pack purchase failed', 'error');
+        setPackBuyError(body?.error || 'Pack purchase failed');
         return;
       }
       const awarded = body.data?.awarded ?? [];
-      // Skins are already on the user's account at this point - the
-      // server resolved them at purchase time. The "Open Pack" CTA in
-      // the modal just gates the reveal animation for drama.
+      setPackBuyModal(null);
       setPackReveal({ awarded, packType: packId });
       setPackRevealStep(0);
       setPackOpened(false);
     } catch (err) {
-      showToast(String(err), 'error');
+      setPackBuyError(String(err));
     } finally {
       setPackOpening(null);
     }
+  };
+
+  // Capsule pack confirm path - no backend wired yet. Shows a quiet
+  // inline note under the CTA.
+  const confirmCapsulePackPurchase = () => {
+    setPackBuyCapsuleNote(true);
   };
 
   const handleRevealPack = () => {
@@ -843,7 +979,13 @@ export default function MarketplacePage() {
               <PacksShowcase
                 userPoints={userPoints}
                 openingId={packOpening}
-                onOpen={handleOpenPack}
+                onOpen={(packId) =>
+                  openPackBuyModal(
+                    'skin',
+                    PACK_DEFS.find((p) => p.id === packId),
+                  )
+                }
+                onOpenCapsule={(pack) => openPackBuyModal('capsule', pack)}
               />
             ) : loading ? (
               <div className={styles.grid}>
@@ -922,7 +1064,13 @@ export default function MarketplacePage() {
              feed rather than a table - sits below the grid as a market
              pulse section. Hidden on the Packs and Points tabs. ---- */}
         {tab !== 'packs' && tab !== 'points' && (
-          <SalesTape transactions={transactions} />
+          <SalesTape
+            transactions={transactions}
+            page={salesPage}
+            hasMore={salesHasMore}
+            onPrev={() => setSalesPage((p) => Math.max(1, p - 1))}
+            onNext={() => setSalesPage((p) => p + 1)}
+          />
         )}
       </div>
 
@@ -947,11 +1095,36 @@ export default function MarketplacePage() {
         )}
       </Modal>
 
+      {/* ---- Pack purchase confirmation modal (skin packs + capsules) ---- */}
+      <Modal
+        isOpen={!!packBuyModal}
+        onClose={closePackBuyModal}
+        chromeless
+        className={styles.purchaseModal}
+        overlayClassName={styles.purchaseOverlay}
+      >
+        {packBuyModal && (
+          <PackPurchaseModalBody
+            kind={packBuyModal.kind}
+            pack={packBuyModal.pack}
+            pending={packOpening !== null}
+            error={packBuyError}
+            capsuleNote={packBuyCapsuleNote}
+            onConfirm={
+              packBuyModal.kind === 'skin'
+                ? confirmSkinPackPurchase
+                : confirmCapsulePackPurchase
+            }
+            onClose={closePackBuyModal}
+          />
+        )}
+      </Modal>
+
       {/* ---- Cancel-listing confirmation modal ---- */}
       <Modal
         isOpen={!!cancelModal}
         onClose={() => {
-          if (!cancelPending) setCancelModal(null);
+          if (!cancelPending && !cancelUpdatePending) setCancelModal(null);
         }}
         chromeless
         className={styles.purchaseModal}
@@ -963,6 +1136,11 @@ export default function MarketplacePage() {
             pending={cancelPending}
             onConfirm={handleCancelConfirm}
             onClose={() => setCancelModal(null)}
+            editPrice={cancelEditPrice}
+            onEditPriceChange={setCancelEditPrice}
+            onUpdatePrice={handleUpdateListingPrice}
+            updatePending={cancelUpdatePending}
+            updateError={cancelUpdateError}
           />
         )}
       </Modal>
@@ -973,6 +1151,7 @@ export default function MarketplacePage() {
         onClose={() => setListModal(false)}
         size="md"
         chromeless
+        className={styles.listModal}
       >
         <div className={styles.listFormHeader}>
           <h2 className={styles.listFormTitle}>List Item for Sale</h2>
@@ -988,7 +1167,6 @@ export default function MarketplacePage() {
 
         <div className={styles.listFormBody}>
           <div className={styles.listFormRow}>
-            <label className={styles.listFormLabel}>Item Type</label>
             <div className={styles.typeToggle}>
               <button
                 type="button"
@@ -1033,12 +1211,11 @@ export default function MarketplacePage() {
           </div>
 
           <div className={styles.listFormRow}>
-            <label className={styles.listFormLabel}>
-              {listingType === 'drone'
-                ? 'Choose drone (must be inactive)'
-                : listingType === 'skin'
-                  ? 'Choose skin (unbound only)'
-                  : 'Choose mod (unbound only)'}
+            <label className={styles.listFormPickerLabel}>
+              {listingType === 'drone' ? 'Choose drone' : listingType === 'skin' ? 'Choose skin' : 'Choose mod'}
+              <span className={styles.listFormPickerLabelHint}>
+                {listingType === 'drone' ? '(must be inactive)' : '(unbound only)'}
+              </span>
             </label>
             <ListingItemPicker
               kind={listingType}
@@ -1234,7 +1411,7 @@ function getVisiblePages(current, total) {
 /* Reads as a market pulse: type pill + item name · time · seller → price.    */
 /* -------------------------------------------------------------------------- */
 
-function SalesTape({ transactions }) {
+function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
   const stats = useMemo(() => {
     const count = transactions.length;
     if (!count) return { count: 0, volume: 0, avg: 0 };
@@ -1275,7 +1452,9 @@ function SalesTape({ transactions }) {
       </header>
 
       {transactions.length === 0 ? (
-        <div className={styles.tapeEmpty}>No completed sales yet.</div>
+        <div className={styles.tapeEmpty}>
+          {page > 1 ? 'No more completed sales.' : 'No completed sales yet.'}
+        </div>
       ) : (
         <ul className={styles.tapeList}>
           {transactions.map((t) => {
@@ -1319,6 +1498,28 @@ function SalesTape({ transactions }) {
           })}
         </ul>
       )}
+
+      {(page > 1 || hasMore || transactions.length > 0) && (
+        <div className={styles.tapePagination}>
+          <button
+            type="button"
+            className={styles.tapePageBtn}
+            onClick={onPrev}
+            disabled={page <= 1}
+          >
+            Previous
+          </button>
+          <span className={styles.tapePageLabel}>Page {page}</span>
+          <button
+            type="button"
+            className={styles.tapePageBtn}
+            onClick={onNext}
+            disabled={!hasMore}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -1346,10 +1547,25 @@ function formatRelativeTime(iso) {
 /* + "?"). Buy button spans the card width at the bottom.                      */
 /* -------------------------------------------------------------------------- */
 
-function PacksShowcase({ userPoints, openingId, onOpen }) {
+function PacksShowcase({ userPoints, openingId, onOpen, onOpenCapsule }) {
+  // 'skins' (default) renders the existing skin pack lineup;
+  // 'capsules' swaps to the mod (capsule) pack lineup. Display-only
+  // toggle - both sets read from their own defs and rendering paths.
+  const [packsView, setPacksView] = useState('skins');
+
   const legendary = PACK_DEFS.find((p) => p.id === 'legendary');
   const premium = PACK_DEFS.find((p) => p.id === 'premium');
   const starter = PACK_DEFS.find((p) => p.id === 'starter');
+
+  const capsuleLegendary = CAPSULE_PACK_DEFS.find(
+    (p) => p.id === 'capsule-legendary',
+  );
+  const capsulePremium = CAPSULE_PACK_DEFS.find(
+    (p) => p.id === 'capsule-premium',
+  );
+  const capsuleStarter = CAPSULE_PACK_DEFS.find(
+    (p) => p.id === 'capsule-starter',
+  );
 
   // Fetch the image-backed skin catalog once on mount; group by rarity
   // and feed it to each pack's preview row. Catalog excludes the legacy
@@ -1396,12 +1612,50 @@ function PacksShowcase({ userPoints, openingId, onOpen }) {
 
   return (
     <div className={styles.packsShowcase}>
-      <LiveTicker />
-      <LegendaryHero {...packProps(legendary)} />
-      <div className={styles.packsRow}>
-        <PackCard {...packProps(premium)} />
-        <PackCard {...packProps(starter)} />
+      <div className={styles.packsViewToggle} role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={packsView === 'skins'}
+          className={cn(
+            styles.packsViewWord,
+            packsView === 'skins' && styles.packsViewWordActive,
+          )}
+          onClick={() => setPacksView('skins')}
+        >
+          Skins
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={packsView === 'capsules'}
+          className={cn(
+            styles.packsViewWord,
+            packsView === 'capsules' && styles.packsViewWordActive,
+          )}
+          onClick={() => setPacksView('capsules')}
+        >
+          Mods
+        </button>
       </div>
+      <LiveTicker />
+      {packsView === 'skins' ? (
+        <>
+          <LegendaryHero {...packProps(legendary)} />
+          <div className={styles.packsRow}>
+            <PackCard {...packProps(premium)} />
+            <PackCard {...packProps(starter)} />
+          </div>
+        </>
+      ) : (
+        <>
+          <CapsuleHero pack={capsuleLegendary} onOpen={onOpenCapsule} />
+          <div className={styles.packsRow}>
+            <CapsuleCard pack={capsulePremium} onOpen={onOpenCapsule} />
+            <CapsuleCard pack={capsuleStarter} onOpen={onOpenCapsule} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1699,6 +1953,7 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
             <span className={styles.packPriceLarge}>
               <VoltIcon size={14} />
               {pack.price.toLocaleString()}
+              <span className={styles.packPriceSuffix}>(3 skins included)</span>
             </span>
             <Button
               variant="secondary"
@@ -1717,7 +1972,7 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
               )}
             </Button>
             <span className={cn(styles.heroHint, styles.heroHintBelow)}>
-              Earn volts by racing
+              Earn volts by racing or buy from the marketplace
             </span>
           </div>
         </div>
@@ -1889,6 +2144,7 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
           <span className={styles.packPriceLarge}>
             <VoltIcon size={14} />
             {pack.price.toLocaleString()}
+            <span className={styles.packPriceSuffix}>(3 skins included)</span>
           </span>
           <Button
             variant={pack.buttonVariant === 'gold' ? 'secondary' : pack.buttonVariant}
@@ -1962,9 +2218,196 @@ function PossibleCard({ item }) {
 }
 
 
-/* Odds as colored text, one entry per rarity present in the pack. */
-function OddsText({ packId }) {
-  const odds = PACK_ODDS[packId];
+/* -------------------------------------------------------------------------- */
+/* Capsule (mod) packs                                                         */
+/*                                                                             */
+/* Mirror the skin pack visual structure exactly - same wrapper classes, same  */
+/* hero/premium/starter hierarchy. Differences: image src, preview slot uses   */
+/* ModPlaceholder hex chip instead of SkinThumb swatch, click is a no-op       */
+/* (purchase logic not wired yet), and the card adds a "Contains 3 Mods"       */
+/* footer caption. Skin pack components are not modified.                      */
+/* -------------------------------------------------------------------------- */
+
+function CapsuleHero({ pack, onOpen }) {
+  return (
+    <article
+      className={cn(
+        styles.packCard,
+        styles[`pack_${pack.variant}`],
+        styles.packCardHero,
+        styles.packCard_legendary,
+      )}
+    >
+      <div className={styles.heroGrid}>
+        <div className={styles.packTopRow}>
+          <div className={styles.packTopLeft}>
+            <span className={styles.packImgWrap} aria-hidden="true">
+              <img
+                src={`/capsules/${pack.id.replace('capsule-', 'capsule_')}.webp`}
+                alt=""
+                className={cn(styles.packPackImg, styles.packPackImg_legendary)}
+              />
+            </span>
+          </div>
+          <div className={styles.packTopRight}>
+            <div className={styles.pillRowSpacer} aria-hidden="true" />
+            <h3
+              className={cn(styles.packCardName, styles.packCardName_legendary)}
+            >
+              {pack.name}
+            </h3>
+            <p
+              className={cn(
+                styles.packCardDescription,
+                styles.legendaryDescription,
+              )}
+            >
+              {pack.description}
+            </p>
+            <OddsText packId={pack.id} odds={CAPSULE_PACK_ODDS[pack.id]} />
+            <span className={styles.packPriceLarge}>
+              <VoltIcon size={14} />
+              {pack.price.toLocaleString()}
+              <span className={styles.packPriceSuffix}>(3 mods included)</span>
+            </span>
+            <Button
+              variant="secondary"
+              onClick={() => onOpen?.(pack)}
+              className={cn(styles.packBtn, styles.packBtnGold)}
+            >
+              Buy Pack
+            </Button>
+            <span className={cn(styles.heroHint, styles.heroHintBelow)}>
+              Earn volts by racing or buy volts from the marketplace
+            </span>
+          </div>
+        </div>
+        <div className={styles.heroCardWrap} aria-hidden="true">
+          <div className={styles.heroCardStack}>
+            <LegendaryParticles />
+            <div className={styles.bigLegendaryCard}>
+              <span className={styles.bigCardL}>L</span>
+              <span className={styles.bigCardLabel}>Legendary</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <CapsulePossibleGroup packId={pack.id} />
+    </article>
+  );
+}
+
+function CapsuleCard({ pack, onOpen }) {
+  const tone = pack.id === 'capsule-premium' ? 'premium' : 'starter';
+  const imgSlug = pack.id.replace('capsule-', 'capsule_');
+  return (
+    <article
+      className={cn(
+        styles.packCard,
+        styles[`pack_${pack.variant}`],
+        styles[`packCard_${tone}`],
+      )}
+    >
+      <div className={styles.packTopRow}>
+        <div className={styles.packTopLeft}>
+          <span className={styles.packImgWrap} aria-hidden="true">
+            <img
+              src={`/capsules/${imgSlug}.webp`}
+              alt=""
+              className={cn(styles.packPackImg, styles[`packPackImg_${tone}`])}
+            />
+          </span>
+        </div>
+        <div className={styles.packTopRight}>
+          {pack.pills ? (
+            <div className={styles.pillRow}>
+              {pack.pills.map((p, i) => (
+                <span
+                  key={i}
+                  className={cn(styles.pill, styles[`pill_${p.tone}`])}
+                >
+                  {p.label}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.pillRowSpacer} aria-hidden="true" />
+          )}
+          <h3 className={cn(styles.packCardName, styles[`packCardName_${tone}`])}>
+            {pack.name}
+          </h3>
+          <p className={styles.packCardDescription}>{pack.description}</p>
+          <OddsText packId={pack.id} odds={CAPSULE_PACK_ODDS[pack.id]} />
+          <span className={styles.packPriceLarge}>
+            <VoltIcon size={14} />
+            {pack.price.toLocaleString()}
+            <span className={styles.packPriceSuffix}>(3 mods included)</span>
+          </span>
+          <Button
+            variant={pack.buttonVariant === 'gold' ? 'secondary' : pack.buttonVariant}
+            onClick={() => onOpen?.(pack)}
+            className={cn(
+              styles.packBtn,
+              tone === 'premium' && styles.packBtnPurple,
+              tone === 'starter' && styles.packBtnTeal,
+            )}
+          >
+            Buy Pack
+          </Button>
+        </div>
+      </div>
+      <CapsulePossibleGroup packId={pack.id} />
+    </article>
+  );
+}
+
+/* Capsule preview grid - 6 hex-chip slots reflecting the pack's drop
+   distribution (CAPSULE_PREVIEW_DISTRIBUTION). Non-legendary slots render
+   a rarity-tinted ModPlaceholder; legendary slots render the gold "L"
+   treatment that the skin packs use. */
+function CapsulePossibleGroup({ packId }) {
+  const distribution = CAPSULE_PREVIEW_DISTRIBUTION[packId] ?? [];
+  return (
+    <div className={styles.possibleGroup}>
+      <span className={styles.possibleLabel}>What You Could Pull</span>
+      <div className={styles.possibleGrid}>
+        {distribution.map((rarity, i) => (
+          <CapsulePossibleCard key={i} rarity={rarity} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CapsulePossibleCard({ rarity }) {
+  const isLegendary = rarity === 'legendary';
+  return (
+    <div className={cn(styles.possibleCard, styles[`possibleCard_${rarity}`])}>
+      <div className={styles.possibleInner}>
+        {isLegendary ? (
+          <span className={styles.possibleL} aria-hidden="true">L</span>
+        ) : (
+          <ModPlaceholder
+            rarity={rarity}
+            size={120}
+            className={styles.possibleModChip}
+          />
+        )}
+      </div>
+      <span
+        className={cn(styles.possibleRarity, styles[`rarity_${rarity}`])}
+      >
+        {RARITY_LABELS[rarity]}
+      </span>
+    </div>
+  );
+}
+
+/* Odds as colored text, one entry per rarity present in the pack.
+   Accepts an explicit `odds` map (used by capsule packs); otherwise
+   falls back to PACK_ODDS lookup by packId (used by skin packs). */
+function OddsText({ packId, odds: oddsProp }) {
+  const odds = oddsProp ?? PACK_ODDS[packId];
   if (!odds) return null;
   const entries = RARITY_LIST.filter((r) => odds[r] > 0);
   return (
@@ -2278,9 +2721,14 @@ function ListingItemPicker({ kind, items, selectedId, onSelect }) {
               tierClass,
               isSelected && styles.listFormCardSelected,
             )}
-            onClick={() => onSelect(String(item.id))}
+            onClick={() => onSelect(isSelected ? '' : String(item.id))}
             aria-pressed={isSelected}
           >
+            {isSelected && (
+              <span className={styles.listFormCardCheck} aria-hidden="true">
+                <Check size={12} strokeWidth={3} />
+              </span>
+            )}
             <div className={styles.listFormCardImage}>
               {kind === 'drone' ? (
                 <DroneImage drone={item} alt={item.name} />
@@ -2344,24 +2792,30 @@ function MarketplaceSkinPlaceholder({ rarity }) {
       className={cn(styles.skinPlaceholderWrap, rarityClass)}
       aria-hidden="true"
     >
-      <svg viewBox="0 0 200 130" className={styles.skinPlaceholderSvg}>
-        <polygon points="5,5 195,5 100,130" fill="currentColor" fillOpacity="0.22" />
-        <polygon points="5,5 50,95 100,130" fill="currentColor" fillOpacity="0.10" />
-        <polygon points="195,5 150,95 100,130" fill="currentColor" fillOpacity="0.10" />
+      <svg viewBox="0 0 200 158" className={styles.skinPlaceholderSvg}>
+        {/* Back wall facet (between the two folds). */}
+        <polygon points="14,14 186,14 100,148" fill="currentColor" fillOpacity="0.22" />
+        {/* Left flap. */}
+        <polygon points="14,14 22,108 100,148" fill="currentColor" fillOpacity="0.10" />
+        {/* Right flap - mirror of the left. */}
+        <polygon points="186,14 178,108 100,148" fill="currentColor" fillOpacity="0.10" />
+        {/* Outer pentagon: top edge pulled in slightly + viewBox a touch
+            taller so the silhouette reads a little taller and narrower. */}
         <path
-          d="M 5,5 L 195,5 L 150,95 L 100,130 L 50,95 Z"
+          d="M 14,14 L 186,14 L 178,108 L 100,148 L 22,108 Z"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
           strokeOpacity="0.7"
           strokeLinejoin="round"
         />
+        {/* V fold lines from the top corners to the apex. */}
         <line
-          x1="5" y1="5" x2="100" y2="130"
+          x1="14" y1="14" x2="100" y2="148"
           stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.7"
         />
         <line
-          x1="195" y1="5" x2="100" y2="130"
+          x1="186" y1="14" x2="100" y2="148"
           stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.7"
         />
       </svg>
@@ -2409,7 +2863,17 @@ const RARITY_GLOW = {
 /* the user commits; the parent owns the API call and pending state.         */
 /* -------------------------------------------------------------------------- */
 
-function CancelModalBody({ listing, pending, onConfirm, onClose }) {
+function CancelModalBody({
+  listing,
+  pending,
+  onConfirm,
+  onClose,
+  editPrice,
+  onEditPriceChange,
+  onUpdatePrice,
+  updatePending,
+  updateError,
+}) {
   const isDrone = listing.itemType === 'drone';
   const isMod = listing.itemType === 'mod';
   const isSkin = listing.itemType === 'skin';
@@ -2419,18 +2883,20 @@ function CancelModalBody({ listing, pending, onConfirm, onClose }) {
   const itemName = drone?.name ?? mod?.name ?? skin?.name ?? 'Item';
   const rarity = mod?.rarity ?? skin?.rarity;
 
-  // Same shadow-color logic as the purchase modal so cancel reads as
-  // the same visual family. Legendary drones take the legendary primary
-  // color; other drones take their level tier color; mods/skins take
-  // their rarity color.
+  // Shadow-color logic mirrors the purchase modal exactly so cancel reads
+  // as the same visual family. Legendary drones (with applied legendary
+  // skin) and standalone legendary skins both take their per-skin glow1
+  // so each legendary's modal feels unique instead of defaulting to gold.
   const glowColor = isDrone
     ? drone?.appliedSkin?.rarity === 'legendary'
       ? getLegendaryTheme(drone.appliedSkin?.name).glow1
       : getLevelColor(drone?.level ?? 1)
-    : (RARITY_GLOW[rarity ?? 'common'] ?? RARITY_GLOW.common);
+    : isSkin && skin?.rarity === 'legendary'
+      ? getLegendaryTheme(skin?.name).glow1
+      : (RARITY_GLOW[rarity ?? 'common'] ?? RARITY_GLOW.common);
 
   return (
-    <div className={styles.cancelStage} style={{ '--glow-color': glowColor }}>
+    <div className={styles.purchaseStage} style={{ '--glow-color': glowColor }}>
       <button
         type="button"
         className={styles.purchaseCloseBtn}
@@ -2441,20 +2907,19 @@ function CancelModalBody({ listing, pending, onConfirm, onClose }) {
         <X size={18} />
       </button>
 
-      <div className={styles.cancelHeroFrame}>
-        {/* Static ground shadow stays anchored; the item floats above it. */}
-        <span className={styles.cancelHeroShadow} aria-hidden="true" />
-        <div className={styles.cancelHero}>
+      <div className={styles.purchaseHero}>
+        <span className={styles.purchaseHeroShadow} aria-hidden="true" />
+        <div className={styles.purchaseHeroFloat}>
           {isDrone && drone && (
             <DroneImage
               drone={drone}
               alt={drone.name}
-              className={styles.cancelHeroImg}
+              className={styles.purchaseHeroImg}
             />
           )}
           {isMod && mod && (
             <span className={styles.purchaseHeroMod}>
-              <ModPlaceholder rarity={mod.rarity} size={180} />
+              <ModPlaceholder rarity={mod.rarity} size={200} />
             </span>
           )}
           {isSkin && skin && (
@@ -2462,13 +2927,13 @@ function CancelModalBody({ listing, pending, onConfirm, onClose }) {
               skin={skin}
               rarity={skin.rarity}
               alt={skin.name}
-              className={styles.cancelHeroSkin}
+              className={styles.purchaseHeroSkin}
             />
           )}
         </div>
       </div>
 
-      <div className={styles.cancelTitleRow}>
+      <div className={styles.purchaseTitleRow}>
         <h3 className={styles.purchaseName}>{itemName}</h3>
         {isDrone && drone?.level != null && (
           <span
@@ -2490,21 +2955,52 @@ function CancelModalBody({ listing, pending, onConfirm, onClose }) {
         )}
       </div>
 
-      <p className={styles.cancelPrompt}>Cancel this listing?</p>
+      <hr className={styles.purchaseDivider} aria-hidden="true" />
 
-      <div className={styles.cancelPriceRow}>
-        <VoltIcon size={20} />
-        <span className={styles.cancelPriceValue}>
+      <div className={styles.purchasePriceRow}>
+        <VoltIcon size={24} />
+        <span className={styles.purchasePrice}>
           {listing.price.toLocaleString()}
         </span>
       </div>
+
+      <div className={styles.cancelEditBlock}>
+        <span className={styles.cancelEditLabel}>Modify Price</span>
+        <div className={styles.cancelEditRow}>
+          <VoltIcon size={14} />
+          <input
+            type="number"
+            inputMode="numeric"
+            min="10"
+            className={styles.cancelEditInput}
+            value={editPrice}
+            onChange={(e) => onEditPriceChange(e.target.value)}
+            disabled={updatePending || pending}
+          />
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className={styles.cancelUpdateBtn}
+        onClick={onUpdatePrice}
+        disabled={updatePending || pending}
+      >
+        {updatePending ? 'Updating...' : 'Update Price'}
+      </button>
+
+      {updateError && (
+        <div className={styles.cancelUpdateError}>{updateError}</div>
+      )}
+
+      <p className={styles.cancelPrompt}>Cancel this listing?</p>
 
       <div className={styles.cancelActions}>
         <button
           type="button"
           className={styles.cancelKeepBtn}
           onClick={onClose}
-          disabled={pending}
+          disabled={pending || updatePending}
         >
           Keep Listed
         </button>
@@ -2512,7 +3008,7 @@ function CancelModalBody({ listing, pending, onConfirm, onClose }) {
           type="button"
           className={styles.cancelDangerBtn}
           onClick={onConfirm}
-          disabled={pending}
+          disabled={pending || updatePending}
         >
           {pending ? 'Cancelling...' : 'Cancel Listing'}
         </button>
@@ -2559,6 +3055,20 @@ function PurchaseModalBody({
   const winRate = totalRaces > 0
     ? Math.round(((drone?.wins ?? 0) / totalRaces) * 100)
     : 0;
+
+  // CTA themed to match the item being purchased. Drone level tier color,
+  // legendary-skin drone uses the legendary glow1, mods/skins use rarity
+  // tokens. Common (low-contrast grey) takes white text; everything else
+  // takes black. Threaded into .purchaseCta via --cta-bg / --cta-text.
+  const ctaBg = isDrone
+    ? drone?.appliedSkin?.rarity === 'legendary'
+      ? getLegendaryTheme(drone.appliedSkin?.name).glow1
+      : `var(--level-${getLevelTier(drone?.level ?? 1)})`
+    : isSkin || isMod
+      ? `var(--rarity-${rarity})`
+      : 'var(--accent-primary)';
+  const ctaText =
+    !isDrone && (isMod || isSkin) && rarity === 'common' ? '#fff' : '#000';
 
   const showClose = !pending && !success;
 
@@ -2709,6 +3219,7 @@ function PurchaseModalBody({
               styles.purchaseCta,
               !canAfford && styles.purchaseCtaShort,
             )}
+            style={{ '--cta-bg': ctaBg, '--cta-text': ctaText }}
             onClick={onConfirm}
             disabled={!canAfford || pending}
           >
@@ -2728,6 +3239,116 @@ function PurchaseModalBody({
 
           <p className={styles.purchaseFee}>5% marketplace fee included</p>
         </>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pack purchase confirmation modal body                                       */
+/*                                                                             */
+/* Shared by skin packs (kind='skin') and capsule packs (kind='capsule').      */
+/* Skin path hits the existing pack-open API on Confirm; capsule path is a     */
+/* display-only flow that surfaces a quiet "launching soon" line under the     */
+/* CTA. Reuses the listing purchase modal's hero/title/divider/price/CTA       */
+/* classes so the two confirmation styles read as the same family.             */
+/* -------------------------------------------------------------------------- */
+
+function PackPurchaseModalBody({
+  kind,
+  pack,
+  pending,
+  error,
+  capsuleNote,
+  onConfirm,
+  onClose,
+}) {
+  const tier = pack.id.includes('legendary')
+    ? 'legendary'
+    : pack.id.includes('premium')
+      ? 'premium'
+      : 'starter';
+  const imgSrc =
+    kind === 'skin'
+      ? `/skin_packs/${pack.id}_pack.webp`
+      : `/capsules/${pack.id.replace('capsule-', 'capsule_')}.webp`;
+  const glowColor =
+    tier === 'legendary'
+      ? '#FFD700'
+      : tier === 'premium'
+        ? '#BB86FC'
+        : '#03DAC6';
+  // CTA themed per pack tier - starter teal, premium purple, legendary
+  // gold. All three take black text. Threaded into .purchaseCta via the
+  // --cta-bg / --cta-text custom properties.
+  const ctaBg =
+    tier === 'legendary'
+      ? 'var(--rarity-legendary)'
+      : tier === 'premium'
+        ? 'var(--accent-secondary)'
+        : 'var(--accent-primary)';
+  const showClose = !pending;
+
+  return (
+    <div className={styles.purchaseStage} style={{ '--glow-color': glowColor }}>
+      {showClose && (
+        <button
+          type="button"
+          className={styles.purchaseCloseBtn}
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
+      )}
+
+      <div className={styles.purchaseHero}>
+        <span className={styles.purchaseHeroShadow} aria-hidden="true" />
+        <div className={styles.purchaseHeroFloat}>
+          <img
+            src={imgSrc}
+            alt=""
+            className={styles.purchaseHeroPack}
+          />
+        </div>
+      </div>
+
+      <div className={styles.purchaseTitleRow}>
+        <h3
+          className={cn(styles.purchaseName, styles[`packCardName_${tier}`])}
+        >
+          {pack.name}
+        </h3>
+      </div>
+
+      <hr className={styles.purchaseDivider} aria-hidden="true" />
+
+      <div className={styles.purchasePriceRow}>
+        <VoltIcon size={24} />
+        <span className={styles.purchasePrice}>
+          {pack.price.toLocaleString()}
+        </span>
+      </div>
+
+      <button
+        type="button"
+        className={styles.purchaseCta}
+        style={{ '--cta-bg': ctaBg, '--cta-text': '#000' }}
+        onClick={onConfirm}
+        disabled={pending}
+      >
+        {pending ? (
+          <span className={styles.purchaseProcessing}>Processing...</span>
+        ) : (
+          'Confirm Purchase'
+        )}
+      </button>
+
+      {error && <div className={styles.purchaseError}>{error}</div>}
+      {capsuleNote && (
+        <div className={styles.purchasePackNote}>
+          Capsule packs launching soon
+        </div>
       )}
     </div>
   );

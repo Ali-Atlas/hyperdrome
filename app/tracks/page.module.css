@@ -4,6 +4,86 @@
   gap: var(--space-4);
 }
 
+/* ---- Summary row + bracket filter (above the grid) ---- */
+
+.summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 2px;
+}
+
+.summaryCount {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.summaryRange {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: var(--font-bold);
+  color: var(--text-secondary);
+  letter-spacing: 0.06em;
+}
+
+.summaryIntro {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.summaryDot {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Marketplace-style tab pill bar: bg-card container, pills with
+   transparent default + bg-elevated/accent active. */
+.bracketBar {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  flex-wrap: wrap;
+}
+
+.bracketTab {
+  padding: 3px 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.bracketTab:hover {
+  color: var(--text-primary);
+}
+
+.bracketTabActive {
+  background: var(--bg-elevated);
+  color: var(--accent-primary);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -26,12 +106,6 @@
 }
 
 /* ---- Track card ---- */
-
-.cardLink {
-  text-decoration: none;
-  color: inherit;
-  display: block;
-}
 
 .card {
   position: relative;

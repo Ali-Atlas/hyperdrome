@@ -524,6 +524,10 @@
 
 .modEmptyLink {
   color: var(--accent-primary);
+  text-decoration: none;
+}
+
+.modEmptyLink:hover {
   text-decoration: underline;
 }
 
@@ -579,22 +583,69 @@
  * Bind modal - shared shell for both skin and mod binding
  * ========================================================================== */
 
+/* Chromeless Modal header for the bind dialog. Mirrors the standard
+   container header styling (--font-body / --text-sm / --font-semibold)
+   used elsewhere in the app, but kept in sentence case (no uppercase)
+   per spec. */
+.bindModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--header-bar-bg);
+  border-bottom: 1px solid var(--border-default);
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.bindModalTitle {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--header-bar-text);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.bindModalClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.bindModalClose:hover {
+  color: var(--text-primary);
+}
+
 .bindModal {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  padding: var(--space-4);
 }
 
+/* Tooltip-style permanence notice: faint red wash + thin red border,
+   readable mono body. Communicates "heads up" without being alarming. */
 .bindWarning {
   margin: 0;
-  padding: var(--space-3);
-  background: rgba(207, 102, 121, 0.08);
-  border: 1px solid rgba(207, 102, 121, 0.3);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(207, 102, 121, 0.06);
+  border: 1px solid rgba(207, 102, 121, 0.28);
   border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  line-height: 1.4;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  letter-spacing: 0.02em;
 }
 
 .bindEmpty {
@@ -611,6 +662,11 @@
   gap: var(--space-3);
   max-height: 50vh;
   overflow-y: auto;
+  /* Reserve a stable gutter for the scrollbar so it sits on the right
+     edge of the container instead of overlapping the rightmost card.
+     `both-edges` keeps the grid centered when no scrollbar is shown. */
+  scrollbar-gutter: stable;
+  padding-right: var(--space-2);
 }
 
 .bindCard {
@@ -620,19 +676,12 @@
   align-items: center;
   gap: 6px;
   padding: var(--space-3);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: var(--font-mono);
   text-align: center;
-  transition:
-    border-color var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out);
-}
-
-.bindCard:hover:not(:disabled) {
-  border-color: var(--accent-primary);
 }
 
 .bindCard:disabled {
@@ -640,22 +689,47 @@
   cursor: not-allowed;
 }
 
-.bindCardSelected {
-  border-color: var(--accent-primary);
-  background: rgba(3, 218, 198, 0.08);
+/* Each rarity gets its own subtle linear-gradient wash + matching
+   border. Mirrors the marketplace listing card treatment so the
+   visual language stays consistent across surfaces. */
+.bindCard_common {
+  border-color: rgba(158, 158, 158, 0.45);
 }
 
-.bindCard_common {
-  border-color: rgba(158, 158, 158, 0.4);
-}
 .bindCard_rare {
-  border-color: rgba(74, 158, 255, 0.4);
+  background: linear-gradient(
+      180deg,
+      rgba(74, 158, 255, 0.16) 0%,
+      rgba(74, 158, 255, 0.03) 100%
+    ),
+    var(--bg-card);
+  border-color: rgba(74, 158, 255, 0.5);
 }
+
 .bindCard_epic {
-  border-color: rgba(187, 134, 252, 0.4);
+  background: linear-gradient(
+      180deg,
+      rgba(187, 134, 252, 0.18) 0%,
+      rgba(187, 134, 252, 0.03) 100%
+    ),
+    var(--bg-card);
+  border-color: rgba(187, 134, 252, 0.5);
 }
+
 .bindCard_legendary {
-  border-color: rgba(255, 215, 0, 0.4);
+  background: linear-gradient(
+      180deg,
+      rgba(255, 215, 0, 0.2) 0%,
+      rgba(255, 215, 0, 0.04) 100%
+    ),
+    var(--bg-card);
+  border-color: rgba(255, 215, 0, 0.55);
+}
+
+/* Selected state: only the corner checkmark badge changes; rarity
+   background + border stay intact so the card identity is preserved. */
+.bindCardSelected {
+  /* intentionally empty */
 }
 
 .bindCardImage {
@@ -706,6 +780,7 @@
   background: var(--accent-primary);
   color: #000;
   border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--bg-card), 0 0 10px rgba(3, 218, 198, 0.45);
 }
 
 .bindFooter {
@@ -724,9 +799,19 @@
   color: var(--text-tertiary);
 }
 
+/* Equal-width 50/50 cells; Buttons inside use the primitive's standard
+   `size="sm"` preset (matches the rest of the app) and stretch to fill
+   their cell so both end up identical width + height. */
 .bindActions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
+  width: 100%;
+  max-width: 320px;
+}
+
+.bindActions > * {
+  width: 100%;
 }
 
 @media (max-width: 768px) {
@@ -845,12 +930,26 @@
 .buttonGroup {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
-  min-width: 160px;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 360px;
 }
 
 .buttonGroup > * {
   width: 100%;
+}
+
+/* Doubled selector outranks Button's variant/size classes so Save and
+   Reset share an identical 44px slab. Same pattern as the bind modal
+   action buttons + the marketplace modal buttons. */
+.statEditorBtn.statEditorBtn {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.04em;
 }
 
 /* ==========================================================================

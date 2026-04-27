@@ -24,9 +24,7 @@ import StatRadar from '@/components/ui/StatRadar';
 import {
   cn,
   getLevelColor,
-  getLevelTier,
   getDifficultyColor,
-  getLegendaryTheme,
 } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
 import DroneImage from '@/components/ui/DroneImage';
@@ -367,7 +365,7 @@ export default function RaceDetailPage({ params }) {
             <div className={styles.headlineRight}>
               {race.pointsAwarded != null && (
                 <span className={styles.pointsChip}>
-                  +<VoltIcon size={11} />
+                  <VoltIcon size={11} />
                   {race.pointsAwarded}
                 </span>
               )}
@@ -417,7 +415,6 @@ export default function RaceDetailPage({ params }) {
               time={race.drone1Time}
               eloBefore={race.drone1EloBefore}
               eloChange={race.drone1EloChange}
-              showUpset={race.isUpset && race.drone1Id === winnerId}
             />
           </div>
           <div className={styles.drone2Slot}>
@@ -427,7 +424,6 @@ export default function RaceDetailPage({ params }) {
               time={race.drone2Time}
               eloBefore={race.drone2EloBefore}
               eloChange={race.drone2EloChange}
-              showUpset={race.isUpset && race.drone2Id === winnerId}
             />
           </div>
 
@@ -655,7 +651,7 @@ function TrackStatDivider() {
   return <span className={styles.trackStatDivider} aria-hidden="true" />;
 }
 
-function DroneCard({ drone, isWinner, time, eloBefore, eloChange, showUpset }) {
+function DroneCard({ drone, isWinner, time, eloBefore, eloChange }) {
   if (!drone) {
     return (
       <Card className={styles.droneCard}>
@@ -675,34 +671,10 @@ function DroneCard({ drone, isWinner, time, eloBefore, eloChange, showUpset }) {
   const hasChange = eloChange != null && eloChange !== 0;
   const changeSign = eloChange != null && eloChange > 0 ? '+' : '';
 
-  const legendaryTheme =
-    drone.appliedSkin?.rarity === 'legendary'
-      ? getLegendaryTheme(drone.appliedSkin?.name)
-      : null;
-  const legendaryStyle = legendaryTheme
-    ? {
-        '--legendary-bg': legendaryTheme.bg,
-        '--legendary-glow-1': legendaryTheme.glow1,
-      }
-    : undefined;
-
   return (
     <Link href={`/drones/${drone.id}`} className={styles.droneLink}>
-      <Card
-        className={cn(
-          styles.droneCard,
-          styles[`level_${getLevelTier(drone.level)}`],
-          isWinner && styles.winnerCard,
-          legendaryTheme && styles.skinRarity_legendary,
-        )}
-        style={legendaryStyle}
-      >
-        <h2
-          className={cn(
-            styles.sectionHeading,
-            isWinner ? styles.winnerHeading : styles.challengerHeading,
-          )}
-        >
+      <Card className={styles.droneCard}>
+        <h2 className={styles.sectionHeading}>
           {isWinner ? 'Winner' : 'Challenger'}
         </h2>
 
@@ -712,7 +684,6 @@ function DroneCard({ drone, isWinner, time, eloBefore, eloChange, showUpset }) {
             alt={drone.name}
             className={styles.droneImg}
           />
-          {showUpset && <span className={styles.upsetPill}>UPSET</span>}
         </div>
 
         <div className={styles.droneCardBody}>
@@ -961,12 +932,14 @@ function RaceStrategyView({ race }) {
             opponent={rightDrone}
             radarMax={radarMax}
             viewerUserId={user?.id}
+            slotLabel="Drone 1"
           />
           <MatchupDroneCard
             drone={rightDrone}
             opponent={leftDrone}
             radarMax={radarMax}
             viewerUserId={user?.id}
+            slotLabel="Drone 2"
           />
         </div>
         <TrackSection race={race} />
@@ -1011,31 +984,48 @@ function StatusBar({ scheduledAt }) {
   );
 }
 
-/** Single-row comparison card: drone1 name · H2H · ELO · WIN RATE · drone2 name. */
+/** Single-row comparison card: drone1 name · H2H · ELO · WIN RATE · drone2 name.
+ *  Per-comparison color: the higher value reads in --accent-primary, the
+ *  lower in --text-secondary, and ties in --text-primary. Names at the
+ *  ends mirror the ELO comparison since ELO is the canonical strength
+ *  signal. */
 function H2HStrip({ race, drone1, drone2 }) {
   if (!drone1 || !drone2) return null;
 
   const elo1 = drone1.eloRating ?? 0;
   const elo2 = drone2.eloRating ?? 0;
-  const wr1 =
-    drone1.totalRaces > 0
-      ? `${Math.round(((drone1.wins ?? 0) / drone1.totalRaces) * 100)}%`
-      : '-';
-  const wr2 =
-    drone2.totalRaces > 0
-      ? `${Math.round(((drone2.wins ?? 0) / drone2.totalRaces) * 100)}%`
-      : '-';
+  const wrPct1 =
+    drone1.totalRaces > 0 ? (drone1.wins ?? 0) / drone1.totalRaces : null;
+  const wrPct2 =
+    drone2.totalRaces > 0 ? (drone2.wins ?? 0) / drone2.totalRaces : null;
+  const wr1 = wrPct1 != null ? `${Math.round(wrPct1 * 100)}%` : '-';
+  const wr2 = wrPct2 != null ? `${Math.round(wrPct2 * 100)}%` : '-';
+
+  const compareClass = (a, b) => {
+    if (a == null || b == null) return styles.h2hValueNeutral;
+    if (a === b) return styles.h2hValueNeutral;
+    return a > b ? styles.h2hValueHigh : styles.h2hValueLow;
+  };
+
+  const eloClass1 = compareClass(elo1, elo2);
+  const eloClass2 = compareClass(elo2, elo1);
+  const wrClass1 = compareClass(wrPct1, wrPct2);
+  const wrClass2 = compareClass(wrPct2, wrPct1);
+  const h2hClass1 = compareClass(race.h2h?.drone1Wins, race.h2h?.drone2Wins);
+  const h2hClass2 = compareClass(race.h2h?.drone2Wins, race.h2h?.drone1Wins);
 
   return (
     <div className={styles.h2hStrip}>
-      <span className={styles.h2hName}>{drone1.name}</span>
+      <span className={cn(styles.h2hName, eloClass1)}>{drone1.name}</span>
       <span className={styles.h2hSep} aria-hidden="true" />
       {race.h2h && race.h2h.total > 0 && (
         <>
           <span className={styles.h2hCell}>
             <span className={styles.h2hLabel}>H2H</span>
             <span className={styles.h2hValue}>
-              {race.h2h.drone1Wins}-{race.h2h.drone2Wins}
+              <span className={h2hClass1}>{race.h2h.drone1Wins}</span>
+              <span className={styles.h2hValueSep}>-</span>
+              <span className={h2hClass2}>{race.h2h.drone2Wins}</span>
             </span>
           </span>
           <span className={styles.h2hSep} aria-hidden="true" />
@@ -1044,18 +1034,22 @@ function H2HStrip({ race, drone1, drone2 }) {
       <span className={styles.h2hCell}>
         <span className={styles.h2hLabel}>ELO</span>
         <span className={styles.h2hValue}>
-          {elo1} vs {elo2}
+          <span className={eloClass1}>{elo1}</span>
+          <span className={styles.h2hValueSep}>vs</span>
+          <span className={eloClass2}>{elo2}</span>
         </span>
       </span>
       <span className={styles.h2hSep} aria-hidden="true" />
       <span className={styles.h2hCell}>
         <span className={styles.h2hLabel}>WIN RATE</span>
         <span className={styles.h2hValue}>
-          {wr1} vs {wr2}
+          <span className={wrClass1}>{wr1}</span>
+          <span className={styles.h2hValueSep}>vs</span>
+          <span className={wrClass2}>{wr2}</span>
         </span>
       </span>
       <span className={styles.h2hSep} aria-hidden="true" />
-      <span className={styles.h2hName}>{drone2.name}</span>
+      <span className={cn(styles.h2hName, eloClass2)}>{drone2.name}</span>
     </div>
   );
 }
@@ -1067,7 +1061,7 @@ function H2HStrip({ race, drone1, drone2 }) {
  *   4. Mod block (always rendered; "No mod" placeholder when none)
  *  Wraps in <Link> so clicking goes to /drones/[id] (read-only while race
  *  is PENDING). */
-function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId }) {
+function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId, slotLabel }) {
   if (!drone) {
     return (
       <article className={styles.matchupCard} aria-hidden="true">
@@ -1076,7 +1070,6 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId }) {
     );
   }
 
-  const tier = getLevelTier(drone.level);
   const radarStats = STAT_KEYS.reduce((acc, k) => {
     acc[k] = drone[k] ?? 0;
     return acc;
@@ -1114,32 +1107,33 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId }) {
   const ownerName = drone.owner?.username ?? null;
 
   return (
-    <Link
-      href={`/drones/${drone.id}`}
-      className={cn(styles.matchupCard, styles[`matchupCard_${tier}`])}
-    >
-      <div className={styles.matchupHeader}>
-        <h3 className={styles.matchupName}>{drone.name}</h3>
-        <div className={styles.matchupHeaderMeta}>
-          <span
-            className={styles.matchupLevel}
-            style={{ color: getLevelColor(drone.level) }}
-          >
-            LV {drone.level}
-          </span>
-          {drone.isBot ? (
-            <span className={styles.matchupBotBadge}>
-              <Bot size={11} aria-hidden="true" /> BOT
+    <Link href={`/drones/${drone.id}`} className={styles.matchupCard}>
+      {slotLabel && (
+        <h2 className={styles.sectionHeading}>{slotLabel}</h2>
+      )}
+      <div className={styles.matchupContent}>
+        <div className={styles.matchupHeader}>
+          <h3 className={styles.matchupName}>{drone.name}</h3>
+          <div className={styles.matchupHeaderMeta}>
+            <span
+              className={styles.matchupLevel}
+              style={{ color: getLevelColor(drone.level) }}
+            >
+              LV {drone.level}
             </span>
-          ) : isViewerDrone ? (
-            <span className={styles.matchupYouBadge}>YOU</span>
-          ) : ownerName ? (
-            <span className={styles.matchupOwnerBadge}>{ownerName}</span>
-          ) : null}
+            {drone.isBot ? (
+              <span className={styles.matchupBotBadge}>
+                <Bot size={11} aria-hidden="true" /> BOT
+              </span>
+            ) : isViewerDrone ? (
+              <span className={styles.matchupYouBadge}>YOU</span>
+            ) : ownerName ? (
+              <span className={styles.matchupOwnerBadge}>{ownerName}</span>
+            ) : null}
+          </div>
         </div>
-      </div>
 
-      <div className={styles.matchupImageFrame}>
+        <div className={styles.matchupImageFrame}>
         <DroneImage
           drone={drone}
           alt={drone.name}
@@ -1226,24 +1220,25 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId }) {
         </div>
       </div>
 
-      <div className={styles.matchupModBlock}>
-        {drone.appliedMod ? (
-          <>
-            <ModPlaceholder rarity={drone.appliedMod.rarity} size={28} />
-            <div className={styles.matchupModText}>
-              <span className={styles.matchupModName}>
-                {drone.appliedMod.name}
-              </span>
-              {drone.appliedMod.description && (
-                <span className={styles.matchupModEffect}>
-                  {drone.appliedMod.description}
+        <div className={styles.matchupModBlock}>
+          {drone.appliedMod ? (
+            <>
+              <ModPlaceholder rarity={drone.appliedMod.rarity} size={24} />
+              <div className={styles.matchupModText}>
+                <span className={styles.matchupModName}>
+                  {drone.appliedMod.name}
                 </span>
-              )}
-            </div>
-          </>
-        ) : (
-          <span className={styles.matchupModEmpty}>No mod equipped</span>
-        )}
+                {drone.appliedMod.description && (
+                  <span className={styles.matchupModEffect}>
+                    {drone.appliedMod.description}
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <span className={styles.matchupModEmpty}>No mod equipped</span>
+          )}
+        </div>
       </div>
     </Link>
   );
@@ -1260,20 +1255,22 @@ function TrackSection({ race }) {
   const difficultyColor = getDifficultyColor(diff);
 
   return (
-    <div className={styles.trackSection}>
-      <div className={styles.trackImageBox}>
-        {track.imageUrl ? (
-          <img
-            src={track.imageUrl}
-            alt={track.name}
-            className={styles.trackSectionImg}
-          />
-        ) : (
-          <div className={styles.trackImagePlaceholder} aria-hidden="true" />
-        )}
-      </div>
+    <section className={styles.trackSection}>
+      <h2 className={styles.sectionHeading}>Track</h2>
+      <div className={styles.trackSectionInner}>
+        <div className={styles.trackImageBox}>
+          {track.imageUrl ? (
+            <img
+              src={track.imageUrl}
+              alt={track.name}
+              className={styles.trackSectionImg}
+            />
+          ) : (
+            <div className={styles.trackImagePlaceholder} aria-hidden="true" />
+          )}
+        </div>
 
-      <div className={styles.trackInfo}>
+        <div className={styles.trackInfo}>
         <h2 className={styles.trackName}>{track.name}</h2>
 
         <div
@@ -1318,8 +1315,9 @@ function TrackSection({ race }) {
             {TIME_LABELS[race.timeOfDay] ?? race.timeOfDay ?? '-'}
           </span>
         </div>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 

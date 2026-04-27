@@ -17,6 +17,7 @@ import {
   Flag,
   ShoppingCart,
   Check,
+  X,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
@@ -911,18 +912,18 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   <div className={styles.buttonGroup}>
                     <Button
                       variant="primary"
-                      size="sm"
                       onClick={save}
                       disabled={!hasChanges}
                       loading={saving}
+                      className={styles.statEditorBtn}
                     >
                       Save
                     </Button>
                     <Button
                       variant="secondary"
-                      size="sm"
                       onClick={reset}
                       disabled={!hasChanges || saving}
+                      className={styles.statEditorBtn}
                     >
                       Reset
                     </Button>
@@ -1123,13 +1124,25 @@ function BindCollectibleModal({
   };
 
   const title = kind === 'skin'
-    ? `Bind Skins to ${droneName}`
-    : `Bind Mods to ${droneName}`;
+    ? `Bind skins to ${droneName}`
+    : `Bind mods to ${droneName}`;
   const empty = !items || items.length === 0;
   const count = selected.size;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} size="lg" chromeless>
+      <div className={styles.bindModalHeader}>
+        <h2 className={styles.bindModalTitle}>{title}</h2>
+        <button
+          type="button"
+          className={styles.bindModalClose}
+          onClick={onClose}
+          aria-label="Close dialog"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
       <div className={styles.bindModal}>
         <p className={styles.bindWarning}>
           Binding is permanent. Once bound, this {kind} cannot be moved to
@@ -1206,11 +1219,17 @@ function BindCollectibleModal({
             .
           </span>
           <div className={styles.bindActions}>
-            <Button variant="secondary" onClick={onClose} disabled={working}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onClose}
+              disabled={working}
+            >
               Cancel
             </Button>
             <Button
               variant="primary"
+              size="sm"
               onClick={handleBind}
               disabled={count === 0 || working || pending}
               loading={working}
