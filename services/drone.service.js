@@ -15,7 +15,7 @@ import { ApiError } from '@/lib/api/response.js';
  *  player-wallet bonus payouts. */
 const MAX_LEVEL = 20;
 
-const { drones, users, skins, mods, droneMods, races, tracks } = schema;
+const { drones, users, skins, mods, droneMods, droneSkins, races, tracks } = schema;
 
 /* -------------------------------------------------------------------------- */
 /* Reads                                                                      */
@@ -59,7 +59,7 @@ export async function getDroneById(droneId) {
 
   if (!row) throw new ApiError('Drone not found', 404);
 
-  const [recentRaces, modRows] = await Promise.all([
+  const [recentRaces, modRows, skinRows] = await Promise.all([
     db
       .select({
         race: races,
@@ -79,6 +79,15 @@ export async function getDroneById(droneId) {
       .from(droneMods)
       .innerJoin(mods, eq(droneMods.modId, mods.id))
       .where(eq(droneMods.droneId, droneId)),
+    db
+      .select({
+        bindingId: droneSkins.id,
+        isEquipped: droneSkins.isEquipped,
+        skin: skins,
+      })
+      .from(droneSkins)
+      .innerJoin(skins, eq(droneSkins.skinId, skins.id))
+      .where(eq(droneSkins.droneId, droneId)),
   ]);
 
   const boundMods = modRows.map(({ bindingId, isEquipped, mod }) => ({
@@ -88,6 +97,12 @@ export async function getDroneById(droneId) {
   }));
   const appliedMod = boundMods.find((m) => m.isEquipped) ?? null;
 
+  const boundSkins = skinRows.map(({ bindingId, isEquipped, skin }) => ({
+    ...skin,
+    bindingId,
+    isEquipped,
+  }));
+
   return {
     ...row.drone,
     owner: row.owner
@@ -96,6 +111,7 @@ export async function getDroneById(droneId) {
     appliedSkin: row.skin,
     appliedMod,
     boundMods,
+    boundSkins,
     recentRaces: recentRaces.map(({ race, track }) => ({
       ...race,
       track,

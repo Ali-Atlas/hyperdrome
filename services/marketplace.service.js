@@ -8,6 +8,7 @@ const {
   skins,
   mods,
   droneMods,
+  droneSkins,
   users,
   droneOwnershipHistory,
 } = schema;
@@ -59,12 +60,12 @@ export async function createListing(userId, itemType, itemId, price) {
       .limit(1);
     if (!skin) throw new ApiError('Skin not found', 404);
     if (skin.userId !== userId) throw new ApiError('You do not own this skin', 403);
-    const [boundDrone] = await db
-      .select({ id: drones.id })
-      .from(drones)
-      .where(eq(drones.appliedSkinId, itemId))
+    const [boundRow] = await db
+      .select({ id: droneSkins.id })
+      .from(droneSkins)
+      .where(eq(droneSkins.skinId, itemId))
       .limit(1);
-    if (boundDrone) {
+    if (boundRow) {
       throw new ApiError(
         'This skin is bound to a drone and transfers with it - list the drone instead',
         400,
@@ -192,15 +193,8 @@ export async function buyListing(buyerId, listingId) {
         ),
       );
 
-    // Capture the applied skin so we can transfer its ownership to the buyer
-    // along with the drone (skins are permanently bound to drones).
-    const [droneRow] = await db
-      .select({ appliedSkinId: drones.appliedSkinId })
-      .from(drones)
-      .where(eq(drones.id, listing.droneId))
-      .limit(1);
-
-    // Transfer drone, keep the skin equipped, deactivate on sale
+    // Transfer drone, deactivate on sale. The applied skin pointer +
+    // bound collection both follow via the loops below.
     await db
       .update(drones)
       .set({
@@ -209,12 +203,18 @@ export async function buyListing(buyerId, listingId) {
       })
       .where(eq(drones.id, listing.droneId));
 
-    // Bound skin transfers with the drone
-    if (droneRow?.appliedSkinId) {
+    // Bound skins transfer with the drone. Re-home every skin in the
+    // drone's collection (equipped + non-equipped) to the buyer.
+    const boundSkinRows = await db
+      .select({ skinId: droneSkins.skinId })
+      .from(droneSkins)
+      .where(eq(droneSkins.droneId, listing.droneId));
+    const boundSkinIds = boundSkinRows.map((r) => r.skinId);
+    if (boundSkinIds.length > 0) {
       await db
         .update(skins)
         .set({ userId: buyerId })
-        .where(eq(skins.id, droneRow.appliedSkinId));
+        .where(inArray(skins.id, boundSkinIds));
     }
 
     // Bound mods transfer with the drone. Re-home every mod in the drone's
@@ -319,7 +319,14 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
   const modIds = rows.map((r) => r.modId).filter(Boolean);
   const sellerIds = [...new Set(rows.map((r) => r.sellerId))];
 
-  const [droneRows, skinRows, modRows, sellerRows] = await Promise.all([
+  const [
+    droneRows,
+    skinRows,
+    modRows,
+    sellerRows,
+    droneSkinCounts,
+    droneModCounts,
+  ] = await Promise.all([
     droneIds.length
       ? db
           .select({ drone: drones, appliedSkin: skins })
@@ -337,12 +344,44 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
       .select({ id: users.id, username: users.username })
       .from(users)
       .where(inArray(users.id, sellerIds)),
+    droneIds.length
+      ? db
+          .select({
+            droneId: droneSkins.droneId,
+            count: sql`COUNT(*)::int`.as('count'),
+          })
+          .from(droneSkins)
+          .where(inArray(droneSkins.droneId, droneIds))
+          .groupBy(droneSkins.droneId)
+      : Promise.resolve([]),
+    droneIds.length
+      ? db
+          .select({
+            droneId: droneMods.droneId,
+            count: sql`COUNT(*)::int`.as('count'),
+          })
+          .from(droneMods)
+          .where(inArray(droneMods.droneId, droneIds))
+          .groupBy(droneMods.droneId)
+      : Promise.resolve([]),
   ]);
+
+  const skinCountMap = Object.fromEntries(
+    droneSkinCounts.map((r) => [r.droneId, r.count]),
+  );
+  const modCountMap = Object.fromEntries(
+    droneModCounts.map((r) => [r.droneId, r.count]),
+  );
 
   const droneMap = Object.fromEntries(
     droneRows.map(({ drone, appliedSkin }) => [
       drone.id,
-      { ...drone, appliedSkin },
+      {
+        ...drone,
+        appliedSkin,
+        boundSkinCount: skinCountMap[drone.id] ?? 0,
+        boundModCount: modCountMap[drone.id] ?? 0,
+      },
     ]),
   );
   const skinMap = Object.fromEntries(skinRows.map((s) => [s.id, s]));

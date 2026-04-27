@@ -26,6 +26,7 @@ import {
   getLevelColor,
   getLevelTier,
   getDifficultyColor,
+  getLegendaryTheme,
 } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
 import DroneImage from '@/components/ui/DroneImage';
@@ -674,6 +675,17 @@ function DroneCard({ drone, isWinner, time, eloBefore, eloChange, showUpset }) {
   const hasChange = eloChange != null && eloChange !== 0;
   const changeSign = eloChange != null && eloChange > 0 ? '+' : '';
 
+  const legendaryTheme =
+    drone.appliedSkin?.rarity === 'legendary'
+      ? getLegendaryTheme(drone.appliedSkin?.name)
+      : null;
+  const legendaryStyle = legendaryTheme
+    ? {
+        '--legendary-bg': legendaryTheme.bg,
+        '--legendary-glow-1': legendaryTheme.glow1,
+      }
+    : undefined;
+
   return (
     <Link href={`/drones/${drone.id}`} className={styles.droneLink}>
       <Card
@@ -681,10 +693,9 @@ function DroneCard({ drone, isWinner, time, eloBefore, eloChange, showUpset }) {
           styles.droneCard,
           styles[`level_${getLevelTier(drone.level)}`],
           isWinner && styles.winnerCard,
-          drone.appliedSkin?.rarity &&
-            drone.appliedSkin.rarity !== 'common' &&
-            styles[`skinRarity_${drone.appliedSkin.rarity}`],
+          legendaryTheme && styles.skinRarity_legendary,
         )}
+        style={legendaryStyle}
       >
         <h2
           className={cn(

@@ -325,7 +325,9 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-auto-rows: 1fr;
   gap: var(--space-4);
+  align-items: stretch;
 }
 
 .cardLink {
@@ -436,33 +438,88 @@
   border-color: rgba(255, 215, 0, 0.95);
 }
 
-/* Skin-rarity border - overlays the level border for equipped skins. */
-.skinRarity_rare {
-  border-color: rgba(74, 158, 255, 0.6);
-  box-shadow: 0 0 14px rgba(74, 158, 255, 0.15);
-}
-
-.skinRarity_epic {
-  border-color: rgba(187, 134, 252, 0.6);
-  box-shadow: 0 0 14px rgba(187, 134, 252, 0.18);
-}
-
-/* Drone with a legendary skin: premium dark neutral surface that
-   replaces both the level-tier tint and the prior gold shimmer.
-   Self-doubled selector wins specificity vs the chained tier rules
-   above. The level VALUE text continues to render in its tier color
-   (set inline on the level span via getLevelColor); only the card
-   frame changes. */
+/* Common / rare / epic equipped skins do NOT override the level-tier
+   frame. Legendary skins get a constant colored border (1px ring,
+   always visible) with a brighter wedge that travels around it, plus
+   a soft outer glow. See comment in marketplace/page.module.css for
+   the technique. Hover bumps the outer glow strength. */
+/* Premium legendary card: glossy rotating border + occasional surface
+   shine + drone-image bob. See marketplace/page.module.css for the
+   full technique notes. */
 .skinRarity_legendary.skinRarity_legendary {
-  background: #0A0A0A;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-lg);
   box-shadow: none;
-  animation: droneLegendarySkinShimmer 4s ease-in-out infinite;
+  overflow: hidden;
+  animation: none;
 }
 
-@keyframes droneLegendarySkinShimmer {
-  0%, 100% { border-color: rgba(255, 255, 255, 0.1); }
-  50% { border-color: rgba(255, 255, 255, 0.25); }
+.skinRarity_legendary.skinRarity_legendary::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  height: 200%;
+  transform-origin: center;
+  transform: translate(-50%, -50%) rotate(0deg);
+  background: conic-gradient(
+    from 0deg,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 0%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 75%,
+    color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 12%, #ffffff) 87%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 99%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 100%
+  );
+  animation: legendaryRotate 10s linear infinite;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.skinRarity_legendary.skinRarity_legendary::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 8%, transparent) 0%,
+      color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 2%, transparent) 100%
+    ),
+    var(--legendary-bg, #0A0A0A);
+  border-radius: calc(var(--radius-lg) - 2px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.skinRarity_legendary.skinRarity_legendary .imageFrame img {
+  animation: legendaryDroneBob 4s ease-in-out infinite;
+}
+
+@keyframes legendaryRotate {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes legendaryDroneBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skinRarity_legendary.skinRarity_legendary::before,
+  .skinRarity_legendary.skinRarity_legendary .imageFrame img {
+    animation: none;
+  }
 }
 
 /* ---- Card header - name on top, level chip below ---- */
@@ -572,7 +629,7 @@
 /* ---- Skin chip (or empty placeholder) ---- */
 
 .skinChip {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
@@ -581,7 +638,7 @@
   font-family: var(--font-mono);
   font-size: 10px;
   line-height: 1.2;
-  max-width: 100%;
+  width: 100%;
   overflow: hidden;
 }
 
@@ -617,11 +674,18 @@
 .skinRarityColor_legendary .skinDiamond { color: var(--rarity-legendary); }
 
 .skinChipEmpty {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: 10px;
+  line-height: 1.2;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  width: 100%;
 }
 
 /* ==========================================================================

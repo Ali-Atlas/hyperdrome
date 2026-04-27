@@ -9,7 +9,7 @@ import DataTable from '@/components/ui/DataTable';
 import Toggle from '@/components/ui/Toggle';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from '@/hooks/useSession';
-import { cn, getLevelColor } from '@/lib/utils';
+import { cn, getLevelColor, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import PlayerAvatar from '@/components/ui/PlayerAvatar';
 import VoltIcon from '@/components/ui/VoltIcon';
@@ -536,21 +536,44 @@ function PodiumCard({ rank, entry, tab }) {
     </>
   );
 
+  const isLegendaryEntry =
+    !empty &&
+    tab === 'drones' &&
+    entry?.appliedSkin?.rarity === 'legendary';
+  const legendaryTheme = isLegendaryEntry
+    ? getLegendaryTheme(entry.appliedSkin?.name)
+    : null;
+  const legendaryStyle = legendaryTheme
+    ? {
+        '--legendary-bg': legendaryTheme.bg,
+        '--legendary-glow-1': legendaryTheme.glow1,
+      }
+    : undefined;
+
   const classes = cn(
     styles.podiumCard,
     rankClass,
     rank === 1 && styles.podiumFirst,
     empty && styles.podiumEmpty,
+    legendaryTheme && styles.skinRarity_legendary,
   );
 
   if (linkHref) {
     return (
-      <Link href={linkHref} className={cn(classes, styles.podiumCardLink)}>
+      <Link
+        href={linkHref}
+        className={cn(classes, styles.podiumCardLink)}
+        style={legendaryStyle}
+      >
         {body}
       </Link>
     );
   }
-  return <div className={classes}>{body}</div>;
+  return (
+    <div className={classes} style={legendaryStyle}>
+      {body}
+    </div>
+  );
 }
 
 function PodiumStat({ label, value }) {

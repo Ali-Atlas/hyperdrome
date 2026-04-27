@@ -10,6 +10,7 @@ import {
   cn,
   getLevelColor,
   getLevelTier,
+  getLegendaryTheme,
 } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import styles from './page.module.css';
@@ -346,6 +347,14 @@ function DroneCard({ drone }) {
   const wrLabel = drone.totalRaces > 0 ? `${(wr * 100).toFixed(0)}%` : '-';
   const tier = getLevelTier(drone.level);
   const skin = drone.appliedSkin;
+  const legendaryTheme =
+    skin?.rarity === 'legendary' ? getLegendaryTheme(skin.name) : null;
+  const legendaryStyle = legendaryTheme
+    ? {
+        '--legendary-bg': legendaryTheme.bg,
+        '--legendary-glow-1': legendaryTheme.glow1,
+      }
+    : undefined;
 
   return (
     <Link
@@ -357,11 +366,10 @@ function DroneCard({ drone }) {
         className={cn(
           styles.droneCard,
           styles[`level_${tier}`],
-          skin?.rarity &&
-            skin.rarity !== 'common' &&
-            styles[`skinRarity_${skin.rarity}`],
+          legendaryTheme && styles.skinRarity_legendary,
           drone.active && styles.active,
         )}
+        style={legendaryStyle}
       >
         {drone.active && <span className={styles.activeRibbon}>Active</span>}
 

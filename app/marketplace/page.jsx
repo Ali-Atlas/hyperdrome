@@ -13,7 +13,12 @@ import Skeleton from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
-import { cn, getLevelColor, getLevelTier } from '@/lib/utils';
+import {
+  cn,
+  getLevelColor,
+  getLevelTier,
+  getLegendaryTheme,
+} from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
@@ -177,6 +182,7 @@ export default function MarketplacePage() {
   const [packOpening, setPackOpening] = useState(null); // pack id currently being opened
   const [packReveal, setPackReveal] = useState(null); // { awarded, packType }
   const [packRevealStep, setPackRevealStep] = useState(0);
+  const [packOpened, setPackOpened] = useState(false);
   const [listings, setListings] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -187,12 +193,16 @@ export default function MarketplacePage() {
     minLevel: '',
     maxLevel: '',
     rarities: [],
+    hasSkins: false,
+    hasMods: false,
     sort: 'priceHigh',
   });
   const [search, setSearch] = useState('');
 
   // Modals
   const [buyModal, setBuyModal] = useState(null);
+  const [cancelModal, setCancelModal] = useState(null);
+  const [cancelPending, setCancelPending] = useState(false);
   const [buyPending, setBuyPending] = useState(false);
   const [buySuccess, setBuySuccess] = useState(null);
   const [buyError, setBuyError] = useState(null);
@@ -248,7 +258,9 @@ export default function MarketplacePage() {
         fetch('/api/mods').then((r) => r.json()).catch(() => null),
       ]);
       if (drones?.data) setOwnedInactive(drones.data.filter((d) => !d.active));
-      if (skins?.data) setOwnedSkins(skins.data);
+      if (skins?.data) {
+        setOwnedSkins(skins.data.filter((s) => !s.boundDroneId));
+      }
       if (mods?.data) {
         setOwnedUnboundMods(mods.data.filter((m) => !m.boundDroneId));
       }
@@ -285,6 +297,12 @@ export default function MarketplacePage() {
       const max = filters.maxLevel ? Number(filters.maxLevel) : null;
       if (min != null) items = items.filter((l) => (l.drone?.level ?? 0) >= min);
       if (max != null) items = items.filter((l) => (l.drone?.level ?? 0) <= max);
+      if (filters.hasSkins) {
+        items = items.filter((l) => (l.drone?.boundSkinCount ?? 0) > 0);
+      }
+      if (filters.hasMods) {
+        items = items.filter((l) => (l.drone?.boundModCount ?? 0) > 0);
+      }
     }
 
     if (search) {
@@ -400,18 +418,26 @@ export default function MarketplacePage() {
     }
   };
 
-  const handleCancel = async (id) => {
+  const handleCancelConfirm = async () => {
+    if (!cancelModal || cancelPending) return;
+    setCancelPending(true);
     try {
-      const res = await fetch(`/api/marketplace/${id}/cancel`, { method: 'POST' });
+      const res = await fetch(
+        `/api/marketplace/${cancelModal.id}/cancel`,
+        { method: 'POST' },
+      );
       const body = await res.json();
       if (!res.ok) {
         showToast(body?.error || 'Cancel failed', 'error');
       } else {
         showToast('Listing cancelled', 'success');
+        setCancelModal(null);
         await fetchListings();
       }
     } catch (err) {
       showToast(String(err), 'error');
+    } finally {
+      setCancelPending(false);
     }
   };
 
@@ -457,7 +483,7 @@ export default function MarketplacePage() {
 
   const handleOpenPack = async (packId) => {
     if (!user) {
-      showToast('Sign in to open packs.', 'error');
+      showToast('Sign in to buy packs.', 'error');
       return;
     }
     setPackOpening(packId);
@@ -469,19 +495,16 @@ export default function MarketplacePage() {
       });
       const body = await res.json();
       if (!res.ok) {
-        showToast(body?.error || 'Pack open failed', 'error');
+        showToast(body?.error || 'Pack purchase failed', 'error');
         return;
       }
       const awarded = body.data?.awarded ?? [];
+      // Skins are already on the user's account at this point - the
+      // server resolved them at purchase time. The "Open Pack" CTA in
+      // the modal just gates the reveal animation for drama.
       setPackReveal({ awarded, packType: packId });
       setPackRevealStep(0);
-      // Stagger reveals 500ms apart.
-      awarded.forEach((_, i) => {
-        setTimeout(
-          () => setPackRevealStep((s) => Math.max(s, i + 1)),
-          (i + 1) * 500,
-        );
-      });
+      setPackOpened(false);
     } catch (err) {
       showToast(String(err), 'error');
     } finally {
@@ -489,9 +512,22 @@ export default function MarketplacePage() {
     }
   };
 
+  const handleRevealPack = () => {
+    if (!packReveal) return;
+    setPackOpened(true);
+    // Stagger reveals 500ms apart.
+    packReveal.awarded.forEach((_, i) => {
+      setTimeout(
+        () => setPackRevealStep((s) => Math.max(s, i + 1)),
+        (i + 1) * 500,
+      );
+    });
+  };
+
   const closePackReveal = () => {
     setPackReveal(null);
     setPackRevealStep(0);
+    setPackOpened(false);
   };
 
   return (
@@ -697,6 +733,40 @@ export default function MarketplacePage() {
                   </div>
                 )}
 
+                {tab === 'drones' && (
+                  <div className={styles.filterGroup}>
+                    <label className={styles.filterLabel}>Includes</label>
+                    <div className={styles.checkList}>
+                      <label className={styles.check}>
+                        <input
+                          type="checkbox"
+                          checked={filters.hasSkins}
+                          onChange={(e) =>
+                            setFilters((f) => ({
+                              ...f,
+                              hasSkins: e.target.checked,
+                            }))
+                          }
+                        />
+                        <span className={styles.checkText}>Skins</span>
+                      </label>
+                      <label className={styles.check}>
+                        <input
+                          type="checkbox"
+                          checked={filters.hasMods}
+                          onChange={(e) =>
+                            setFilters((f) => ({
+                              ...f,
+                              hasMods: e.target.checked,
+                            }))
+                          }
+                        />
+                        <span className={styles.checkText}>Mods</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
                 {(tab === 'skins' || tab === 'mods') && (
                   <div className={styles.filterGroup}>
                     <label className={styles.filterLabel}>Rarity</label>
@@ -754,6 +824,8 @@ export default function MarketplacePage() {
                       minLevel: '',
                       maxLevel: '',
                       rarities: [],
+                      hasSkins: false,
+                      hasMods: false,
                       sort: 'priceHigh',
                     })
                   }
@@ -811,7 +883,7 @@ export default function MarketplacePage() {
                         canAfford={userPoints >= listing.price}
                         pointsShort={Math.max(0, listing.price - userPoints)}
                         onBuy={() => setBuyModal(listing)}
-                        onCancel={() => handleCancel(listing.id)}
+                        onCancel={() => setCancelModal(listing)}
                       />
                     );
                     // Drone cards navigate to the public drone profile. Skin
@@ -888,6 +960,25 @@ export default function MarketplacePage() {
         )}
       </Modal>
 
+      {/* ---- Cancel-listing confirmation modal ---- */}
+      <Modal
+        isOpen={!!cancelModal}
+        onClose={() => {
+          if (!cancelPending) setCancelModal(null);
+        }}
+        title="Cancel Listing"
+        size="sm"
+      >
+        {cancelModal && (
+          <CancelModalBody
+            listing={cancelModal}
+            pending={cancelPending}
+            onConfirm={handleCancelConfirm}
+            onClose={() => setCancelModal(null)}
+          />
+        )}
+      </Modal>
+
       {/* ---- List modal ---- */}
       <Modal
         isOpen={listModal}
@@ -946,7 +1037,7 @@ export default function MarketplacePage() {
               {listingType === 'drone'
                 ? 'Choose drone (must be inactive)'
                 : listingType === 'skin'
-                  ? 'Choose skin'
+                  ? 'Choose skin (unbound only)'
                   : 'Choose mod (unbound only)'}
             </label>
             <select
@@ -1014,10 +1105,32 @@ export default function MarketplacePage() {
       <Modal
         isOpen={!!packReveal}
         onClose={closePackReveal}
-        title="Pack Opened"
+        title={packOpened ? 'Pack Opened' : 'Pack Purchased'}
         size="md"
       >
-        {packReveal && (
+        {packReveal && !packOpened && (
+          <div className={styles.revealWrap}>
+            <div className={styles.preRevealStage}>
+              <img
+                src={`/skin_packs/${packReveal.packType}_pack.webp`}
+                alt=""
+                className={styles.preRevealImg}
+              />
+              <p className={styles.preRevealHint}>
+                Ready to open your {packReveal.packType} pack?
+              </p>
+            </div>
+            <div className={styles.revealActions}>
+              <Button variant="secondary" onClick={closePackReveal}>
+                Save for Later
+              </Button>
+              <Button variant="primary" onClick={handleRevealPack}>
+                Open Pack
+              </Button>
+            </div>
+          </div>
+        )}
+        {packReveal && packOpened && (
           <div className={styles.revealWrap}>
             <div className={styles.revealGrid}>
               {packReveal.awarded.map((skin, i) => (
@@ -1429,7 +1542,7 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
                 </>
               ) : (
                 <>
-                  Open Pack · <VoltIcon size={12} style={{ color: 'currentColor' }} />
+                  Buy Pack · <VoltIcon size={12} style={{ color: 'currentColor' }} />
                   {pack.price.toLocaleString()}
                 </>
               )}
@@ -1627,7 +1740,7 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
                 {pointsShort.toLocaleString()}
               </>
             ) : (
-              'Open Pack'
+              'Buy Pack'
             )}
           </Button>
         </div>
@@ -1754,24 +1867,59 @@ function ListingCard({
       ? styles[`card_level_${getLevelTier(drone.level)}`]
       : '';
 
-  // Skin rarity treatment layers on top of the level tint. Common
-  // skins get no treatment (spec: stays default).
-  const skinRarity = drone?.appliedSkin?.rarity;
-  const skinRarityClass =
-    isDrone && skinRarity && skinRarity !== 'common'
-      ? styles[`skinRarity_${skinRarity}`]
-      : '';
+  const legendaryTheme =
+    isDrone && drone?.appliedSkin?.rarity === 'legendary'
+      ? getLegendaryTheme(drone.appliedSkin?.name)
+      : null;
+  const legendaryStyle = legendaryTheme
+    ? {
+        '--legendary-bg': legendaryTheme.bg,
+        '--legendary-glow-1': legendaryTheme.glow1,
+      }
+    : undefined;
+
+  const cardActionAvailable = isOwner ? true : canAfford;
+  const handleCardClick = (e) => {
+    // The card surface is the click target. Inner buttons / links call
+    // stopPropagation so this only fires on body clicks. Owner cards
+    // open the cancel modal; non-owner cards open the buy modal (only
+    // if affordable, mirroring the in-button gating).
+    if (e.target.closest('[data-stop-card-click]')) return;
+    if (isOwner) {
+      onCancel();
+    } else if (canAfford) {
+      onBuy();
+    }
+  };
 
   return (
-    <Card
+    <div
       className={cn(
         styles.listingCard,
         rarityClass,
         levelClass,
-        skinRarityClass,
         isOwner && styles.cardMine,
         !isDrone && rarity === 'legendary' && styles.cardLegendaryShimmer,
+        legendaryTheme && styles.skinRarity_legendary,
       )}
+      style={legendaryStyle}
+      role="button"
+      tabIndex={0}
+      onClick={handleCardClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (isOwner) onCancel();
+          else if (canAfford) onBuy();
+        }
+      }}
+      aria-label={
+        isOwner
+          ? `Cancel listing for ${itemName ?? 'item'}`
+          : cardActionAvailable
+            ? `Buy ${itemName ?? 'item'} for ${listing.price} volts`
+            : `View ${itemName ?? 'item'} listing`
+      }
     >
       {isOwner && <span className={styles.ownerChip}>YOUR LISTING</span>}
 
@@ -1785,7 +1933,7 @@ function ListingCard({
         ) : isMod ? (
           <ModPlaceholder rarity={rarity} size={92} />
         ) : (
-          <SkinThumb skin={skin} rarity={rarity} alt={skin?.name} />
+          <SkinSlot skin={skin} rarity={rarity} alt={skin?.name} />
         )}
       </div>
 
@@ -1836,6 +1984,25 @@ function ListingCard({
           </span>
         </div>
 
+        {isDrone && drone ? (
+          <div className={styles.collectionRow}>
+            <span className={styles.collectionItem}>
+              <span className={styles.collectionLabel}>MODS</span>
+              <span className={styles.collectionCountMod}>
+                {drone.boundModCount ?? 0}
+              </span>
+            </span>
+            <span className={styles.collectionItem}>
+              <span className={styles.collectionLabel}>SKINS</span>
+              <span className={styles.collectionCountSkin}>
+                {drone.boundSkinCount ?? 0}
+              </span>
+            </span>
+          </div>
+        ) : (
+          <div className={styles.collectionPlaceholder} aria-hidden="true" />
+        )}
+
         <div className={styles.seller}>
           by{' '}
           {listing.seller?.username ? (
@@ -1843,6 +2010,7 @@ function ListingCard({
               className={styles.sellerLink}
               role="link"
               tabIndex={0}
+              data-stop-card-click=""
               onClick={goToSeller}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') goToSeller(e);
@@ -1855,10 +2023,13 @@ function ListingCard({
           )}
         </div>
 
-        {/* Wrapper swallows the click so the surrounding Link (drone cards)
-            doesn't also fire navigation when Buy/Cancel is pressed. */}
+        {/* Wrapper swallows clicks so the card-level click handler doesn't
+            also fire when the user clicks the inner button. The
+            data-stop-card-click attr is a belt-and-braces fallback for the
+            closest() check in handleCardClick. */}
         <div
           className={styles.cardBtnWrap}
+          data-stop-card-click=""
           onClick={(e) => e.stopPropagation()}
         >
           {isOwner ? (
@@ -1870,9 +2041,9 @@ function ListingCard({
                 e.stopPropagation();
                 onCancel();
               }}
-              className={cn(styles.cardBtn, styles.cardBtnCancel)}
+              className={styles.cardBtn}
             >
-              Cancel Listing
+              Cancel
             </Button>
           ) : (
             <Button
@@ -1898,7 +2069,80 @@ function ListingCard({
           )}
         </div>
       </div>
-    </Card>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Skin slot - renders the actual skin image when image-backed, otherwise     */
+/* the marketplace-local folded-pentagon placeholder. Bypasses SkinThumb so   */
+/* the marketplace can ship its own placeholder shape without affecting       */
+/* skin previews on other surfaces (drone management, packs, purchase modal). */
+/* -------------------------------------------------------------------------- */
+
+function SkinSlot({ skin, rarity, alt }) {
+  const url = skin?.imageUrl;
+  const isImageBacked =
+    typeof url === 'string' && url.startsWith('/skins/') && url.endsWith('.webp');
+  const [errored, setErrored] = useState(false);
+
+  if (isImageBacked && !errored) {
+    return (
+      <img
+        src={url}
+        alt={alt ?? ''}
+        className={styles.skinImg}
+        onError={() => setErrored(true)}
+      />
+    );
+  }
+  return <MarketplaceSkinPlaceholder rarity={rarity} />;
+}
+
+/* Folded-pentagon swatch placeholder. Downward-pointing 5-corner shape with
+   a flat top and two internal V lines from the top corners to the bottom
+   point, creating three triangular facets - reads as a piece of fabric draped
+   over a triangular ridge. Fills + strokes inherit currentColor (set per
+   rarity by the wrapper), so all variants share one SVG. */
+function MarketplaceSkinPlaceholder({ rarity }) {
+  const rarityClass = rarity
+    ? styles[`skinPlaceholder_${rarity}`]
+    : styles.skinPlaceholder_common;
+  return (
+    <span
+      className={cn(styles.skinPlaceholderWrap, rarityClass)}
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 160 100" className={styles.skinPlaceholderSvg}>
+        {/* viewBox aspect 16:10 matches the .listingImage container so the
+            placeholder occupies the same footprint as a real skin image.
+            Top facet - lighter fill, sits between the top edge and the V's
+            apex at the bottom center. */}
+        <polygon points="0,0 160,0 80,100" fill="currentColor" fillOpacity="0.22" />
+        {/* Left facet - darker. */}
+        <polygon points="0,0 0,32 80,100" fill="currentColor" fillOpacity="0.10" />
+        {/* Right facet - darker. */}
+        <polygon points="160,0 160,32 80,100" fill="currentColor" fillOpacity="0.10" />
+        {/* Outer pentagon outline. */}
+        <polygon
+          points="0,0 160,0 160,32 80,100 0,32"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeOpacity="0.85"
+          strokeLinejoin="round"
+        />
+        {/* Internal V lines from top corners to bottom point. */}
+        <line
+          x1="0" y1="0" x2="80" y2="100"
+          stroke="currentColor" strokeWidth="1.6" strokeOpacity="0.7"
+        />
+        <line
+          x1="160" y1="0" x2="80" y2="100"
+          stroke="currentColor" strokeWidth="1.6" strokeOpacity="0.7"
+        />
+      </svg>
+    </span>
   );
 }
 
@@ -1934,6 +2178,85 @@ const RARITY_GLOW = {
   epic: '#BB86FC',
   legendary: '#FFD700',
 };
+
+/* -------------------------------------------------------------------------- */
+/* Cancel-listing modal body. Same cinematic shape as PurchaseModalBody but   */
+/* trimmed for confirm/dismiss only: hero (item w/ float), name + rarity,    */
+/* current price, prompt text, and Keep / Cancel CTAs. Calls onConfirm when  */
+/* the user commits; the parent owns the API call and pending state.         */
+/* -------------------------------------------------------------------------- */
+
+function CancelModalBody({ listing, pending, onConfirm, onClose }) {
+  const isDrone = listing.itemType === 'drone';
+  const isMod = listing.itemType === 'mod';
+  const isSkin = listing.itemType === 'skin';
+  const drone = listing.drone;
+  const mod = listing.mod;
+  const skin = listing.skin;
+  const itemName = drone?.name ?? mod?.name ?? skin?.name ?? 'Item';
+  const rarity = mod?.rarity ?? skin?.rarity;
+
+  return (
+    <div className={styles.cancelStage}>
+      <div className={styles.cancelHero}>
+        {isDrone && drone && (
+          <DroneImage drone={drone} alt={drone.name} />
+        )}
+        {isMod && mod && <ModPlaceholder rarity={mod.rarity} size={160} />}
+        {isSkin && skin && (
+          <SkinThumb skin={skin} rarity={skin.rarity} alt={skin.name} />
+        )}
+      </div>
+
+      <div className={styles.cancelTitleRow}>
+        <h3 className={styles.cancelName}>{itemName}</h3>
+        {isDrone && drone?.level != null && (
+          <span
+            className={styles.purchaseLevel}
+            style={{ color: getLevelColor(drone.level) }}
+          >
+            LV {drone.level}
+          </span>
+        )}
+        {!isDrone && rarity && (
+          <span className={cn(styles.rarityTag, styles[`rarity_${rarity}`])}>
+            {RARITY_LABELS[rarity]}
+          </span>
+        )}
+      </div>
+
+      <div className={styles.cancelPriceRow}>
+        <VoltIcon size={18} />
+        <span className={styles.cancelPriceValue}>
+          {listing.price.toLocaleString()}
+        </span>
+      </div>
+
+      <p className={styles.cancelPrompt}>
+        Cancel this listing? The item will return to your inventory and the
+        listing will close.
+      </p>
+
+      <div className={styles.cancelActions}>
+        <Button
+          variant="secondary"
+          onClick={onClose}
+          disabled={pending}
+        >
+          Keep Listed
+        </Button>
+        <button
+          type="button"
+          className={styles.cancelDangerBtn}
+          onClick={onConfirm}
+          disabled={pending}
+        >
+          {pending ? 'Cancelling...' : 'Cancel Listing'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function PurchaseModalBody({
   listing,

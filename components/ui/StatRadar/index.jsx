@@ -119,7 +119,7 @@ export default function StatRadar({
 
   const dataPolyPoints = dataPoints.map((p) => `${p.x},${p.y}`).join(' ');
 
-  const labelPoints = angles.map((a) => point(1.22, a));
+  const labelPoints = angles.map((a) => point(1.06, a));
   const apexLabels = useMemo(
     () => (labels && labels.length === axes.length ? labels : axes.map(abbrFor)),
     [axes, labels],

@@ -4,6 +4,117 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-27 - HELLO skin seed + marketplace Has-Skins/Has-Mods filters
+
+**Captain ask:** (1) write a script that binds one skin to each of HELLO's top-3 drones by ELO (legendary / rare / common in rank order), idempotent; (2) add "Has Skins" + "Has Mods" toggle filters to the marketplace Drones tab, AND logic, client-side using existing `boundSkinCount` + `boundModCount` payload fields.
+
+**Files added (1) / modified (2):**
+
+- ADD `scripts/seed-hello-skins.js` — picks the first image-backed skin of each target rarity that's not yet in any `drone_skins` row; prefers unowned vault, then HELLO-owned, then any. For each top-3 drone: re-homes `skins.userId` to HELLO, inserts `drone_skins` row with `is_equipped=true` (`ON CONFLICT (drone_id, skin_id) DO NOTHING`), updates `drones.applied_skin_id`. Prints before/after state. Idempotent: re-runs skip pairs that already exist.
+- MOD `app/marketplace/page.jsx`:
+  - `filters` state seeded with `hasSkins: false`, `hasMods: false`.
+  - `filteredListings` `tab === 'drones'` branch gained two AND filters: `l.drone.boundSkinCount > 0` and `l.drone.boundModCount > 0` when each flag is set. No new fetch — uses fields already returned by `getListings` since the earlier migration.
+  - New filter group inside the existing drones-only sidebar block, sitting below the Level range. Reuses `.filterGroup` / `.filterLabel` / `.checkList` / `.check` / `.checkText` (the rarity-checkbox primitives) for visual parity.
+  - "Clear Filters" reset extended to clear both new flags.
+- MOD `app/marketplace/page.module.css` — added a single rule: `.check input[type='checkbox']:checked + .checkText::before { background: var(--accent-primary); border-color: var(--accent-primary); }`. Placed BEFORE the `.rarity_*` overrides so rarity-specific fills (common/rare/epic/legendary) still win for the rarity checkboxes; the new generic rule only takes effect when `.checkText` has no rarity class (i.e. the new Has-Skins / Has-Mods toggles).
+
+**Seed script run output:**
+- HELLO_SCOUT_2 (ELO 1227) -> Apex Predator (legendary)
+- HELLO_APEX_2 (ELO 1037) -> Anodized Blaze (rare)
+- HELLO_ASCENT_2 (ELO 1006) -> Bone (common)
+
+**Verified:**
+- `npm run lint` -> 0 errors, 8 pre-existing `<img>` warnings.
+- `npm run build` -> Compiled successfully in 3.0s.
+- Seed script run: 3/3 drones bound + equipped; final state confirmed via inline SELECT.
+- No browser verification.
+
+**Captain to spot-check at 1440 / 1024 / 375:**
+- `/marketplace` Drones tab sidebar: between "Level" and the (skins/mods-only) "Rarity" group there's now an "Includes" group with two checkboxes - "Has Skins" and "Has Mods". When checked the box fills teal with the existing white checkmark glyph.
+- Toggle "Has Skins" -> only listings where `drone.boundSkinCount > 0` remain. Toggle "Has Mods" -> only listings where `drone.boundModCount > 0` remain. Both checked -> AND of both conditions.
+- Switching to Skins or Mods or other tabs hides the new group automatically (it's gated `tab === 'drones'`).
+- `/drones` (signed-in as HELLO): the top-3 drones by ELO now show their assigned skin's swatch image (Apex Predator's legendary tier-4 render on HELLO_SCOUT_2 if applicable, otherwise the swatch). Race screens, dashboard, drone management page should all reflect the equipped skin via the existing `appliedSkin` join.
+
+---
+
+## 2026-04-27 - Skin system migrated to mod-style collection (drone_skins junction)
+
+**Captain ask:** mirror the mod system for skins. Multiple skins can permanently bind to a drone's collection; one is_equipped at a time; pointer (drones.appliedSkinId) stays as the active-skin denormalisation; full collection transfers with the drone on sale; non-owners see the collection only when the drone is listed. Also tighten the same visibility rules on mods, and add small skin / mod count indicators on marketplace drone cards.
+
+**Captain confirmations during planning:** include the redundant `skins.userId` write on bind; two extra aggregate queries in `getListings`; separate `bindSkinSchema` + `equipSkinSchema`; `--text-xs` (12px) for the count indicators; 13-file scope override approved; both DB commands surfaced for manual execution.
+
+**Files modified (10) / added (3):**
+
+- MOD `lib/db/schema.js` — added `droneSkins` table (uuid PK, droneId FK CASCADE, skinId FK CASCADE, isEquipped bool default false, createdAt). UNIQUE constraint on `(drone_id, skin_id)`, indexes on droneId + skinId. Mirrors `droneMods` structurally. Existing `skins` table and `drones.appliedSkinId` untouched.
+- ADD `scripts/migrate-drone-skins.js` — idempotent backfill. Inserts `(drone_id, skin_id, is_equipped=true)` for every drone with non-null `applied_skin_id`. `ON CONFLICT (drone_id, skin_id) DO NOTHING` so re-runs are no-ops. Manual `.env.local` parse, matches `seed-skin-images.js` shape.
+- MOD `services/skin.service.js` — full rewrite mirroring `mod.service.js`:
+  - `getUserSkins(userId)` now enriches each row with `boundDroneId` (in-memory join over `droneSkins`).
+  - NEW `getDroneSkins(droneId)` — collection rows joined to `skins` returning `{ ...skin, bindingId, isEquipped }`.
+  - NEW `getUnboundUserSkins(userId)` — filters `getUserSkins` to `boundDroneId == null`.
+  - NEW `bindSkinToDrone(userId, skinId, droneId)` — verifies ownership, rejects if any `droneSkins` row exists for the skin, inserts row, defensively re-affirms `skins.userId = userId` (per Captain), auto-equips when `drone.appliedSkinId == null` (sets junction `isEquipped=true` AND updates the pointer).
+  - NEW `equipSkin(userId, droneId, skinId)` — verifies binding exists, bulk resets `isEquipped=false` on that drone, sets target row `isEquipped=true`, updates `drones.appliedSkinId`.
+  - `removeSkin` retained (still throws 400 - skins never unbind).
+  - `getCatalogImageBacked` and `awardSkinDrop` unchanged.
+  - `applySkin` removed (the route handler now calls `bindSkinToDrone`).
+- MOD `services/drone.service.js` — added `droneSkins` to the destructured schema. `getDroneById` now runs a third parallel query joining `droneSkins ⨯ skins` and returns `boundSkins: [{ ...skin, bindingId, isEquipped }]` alongside the existing `boundMods`. `appliedSkin` (single row, joined on `appliedSkinId`) preserved untouched.
+- MOD `services/marketplace.service.js`:
+  - `createListing` skin path - reverse lookup switched from `drones.appliedSkinId` to `droneSkins` (parallel to the mod check). Catches non-equipped collection skins that the old check would have missed.
+  - `buyListing` drone path - replaced the single-skin transfer (re-homing only `drone.appliedSkinId`) with a `boundSkinRows` loop that re-homes ALL collection skins to the buyer (mirror of the existing `boundModRows` block). The drone's `active=false` reset preserved.
+  - `getListings` drone payloads enriched with `boundSkinCount` + `boundModCount` via two extra `GROUP BY drone_id` aggregate selects (Captain-approved). Maps merged into the per-drone payload.
+- MOD `lib/validators/index.js` — added `bindSkinSchema` and `equipSkinSchema` (both `{ drone_id, skin_id }`, mirror of mod equivalents).
+- MOD `app/api/skins/apply/route.js` — switched to `bindSkinSchema` + `bindSkinToDrone`. Same route path, same body shape `{ drone_id, skin_id }`. Returns the binding result `{ droneId, skinId, isEquipped }`.
+- ADD `app/api/skins/equip/route.js` — POST, requires auth, validates via `equipSkinSchema`, calls `equipSkin`. Body: `{ drone_id, skin_id }`.
+- ADD `app/api/drones/[droneId]/skins/route.js` — GET, public (no auth, mirroring `/api/drones/[droneId]/mods`). Returns the drone's full skin collection via `getDroneSkins`.
+- MOD `app/drones/[droneId]/page.jsx`:
+  - Added state hooks: `unboundSkins`, `skinActionPending`, `showBindSkinList`, `showSwapSkinList`. Replaced single `showSkinList` with the swap/bind split.
+  - Folded the existing `/api/mods` fetch into a `Promise.all` with `/api/skins`; `unboundSkins` filtered on `!s.boundDroneId`. Effect deps now include `drone.appliedSkinId` so a successful equip refreshes both lists.
+  - NEW handlers `equipSkinFn(skinId)` and `bindSkinFn(skinId)` mirror `equipModFn` / `bindModFn`. POST to `/api/skins/equip` and `/api/skins/apply` respectively.
+  - Skin block JSX rewritten to mirror the mod block: equipped display (SkinThumb 36×36 swatch + name) → swap dropdown of `drone.boundSkins` → "Bind New Skin (N)" picker for `unboundSkins`. Empty state ("NONE - visit marketplace") gated to `isOwner` only.
+  - Mod block visibility tightened: dropdown opens for `(isOwner || listing) && boundMods.length > 0` (was owner-only). Items only fire `equipModFn` when `isOwner`. Empty state gated to `isOwner` only. Same rules now apply to both blocks - non-owner viewing a listed drone sees the read-only collection; non-owner viewing a non-listed drone sees only the equipped item; owner has full interactivity.
+- MOD `app/drones/[droneId]/page.module.css`:
+  - Removed dead rules: `.skinSelect`, `.skinSelect:hover`, `.skinSelect svg`, `.skinName`, `.skinList`, `.skinListItem`, `.skinListName`, `.skinListNote`, `.skinListEmpty`, `.skinListLink`. The mobile-breakpoint `.skinSelect` override also dropped. The new skin block reuses `.modSelector`, `.modSwapList`, `.modSwapItem`, `.modBindWrap`, `.modBindBtn`, `.modBindList`, `.modBindItem` etc - one styling system instead of two.
+  - `.skinSwatch` resized 16×16 → 36×36 to match `ModPlaceholder`'s footprint inside `.modSelector`. Added `overflow: hidden` so SkinThumb's `<img object-fit:contain>` clips cleanly inside the rounded swatch.
+- MOD `app/marketplace/page.jsx`:
+  - Imported `Palette` + `Hexagon` from lucide-react (skin swatch glyph + mod hex chip).
+  - `fetchMine`'s skin slot now filters `skins.data.filter((s) => !s.boundDroneId)` so the listing modal's "Choose skin" dropdown only surfaces listable skins. Mirrors the existing mod filter.
+  - Modal label: "Choose skin" → "Choose skin (unbound only)" matching the mod treatment.
+  - `ListingCard` drone-card middle slot - new `.collectionRow` rendered after the stat bars when `drone.boundSkinCount > 0 || drone.boundModCount > 0`. Each item is a Palette/Hexagon icon + `×N` count. Per-item only renders when its count > 0.
+- MOD `app/marketplace/page.module.css` — new rules `.collectionRow` (flex row, mono, `--text-xs` 12px, `--text-tertiary`) and `.collectionItem` (inline-flex, gap, letter-spacing). Sit between `.statBarValue` and `.compat`.
+
+**Schema and migration commands (Captain to run manually):**
+1. `npx drizzle-kit push` - applies the new `drone_skins` table.
+2. `node scripts/migrate-drone-skins.js` - backfills bindings from `drones.applied_skin_id`. Idempotent.
+
+**What's preserved:**
+- `skins` table structure and every column (incl. `userId` ownership pointer).
+- `drones.appliedSkinId` (still the active-skin pointer, denormalised view of `drone_skins.is_equipped`).
+- `awardSkinDrop` and `openPack` semantics (continue to assign `skins.userId` for unbound inventory).
+- Race screens and dashboard read paths (`drone.appliedSkin` joined on `drones.appliedSkinId`) - confirmed unchanged in audit, no Step 9 work needed.
+- `removeSkin` 400 behavior - skins still never unbind.
+- `getDroneImage` priority chain in `lib/utils.js`.
+
+**Risks flagged in audit + how addressed:**
+- R5/R6 (drone-sale single-skin transfer + listing reverse-lookup) - both fixed in `marketplace.service.js`. The old code only re-homed the equipped skin and only checked the `appliedSkinId` pointer; both now work over the full `droneSkins` collection.
+- R8 (Neon HTTP no-transactions) - bind/equip writes are best-effort, matching the mod pattern Captain has already accepted.
+
+**Verified:**
+- `npm run lint` -> 0 errors. 8 pre-existing `<img>` warnings (DroneImage, SkinThumb, marketplace, races, tracks - same project pattern, none introduced by this change).
+- `npm run build` -> Compiled successfully in 3.1s. New routes registered: `ƒ /api/drones/[droneId]/skins`, `ƒ /api/skins/equip`. All existing routes unchanged.
+- DB changes NOT yet applied (Captain to run the two commands).
+- No browser verification - Captain to spot-check after running the schema push + migration.
+
+**Captain to spot-check at 1440 / 1024 / 375 (after running both DB commands):**
+- `/drones/[ownDroneId]` (owner view): equipped skin shows in 36×36 swatch + name; chevron opens swap list with all bound skins (current marked); "Bind New Skin (N)" button visible when unbound skins exist; clicking a bind list item adds it to the collection (auto-equips if no current skin); empty state "NONE - visit marketplace" only when no bound + no unbound.
+- `/drones/[othersDroneId]` where the drone IS listed on marketplace: read-only swap dropdown opens showing the full collection; no bind button; clicking a list item does nothing.
+- `/drones/[othersDroneId]` where the drone is NOT listed: equipped skin name displays; no chevron; no dropdown; no bind button. Same pattern now applied to the mod block (was owner-gated regardless of listing status before).
+- `/marketplace` Drones tab: drone listing cards with bound skins/mods show a small subtle row below the stat bars - `🎨 ×2`-style indicators in mono `--text-xs` `--text-tertiary`. Cards with zero skins and zero mods omit the row entirely.
+- `/marketplace` "List for Sale" modal: skin dropdown only contains skins with no `drone_skins` row. Bound skins are excluded (the marketplace service rejects them anyway).
+- Race screens, dashboard spotlight, drones index: unchanged - they read `drone.appliedSkin` (single row) and the migration backfilled this for every existing drone.
+
+**Rule exception:** 13 files modified (10 + 3 new). Pre-approved by Captain in Step 1 audit confirmation.
+
+---
+
 ## 2026-04-26 - Drop pool + preview cards restricted to image-backed skins
 
 **Captain ask:** (1) restrict pack drops + race drops to image-backed skins (`image_url LIKE '/skins/%' AND LIKE '%.webp'`), excluding the 71 legacy placeholder rows. (2) The "WHAT YOU COULD PULL" preview cards should show real image-backed skins from the live catalog (sampled per pack's drop emphasis), with the actual swatch via `<SkinThumb>` for non-legendary slots; legendary slots keep the gold "L" treatment. Don't change pricing, card counts, or rarity percentages.

@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 
-const { users, drones, seasons } = schema;
+const { users, drones, skins, seasons } = schema;
 
 /* -------------------------------------------------------------------------- */
 /* Players                                                                    */
@@ -98,48 +98,50 @@ export async function getDroneLeaderboard(
     }
   }
 
+  // Common select shape with the equipped-skin join. The join lets the
+  // podium card pick up the legendary frame + getDroneImage render the
+  // legendary artwork (when applicable) without an extra round trip.
+  const baseSelect = {
+    drone: drones,
+    appliedSkin: skins,
+  };
+
+  const shape = (rows) =>
+    rows.map(({ drone, appliedSkin }) => ({
+      ...drone,
+      appliedSkin,
+    }));
+
   if (sortBy === 'win_rate') {
     conditions.push(gte(drones.totalRaces, 1));
-    return db
+    const rows = await db
       .select({
-        id: drones.id,
-        name: drones.name,
-        userId: drones.userId,
-        isBot: drones.isBot,
-        level: drones.level,
-        eloRating: drones.eloRating,
-        wins: drones.wins,
-        losses: drones.losses,
-        totalRaces: drones.totalRaces,
-        imageUrl: drones.imageUrl,
+        ...baseSelect,
         winRate: sql`CASE WHEN ${drones.totalRaces} > 0 THEN (${drones.wins}::float / ${drones.totalRaces}::float) ELSE 0 END`,
       })
       .from(drones)
+      .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
       .where(and(...conditions))
       .orderBy(sql`(CASE WHEN ${drones.totalRaces} > 0 THEN (${drones.wins}::float / ${drones.totalRaces}::float) ELSE 0 END) DESC`)
       .limit(limit)
       .offset(offset);
+    return rows.map((r) => ({
+      ...r.drone,
+      appliedSkin: r.appliedSkin,
+      winRate: r.winRate,
+    }));
   }
 
   const col = DRONE_SORT_COLS[sortBy] ?? drones.eloRating;
-  return db
-    .select({
-      id: drones.id,
-      name: drones.name,
-      userId: drones.userId,
-      isBot: drones.isBot,
-      level: drones.level,
-      eloRating: drones.eloRating,
-      wins: drones.wins,
-      losses: drones.losses,
-      totalRaces: drones.totalRaces,
-      imageUrl: drones.imageUrl,
-    })
+  const rows = await db
+    .select(baseSelect)
     .from(drones)
+    .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(col))
     .limit(limit)
     .offset(offset);
+  return shape(rows);
 }
 
 /* -------------------------------------------------------------------------- */

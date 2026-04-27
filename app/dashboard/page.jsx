@@ -19,7 +19,7 @@ import {
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import btnStyles from '@/components/ui/Button/Button.module.css';
-import { cn, getLevelColor } from '@/lib/utils';
+import { cn, getLevelColor, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import EmptyState from '@/components/ui/EmptyState';
 import RacingStatusPill from '@/components/ui/RacingStatusPill';
@@ -242,10 +242,22 @@ export default function DashboardPage() {
             className={cn(
               styles.spotlight,
               styles.areaSpotlight,
-              spotlightDrone?.appliedSkin?.rarity &&
-                spotlightDrone.appliedSkin.rarity !== 'common' &&
-                styles[`skinRarity_${spotlightDrone.appliedSkin.rarity}`],
+              spotlightDrone?.appliedSkin?.rarity === 'legendary' &&
+                styles.skinRarity_legendary,
             )}
+            style={
+              spotlightDrone?.appliedSkin?.rarity === 'legendary'
+                ? (() => {
+                    const t = getLegendaryTheme(
+                      spotlightDrone.appliedSkin?.name,
+                    );
+                    return {
+                      '--legendary-bg': t.bg,
+                      '--legendary-glow-1': t.glow1,
+                    };
+                  })()
+                : undefined
+            }
           >
             <div className={styles.sectionHeadingRow}>
               <h2 className={styles.sectionHeading}>
@@ -740,8 +752,24 @@ function NextRaceDroneSide({
   radarMax,
 }) {
   if (!drone) return <div className={styles.matchupSide} aria-hidden="true" />;
+  const legendaryTheme =
+    drone.appliedSkin?.rarity === 'legendary'
+      ? getLegendaryTheme(drone.appliedSkin?.name)
+      : null;
+  const legendaryStyle = legendaryTheme
+    ? {
+        '--legendary-bg': legendaryTheme.bg,
+        '--legendary-glow-1': legendaryTheme.glow1,
+      }
+    : undefined;
   return (
-    <div className={styles.matchupSide}>
+    <div
+      className={cn(
+        styles.matchupSide,
+        legendaryTheme && styles.skinRarity_legendary,
+      )}
+      style={legendaryStyle}
+    >
       {isOwn && <span className={styles.youBadge}>YOU</span>}
       {drone.isBot && (
         <span className={styles.botBadge} title="Bot drone">

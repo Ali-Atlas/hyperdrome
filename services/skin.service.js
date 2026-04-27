@@ -1,16 +1,41 @@
-import { and, asc, desc, eq, like, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { ApiError } from '@/lib/api/response.js';
+import { canEquipSkin } from '@/lib/utils.js';
 
-const { skins, drones } = schema;
+const { skins, drones, droneSkins } = schema;
 
-/** Skins owned by a user. */
+/* -------------------------------------------------------------------------- */
+/* Reads                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Skins owned by the user. Each row is enriched with `boundDroneId` (the
+ * drone the skin is bound to, or null if unbound and freely listable).
+ * Mirrors the mod service shape so the marketplace listing modal can
+ * filter `!s.boundDroneId` the same way it does for mods.
+ *
+ * @param {string} userId
+ */
 export async function getUserSkins(userId) {
-  return db
+  const owned = await db
     .select()
     .from(skins)
     .where(eq(skins.userId, userId))
     .orderBy(desc(skins.createdAt));
+
+  if (owned.length === 0) return [];
+
+  const ids = owned.map((s) => s.id);
+  const bindings = await db
+    .select({ skinId: droneSkins.skinId, droneId: droneSkins.droneId })
+    .from(droneSkins)
+    .where(inArray(droneSkins.skinId, ids));
+  const bindMap = Object.fromEntries(
+    bindings.map((b) => [b.skinId, b.droneId]),
+  );
+
+  return owned.map((s) => ({ ...s, boundDroneId: bindMap[s.id] ?? null }));
 }
 
 /**
@@ -35,27 +60,67 @@ export async function getCatalogImageBacked() {
 }
 
 /**
- * Apply a skin to a drone. Skin binding is permanent: once a skin is
- * applied to a drone, it cannot be removed, transferred to another
- * drone, or listed independently on the marketplace. Sale of the drone
- * carries the skin with it.
+ * All skins bound to a drone, with the equipped flag and joined skin
+ * details. Used by the drone management page skin-selector and by any
+ * non-owner read of a listed drone's collection.
+ * @param {string} droneId
+ */
+export async function getDroneSkins(droneId) {
+  const rows = await db
+    .select({
+      bindingId: droneSkins.id,
+      isEquipped: droneSkins.isEquipped,
+      skin: skins,
+    })
+    .from(droneSkins)
+    .innerJoin(skins, eq(droneSkins.skinId, skins.id))
+    .where(eq(droneSkins.droneId, droneId))
+    .orderBy(desc(droneSkins.createdAt));
+
+  return rows.map(({ bindingId, isEquipped, skin }) => ({
+    ...skin,
+    bindingId,
+    isEquipped,
+  }));
+}
+
+/**
+ * Find the unbound skins (no drone_skins row) owned by the user. Used by
+ * the marketplace list-item flow to constrain which skins can be sold.
+ * @param {string} userId
+ */
+export async function getUnboundUserSkins(userId) {
+  const all = await getUserSkins(userId);
+  return all.filter((s) => s.boundDroneId == null);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Writes                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Bind an unbound owned skin to one of the user's drones. Permanent: once
+ * bound, the skin cannot be transferred to another drone or listed
+ * independently (it transfers with the drone on sale).
  *
- * Therefore applySkin is rejected if either:
- *   - the skin is already bound to any drone (by reverse lookup), or
- *   - the target drone already has a skin applied.
+ * The newly bound skin becomes the equipped one if the drone has no
+ * currently equipped skin; otherwise it joins the collection without
+ * replacing the active skin.
  *
  * @param {string} userId
  * @param {string} skinId
  * @param {string} droneId
  */
-export async function applySkin(userId, skinId, droneId) {
+export async function bindSkinToDrone(userId, skinId, droneId) {
   const [skin] = await db
     .select()
     .from(skins)
     .where(eq(skins.id, skinId))
     .limit(1);
   if (!skin) throw new ApiError('Skin not found', 404);
-  if (skin.userId !== userId) throw new ApiError('You do not own this skin', 403);
+  if (skin.userId !== userId) {
+    throw new ApiError('You do not own this skin', 403);
+  }
 
   const [drone] = await db
     .select()
@@ -63,34 +128,114 @@ export async function applySkin(userId, skinId, droneId) {
     .where(eq(drones.id, droneId))
     .limit(1);
   if (!drone) throw new ApiError('Drone not found', 404);
-  if (drone.userId !== userId) throw new ApiError('You do not own this drone', 403);
-
-  if (drone.appliedSkinId) {
-    throw new ApiError(
-      'This drone already has a skin equipped. Skins are permanently bound and cannot be replaced.',
-      400,
-    );
+  if (drone.userId !== userId) {
+    throw new ApiError('You do not own this drone', 403);
   }
 
-  const [boundElsewhere] = await db
-    .select({ id: drones.id })
-    .from(drones)
-    .where(eq(drones.appliedSkinId, skinId))
+  // Reject if already bound anywhere - this drone or another.
+  const [existing] = await db
+    .select({ id: droneSkins.id })
+    .from(droneSkins)
+    .where(eq(droneSkins.skinId, skinId))
     .limit(1);
-  if (boundElsewhere) {
+  if (existing) {
     throw new ApiError(
-      'This skin is already bound to another drone and cannot be transferred.',
+      'This skin is already bound to a drone and cannot be re-bound.',
       400,
     );
   }
 
-  const [updated] = await db
+  // First skin on the drone becomes the equipped one automatically -
+  // BUT only if it's actually renderable on this drone's tier. A
+  // non-legendary skin with no applied-tier render is bound to the
+  // collection unequipped; the user can equip it later if/when a
+  // renderable combo is available (or never, for purely cosmetic
+  // catalog skins).
+  const shouldEquip =
+    drone.appliedSkinId == null && canEquipSkin(skin, drone.level);
+
+  await db.insert(droneSkins).values({
+    droneId,
+    skinId,
+    isEquipped: shouldEquip,
+  });
+
+  // Belt-and-suspenders: re-affirm ownership on the skin row. In the
+  // normal flow skins.userId already equals userId here (we just verified
+  // it above), but writing defensively keeps the invariant explicit.
+  await db
+    .update(skins)
+    .set({ userId })
+    .where(eq(skins.id, skinId));
+
+  if (shouldEquip) {
+    await db
+      .update(drones)
+      .set({ appliedSkinId: skinId })
+      .where(eq(drones.id, droneId));
+  }
+
+  return { droneId, skinId, isEquipped: shouldEquip };
+}
+
+/**
+ * Equip a different skin from the drone's bound collection. Sets
+ * is_equipped to true on the chosen skin, false on all others belonging
+ * to that drone, and updates drones.applied_skin_id.
+ *
+ * @param {string} userId
+ * @param {string} droneId
+ * @param {string} skinId
+ */
+export async function equipSkin(userId, droneId, skinId) {
+  const [drone] = await db
+    .select()
+    .from(drones)
+    .where(eq(drones.id, droneId))
+    .limit(1);
+  if (!drone) throw new ApiError('Drone not found', 404);
+  if (drone.userId !== userId) {
+    throw new ApiError('You do not own this drone', 403);
+  }
+
+  const [binding] = await db
+    .select()
+    .from(droneSkins)
+    .where(and(eq(droneSkins.droneId, droneId), eq(droneSkins.skinId, skinId)))
+    .limit(1);
+  if (!binding) {
+    throw new ApiError('This skin is not bound to this drone', 400);
+  }
+
+  const [skin] = await db
+    .select()
+    .from(skins)
+    .where(eq(skins.id, skinId))
+    .limit(1);
+  if (!skin) throw new ApiError('Skin not found', 404);
+  if (!canEquipSkin(skin, drone.level)) {
+    throw new ApiError(
+      'No drone artwork is available for this skin at this drone tier yet.',
+      400,
+    );
+  }
+
+  await db
+    .update(droneSkins)
+    .set({ isEquipped: false })
+    .where(eq(droneSkins.droneId, droneId));
+
+  await db
+    .update(droneSkins)
+    .set({ isEquipped: true })
+    .where(and(eq(droneSkins.droneId, droneId), eq(droneSkins.skinId, skinId)));
+
+  await db
     .update(drones)
     .set({ appliedSkinId: skinId })
-    .where(eq(drones.id, droneId))
-    .returning();
+    .where(eq(drones.id, droneId));
 
-  return updated;
+  return { droneId, skinId };
 }
 
 /**

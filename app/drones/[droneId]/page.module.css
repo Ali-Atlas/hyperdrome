@@ -60,6 +60,7 @@
 
 .droneBody .radar {
   align-self: center;
+  transform: translate(-8px, -8px);
 }
 
 .droneMeta {
@@ -215,7 +216,6 @@
   height: 100%;
   object-fit: contain;
   animation: droneHover 4s var(--ease-in-out) infinite;
-  filter: drop-shadow(0 10px 12px rgba(3, 218, 198, 0.32));
 }
 
 /* Stat strip - matches dashboard .kpiCell treatment (label primary+semibold,
@@ -306,13 +306,23 @@
   font-weight: var(--font-medium);
 }
 
+/* Skin and mod equipped blocks sit side-by-side at desktop / tablet,
+   stack one over the other at small mobile. The wrapper owns the
+   single border-top separator above; the children are flat columns. */
+.collectibleRow {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+  align-items: stretch;
+}
+
 .skinBlock {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: auto;
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-default);
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -325,100 +335,33 @@
   letter-spacing: 0.08em;
 }
 
-.skinSelect {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 6px 10px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: var(--font-semibold);
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  min-height: 32px;
-  transition: all var(--duration-normal) var(--ease-out);
-}
-
-.skinSelect:hover {
-  border-color: var(--accent-primary);
-}
-
 .skinSwatch {
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(
-    135deg,
-    rgba(3, 218, 198, 0.32),
-    rgba(3, 218, 198, 0.08)
-  );
-  border: 1px solid rgba(3, 218, 198, 0.5);
-}
-
-.skinName {
-  flex: 1;
-  min-width: 0;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border-subtle);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.skinSelect svg {
-  color: var(--text-secondary);
-  flex-shrink: 0;
+/* Rarity-tinted background + border for the equipped-skin slot. The
+   SkinThumb image renders on top, the tint reads behind/around it. */
+.skinSwatch_common {
+  background: rgba(158, 158, 158, 0.18);
+  border-color: rgba(158, 158, 158, 0.55);
 }
-
-/* Skin dropdown list (shown when .skinSelect is clicked) */
-.skinList {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+.skinSwatch_rare {
+  background: rgba(74, 158, 255, 0.18);
+  border-color: rgba(74, 158, 255, 0.55);
 }
-
-.skinListItem {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: 6px 10px;
-  font-family: var(--font-mono);
-  font-size: 10px;
+.skinSwatch_epic {
+  background: rgba(187, 134, 252, 0.18);
+  border-color: rgba(187, 134, 252, 0.55);
 }
-
-.skinListName {
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.skinListNote {
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 9px;
-}
-
-.skinListEmpty {
-  padding: 8px 10px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.skinListLink {
-  color: var(--accent-primary);
-  text-decoration: underline;
+.skinSwatch_legendary {
+  background: rgba(255, 215, 0, 0.18);
+  border-color: rgba(255, 215, 0, 0.55);
 }
 
 /* ==========================================================================
@@ -429,9 +372,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-default);
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -444,12 +385,18 @@
   letter-spacing: 0.08em;
 }
 
+/* Wraps the equipped-row button + its swap list so the list can be
+   absolutely positioned underneath without pushing siblings. */
+.modSelectorWrap {
+  position: relative;
+}
+
 .modSelector {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  padding: 6px 10px;
+  padding: 4px 8px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
@@ -484,13 +431,19 @@
 
 .modSwapList {
   list-style: none;
-  margin: 4px 0 0;
+  margin: 0;
   padding: 0;
   max-height: 200px;
   overflow-y: auto;
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5);
 }
 
 .modSwapList li + li {
@@ -543,7 +496,7 @@
 
 .modName {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 10px;
   font-weight: var(--font-bold);
   color: var(--text-primary);
   text-transform: uppercase;
@@ -585,84 +538,8 @@
   color: var(--text-primary);
 }
 
-.modBindWrap {
-  position: relative;
-}
-
-.modBindBtn {
-  width: 100%;
-  background: transparent;
-  border: 1px dashed var(--border-default);
-  border-radius: var(--radius-sm);
-  padding: 6px 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: var(--font-bold);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-
-.modBindBtn:hover:not(:disabled) {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-}
-
-.modBindBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.modBindList {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-  max-height: 180px;
-  overflow-y: auto;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-}
-
-.modBindList li + li {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.modBindItem {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: 6px 8px;
-  background: transparent;
-  border: none;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-primary);
-  cursor: pointer;
-  text-align: left;
-}
-
-.modBindItem:hover:not(:disabled) {
-  background: rgba(3, 218, 198, 0.06);
-}
-
-.modBindName {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.modBindRarity {
-  font-size: 9px;
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
+/* Rarity color tokens - referenced by swap-list rarity tags AND by
+   the bind modal's per-card rarity label. */
 .modBindRarity_common {
   color: var(--rarity-common);
 }
@@ -674,6 +551,194 @@
 }
 .modBindRarity_legendary {
   color: var(--rarity-legendary);
+}
+
+/* "Bind New ..." trigger that lives at the TOP of the swap dropdown.
+   Dashed BOTTOM border separates it from the bound-collection items
+   below. Opens the bind modal. */
+.modSwapItemBind {
+  border-bottom: 1px dashed var(--border-default);
+  color: var(--accent-primary);
+}
+
+.modSwapItemBind:hover:not(:disabled) {
+  background: rgba(3, 218, 198, 0.1);
+}
+
+.modSwapItemBind:disabled {
+  color: var(--text-tertiary);
+}
+
+.modSwapCount {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.06em;
+}
+
+/* ==========================================================================
+ * Bind modal - shared shell for both skin and mod binding
+ * ========================================================================== */
+
+.bindModal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bindWarning {
+  margin: 0;
+  padding: var(--space-3);
+  background: rgba(207, 102, 121, 0.08);
+  border: 1px solid rgba(207, 102, 121, 0.3);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.bindEmpty {
+  padding: var(--space-6) var(--space-3);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+.bindGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.bindCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  text-align: center;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.bindCard:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+}
+
+.bindCard:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bindCardSelected {
+  border-color: var(--accent-primary);
+  background: rgba(3, 218, 198, 0.08);
+}
+
+.bindCard_common {
+  border-color: rgba(158, 158, 158, 0.4);
+}
+.bindCard_rare {
+  border-color: rgba(74, 158, 255, 0.4);
+}
+.bindCard_epic {
+  border-color: rgba(187, 134, 252, 0.4);
+}
+.bindCard_legendary {
+  border-color: rgba(255, 215, 0, 0.4);
+}
+
+.bindCardImage {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.bindCardImage img,
+.bindCardImage svg,
+.bindCardImage span {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.bindCardName {
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.bindCardRarity {
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bindCardCheck {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-primary);
+  color: #000;
+  border-radius: 50%;
+}
+
+.bindFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.bindHelp {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.bindActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+@media (max-width: 768px) {
+  .bindGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .bindGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ==========================================================================
@@ -730,9 +795,6 @@
   }
   .droneName {
     font-size: var(--text-lg);
-  }
-  .skinSelect {
-    font-size: var(--text-xs);
   }
 }
 
@@ -971,10 +1033,12 @@
  * Breakpoints
  * ========================================================================== */
 
-/* Small mobile - stack image above meta. */
+/* Small mobile - radar and stats stay side-by-side per Captain.
+   Skin / mod blocks stack one over the other so the cramped width
+   stays readable. */
 @media (max-width: 600px) {
-  .droneBody {
-    grid-template-columns: 1fr;
+  .collectibleRow {
+    flex-direction: column;
   }
 }
 
@@ -1007,34 +1071,3 @@
   }
 }
 
-/* ==========================================================================
- * Skin-rarity indicator - applied additively to the card that holds the
- * drone image. Signals the equipped skin's rarity via border + glow,
- * without replacing the level tint (which may also apply).
- * ========================================================================== */
-
-.skinRarity_rare {
-  border-color: rgba(74, 158, 255, 0.4);
-  box-shadow: 0 0 12px rgba(74, 158, 255, 0.1);
-}
-
-.skinRarity_epic {
-  border-color: rgba(187, 134, 252, 0.4);
-  box-shadow: 0 0 12px rgba(187, 134, 252, 0.1);
-}
-
-/* Drone with a legendary skin: premium dark neutral surface, replaces
-   the gold treatment. Self-doubled selector wins over the level-tier
-   tint declared earlier in the file. Level VALUE text stays in tier
-   color (set inline). */
-.skinRarity_legendary.skinRarity_legendary {
-  background: #0A0A0A;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: none;
-  animation: droneLegendarySkinShimmer 4s ease-in-out infinite;
-}
-
-@keyframes droneLegendarySkinShimmer {
-  0%, 100% { border-color: rgba(255, 255, 255, 0.1); }
-  50% { border-color: rgba(255, 255, 255, 0.25); }
-}

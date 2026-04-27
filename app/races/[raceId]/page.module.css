@@ -321,8 +321,7 @@
 }
 
 /* Winner-card accent. Wins over the level-tier border by being declared
-   later with the same specificity, and over .skinRarity_* by appearing
-   after them in the cn() chain (last class wins on equal specificity). */
+   later with the same specificity. */
 .winnerCard {
   border: 2px solid rgba(3, 218, 198, 0.5);
   background: rgba(3, 218, 198, 0.04);
@@ -396,30 +395,88 @@
   box-shadow: 0 0 24px rgba(255, 215, 0, 0.22);
 }
 
-/* Skin-rarity indicator layered on top of the level tint. */
-.skinRarity_rare {
-  border-color: rgba(74, 158, 255, 0.4);
-  box-shadow: 0 0 12px rgba(74, 158, 255, 0.1);
-}
-
-.skinRarity_epic {
-  border-color: rgba(187, 134, 252, 0.4);
-  box-shadow: 0 0 12px rgba(187, 134, 252, 0.1);
-}
-
-/* Drone with a legendary skin: premium dark neutral surface, replaces
-   the gold treatment. Self-doubled selector wins over the level-tier
-   tint. Level VALUE text stays in tier color (set inline). */
+/* Common / rare / epic equipped skins do NOT override the level-tier
+   frame. Legendary skins get a constant colored border (1px ring,
+   always visible) with a brighter wedge that travels around it, plus
+   a soft outer glow. Hover bumps the outer glow strength. See comment
+   in marketplace/page.module.css for the technique. */
+/* Premium legendary card: glossy rotating border + occasional surface
+   shine + drone-image bob. See marketplace/page.module.css for the
+   full technique notes. */
 .skinRarity_legendary.skinRarity_legendary {
-  background: #0A0A0A;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-lg);
   box-shadow: none;
-  animation: droneLegendarySkinShimmer 4s ease-in-out infinite;
+  overflow: hidden;
+  animation: none;
 }
 
-@keyframes droneLegendarySkinShimmer {
-  0%, 100% { border-color: rgba(255, 255, 255, 0.1); }
-  50% { border-color: rgba(255, 255, 255, 0.25); }
+.skinRarity_legendary.skinRarity_legendary::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  height: 200%;
+  transform-origin: center;
+  transform: translate(-50%, -50%) rotate(0deg);
+  background: conic-gradient(
+    from 0deg,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 0%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 75%,
+    color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 12%, #ffffff) 87%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 99%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 100%
+  );
+  animation: legendaryRotate 10s linear infinite;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.skinRarity_legendary.skinRarity_legendary::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 8%, transparent) 0%,
+      color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 2%, transparent) 100%
+    ),
+    var(--legendary-bg, #0A0A0A);
+  border-radius: calc(var(--radius-lg) - 2px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.skinRarity_legendary.skinRarity_legendary .droneImageFrame img {
+  animation: legendaryDroneBob 4s ease-in-out infinite;
+}
+
+@keyframes legendaryRotate {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes legendaryDroneBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skinRarity_legendary.skinRarity_legendary::before,
+  .skinRarity_legendary.skinRarity_legendary .droneImageFrame img {
+    animation: none;
+  }
 }
 
 .droneImageFrame {

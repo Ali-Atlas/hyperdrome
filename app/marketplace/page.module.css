@@ -351,6 +351,13 @@
   opacity: 1;
 }
 
+/* Default checked fill for non-rarity toggles (Has Skins / Has Mods).
+   The per-rarity rules below override this for the rarity checkboxes. */
+.check input[type='checkbox']:checked + .checkText::before {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
 /* Per-rarity checked fill + hover border. The label text color is
    already set via .rarity_* on .checkText. */
 .check input[type='checkbox']:checked + .checkText.rarity_common::before {
@@ -476,19 +483,24 @@
      share the exact same footprint regardless of the content density.
      Combined with .grid grid-auto-rows: 1fr, every cell on the page
      is identical in size. */
-  min-height: 240px;
+  min-height: 280px;
   height: 100%;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
   transition:
     border-color var(--duration-normal) var(--ease-out),
     box-shadow var(--duration-normal) var(--ease-out);
 }
 
-/* Hover only when the card is wrapped in a clickable Link (drone
-   listings). Skin and mod listings sit inside a non-clickable .cardWrap
-   div and stay static. */
-.cardLink:hover .listingCard {
+.listingCard:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.listingCard:hover {
   border-color: rgba(3, 218, 198, 0.4);
 }
 
@@ -497,21 +509,30 @@
   box-shadow: 0 0 18px rgba(3, 218, 198, 0.12);
 }
 
+/* "YOUR LISTING" ribbon. Absolutely positioned at the top-left corner so
+   it overlays the image area without pushing card content down. Right
+   edge is cut as a flag-tail notch via clip-path. Identical card layout
+   regardless of owner state - non-owner cards just don't render this. */
 .ownerChip {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  padding: 2px 6px;
-  background: rgba(3, 218, 198, 0.18);
-  border: 1px solid rgba(3, 218, 198, 0.4);
-  color: var(--accent-primary);
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px 0 10px;
+  background: rgba(3, 218, 198, 0.8);
+  color: #000;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: var(--font-bold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  border-radius: var(--radius-sm);
-  z-index: 2;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  z-index: 5;
+  clip-path: polygon(0 0, 100% 0, 88% 50%, 100% 100%, 0 100%);
+  pointer-events: none;
 }
 
 /* Rarity-tinted skin card backgrounds. Chained with .listingCard to
@@ -602,39 +623,117 @@
   border-color: rgba(255, 215, 0, 0.55);
 }
 
-/* Skin-rarity indicator on drone cards. Layered ON TOP of the level
-   tint + border - these rules override only border-color and add a
-   matching glow so both informations (level + skin) read at a glance. */
-.skinRarity_rare {
-  border-color: rgba(74, 158, 255, 0.4);
-  box-shadow: 0 0 12px rgba(74, 158, 255, 0.1);
-}
-
-.skinRarity_epic {
-  border-color: rgba(187, 134, 252, 0.4);
-  box-shadow: 0 0 12px rgba(187, 134, 252, 0.1);
-}
-
-/* Drone listings with a legendary skin: premium dark neutral surface,
-   replaces the prior gold treatment. Self-doubled selector beats the
-   chained .listingCard.card_level_* tier rules above. Pack cards have
-   their own .pack_gold + .cardLegendaryShimmer treatment further down
-   that stays gold and untouched. */
+/* Common / rare / epic equipped skins do NOT override the level-tier
+   card frame. Legendary skins get a constant colored border (the full
+   1px ring stays visible at all times) with a brighter wedge that
+   travels around it, plus a soft outer glow.
+   Technique:
+   - Parent: isolation:isolate creates a stacking context so negative-z
+     pseudos paint after the parent's bg but BEFORE in-flow children
+     (B2 < B3 in CSS painting order). No `> *` lift needed; positioned
+     children like .activeRibbon keep their original positioning.
+   - ::before (z -2): oversized spinning conic gradient. Stops are
+     mostly glow-1 with a small glow-2 wedge near 92%, so the visible
+     1px outer ring reads as a solid glow-1 border with a subtle
+     brighter chase moving around it. Single-color skins use glow-1
+     for both stops -> uniform ring, no visible chase.
+   - ::after (z -1): inset 1px near-black inner fill. Hides the gradient
+     except for the 1px outer ring.
+   Pack cards keep their own .pack_gold treatment further down. */
+/* Premium legendary card: glossy rotating border + occasional surface
+   shine + drone-image bob. Three layers of animation, all slow and
+   deliberate:
+   - ::before (z -2): 200% oversized conic gradient. Mostly solid primary
+     with a near-white peak around 87%. Rotates continuously over 10s -
+     the bright peak travels around the perimeter as the visible 2px
+     border ring (the rest of the conic is masked by ::after).
+   - ::after (z -1): masks the conic to a 2px ring AND carries a silk
+     shine band that drifts across the surface. Three background layers:
+     [silk band gradient] over [vertical primary tint] over [body bg].
+     `background-blend-mode: screen` on the silk layer makes it luminous
+     against the dark surface. The silk holds off-screen for ~75% of the
+     cycle, then sweeps in the remaining 25% (10s total).
+   - .listingImage img: bobs gently on legendary drone listings.
+   - isolation: isolate keeps the negative-z pseudos contained so they
+     paint behind in-flow children automatically. */
 .skinRarity_legendary.skinRarity_legendary {
-  background: #0A0A0A;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-lg);
   box-shadow: none;
-  animation: droneLegendarySkinShimmer 4s ease-in-out infinite;
+  overflow: hidden;
+  animation: none;
 }
 
-@keyframes droneLegendarySkinShimmer {
-  0%, 100% { border-color: rgba(255, 255, 255, 0.1); }
-  50% { border-color: rgba(255, 255, 255, 0.25); }
+.skinRarity_legendary.skinRarity_legendary::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  height: 200%;
+  transform-origin: center;
+  transform: translate(-50%, -50%) rotate(0deg);
+  background: conic-gradient(
+    from 0deg,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 0%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 75%,
+    color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 12%, #ffffff) 87%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 99%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 100%
+  );
+  animation: legendaryRotate 10s linear infinite;
+  z-index: -2;
+  pointer-events: none;
 }
 
-/* Original gold legendaryShimmer kept for pack-card sweeps further
-   down (.pack_gold::after, hero/big legendary card). Drone-card use
-   above has migrated to droneLegendarySkinShimmer. */
+.skinRarity_legendary.skinRarity_legendary::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 8%, transparent) 0%,
+      color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 2%, transparent) 100%
+    ),
+    var(--legendary-bg, #0A0A0A);
+  border-radius: calc(var(--radius-lg) - 2px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.skinRarity_legendary.skinRarity_legendary .listingImage img {
+  animation: legendaryDroneBob 4s ease-in-out infinite;
+}
+
+@keyframes legendaryRotate {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes legendaryDroneBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skinRarity_legendary.skinRarity_legendary::before,
+  .skinRarity_legendary.skinRarity_legendary .listingImage img {
+    animation: none;
+  }
+}
+
+/* Gold legendaryShimmer used by pack-card sweeps below
+   (.pack_gold::after, hero/big legendary card). */
 @keyframes legendaryShimmer {
   0%, 100% {
     box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
@@ -682,8 +781,7 @@
 
 /* Card content sits above the shimmer layer */
 .listingImage,
-.listingBody,
-.ownerChip {
+.listingBody {
   position: relative;
   z-index: 2;
 }
@@ -694,7 +792,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-2);
+  /* Top padding clears the YOUR LISTING ribbon so the image content never
+     overlaps the badge. Applied uniformly to every card so non-owner cards
+     keep the same content y-coordinate (no shift across the grid). */
+  padding: 28px var(--space-2) var(--space-2);
   background: transparent;
 }
 
@@ -707,25 +808,88 @@
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
 }
 
+/* Skin image (image-backed listings). Uses same fit pattern as droneImg so
+   skin and drone listings share image footprint. */
+.skinImg {
+  display: block;
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+}
+
+/* Folded-pentagon placeholder for skins without a real image. Sized to
+   match the real skin image footprint inside `.listingImage` (full width
+   of the available area, height auto from the SVG's viewBox aspect).
+   Color flows via currentColor from the per-rarity wrapper class; the
+   SVG inside uses currentColor for fills + strokes. */
+.skinPlaceholderWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.skinPlaceholder_common {
+  color: var(--rarity-common);
+}
+.skinPlaceholder_rare {
+  color: var(--rarity-rare);
+}
+.skinPlaceholder_epic {
+  color: var(--rarity-epic);
+}
+.skinPlaceholder_legendary {
+  color: var(--rarity-legendary);
+}
+
+.skinPlaceholderSvg {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  display: block;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+/* Hover float - any item inside a non-legendary listing card gets a
+   subtle bob on card hover. Excluded from legendary drone cards because
+   they already carry a more pronounced legendaryDroneBob at rest. */
+.listingCard:not(.skinRarity_legendary):hover .listingImage > * {
+  animation: cardItemFloat 2s ease-in-out infinite;
+}
+
+@keyframes cardItemFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
 .listingImage svg {
   width: 100%;
   height: 100%;
 }
 
-/* Body is a 5-row grid so every card has IDENTICAL vertical anchors:
-     row 1 - title (auto height, pinned to top of body)
+/* Body is a 6-row grid so every card has IDENTICAL vertical anchors:
+     row 1 - title (auto, pinned to top of body)
      row 2 - middle (1fr, absorbs all variable content - stat bars,
              mod desc, skin compat - so cards with denser data don't
              push the lower rows around)
      row 3 - price
-     row 4 - seller
-     row 5 - button (pinned to bottom of body)
+     row 4 - collection counts (drone) / placeholder (skin, mod)
+     row 5 - seller
+     row 6 - button (pinned to bottom)
    Combined with grid-auto-rows: 1fr on .grid + height: 100% on the
-   wrappers, every card surface (image, title, price, seller, button)
-   sits at the exact same y-coordinate across the whole page. */
+   wrappers, every card surface sits at the exact same y-coordinate
+   across the whole page regardless of item type. */
 .listingBody {
   display: grid;
-  grid-template-rows: auto 1fr auto auto auto;
+  grid-template-rows: auto 1fr auto auto auto auto;
   row-gap: 4px;
   padding: 10px 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -843,6 +1007,44 @@
   text-align: right;
 }
 
+.collectionRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+/* Empty slot rendered on skin/mod cards in the same grid row that drone
+   cards use for .collectionRow, so price/seller/button anchors stay at
+   identical y-coordinates across all item types. Height matches the
+   natural rendered height of .collectionRow (font-size 9px x line-height). */
+.collectionPlaceholder {
+  height: calc(9px * 1.4);
+}
+
+.collectionItem {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.collectionLabel {
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.collectionCountMod {
+  font-weight: var(--font-bold);
+  color: var(--accent-secondary);
+}
+
+.collectionCountSkin {
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+}
+
 .compat {
   font-family: var(--font-mono);
   font-size: 9px;
@@ -916,14 +1118,6 @@
   padding: 4px 6px;
   font-size: 9.5px;
   letter-spacing: 0.02em;
-}
-
-/* Owner's "Cancel Listing" button - longer text than "Buy Now", trimmed
-   down so it fits cleanly inside the card width without crowding. */
-.cardBtn.cardBtnCancel {
-  font-size: 8px;
-  letter-spacing: 0;
-  padding: 4px 4px;
 }
 
 /* Link wrapper around drone cards - stays transparent so card bg shows
@@ -2504,6 +2698,48 @@
   gap: var(--space-2);
 }
 
+.preRevealStage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) 0 var(--space-2);
+}
+
+.preRevealImg {
+  width: 200px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 28px rgba(255, 255, 255, 0.08));
+  animation: preRevealFloat 3s ease-in-out infinite;
+}
+
+.preRevealHint {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: center;
+  margin: 0;
+}
+
+@keyframes preRevealFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preRevealImg {
+    animation: none;
+  }
+}
+
 @media (max-width: 900px) {
   .packCard {
     grid-template-columns: 1fr;
@@ -3384,20 +3620,11 @@
   cursor: pointer;
 }
 
-/* Hover: chest gently bobs up and down. No border, no glow change,
-   no other hover treatment - just a soft levitation cue that draws
-   the eye to the chest you're considering buying. */
+/* Hover: chest gently bobs up and down. Reuses the marketplace-wide
+   cardItemFloat keyframe so every hoverable item across the page (drone,
+   skin, mod listings + volt chests) shares one consistent float. */
 .pointsCard:hover .pointsChestImg {
-  animation: chestBob 1.6s ease-in-out infinite;
-}
-
-@keyframes chestBob {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
+  animation: cardItemFloat 2s ease-in-out infinite;
 }
 
 /* Single-row pill rail above the chest. Pills sit side-by-side
@@ -3659,5 +3886,124 @@
     padding: 3px 8px;
     font-size: 10px;
     letter-spacing: 0.04em;
+  }
+}
+
+/* ==========================================================================
+ * Cancel-listing modal - mirrors the cinematic purchase modal layout.
+ * Hero (item + float), name + rarity, price, prompt, action buttons. The
+ * float here uses the same cardItemFloat keyframe as listing cards so
+ * the modal motion matches the in-grid hover behavior.
+ * ========================================================================== */
+
+.cancelStage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-4);
+  min-height: 360px;
+}
+
+.cancelHero {
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: cardItemFloat 2.4s ease-in-out infinite;
+}
+
+.cancelHero img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5));
+}
+
+.cancelTitleRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cancelName {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cancelPriceRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+}
+
+.cancelPriceValue {
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+}
+
+.cancelPrompt {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 320px;
+  line-height: 1.45;
+}
+
+.cancelActions {
+  display: flex;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 360px;
+  margin-top: var(--space-2);
+}
+
+.cancelActions > * {
+  flex: 1;
+}
+
+.cancelDangerBtn {
+  background: var(--accent-error);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.cancelDangerBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-error) 85%, #ffffff);
+}
+
+.cancelDangerBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cancelHero {
+    animation: none;
   }
 }
