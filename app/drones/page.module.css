@@ -481,11 +481,16 @@
   content: '';
   position: absolute;
   inset: 2px;
+  /* Body wash uses --legendary-glow-2 (skin's bgTint, fallback to
+     primary) so a skin can have a border color distinct from its body
+     tint — Valiant: ice-blue border, white body wash. Opacity bumped
+     from 8/2% to 12/4% so all legendary tints read a touch stronger
+     without overpowering the card. */
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 8%, transparent) 0%,
-      color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 2%, transparent) 100%
+      color-mix(in srgb, var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 12%, transparent) 0%,
+      color-mix(in srgb, var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 4%, transparent) 100%
     ),
     var(--legendary-bg, #0A0A0A);
   border-radius: calc(var(--radius-lg) - 2px);

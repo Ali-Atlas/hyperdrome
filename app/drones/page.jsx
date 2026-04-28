@@ -348,6 +348,7 @@ function DroneCard({ drone }) {
     ? {
         '--legendary-bg': legendaryTheme.bg,
         '--legendary-glow-1': legendaryTheme.glow1,
+        '--legendary-glow-2': legendaryTheme.glow2,
       }
     : undefined;
 

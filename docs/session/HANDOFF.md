@@ -4,6 +4,78 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-28 - Revert chip + cardBody border-radius (wrong element); diagnosis ask
+
+**Captain ask:** "you applied the border radius to the wrong element again, undo that". Captain's screenshot points DevTools at `.cardBody` and says "I think it's this one" + "that bottom-left purple border causing the trouble". So undo what I just added to `.cardBody` and the chips, but the diagnosis is still open — Captain wants me to verify which element is actually responsible before applying anything new.
+
+**Files modified (1):**
+
+- MOD `app/drones/page.module.css`:
+  - Removed `border-radius: inherit` (and its 5-line comment) from `.cardBody`. Back to `display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 14px;` only.
+  - Removed `border-bottom-left-radius: inherit; border-bottom-right-radius: inherit` from `.skinChip` and from `.skinChipEmpty`. Both rules back to single-line `border-radius: var(--radius-sm)`.
+  - `clip-path: inset(0 round var(--radius-lg))` on `.skinRarity_legendary` left in place — that one wasn't touched.
+
+**State of the bottom-left clip diagnostic, end of this batch:**
+
+The "purple/magenta sharp corner at bottom-left" Captain photographed is the rotating `::before` conic gradient's CURRENT bright-shine stop landing at that position during one phase of its 10s rotation. The shine is the `87%` stop in the gradient — `color-mix(... var(--legendary-glow-1) 12%, #ffffff)` — a brighter highlight on top of the base color. It orbits the card; at any given second it's at a different corner. Captain's screenshot caught it at the bottom-left.
+
+`.cardBody` itself has no background, no `overflow: hidden`, and is at default `z-index: auto` — it sits above the pseudo-elements in the stacking order but is fully transparent, so it cannot mechanically clip or visually cover the rotating `::before`. Same for the chip (inset by 16px from each card edge so its corner shape is geometrically incapable of meeting the card's bottom-left). Walked through this carefully two batches ago and the geometry hasn't changed.
+
+What CAN actually shape the bottom-left corner of the rotating border:
+1. The article's own `clip-path: inset(0 round var(--radius-lg))` — currently in place.
+2. The article's `border-radius: var(--radius-lg)` + `overflow: hidden` — both currently set.
+3. The `::after`'s rounded `inset: 2px` `border-radius: calc(--radius-lg - 2px)` — sets the inner edge of the visible border ring.
+
+If the bottom-left still looks "cut off" with all three of these in place, possible culprits I haven't been able to chase from CSS alone:
+- The conic gradient's seam (`from 0deg`, then `... 99% / 100%` stops) — at the wraparound point the color discontinuity might read as an apparent flat edge depending on rotation phase.
+- A browser-specific issue with the rotated/animated pseudo-element's anti-aliasing at small radii (~12px).
+
+**Asks for Captain to nail it:** if it's still visibly wrong after this revert, can you confirm:
+1. Which corner specifically (only bottom-left, or all four during rotation)?
+2. Does it look the same in another browser?
+3. Is the bright highlight always present at the cut-off, or does it persist when the shine is on the opposite side?
+
+Those answers will narrow it to "bug in our CSS" vs "browser rendering artifact we need to mask differently".
+
+**Verified:** None — Captain waived dev/visual checks. No build/lint/test runs.
+
+---
+
+## 2026-04-28 - Legendary cards: split body-tint from border, Valiant ice-blue/white, bumped tint, restored chip rounding
+
+**Captain ask:** On `/drones` legendary cards: (1) Valiant background should be its white "main color" while the border is the faint ice blue; (2) Diamond Hand body should be the blue (border is fine as-is); (3) bump the body-tint opacity slightly across all legendaries — currently too faint; (4) restore the bottom-left chip border-radius fix that was reverted last batch — the cut-off look is back.
+
+**Files modified (4):**
+
+- MOD `lib/legendary-skins.js`:
+  - **Valiant**: `primary: '#FFFFFF' -> '#B0E0FF'` (border becomes ice blue), `secondary: '#B0E0FF' -> '#FFFFFF'` (kept for description integrity, no longer the rotating-shine target since the existing CSS doesn't read secondary anyway), and added new field `bgTint: '#FFFFFF'` so the body wash stays white while the border is faint blue. Diamond Hand and every other entry: untouched.
+  - Schema-doc comment at the top of the file expanded to document the new optional `bgTint` field, including the Valiant example for context.
+- MOD `lib/utils.js` (`getLegendaryTheme`):
+  - Returns a third field `glow2 = skin.bgTint ?? skin.primary`. When a skin doesn't define `bgTint`, `glow2` falls back to `primary` so existing skins (Diamond Hand, Apex Predator, etc.) keep their current visuals — body wash and border remain the same primary color. Only Valiant ends up with a different `glow2` because only Valiant sets `bgTint`. Unknown-slug fallback also returns `glow2`. JSDoc updated.
+- MOD `app/drones/page.jsx` (`DroneCard`):
+  - Inline style now pipes `'--legendary-glow-2': legendaryTheme.glow2` alongside the existing `--legendary-bg` and `--legendary-glow-1`. Other legendary surfaces (`/leaderboard`, `/races/[raceId]`) are NOT updated this batch — they'll keep using `--legendary-glow-1` for both border and body wash (current behavior, no visual change there). Captain's "this is all the my drones page" scoped the change.
+- MOD `app/drones/page.module.css`:
+  - **Body wash decoupled**: `.skinRarity_legendary::after` linear-gradient now reads `var(--legendary-glow-2, var(--legendary-glow-1, rgba(255,255,255,0.6)))` instead of `--legendary-glow-1`. Double-fallback chain so any future caller that pipes only `glow-1` still works. Border (`::before` conic gradient) remains on `--legendary-glow-1`.
+  - **Tint opacity bumped**: `8% / 2% -> 12% / 4%`. Captain's "slightly not a lot" — 50% bump on the top stop, doubled on the bottom stop. Comment in the rule explains both the variable swap and the opacity change.
+  - **Restored cardBody propagation**: added `border-radius: inherit` back to `.cardBody` (with the same comment as before — chain is `chip -> cardBody -> .droneCard`).
+  - **Restored chip bottom rounding**: re-added `border-bottom-left-radius: inherit; border-bottom-right-radius: inherit;` to BOTH `.skinChip` and `.skinChipEmpty`. Chip's bottom corners now resolve to `var(--radius-lg)` via the inherit chain. The defensive `clip-path: inset(0 round var(--radius-lg))` from the prior batch is still in place on `.skinRarity_legendary` (untouched), so we have both belts (clip-path) and suspenders (border-radius round-trip) against the bottom-left cut-off.
+
+**Per-skin visual after this batch (`/drones` legendary cards):**
+- Apex Predator: border + body tint = orange `#FF6D00` (unchanged data, slightly stronger tint)
+- Celestial: border + body tint = indigo `#5C6BC0` (unchanged data, stronger tint)
+- Gilded Throne: border + body tint = warm red `#FF3030` (unchanged from prior turn, stronger tint)
+- **Valiant**: border = ice blue `#B0E0FF` (was white), body tint = white `#FFFFFF` (was driven by the now-changed primary, decoupled via `bgTint`)
+- Samurai: border + body tint = blood red `#D50000` (unchanged data, stronger tint)
+- Necromancer: border + body tint = acid green `#76FF03` (unchanged data, stronger tint)
+- **Diamond Hand**: border + body tint = electric blue `#2979FF` (unchanged data — already what Captain wanted, just stronger tint now)
+- Kraken: border + body tint = electric blue `#2979FF` (unchanged data, stronger tint)
+
+**Other surfaces (`/leaderboard`, `/races/[raceId]`):** Valiant border stays whatever those CSS rules render with `--legendary-glow-1` — which is now ice blue, the new primary. So leaderboard and races see Valiant's border change too (data-layer cascade). Body tint on those surfaces continues to read `--legendary-glow-1` so it'll also be ice blue (not white) on those pages because they don't pipe `--legendary-glow-2`. If Captain wants the white body wash to follow Valiant onto leaderboard / races, ping me — same JSX + CSS swap on those modules, ~4 lines per surface.
+
+**Verified:** None — Captain waived dev/visual checks. No build/lint/test runs.
+
+---
+
 ## 2026-04-28 - HYPERDROME logo: restore all-caps
 
 **Captain ask:** Restore `text-transform: uppercase` on the logo — last turn I removed it (misreading "preferably not capslock unless need to be" as applying to the logo too); the logo IS one of the cases where caps are needed.
