@@ -4,6 +4,564 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-28 - Accent highlights on two landing phrases
+
+**Captain ask:** Two inline phrases on the landing should pop in accent teal: (1) "XP only comes from racing" inside the "Earn Your Edge" gameplay column; (2) "Boost one stat, penalize another" inside the new Mods section body.
+
+**Files modified (1):**
+
+- MOD `app/page.jsx`: wrapped both phrases in `<span className={styles.accent}>` (existing class, `--accent-primary` teal + semibold). Surrounding sentence punctuation kept on the outside of the span so the period after each highlight stays in body color.
+
+**Verified:** Em-dash sweep clean. No other files touched.
+
+**Captain to spot-check:** "XP only comes from racing" reads in teal inside the Earn Your Edge column body; "Boost one stat, penalize another" reads in teal inside the Mods section body. Both phrases sit alongside body-color text on either side, with periods unhighlighted.
+
+---
+
+## 2026-04-28 - Footer studio credit: "Hyperdrome" Orbitron, rest in body font
+
+**Captain ask:** The footer line "Hyperdrome is a Dendrite Games title. © 2026" rendered entirely in Orbitron. Captain wants only "Hyperdrome" in Orbitron (the brand mark); the rest in the body font used elsewhere on the landing.
+
+**Files modified (2):**
+
+- MOD `app/page.jsx`: split the footer copy text. "Hyperdrome" wrapped in `<span className={styles.footerBrand}>`, the rest of the sentence ("is a Dendrite Games title. © 2026") sits as plain text inside `.footerCopy`.
+- MOD `app/page.module.css`:
+  - `.footerCopy`: `font-family: var(--font-display)` -> `var(--font-body)` (Inter). Removed `text-transform: uppercase`. Letter-spacing `0.10em` -> `0.02em` (body text doesn't need the same tracking as uppercase Orbitron). Color and 11px size unchanged.
+  - New `.footerBrand` rule: `var(--font-display)`, bold, uppercase, `letter-spacing: 0.10em`, `color: var(--text-secondary)` (one shade brighter than `.footerCopy`'s tertiary so the brand mark reads slightly more prominent than the surrounding sentence).
+
+**Verified:** Em-dash sweep on the 2 files returns zero. No build / lint / dev run.
+
+**Captain to spot-check:** Footer reads "HYPERDROME is a Dendrite Games title. © 2026" with HYPERDROME in Orbitron uppercase (slightly brighter) and the rest in Inter sentence-case at the same 11px tertiary tone. Guide / FAQ links below stay mono / 11px / tertiary as before.
+
+**Follow-up:** Captain flagged the Inter portion was reading too small after the font swap (lowercase letters take less vertical space than the uppercase Orbitron version). Bumped `.footerCopy` `font-size: 11px` -> `13px` so the visual weight roughly matches what the uppercase Orbitron had. `.footerBrand` inherits the size, so HYPERDROME also reads slightly larger to match. Guide / FAQ links below kept at 11px (utility links, deliberately quieter than the credit line).
+
+---
+
+## 2026-04-28 - Mods extracted to own section, Economy h2 removed, capsule prices fixed, season-1 line shrunk
+
+**Captain ask:** Three landing fixes, scoped to `app/page.jsx` and `app/page.module.css`. (1) Move mod capsules out of the Packs section into a new "MODS" section between Economy and Packs. New section: heading "MODS" in the shared `.sectionHeading` style, body explaining the trade-off mechanic, then the capsule grid. Capsule prices corrected to Starter 1k / Premium 12k / Legendary 50k (the previous values mirrored skin-pack prices, which was wrong). Section order becomes Hero -> Gameplay -> Economy -> Mods -> Packs -> Collect -> Footer with backgrounds alternating cleanly. (2) "8 legendaries in Season 1" line shrunk to mono / xs / tertiary / uppercase, gold removed - let the drone images do the talking. (3) Remove the "THE ECONOMY" section h2 entirely - "Everything runs on Volts." anchors the section on its own.
+
+**Files modified (2):**
+
+- MOD `app/page.jsx`:
+  - `CAPSULES` constant: prices `2_000 / 25_000 / 100_000` -> `1_000 / 12_000 / 50_000`. The previous values were a Compass guess in the prior pass that mirrored skin packs; Captain corrected them now.
+  - Economy section: removed `<h2 id="economy-heading" className={styles.sectionHeading}>The Economy</h2>`. Promoted the existing `<p className={styles.economyBigLine}>` to `<h2 id="economy-heading" className={styles.economyBigLine}>` so `aria-labelledby="economy-heading"` on the section still resolves and the section keeps a semantic heading. The h2 now sits inside `.economyContent` rather than above it; visual styling is unchanged because `.economyBigLine` is centered and the parent flex column still handles spacing.
+  - New section between Economy and Packs: `<section className={styles.modsSection} aria-labelledby="mods-heading">` containing `<h2 id="mods-heading" className={styles.sectionHeading}>Mods</h2>`, a `.packsBody` paragraph ("Functional stat modifiers with real tradeoffs. Boost one stat, penalize another. Equip before each race in the 2-minute strategy window."), and a `.packsRow` grid mapping `CAPSULES` with the existing `.packItem` / `.packImage` / `.packLabel` / `.packPrice` classes (legendary still gets `.accentGold` on label + price). The grid markup is identical to the skin-pack grid - reuse over duplication.
+  - Packs section: dropped both `<p className={styles.subRowLabel}>` labels (Skin Packs / Mod Capsules) and the entire second `<ul>` mapping `CAPSULES`. Packs now renders heading -> body -> single skin-pack grid.
+  - Packs body copy rewritten. Was "Skin packs and mod capsules. 3 items per pack. The legendary pack guarantees one legendary skin." - now "3 skins per pack. The legendary pack guarantees one legendary skin." The first sentence referenced both pack categories which no longer share the section.
+- MOD `app/page.module.css`:
+  - New `.modsSection` rule: `background: var(--bg-primary)`, same `padding: var(--space-10) var(--space-6)` and `text-align: center` as `.packsSection`. Reuses `.packsBody` / `.packsRow` / `.packItem` / `.packImage` / `.packLabel` / `.packPrice` from the Packs section - no new grid CSS needed.
+  - `.packsSection` background flipped `var(--bg-primary)` -> `var(--bg-card)` so the alternation reads #000 / #121212 / #000 / #121212 / #000 across Gameplay / Economy / Mods / Packs / Collect. Footer stays #000 (Collect -> Footer was already same-color in the prior pass; Captain hasn't flagged it).
+  - Removed `.subRowLabel` rule and the `.packsRow + .subRowLabel` adjacent-sibling rule. Both are dead now that the JSX no longer renders sub-row labels.
+  - `.collectBodyLegendary` rewritten in place: `font-family: var(--font-display)` -> `var(--font-mono)`, `font-size: var(--text-lg)` -> `var(--text-xs)`, dropped `font-weight: var(--font-bold)`, `color: var(--rarity-legendary)` -> `var(--text-tertiary)`, letter-spacing `0.04em` -> `0.14em`, line-height `1.3` -> `1.4`. Margin-bottom + uppercase + center kept. The class is single-use so a rewrite beats renaming.
+  - `@media (max-width: 768px)` block: added `.modsSection` to the comma-separated padding override list so mobile horizontal padding tightens to `var(--space-4)` like the other sections.
+  - Top comment for `.sectionHeading` updated `Game / The Economy / Collect` -> `Gameplay / Mods / Collect` (Economy no longer uses the shared heading; Mods now does).
+  - Top comment for the Economy block updated to note that the section has no visible h2 and that `.economyBigLine` serves as the semantic heading.
+
+**Tradeoffs noted:**
+
+- Promoting `.economyBigLine` from `<p>` to `<h2>` keeps `aria-labelledby` semantics intact after the visible heading removal. An alternative was dropping `aria-labelledby` and letting the section be implicitly labeled, but a labeled section reads better in screen-reader landmarks.
+- Reusing `.packsBody` / `.packsRow` / `.packItem` / etc. on the Mods section keeps the two grids visually identical (Captain explicitly asked for "same sizing as the skin pack images"). Class names are slightly leaky now (a "packs" class on the mods grid) but a rename would cascade through the Packs section and double the diff. If the two grids ever need to diverge, rename then.
+
+**Verified:**
+- `grep -P "—|–" app/page.jsx app/page.module.css` -> zero matches.
+- Stale-ref grep on `subRowLabel`, `MOD CAPSULES`, `SKIN PACKS` -> zero JSX/CSS matches (only "The Economy" stale strings were inside CSS comments, which were also updated to reflect the new structure).
+- New-ref grep confirms `modsSection`, `mods-heading`, `Mods` heading text all landed in JSX, and `.modsSection` rule + mobile breakpoint inclusion landed in CSS.
+- No `npm run build` per Captain's instruction. No `npm run dev` run. No lint.
+
+**Captain to spot-check at 1440 / 1024 / 768:**
+- Section order top-to-bottom: hero -> Gameplay -> Economy -> Mods -> Packs -> Collect -> footer. Background alternation reads #000 / #121212 / #000 / #121212 / #000 with footer in #000.
+- Economy section: no "THE ECONOMY" heading above the Volts line. The "Everything runs on Volts." h2 (visually unchanged) anchors the section. Earn Volts body copy below it.
+- New Mods section: "MODS" heading in Orbitron uppercase. Body copy reads at base size, secondary grey. Three capsule images in the same grid as skin packs (Starter / Premium / Legendary), prices read 1,000 / 12,000 / 50,000 Volts. Legendary capsule label and price in gold; the other two in teal.
+- Packs section now sits on #121212 background. Single skin-pack grid (no capsules, no sub-row labels). Body copy reads "3 skins per pack. The legendary pack guarantees one legendary skin."
+- Collect section: "8 LEGENDARIES IN SEASON 1" line shrunk to small mono / tertiary grey / uppercase / wider tracking. No gold. The legendary drone row below it is now the visual anchor.
+- Mobile (768): Mods section gets the same horizontal padding tightening as the other sections; capsule grid stacks 1-col like the skin packs do.
+
+---
+
+## 2026-04-28 - Hero PLAY DEMO: filled teal default (reverting outlined treatment)
+
+**Captain ask:** PLAY DEMO should default to the accent color, not transparent. The outlined treatment from the earlier landing redesign reads too quiet for the primary hero CTA.
+
+**Files modified (1):**
+
+- MOD `app/HeroActions.module.css`:
+  - `.primary`: `background: transparent` -> `var(--accent-primary)`, `color: var(--accent-primary)` -> `#000`. Border kept at `1px solid var(--accent-primary)` (matches bg, no visual seam, but preserves the existing dimensions so the button doesn't reflow). `box-shadow: none` retained for resting state.
+  - `.primary:hover:not(:disabled)`: dropped the `background` + `color` flips (now redundant since resting matches the previous hover fill). Hover keeps the `box-shadow: 0 0 20px rgba(3, 218, 198, 0.3)` teal halo so there's still a hover affordance.
+  - Disabled (`opacity: 0.6`), focus-visible ring, and all sizing (`max-width: 180px`, `14px 32px` padding, `--text-base` bold uppercase) untouched.
+  - Removed the now-stale "outlined teal button... fills teal with #000 text on hover" comment block. Resting state now self-describes via the values.
+
+**Verified:** No other files touched. Em-dash sweep clean (file already clean). No `npm run dev` / `npm run build` per Captain's standing instruction.
+
+**Captain to spot-check:**
+- Hero PLAY DEMO renders as a solid teal pill with black text by default.
+- Hover: teal halo glow appears (no color/bg change since the fill already matches).
+- Disabled: 0.6 opacity unchanged.
+- All other hero elements (HYPERDROME title, tagline, top-right Login link, audio toggle) unaffected.
+
+---
+
+## 2026-04-28 - Landing pass 3: hero size + spacing, section heading bump, pack art bigger
+
+**Captain ask:** Iteration on the landing redesign. (1) Hero: HYPERDROME up + slightly larger + more vertical air above/below the "BUILD. RACE. TRADE. COLLECT." tagline. (2) Section heading shared style bumps from `--text-lg` to `--text-xl`. (3) Section 1 columns: bigger gap between icon, title, body. (4) Section 3 packs: art fills more of each grid cell, labels and Volt prices read bigger, label/price gap tightened. Already-correct items in pass 2 (Crosshair / Hexagon / TrendingUp icons, Orbitron on every heading + footer copy, "Diamond Hands" with the s, legendary order, dropped period, sub-rows for skin packs + mod capsules, 350px legendary images, `--text-base` body) left alone.
+
+**Files modified (1):**
+
+- MOD `app/page.module.css`:
+  - `.heroContent`: `gap: var(--space-8) -> var(--space-12)` so the title-to-tagline-to-CTA stack grows ~32px taller. With `justify-content: center`, this lifts HYPERDROME up the viewport and pushes the CTA down the same distance, giving the tagline visible air above and below.
+  - `.heroTitle`: base `--text-5xl -> --text-6xl`. `@media (min-width: 1024px)` `--text-6xl -> calc(var(--text-6xl) * 1.15)` (~4.31rem) so desktop also bumps slightly past the largest token. `@media (max-width: 768px)` `--text-4xl -> --text-5xl` so mobile scales the same notch. Stale comment about "no `--text-7xl` token" updated to reflect the calc bump.
+  - `.sectionHeading`: `--text-lg -> --text-xl`. Applies to "Gameplay", "The Economy", "Collect" simultaneously since they all share this class.
+  - `.gameColumn`: `gap: var(--space-5) -> var(--space-6)`. Slight bump in the icon -> title -> body stack inside each gameplay column.
+  - `.packsSection`: horizontal padding `var(--space-8) -> var(--space-6)` so the section gives back ~16px to the grid on each side.
+  - `.packsRow`: `max-width: 1400px -> 1600px`, `gap: var(--space-6) -> var(--space-5)`. Combined with the section padding cut, each pack cell gains ~20-30px on a 1440 viewport. Pack image rule unchanged (`width: 100%`), so the bigger cells = bigger art.
+  - `.packLabel`: `--text-base -> --text-lg`.
+  - `.packPrice`: `--text-base -> --text-lg`. `margin-top: var(--space-1) -> 0` tightens the label/price gap (image -> label gap unchanged at `--space-3`).
+  - `@media (max-width: 768px)` `.packImage { max-width: 280px -> 320px }` so mobile pack art also scales up.
+  - All other rules (video / overlay / gradient / heroLogin / heroTagline / economy / collect / footer / capsules sub-row spacing) untouched.
+- `app/page.jsx`: no changes. Imports, constants, and JSX all matched the spec already (Crosshair / Hexagon / TrendingUp, "Diamond Hands", legendary order, period dropped, both sub-rows present, font-display via `.sectionHeading` / `.packsHeading` / `.footerCopy`).
+
+**Verified:** `npm run lint` -> 0 errors, 17 pre-existing `<img>` warnings (all unrelated). `grep -P "—|–" app/page.jsx app/page.module.css` returns zero. No `npm run build` per Captain's instruction. No `npm run dev` browser run by Mercenary.
+
+**Captain to spot-check at 1440 / 1024 / 768:**
+- Hero: HYPERDROME sits visibly higher in the viewport and reads slightly larger at every breakpoint. Tagline has clear vertical air above (between it and HYPERDROME) and below (between it and PLAY DEMO).
+- Section headings ("GAMEPLAY", "THE ECONOMY", "COLLECT") all read one notch larger than before.
+- Gameplay columns: noticeable extra vertical space between the lucide icon, the title, and the body paragraph.
+- Packs: Skin Packs and Mod Capsules grids both render with larger pack/capsule art per cell. Labels and Volt prices read at `--text-lg`. Label sits tight against its price (no visible gap between them; image -> label spacing unchanged).
+- No regressions on Section 4 / footer / hero login / video.
+
+---
+
+## 2026-04-28 - Landing pass 2: Orbitron headings, bigger type, mod capsules sub-row, legendary reorder
+
+**Captain ask:** Iterative tweaks across the redesign. (1) Hero: HYPERDROME slightly larger + more vertical breathing room around the tagline. (2) All landing headings switch to `var(--font-display)` (Orbitron), not `var(--font-heading)` (Rajdhani). (3) Section 1 renamed "The Game" -> "Gameplay"; Zap icon swapped (wrong semantics for racing) and Shield -> Hexagon (mods/hex chips); column titles bumped to `--text-xl`, body bumped to `--text-base`, more vertical gap inside each column. (4) Section 2 (Economy) body bumped to `--text-base`. (5) Section 3 (Packs) restructured into TWO sub-rows: "Skin Packs" + "Mod Capsules", each labeled, sharing the same grid. Pack art bigger, labels + prices bigger, label/price gap tightened. (6) Section 4 (Collect) drone images go to 350px on desktop, "Diamond Hand" -> "Diamond Hands", legendary order is Diamond Hands -> Kraken -> Apex Predator -> Celestial, period dropped after "8 LEGENDARIES IN SEASON 1". (7) Footer studio line uses Orbitron.
+
+Compass judgment calls (flagged for Captain to override if wrong): (a) Col 1 icon = `Crosshair` over `Target` - target-lock vibe fits 1v1 racing better. (b) Mod capsule prices not specified, mirrored skin-pack ladder (2k / 25k / 100k, legendary in gold) since the two product categories are economically parallel. (c) Packs grid `max-width: 1200px -> 1400px` so each cell clears ~450px instead of ~384px (legendary pack was visibly cramped at the smaller cell). (d) Collect row `max-width: 1200px -> 1500px` so 4 × 350px + gaps fits without the row overflowing its container. (e) Hero title bumped one notch at every breakpoint; the `1440 -> --text-6xl` step collapses into the same as `1024+` because no `--text-7xl` token exists in `globals.css`.
+
+**Files modified (2):**
+
+- MOD `app/page.jsx`:
+  - Imports: `Zap, Shield, TrendingUp` -> `Crosshair, Hexagon, TrendingUp` (kept `TrendingUp` for column 3).
+  - Constants: added `CAPSULES` (3 entries: Starter/Premium/Legendary at the same price ladder as `PACKS`, legendary `gold: true`). Reordered `COLLECT_LEGENDARIES` to Diamond Hands -> Kraken -> Apex Predator -> Celestial; renamed "Diamond Hand" -> "Diamond Hands" (image src path stays `diamond_hand.webp` since the file on disk uses the singular name).
+  - Section 1 heading: "The Game" -> "Gameplay" (also updated `aria-labelledby` and `id` from `the-game-heading` to `gameplay-heading`).
+  - Section 1 col 1: `<Zap>` -> `<Crosshair>`. Section 1 col 2: `<Shield>` -> `<Hexagon>`. Column 3 (`<TrendingUp>`) untouched.
+  - Section 3: split the existing single `<ul .packsRow>` into two labeled sub-rows. New `<p .subRowLabel>Skin Packs</p>` precedes the original packs grid; new `<p .subRowLabel>Mod Capsules</p>` precedes a second `<ul .packsRow>` mapping `CAPSULES`. Both grids reuse the same `.packsRow` / `.packItem` / `.packImage` / `.packLabel` / `.packPrice` classes - the only difference is image source and the label above the row.
+  - Section 4: dropped the period from "8 legendaries in Season 1." -> "8 legendaries in Season 1".
+  - All other JSX (hero, Economy, Collect drone row, footer) unchanged.
+- MOD `app/page.module.css`:
+  - `.heroContent`: `gap: var(--space-4) -> var(--space-8)` so HYPERDROME, the tagline, and the button each get more vertical air. The cluster grows taller, which (with `justify-content: center`) pushes HYPERDROME visibly higher up the viewport. Mobile `(max-width: 768px)` block: `gap: var(--space-3) -> var(--space-5)` for the same effect at phone widths.
+  - `.heroTitle`: `--text-4xl -> --text-5xl` base, `@1024 --text-5xl -> --text-6xl`, mobile `--text-3xl -> --text-4xl`. Removed the `(min-width: 1440px)` block (`--text-6xl` was the cap; bumped 1024 already pins it there).
+  - `.sectionHeading`, `.gameColumnTitle`, `.collectBodyLegendary`, `.economyBigLine`, `.packsHeading`, `.footerCopy` all swapped from `var(--font-heading)` (or `var(--font-mono)` for the footer) to `var(--font-display)` (Orbitron). Non-heading body classes (`.economyBody`, `.collectBodySmall`, `.collectBodyMid`, `.gameColumnBody`, `.packsBody`, `.footerLink`, `.footerDot`) kept their existing fonts.
+  - `.gameColumn`: `gap: var(--space-3) -> var(--space-5)` for more breathing room between icon, title, body.
+  - `.gameColumnTitle`: `--text-lg -> --text-xl`.
+  - `.gameColumnBody`: `--text-sm -> --text-base`.
+  - `.economyBody`: `--text-sm -> --text-base`. Max-width `580px -> 640px` so the longer text doesn't wrap awkwardly at the bigger size.
+  - `.packsBody`: `--text-sm -> --text-base`, max-width `580px -> 640px` for the same reason.
+  - New `.subRowLabel` rule: mono / `--text-xs` / `--text-tertiary` / uppercase / 0.14em tracking / centered / `margin-bottom: var(--space-4)`. Plus an adjacent-sibling rule `.packsRow + .subRowLabel { margin-top: var(--space-10) }` so the second sub-row gets visible separation from the first grid above it without double-spacing the first label.
+  - `.packsRow`: `max-width: 1200px -> 1400px`. Each grid cell now ~450px wide instead of ~384px so the pack foils land bigger on desktop.
+  - `.packItem`: `gap: var(--space-3) -> 0` and explicit `margin-top` on the children: `.packLabel { margin-top: var(--space-3) }` (image -> label gap kept), `.packPrice { margin-top: var(--space-1) }` (label -> price gap tightened to 4px). Captain wanted the label and price visually grouped beneath the foil.
+  - `.packLabel`: `--text-sm -> --text-base`, `font-family: var(--font-heading) -> var(--font-display)`.
+  - `.packPrice`: `--text-sm -> --text-base`.
+  - `.collectBodySmall`: `--text-sm -> --text-base`.
+  - `.collectDronesRow`: `max-width: 1200px -> 1500px` to accommodate 4 drones at 350px each + gaps without overflow.
+  - `.collectDroneImage`: desktop `max-width: 300px -> 350px`. Tablet `(max-width: 1024px)` `280px -> 320px`. Mobile `(max-width: 768px)` `250px -> 280px`. The whole drone showcase scales up uniformly.
+  - All other rules (hero video / overlay / `.hero::after` gradient / footer links / accent / accentGold / etc.) untouched.
+
+**Verified:** `grep -P "—|–" app/page.jsx app/page.module.css` returns zero. Stale-ref grep on `Zap`, `Shield`, and `Diamond Hand` (without trailing `s`) returns zero. New identifier grep confirms `Crosshair`, `Hexagon`, `Gameplay`, `Diamond Hands`, `CAPSULES`, `subRowLabel`, "Skin Packs" / "Mod Capsules" labels all landed in JSX. No `npm run build` per Captain's instruction. No `npm run dev` run.
+
+**Captain to spot-check at 1440 / 1024 / 768:**
+- Hero: HYPERDROME visibly larger, sitting higher up the viewport. Clear vertical air above and below "BUILD. RACE. TRADE. COLLECT.". PLAY DEMO unchanged.
+- Section 1 reads "GAMEPLAY". Column 1 icon is a crosshair (sub for Target if wrong), column 2 is a hexagon, column 3 stays trending-up. Titles are noticeably bigger, body copy reads at base size, more vertical air between the icon, title, and body in each column.
+- Section 2: "THE ECONOMY" heading + "Everything runs on Volts." big line both render in Orbitron. Body reads at base.
+- Section 3 ("PACKS"): "Open packs. Chase legendaries." in Orbitron. Below it, "SKIN PACKS" mono label, then the 3 skin packs (legendary still gold halo + gold label/price). Below that, a second labeled row "MOD CAPSULES" with 3 capsule images, same grid + same gold treatment on the legendary capsule. Pack art reads larger; the label + Volts price stack tightly under each foil.
+- Section 4 ("COLLECT"): drones reorder to Diamond Hands -> Kraken -> Apex Predator -> Celestial, larger renders (350px on wide desktop). The bold gold line reads "8 LEGENDARIES IN SEASON 1" with no period. Body lines above sit at base size now.
+- Footer: "HYPERDROME IS A DENDRITE GAMES TITLE. © 2026" in Orbitron 11px (Guide / FAQ stay mono).
+- Mobile: hero text scales up one notch (title --text-4xl now), packs/capsules each stack vertically with 280px image cap, Collect goes horizontal-scroll with 280px drones.
+
+---
+
+## 2026-04-28 - Demo provision: fire-and-forget seed (~30s -> ~1s redirect)
+
+**Captain ask:** PLAY DEMO held the user on the landing page for ~30 seconds because `seedDemoPlayer(userId)` was awaited inline before the redirect. Fix: create the user, sign them in, return the redirect URL immediately, and let the seed run in the background. Dashboard tolerates the empty/loading state while the seed writes drones / skins / mods / race history. Only modify `app/api/auth/demo/route.js` and `scripts/seed-demo-player.js`.
+
+**Files modified (1):**
+
+- MOD `app/api/auth/demo/route.js`:
+  - Reordered the post-user-creation block. `signIn('credentials', ...)` now runs immediately after the user row is inserted (was previously gated behind the awaited seed). The JWT cookie is set on the response before we return, so the client navigation to `/dashboard` lands authenticated.
+  - `seedDemoPlayer(user.id)` is now invoked without `await`, with a `.catch()` for unhandled rejections so a background failure doesn't crash the runtime. The catch logs the error - same behavior as before, just deferred.
+  - Added a 4-line comment above the fire-and-forget call explaining why the seed runs detached and what the user sees during the ~30s while it completes (empty dashboard that fills as data arrives).
+  - Net: response returns in ~1-2s (user insert + signIn cookie set) instead of ~30s. The seed continues writing to Postgres in the background while the user is already on /dashboard.
+- `scripts/seed-demo-player.js` not modified. The script is already a plain `async function` suitable for fire-and-forget; no internal change was needed to support the new call pattern. Captain's brief listed both files but the actual three numbered actions all fall on the route handler.
+
+**Tradeoffs noted (no Captain action required, just for the record):**
+
+- **Vercel serverless:** on Vercel, when the response is returned the function instance may be terminated mid-promise, leaving the seed half-finished. On localhost / a long-running Node process the background promise completes normally. If Captain hits this in production, the fix is `import { after } from 'next/server'` and wrap the seed call - that defers the work to Vercel's after-response phase. Not doing that today because Captain's brief said fire-and-forget specifically and Next.js 16's `after()` API has its own caveats worth reading first.
+- **Initial dashboard render:** for ~5-15s after redirect the dashboard will show 0 volts, no drones, no race history. Captain explicitly accepted this. If the dashboard polls or revalidates on a regular cadence, data appears as the seed writes it. If it doesn't, the user has to refresh once.
+- **Race-condition window:** signIn returns + redirect kicks in before `db.update(users).set({ points: 110_000, activeDroneSlots: 3 })` runs. A user who hits a Volts-spending action in the first ~1s would see a 0-balance error. Tiny window, no UX worth coding around.
+
+**Verified:** Em-dash sweep on the 2 files in scope returns zero. No `npm run build` per Captain's instruction. No runtime test - Captain to spot-check by clicking PLAY DEMO and timing the redirect.
+
+**Captain to spot-check:**
+- Click PLAY DEMO from a logged-out session. Expect to land on /dashboard within 1-2s (down from ~30s).
+- Watch the dashboard for the next ~30s: volts balance, drones list, recent races feed should populate as the background seed writes rows.
+- Server logs should show `[demo] background seedDemoPlayer failed` only if the seed itself errors. The route handler should NOT log seed errors anymore (the await is gone).
+
+---
+
+## 2026-04-28 - Landing full redesign: hero strip, alternating section bgs, outlined Play Demo, studio-credit footer
+
+**Captain ask:** Full landing rewrite. Hero loses Hexagon icon, subtitle, pitch paragraph, and bouncing chevron - just title, "BUILD. RACE. TRADE. COLLECT." tagline, and PLAY DEMO. PLAY DEMO becomes outlined teal (transparent bg, 1px teal border, hover fills teal w/ #000), max-width 180px, 14px 32px padding, hover glow `0 0 20px rgba(3, 218, 198, 0.3)`. Section 1 (Game) loses card chrome, gets fresh 2-sentence copy and a softer icon glow. Section 2 (Economy) drops the price strip. Section 3 (Packs) drops the chests row, packs go MUCH bigger via a 3-col grid that spans 1200px edge to edge. Section 4 (Collect) drops the swatch row, drone images go to 300px. Sections alternate bg #000 / #121212 / #000 / #121212. Section padding tightens to `var(--space-10)`. All section headings shrink to `--text-lg` uppercase (Packs heading exempted - kept as conversational tagline per option c). Breakpoints standardize on 1024 (tablet) / 768 (mobile). Footer reads "Hyperdrome is a Dendrite Games title. © 2026" + Guide · FAQ in 11px mono (was 9px).
+
+Captain decisions on Compass questions: (1) Col 3 copy = "Race to earn Volts and XP. XP only comes from racing. 3 active drones at a time." (3 sentences allowed, 2-sentence cap is a guideline). (2) Packs heading exempted from shared style. (3) Disabled state stays `opacity: 0.6` on the new outlined button.
+
+**Files modified (4):**
+
+- MOD `app/page.jsx`:
+  - Imports trimmed: dropped `Hexagon`, `ChevronDown`. Kept `Zap`, `Shield`, `TrendingUp`, `VoltIcon`, `auth`, `redirect`, `Link`, `HeroActions`.
+  - Constants: deleted `ECONOMY_PRICES`, `VOLT_CHESTS`, `COLLECT_SWATCHES`. `PACKS` lost the `big` flag (no per-pack size override now - the grid handles it). `COLLECT_LEGENDARIES` unchanged.
+  - Hero JSX: removed the 48px Hexagon, the subtitle paragraph, the pitch paragraph, and the bouncing chevron span. What's left: title, tagline, `<HeroActions/>`. Login link top-right untouched.
+  - Section 1 (Game): replaced all 3 column titles + bodies with the new copy, no inline `.accent` spans (the new copy is short enough to read clean without highlights).
+  - Section 2 (Economy): removed the `<ul .economyPrices>` block. VoltIcon size in heading 22 -> 20. Body copy + accent span on "player-driven marketplace" preserved.
+  - Section 3 (Packs): removed the `<div .chestsRow>` block (chests + label + list). Pack `<li>` no longer toggles `.packItemBig` (the grid sizes packs uniformly). VoltIcon size in price 13 -> 14 to match the bigger pack scale.
+  - Section 4 (Collect): removed the `<ul .collectSwatchesRow>` block. Drone row stays.
+  - Footer: replaced the inline-flex single-row layout with a 2-line stacked layout - `<p .footerCopy>` ("Hyperdrome is a Dendrite Games title. © 2026") on top, `<p .footerLinks>` with Guide · FAQ below.
+- MOD `app/page.module.css`: full rewrite (clean rebuild beat 30+ targeted edits given the breadth of change).
+  - Sections alternate bg via tokens: gameSection #000 (`--bg-primary`), economySection #121212 (`--bg-card`), packsSection #000, collectSection #121212, footer #000. Each section is full-bleed with `padding: var(--space-10) var(--space-8)`. Inner blocks (`.gameGrid`, `.economyContent`, `.packsRow`, `.collectDronesRow`) cap at 1200px max-width centered.
+  - `.sectionHeading`: `--text-2xl` -> `--text-lg`, margin-bottom `--space-6`. Stays uppercase, centered, 0.08em tracking. `.packsHeading` kept distinct (text-xl, sentence-case, no transform) per option (c).
+  - `.gameColumn`: stripped `background`, `border`, `border-radius`, `padding`. Now flex stack with `gap: var(--space-3)`, `align-items: flex-start`. `.gameColumnIcon` filter softened from `0 0 10px rgba(3, 218, 198, 0.35)` to `0 0 8px rgba(3, 218, 198, 0.3)` per spec.
+  - Removed entirely: `.heroHex`, `.heroSubtitle`, `.heroPitch`, `.heroScroll`, `@keyframes heroScrollBounce` and its prefers-reduced-motion clause, `.economyPrices`, `.economyPriceItem`, `.economyPriceLabel`, `.economyPriceValue`, `.chestsRow`, `.chestsList`, `.chestItem`, `.chestImage`, `.chestsLabel`, `.collectSwatchesRow`, `.collectSwatchItem`, `.collectSwatchImage`, `.collectSwatchCaption`, `.packItemBig`.
+  - Packs: `.packsRow` flex -> `display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); align-items: end; max-width: 1200px`. `.packImage` flipped to `width: 100%; max-width: none` so each cell controls width - the 3 packs span the row edge to edge with the prescribed gaps.
+  - Collect: `.collectDroneImage` 250 -> 300. `.collectDronesRow` becomes a flex row centered, no wrap, on desktop. `.collectBodyLegendary` margin-bottom `--space-8` -> `--space-5` to tighten the gap between text block and image row per spec.
+  - Footer: stacked column (was single row). `.footerCopy`, `.footerDot`, `.footerLink` font-size `9px` -> `11px`. Section bg `--bg-primary` set explicitly. New `.footerLinks` rule wraps the Guide/dot/FAQ inline-flex group.
+  - Breakpoints fully restructured. Hero font scaling kept at `min-width: 1024 -> --text-5xl` and `1440 -> --text-6xl`. New `(max-width: 1024px)` block flips Collect to a 2x2 grid (drones max 280px) and tightens packs gap. New `(max-width: 768px)` block: hero shrinks (title `--text-3xl`, tagline `--text-lg`), all 4 sections inset to `--space-4` horizontal, packs stack to 1-col with each image capped at 280px, Collect goes horizontal-scroll with snap. Old 480px block retired (Captain directed standardizing on 1024/768).
+- MOD `app/HeroActions.module.css`:
+  - `.primary` rewritten to outlined treatment: `background: transparent; color: var(--accent-primary); border: 1px solid var(--accent-primary); max-width: 180px; padding: 14px 32px; box-shadow: none`. Dropped `min-height: 56px`, `min-width: 240px`.
+  - `.primary:hover:not(:disabled)`: `background: var(--accent-primary); color: #000; box-shadow: 0 0 20px rgba(3, 218, 198, 0.3)`. Removed `transform: translateY(-1px)` and `filter: brightness(1.1)` for a cleaner premium feel.
+  - `.primary:disabled` keeps `opacity: 0.6` per Captain's confirmation.
+  - Removed the `@media (max-width: 480px) { .primary { width: 100%; min-width: 0 } }` block (`width: 100%` + `max-width: 180px` already governs all sizes - mobile gets the same outlined pill).
+  - Pre-existing em-dash in the `.audioToggle` comment block was rewritten to a period to satisfy the no-em-dash rule on every touched file.
+- `app/HeroActions.jsx` not modified. Button text, click handler, audio toggle, and error rendering all unchanged.
+
+**Verified:** `grep -P "—|–"` across all 4 files returns zero. Dead-ref grep on every removed constant (`ECONOMY_PRICES` / `VOLT_CHESTS` / `COLLECT_SWATCHES`) and class (`heroHex` / `heroSubtitle` / `heroPitch` / `heroScroll` / `economyPrices*` / `chests*` / `collectSwatch*` / `packItemBig`) returns zero. JSX class refs all map to defined CSS classes. No `npm run build` per Captain's instruction. No `npm run dev` run - left to Captain's spot-check.
+
+**Captain to spot-check at 1440 / 1024 / 768:**
+- Hero: just HYPERDROME + tagline + outlined PLAY DEMO. No icon, no descriptive paragraphs, no bouncing chevron. Hover the button: it fills teal, text flips to black, gentle teal halo appears.
+- Section 1 (#000): three icon-led columns floating on dark, no card chrome. 2-sentence bodies, teal column titles. Icons glow softer than before.
+- Section 2 (#121212): same Volts heading + body. Price strip gone.
+- Section 3 (#000): packs span the row edge to edge in a 3-col grid. Each pack image fills its cell (no per-pack size override). Legendary label + price still gold. No chests below.
+- Section 4 (#121212): 4 legendary drones at 300px, no swatch row below. Tighter gap between the gold "8 legendaries" line and the images.
+- Footer (#000): "Hyperdrome is a Dendrite Games title. © 2026" on top, "Guide · FAQ" below, all 11px mono tertiary.
+- Tablet: Collect goes 2x2, packs gap tightens but stays 3-col.
+- Mobile: hero text shrinks, packs stack to single column (each up to 280px), Collect becomes horizontal-scroll-snap.
+
+---
+
+## 2026-04-28 - Login: Orbitron wordmark + Hexagon icon, no focus border
+
+**Captain ask:** (1) Remove the active (focus) border on the email input. (2) Add the lucide Hexagon logo beside the HYPERDROME wordmark. (3) Make the wordmark use the same font as the NavShell sidepanel/header (`var(--font-display)` Orbitron) instead of `var(--font-heading)` Rajdhani.
+
+**Files modified (2):**
+
+- MOD `app/login/page.jsx`:
+  - Imports: added `Hexagon` from `lucide-react`.
+  - `<h1 .title>` content swapped from the literal `"Hyperdrome"` to `<Hexagon size=22 strokeWidth=3 className=titleIcon aria-hidden /> HYPERDROME`. Source text now matches the rendered text (CSS already uppercases). Hexagon is decorative so `aria-hidden="true"`.
+- MOD `app/login/page.module.css`:
+  - `.title` is now `display: flex; align-items: center; justify-content: center; gap: var(--space-2);` and uses `font-family: var(--font-display)` (Orbitron) — matches NavShell `.logo`. Removed `text-align: center` (the flex centering replaces it).
+  - Added `.titleIcon { flex-shrink: 0 }` to keep the hex from compressing in narrow viewports.
+  - `.input:focus` rule trimmed: kept `outline: none`, removed the `border-color: var(--accent-primary)` line so the input keeps its default subtle border on focus.
+
+**Verified:** No build/lint/test runs. Captain to spot-check at 1440 / 1024 / 375.
+
+---
+
+## 2026-04-28 - Landing below-fold: icons + accent highlights + transparent sections + dot-separated footer
+
+**Captain ask:** Full rewrite of the below-fold landing content. Key terms colored via shared `.accent` (teal) and `.accentGold` (legendary gold) inline tokens. Section 1 gets 3 columns with lucide icons (Zap / Shield / TrendingUp) and rewritten copy with accent spans. Sections 2/3/4 get accent highlights too. All section backgrounds transparent (page #000 shows through), separated by `var(--space-12)` margin. Footer reformatted to a single dot-separated row (`Dendrite Games 2026 · Guide · FAQ`, all 9px mono tertiary).
+
+**Files modified (2):**
+
+- MOD `app/page.jsx`:
+  - Imports: added `Zap`, `Shield`, `TrendingUp` from lucide-react alongside the existing `Hexagon` + `ChevronDown`.
+  - Removed the `GAME_FEATURES` constant — Section 1 is now inlined per-column so the accent `<span>`s render natively (a `body` string with Markdown-style highlights wouldn't have worked for JSX nodes).
+  - `ECONOMY_PRICES` gained an `accentGold: true` flag on the legendary entry; the JSX threads `accentGold` into both label and value when set.
+  - `PACKS` reshaped to `{ name, image, price, big, gold }` so each pack renders a name label (Starter / Premium / Legendary) above its price; the legendary row gets `accentGold` on both label and price.
+  - Section 1 (The Game): three `<article .gameColumn>` blocks, each with a 32px lucide icon (`.gameColumnIcon`), title, and a body paragraph carrying inline `<span .accent>` highlights for the key terms Captain spec'd: `1v1 drone races`, `ELO matchmaking`, `track conditions`, `2 minutes`, `mod`, `Volts`, `XP`, `stat caps`. Apostrophe in "drone's stats" escaped as `&apos;` to keep the JSX valid.
+  - Section 2 (Economy): body paragraph rewritten to drop the duplicate "Legendary skins cost..." sentences (Captain's new copy is leaner), wraps `player-driven marketplace` in `.accent`. Price strip threads `.accentGold` through the legendary entry's label + value.
+  - Section 3 (Packs): subtext gets `.accent` on `3 items per pack` and `.accentGold` on `legendary pack`. Each pack item renders `.packLabel` (new) above the existing `.packPrice`; both flip to `.accentGold` on the legendary pack.
+  - Section 4 (Collect): mid-line bold copy now wraps `Legendary skins` in `.accentGold`. `.collectBodyLegendary` already paints the whole "8 legendaries" line in `--rarity-legendary` so no inline span needed there.
+  - Footer flattened to a single horizontal row: `<span .footerCopy>Dendrite Games 2026</span>` + `<span .footerDot>·</span>` + `<Link .footerLink>Guide</Link>` + dot + `<Link .footerLink>FAQ</Link>`. Removed the © (Captain's spec was literal "Dendrite Games 2026"). Removed the wrapping `.footerLinks` span.
+  - Hero / `HeroActions` / video / overlay / `.hero::after` / NavShell untouched.
+  - Em-dash sweep verified zero hits via `grep -P "—|–"`.
+- MOD `app/page.module.css`:
+  - Added `.accent` (`color: var(--accent-primary); font-weight: var(--font-semibold)`) and `.accentGold` (`color: var(--rarity-legendary); font-weight: var(--font-semibold)`) just after `.sectionHeading` so all four sections share them.
+  - Added `.gameColumnIcon` (accent teal + a 10px teal `drop-shadow` glow).
+  - All four below-fold sections (`.gameSection` / `.economySection` / `.packsSection` / `.collectSection`) now have `background: transparent`, `padding: var(--space-12) var(--space-8)` (down from `var(--space-20)`), and `margin-top: var(--space-12)` so they're visually separated by Captain's prescribed gap. Page `var(--bg-primary)` (#000) shows through.
+  - `.packLabel` added (`var(--font-heading)`, `var(--text-sm)` bold uppercase) — slot lives between the pack image and the price.
+  - Removed the `.packItemBig .packPrice { color: var(--rarity-legendary) }` rule because the legendary's gold price color now comes from the inline `.accentGold` class on the `<span>`. Same visual, same color, but consistent with how legendary text is colored elsewhere.
+  - Footer rewritten: single row (`flex; align-items: center; justify-content: center; flex-wrap: wrap`), every element 9px mono tertiary uppercase. Added `.footerDot` rule for the `·` separators. Removed the old `.footerLinks` wrapper rule (now unused). Footer also gets `margin-top: var(--space-12)` for parity with the section spacing. Removed the `border-top` since transparent sections + spaced gaps already separate it visually. The 768px breakpoint that flipped the footer to row layout is no longer needed and was deleted.
+  - Removed `.economyInner` / `.economyText` / `.economyVisual` rules entirely (they were already orphaned from the prior turn but the breakpoint still referenced `.economyInner`; that media-query branch is now gone too).
+  - 480px breakpoint left as-is (still scales floating-image widths) — works for the new content too.
+
+**Verified:** Em-dash grep returns zero across `app/page.jsx` + `app/HeroActions.jsx`. Dead-ref grep (`GAME_FEATURES` / `footerLinks` / `economyVisual*`) returns zero. No build/lint/test runs.
+
+**Captain to spot-check at 1440 / 1024 / 480:**
+- Section 1: three icon-led columns with teal-highlighted key terms (Zap → "Race Every 3 Minutes", Shield → "2-Minute Strategy Window", TrendingUp → "Earn, Level, Progress"). Icons glow teal subtly.
+- Section 2: `Everything runs on [⚡] Volts.` heading; body now mentions `player-driven marketplace` in teal; price strip's legendary row reads in gold.
+- Section 3: subtext shows `3 items per pack` (teal) and `legendary pack` (gold). Each pack image now has a name label above its price; legendary's label + price both gold.
+- Section 4: `Legendary skins` in the bold mid-line is gold; `8 legendaries in Season 1.` stays gold.
+- Footer is a single centered row: `Dendrite Games 2026 · Guide · FAQ`, every element 9px mono tertiary, hover lifts links to text-secondary.
+- Visual gap between sections feels consistent (12-unit margin between each).
+
+---
+
+## 2026-04-28 - Landing: Volts-led Economy + new Packs section + floating Collect showcase
+
+**Captain ask:** (1) Rewrite Economy to lead with Volts-as-currency: `Everything runs on [VoltIcon] Volts.` heading + body paragraph + 3-pack price strip. (2) Insert a new Packs section between Economy and Collect: `Open packs. Chase legendaries.` heading + body + 3 floating skin-pack images (legendary slightly larger) with prices, plus a row of 3 volt-chest images with a "Power up with Volt Chests" label. (3) Replace Collect showcase with floating transparent renders: 4 legendary drones (250px, drop-shadow, hover scale) + 4 skin/mod swatches (120px) plus the 3-line text intro Captain confirmed earlier.
+
+**Files modified (2):**
+
+- MOD `app/page.jsx`:
+  - Imports: removed `getLegendaryTheme` (no longer used; the floating renders need no theme plumbing). Added `VoltIcon` from `@/components/ui/VoltIcon` for inline currency tokens.
+  - New constants near the top: `ECONOMY_PRICES` (3 pack price entries), `PACKS` (3 entries with `big` flag for the legendary pack), `VOLT_CHESTS` (3 entries), `COLLECT_LEGENDARIES` (renamed; same 4 drones), and a new `COLLECT_SWATCHES` (Dragon Scale / Void Bloom / Chrome Fury / Ember). Removed `COLLECT_SKIN_LISTINGS` (the 2 fake gold marketplace cards are gone).
+  - Economy section: dropped the 2-col `.economyInner` grid + screenshot placeholder. Now a centered `.economyContent` column with three children — `.economyBigLine` (`Everything runs on <span .economyVoltsToken><VoltIcon size=22/> Volts</span>.`), `.economyBody` (paragraph per Captain's spec), and `<ul .economyPrices>` rendering the 3-item price strip with VoltIcon size 13.
+  - **New Packs section** between Economy and Collect: `<section .packsSection>` with `<h2 .packsHeading>Open packs. Chase legendaries.</h2>` + `<p .packsBody>` body + `<ul .packsRow>` (3 packs, the legendary one wrapped in `.packItemBig`) + `<div .chestsRow>` (a `<ul .chestsList>` of 3 chests beside a `.chestsLabel` saying "Power up with Volt Chests").
+  - Collect section: stripped out the rotating-border drone cards and gold-shimmer skin cards. Replaced with two simple floating-render rows: `<ul .collectDronesRow>` (4 legendary drones, `<img>` + `<span>`) and `<ul .collectSwatchesRow>` (4 swatches, smaller). Three body lines kept exactly as before (`.collectBodySmall` / `.collectBodyMid` / `.collectBodyLegendary`).
+  - **Em-dash sweep verified:** `grep -P "—|–"` on both landing files returns zero.
+- MOD `app/page.module.css`:
+  - Removed: `.economyInner`, `.economyText`, `.economyVisual`, `.economyVisualLabel`, all the prior Collect classes (`.collectShowcase`, `.collectDroneCard` + `::before`/`::after`, `.collectDroneImageFrame`, `.collectDroneFooter`, `.collectDroneName`, `.collectDroneBadge`, `.collectSkinCard` + `::after`, `.collectSkinSwatch`, `.collectSkinFooter`, `.collectSkinName`, `.collectSkinRarity`, `.collectSkinPrice`), and the keyframes `collectLegendaryRotate` / `collectLegendaryBob` / `collectSkinGlisten` plus their `prefers-reduced-motion` clauses (all dead with the rebuild).
+  - Added (Economy): `.economyContent`, `.economyBigLine`, `.economyVoltsToken` (inline-flex teal token, `vertical-align: -0.15em` so the icon sits visually centered with the cap-height of "Volts"), `.economyBody`, `.economyPrices`, `.economyPriceItem`, `.economyPriceLabel`, `.economyPriceValue`. The price strip wraps on narrow viewports.
+  - Added (Packs): `.packsSection` (centered, max-width 1280px, padded), `.packsHeading` (custom — text-xl bold heading-font, NOT the shared `.sectionHeading` since Captain's spec is smaller and not all-caps), `.packsBody` (max-width 580px, secondary), `.packsRow` (flex row, `align-items: flex-end` so the bigger legendary anchors to the same baseline, `flex-wrap: wrap` + horizontal-scroll fallback for mobile), `.packItem` / `.packItemBig` with respective `.packImage` widths (180 default, 220 big). Big pack also gets a soft gold halo via a second drop-shadow. `.packPrice` mono w/ accent teal; legendary's price flips to `--rarity-legendary` gold.
+  - Added (Chests): `.chestsRow` (inline-flex with the label beside), `.chestsList` (3 images), `.chestImage` (max 80px, drop-shadow, `:hover translateY(-2px)`), `.chestsLabel` (mono 10px tertiary).
+  - Added (Collect floating renders): `.collectDronesRow` + `.collectSwatchesRow` as flex rows with horizontal-scroll fallback. `.collectDroneImage` is `max-width: 250px` with `filter: drop-shadow(0 8px 20px rgba(0,0,0,0.5))` and `transition: transform 0.3s ease` + `:hover transform: scale(1.05)` — exactly Captain's spec. `.collectSwatchImage` is the smaller variant (`max-width: 120px`, lighter shadow). Mono captions below each, sized differently per row.
+  - Mobile breakpoint (`@media (max-width: 480px)`) updated: shrinks `.collectDroneImage 250 -> 200`, `.collectSwatchImage 120 -> 100`, `.packImage 180 -> 150`, `.packItemBig .packImage 220 -> 180`, `.chestImage 80 -> 64`. Old `.collectDroneCard / .collectSkinCard { width: 170px }` rule retired.
+  - Hero / video / overlay / `.hero::after` / NavShell-touching rules untouched per Captain's rules.
+
+**Section order on the landing now:** hero -> The Game -> The Economy -> **Packs (new)** -> Collect -> footer.
+
+**Verified:** `grep -P "—|–" app/page.jsx app/HeroActions.jsx` -> zero. No build/lint/test runs.
+
+**Captain to spot-check at 1440 / 1024 / 480:**
+- Economy reads centered: "Everything runs on [VoltIcon] Volts." with the icon + word in accent teal. Body paragraph below, then the 3-item price strip on its own line, each price preceded by a tiny VoltIcon and shown in accent teal mono.
+- Packs section sits between Economy and Collect: tagline-style heading, 3 pack foils in a row (legendary 220px pops vs 180px for the others, with a soft gold halo), prices below each (teal for starter/premium, gold for legendary). Below the packs: 3 chest images and a "Power up with Volt Chests" mono label beside them.
+- Collect reads as floating assets on the dark page: 4 legendary drones at 250px hover-scale, then 4 smaller skin swatches at 120px. No card chrome anywhere.
+
+---
+
+## 2026-04-28 - Landing: gradient stops, heading alignment, em-dash purge, Collect showcase rebuild
+
+**Captain ask:** (1) `.hero::after` gradient stops moved further down so the opaque region only kicks in at the bottom (90 -> 96 -> 100 instead of 85 -> 92 -> 96 -> 100). (2) Center-align all section headings consistently and strip every em-dash / en-dash from landing copy. (3) Replace the legendary image row in the Collect section with static recreations of (a) my-drones legendary cards (rotating border, drone image, LEGENDARY badge) and (b) marketplace SKINS-tab gold-shimmer skin cards. (4) Three-line body copy with ascending visual prominence ending on "8 legendaries in Season 1." in legendary gold.
+
+**Files modified (2):**
+
+- MOD `app/page.jsx`:
+  - Imports: added `getLegendaryTheme` from `@/lib/utils` so the showcase drone cards get per-skin `bg / glow1 / glow2` plumbed inline.
+  - Em-dash purge (2 sites): "Volts can buy gear but not XP — progression requires real play" -> "Volts can buy gear but not XP. Progression requires real play"; "1-of-1 unique designs — when you own one, nobody else can" -> "1-of-1 unique designs. When you own one, nobody else can." Verified `grep -P "—|–"` returns zero matches.
+  - Renamed `LEGENDARY_SHOWCASE` -> `COLLECT_LEGENDARIES` and added a new `COLLECT_SKIN_LISTINGS` constant for the two gold marketplace cards (Gilded Throne 135,000V, Samurai 98,000V).
+  - The Economy section: moved the `<h2 .sectionHeading>` OUT of `.economyText` and up to the section level so it sits above the 2-col grid. Body still lives inside `.economyText`. Now consistent with the other two sections (heading at top, content below).
+  - Collect section reworked end-to-end:
+    - Heading: `<h2>Collect</h2>` (uses shared `.sectionHeading`).
+    - Three stacked body lines via new classes: `.collectBodySmall` (font-body / text-sm / text-secondary), `.collectBodyMid` (font-body / text-base / text-primary / bold), `.collectBodyLegendary` (font-heading / text-lg / bold / `--rarity-legendary` gold).
+    - `<ul .collectShowcase>` with 4 `<li .collectDroneCard>` (per-skin theme piped via inline style) followed by 2 `<li .collectSkinCard>` (gold marketplace recreation).
+    - Drone cards have a `.collectDroneImageFrame` (1/1 aspect, padded) + image + footer with name + LEGENDARY badge.
+    - Skin cards have `.collectSkinSwatch` + image + footer (name + LEGENDARY) + bottom-row price.
+- MOD `app/page.module.css`:
+  - `.hero::after` background swapped to the 4-stop curve `transparent 0% / 90% / rgba(0,0,0,0.9) 96% / #000 100%`. Less upward bleed; opaque region pinned to the bottom 4-10%.
+  - `.sectionHeading` got `text-align: center` so all three section headings (`The Game` / `The Economy` / `Collect`) align consistently.
+  - Removed the no-longer-needed `.economyText .sectionHeading { margin-bottom }` override (the heading is no longer a child of `.economyText`).
+  - Replaced the entire `.collectIntro` / `.collectRow` / `.collectItem` / `.collectImageFrame` / `.collectImage` / `.collectName` / `.collectFooter` block with the new rule set:
+    - Three body-line styles (`.collectBodySmall`, `.collectBodyMid`, `.collectBodyLegendary`).
+    - `.collectShowcase` row: `display: flex; overflow-x: auto; scroll-snap-type: x mandatory` for mobile horizontal scroll. `@media (min-width: 1100px)` flips it to `justify-content: center; overflow-x: visible` so the cards sit centered on desktop without a scrollbar.
+    - `.collectDroneCard` recreates `.skinRarity_legendary` from `app/drones/page.module.css`: `position: relative; isolation: isolate; clip-path: inset(0 round var(--radius-lg))`. `::before` is the rotating conic-gradient border (z-index -2, 200% by 200%, 10s `collectLegendaryRotate` keyframe), `::after` is the inset body wash using `--legendary-glow-2 -> --legendary-glow-1 -> #0A0A0A` fallback chain (12% / 4% opacity stops, slightly stronger than the live drones page so the small card reads). `.collectDroneImage` bobs (`collectLegendaryBob` 4s ease-in-out infinite, ±6px). All animations gated by `@media (prefers-reduced-motion: reduce)`.
+    - `.collectSkinCard` recreates `cardLegendaryShimmer` from `app/marketplace/page.module.css`: gold linear-gradient body + 1px gold border + soft gold box-shadow. `::after` is the 135deg gold band sweep (`collectSkinGlisten` 6s, opacity-breathing). Direct children pinned `position: relative; z-index: 2` so the shimmer sits behind them. `.collectSkinSwatch` (1/1 aspect with a black-rgba inner background to make the image readable on the gold), `.collectSkinFooter` (name + rarity), `.collectSkinPrice` at the bottom in `--rarity-legendary` mono.
+  - Mobile breakpoint (`@media (max-width: 480px)`): old `.collectItem { width: 180px }` rule retargeted to `.collectDroneCard, .collectSkinCard { width: 170px }`.
+
+**Verified:** `grep -nP "—|–" app/page.jsx app/HeroActions.jsx` returns nothing. No build/lint/test runs.
+
+**Captain to spot-check at 1440 / 1024 / 480:**
+- Hero: bottom black band reads tighter to the edge; less black creep into the video.
+- "The Game" / "The Economy" / "Collect" headings all centered, identical type.
+- Collect: 3 body lines stacked center, ending in a gold legendary line. Showcase row below: 4 rotating-border legendary drone cards (Apex Predator orange / Celestial indigo / Kraken blue-violet / Diamond Hand electric blue) + 2 gold-shimmer marketplace skin cards (Gilded Throne 135,000V / Samurai 98,000V). Centered on wide viewports; horizontal scroll on narrow.
+
+---
+
+## 2026-04-28 - Hero bottom-gradient: tighten fade window, anchor solid black sooner
+
+**Captain ask:** swap the `.hero::after` gradient stops to bring the fade in stronger and snap to solid black sooner.
+
+**Files modified (1):**
+
+- MOD `app/page.module.css` — `.hero::after` background updated to:
+  ```
+  linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 85%,
+    rgba(0, 0, 0, 0.95) 92%,
+    #000000 96%,
+    #000000 100%
+  )
+  ```
+  Was the prior 4-stop ramp `(transparent 85% / rgba 0.8 95% / #000 100%)`. New 5-stop curve: still kicks off at 85%, but reaches near-solid (`rgba 0.95`) by 92% and locks to `#000` at 96% (held to 100%). Result: the fade's effective window is ~7% of hero height (vs 15% before) and the bottom edge is unambiguously solid black.
+
+**Verified:** None — Captain waived dev/visual checks. No build/lint/test runs.
+
+---
+
+## 2026-04-28 - Marketplace seed top-up + landing page redesign
+
+**Captain ask:** (A) Fill out the marketplace listings to feel alive — 30 more drones, 20 skin placeholders, 15 mods, plus ensure ≥20 active racing bots across the 4 brackets. (B) Redesign the landing page: single dominant PLAY DEMO, top-right Login/Register link, new tagline copy, scroll-down chevron, three below-fold sections (The Game / The Economy / Collect), legendary skin row, footer with Guide/FAQ. Hyperdrome wordmark slightly thicker on the hero. Hero video / overlay / bottom gradient untouched.
+
+### Files added (1) for the marketplace seed top-up
+
+- ADD `scripts/seed-marketplace-fill.js`. Counts current active listings per item type, only inserts the difference up to fixed targets:
+  - Drones: target **38 active** (8 from earlier seed + 30 more). Pulled from MKT_*-owned drones not already listed, distributed across the four tiers, prices randomised within tier bands (1k-3k, 3k-8k, 8k-18k, 18k-35k) rounded to nearest 100. Drone owner re-homed to whichever bot the cycle assigns so seller/owner stay consistent.
+  - Skins: target **30 active** (10 + 20). Drawn from the **legacy placeholder pool** (skins where `image_url` does NOT match `/skins/%/.webp`) so the photographic skin pool is preserved for packs. ~25% epic / 35% rare / 40% common, prices `15k-25k / 3k-8k / 0.5k-1.5k`.
+  - Mods: target **24 active** (9 + 15). Unbound mods only. ~20% epic / 40% rare / 40% common, prices `8k-15k / 1.5k-4k / 0.2k-0.7k`.
+  - Racing bots: per-bracket count of `is_bot=true; active=true; not listed`. If `<5`, insert AUTOBOT-XXXXX rows with random LV-capped stats and `image_url='/drones/default.png'`. Mirrors `lib/game-engine/matchmaking.js#createSeedBot`.
+- **Run output:** drone listings placed=30, skin listings placed=20, mod listings placed=15, racing bots created=9 (T1+1, T3+4, T4+4). Final active listings: drones=38, skins=30, mods=24, total=92. Idempotent — re-runs are no-ops once targets are met.
+
+### Files modified (3) for the landing redesign
+
+- MOD `app/HeroActions.jsx`:
+  - Removed the `Login` Link import and the secondary CTA button.
+  - Removed the `helper` paragraph ("Demo creates a pre-progressed pilot account instantly").
+  - Cluster simplified to `<button .primary>Play Demo</button>` + optional error text. Audio toggle preserved (gated on `/hero-audio.mp3` HEAD probe; file isn't present today so it doesn't render).
+- MOD `app/HeroActions.module.css`:
+  - Dropped `.secondary`, `.helper`, and `.buttons` rules (no longer used).
+  - `.primary` upsized: `min-height 52px -> 56px`, `min-width 200px -> 240px`, padding `var(--space-6) -> var(--space-8)`, letter-spacing `0.05em -> 0.08em`, added a teal box-shadow glow `0 0 24px rgba(3,218,198,0.35)` (lifts to 32px / 0.55 alpha on hover) and `:focus-visible` outline.
+  - Mobile breakpoint trimmed — only one button now, so the column-stack rule is gone.
+- MOD `app/page.jsx`:
+  - Imports: dropped `Cpu`, `ShoppingCart`, `Sparkles`, `Trophy` (old features grid). Added `Link` (next/link) for /login + /guide + /faq, and `ChevronDown` for the scroll hint.
+  - Hero: added a top-right `.heroLogin` `<Link href="/login">Login / Register</Link>`. Replaced the old `heroTiming` paragraph with two new lines: `.heroTagline` ("Build. Race. Trade. Collect.") and `.heroPitch` (the 500px-max descriptor). Added a bouncing `<span .heroScroll>` containing a `<ChevronDown>`.
+  - Removed the `FEATURES` constant + `featuresSection` block entirely.
+  - **Section 1 — The Game**: `<section .gameSection>` with `<h2 .sectionHeading>The Game</h2>` and a 3-column grid (`Automated Racing` / `Strategy Layer` / `Progression`). Copy from Captain's prompt verbatim.
+  - **Section 2 — The Economy**: `<section .economySection>` with text + visual grid. Text block carries the section heading + body (player-driven marketplace, 5% rake, 1-of-1 legendaries). Visual is a `<div .economyVisual>` rectangle with a centered "Marketplace" label — explicit dashed-border placeholder for the eventual screenshot.
+  - **Section 3 — Collect**: `<section .collectSection>` with intro line, a horizontal `<ul .collectRow>` of 4 legendary cards (Apex Predator / Celestial / Kraken / Diamond Hand from `/skins/legendary/{slug}.webp`), then the closing line "8 legendaries in Season 1...". `scroll-snap-type: x mandatory` + `overflow-x: auto` give the mobile horizontal-scroll behavior.
+  - **Footer**: row layout with copyright + Guide/FAQ links, top-bordered.
+- MOD `app/page.module.css`:
+  - **Untouched**: `.hero`, `.heroVideo`, `.heroOverlay`, `.hero::after` (bottom gradient), `.heroContent` — all per Captain's "stay exactly as they are".
+  - **Hyperdrome wordmark thicker**: `.heroTitle` got `-webkit-text-stroke: 0.6px var(--text-primary)`. Orbitron 700 is the heaviest weight loaded in `globals.css` (which is out-of-scope for this batch), so adding a thin stroke around each glyph is the right knob — bumps perceived weight without needing a new font weight. Comment in the rule explains the choice.
+  - **New rules**: `.heroLogin` (top-right mono link), `.heroTagline` + `.heroPitch` (the new copy), `.heroScroll` + `@keyframes heroScrollBounce` + `prefers-reduced-motion` clause.
+  - **Section heading**: shared `.sectionHeading` (Rajdhani 2xl uppercase) reused across all three below-fold sections.
+  - **The Game**: `.gameSection`, `.gameGrid` (1 col mobile / 3 col ≥768px), `.gameColumn` (bg-card border + padding), `.gameColumnTitle` (accent teal), `.gameColumnBody`.
+  - **The Economy**: `.economySection`, `.economyInner` (1 col mobile / 1fr 1fr ≥768px), `.economyText`, `.economyBody`, `.economyVisual` (16/10 dashed-border placeholder), `.economyVisualLabel`.
+  - **Collect**: `.collectSection`, `.collectIntro`, `.collectRow` (`overflow-x: auto`, scroll-snap), `.collectItem` (220px wide), `.collectImageFrame` (1/1 aspect), `.collectImage` (object-fit contain), `.collectName`, `.collectFooter`.
+  - **Footer**: `.footer` (column on mobile, row ≥768px, top border), `.footerCopy` (mono 11px), `.footerLinks`, `.footerLink` (mono 9px uppercase, hover lifts to text-secondary).
+  - **Removed**: all old `.featuresSection`, `.featuresGrid`, `.featureCard`, `.featureIcon`, `.featureTitle`, `.featureDescription`, `.heroTiming` rules.
+  - Breakpoints: 768 / 1024 / 1440 / 480 — same set the file already used.
+
+**Verified:** Marketplace script self-prints + idempotency targets reach `0 added` on re-run. No build/lint/test runs on the landing redesign.
+
+**Captain to spot-check at 1440 / 1024 / 480:**
+- Hero: PLAY DEMO single big teal button glowing softly, "Login / Register" sits in the top-right corner in muted mono. HYPERDROME visibly heavier than the same wordmark in NavShell. New two-line tagline reads beneath the subtitle. Bouncing chevron under the button.
+- The Game: 3 columns of equal-width cards on desktop, stacked on mobile. Teal section heading.
+- The Economy: text on the left, dashed "Marketplace" placeholder on the right (will become real screenshot later).
+- Collect: 4 legendary skin images in a row at desktop; horizontally scrollable on narrow viewports.
+- Footer: copyright + Guide/FAQ links.
+
+---
+
+## 2026-04-28 - Landing hero: bottom-edge gradient fade
+
+**Captain ask:** Add a `::after` overlay on the landing-hero that fades transparent -> black over the bottom of the hero — hides any video watermark and makes the hero visually fall into the dark page below.
+
+**Files modified (1):**
+
+- MOD `app/page.module.css` — appended a `.hero::after` rule directly after `.heroOverlay`. `position: absolute; inset: 0` (covers full hero), `z-index: 1` (same level as the existing dark overlay; pseudo-elements paint after their parent's children at the same z-index, so this lands on top of the overlay AND the video, below `.heroContent` z-index 2). `pointer-events: none`. Background is Captain's exact `linear-gradient(to bottom, transparent 0%, transparent 85%, rgba(0,0,0,0.8) 95%, #000000 100%)` — the fade lives in the bottom 15% of the hero, which on a 100vh viewport works out to ~110-130px depending on display size (Captain's "~80px" estimate is in the same ballpark). Comment in the rule explains the two purposes (hide watermark, soften the hero edge).
+
+**Verified:** None — Captain waived dev/visual checks. No build/lint/test runs.
+
+---
+
+## 2026-04-28 - Revert upcoming-races banner loading state (keep it simple)
+
+**Captain ask:** Roll back the loading-shimmer scaffolding I just added. No skeleton, no placeholder — banner shows when data arrives, hides otherwise. A small layout shift is acceptable.
+
+**Files modified (2):**
+
+- MOD `app/races/page.jsx`:
+  - Removed the `upcomingLoaded` state declaration.
+  - Removed the three `setUpcomingLoaded(true)` calls in the `/api/races/upcoming` `useEffect` (the signed-out, success, and error branches). Effect is back to its original simple form: signed-out clears the array, success populates, error keeps stale.
+  - Banner JSX swapped back to the single `upcomingRaces.length > 0 && <Link>...` conditional — no three-state ternary, no placeholder div, no `aria-hidden` skeleton.
+- MOD `app/races/page.module.css`:
+  - Dropped `min-height: 36px` from `.upcomingBanner` (and its 3-line comment).
+  - Removed the `.upcomingBannerLoading` rule (and its `:hover` override).
+  - Removed the `.upcomingBannerSkeleton` rule.
+  - Removed the `@keyframes upcomingBannerShimmer` definition.
+  - Removed the `@media (prefers-reduced-motion: reduce)` block that targeted the skeleton.
+
+**Verified:** None — Captain waived dev/visual checks. Confirmed via grep that no references to `upcomingLoaded` / `upcomingBannerLoading` / `upcomingBannerSkeleton` / `upcomingBannerShimmer` remain in either file. `cn` import is still used once elsewhere in the file so it stays.
+
+**End state:** banner behavior reverts to "show if `upcomingRaces.length > 0`, hide otherwise". Brief layout shift on first data arrival is back; Captain accepted it.
+
+---
+
+## 2026-04-28 - Races page: prevent upcoming-races banner layout shift
+
+**Captain ask:** The "You have N upcoming races" banner pops in 1-2s after the page renders, shifting everything below. Reserve banner space from initial render with a fixed-height container + subtle shimmer; populate text on data arrival; hide entirely once loaded if zero races.
+
+**Files modified (2):**
+
+- MOD `app/races/page.jsx`:
+  - Added `upcomingLoaded` boolean state (default `false`) alongside the existing `upcomingRaces` array. Tracks whether the `/api/races/upcoming` fetch has resolved at least once so the banner can switch from skeleton -> real / hidden.
+  - Updated the upcoming-races `useEffect` to flip `setUpcomingLoaded(true)` on:
+    - the signed-out branch (no fetch is fired, so we mark loaded immediately to skip the indefinite shimmer),
+    - the success branch (after `setUpcomingRaces`),
+    - the error branch (so a network fail doesn't leave the banner shimmering forever — better to disappear or show stale than stay broken).
+  - Banner render swapped from a single `length > 0 &&` conditional to a three-state ternary:
+    - `!upcomingLoaded` -> a `<div className={cn(styles.upcomingBanner, styles.upcomingBannerLoading)}>` with `aria-hidden="true"` and a single shimmer placeholder line. Same outer dimensions as the populated state.
+    - `upcomingLoaded && upcomingRaces.length > 0` -> the original Link with the dot + text + CTA.
+    - `upcomingLoaded && length === 0` -> `null` (banner removed entirely once we've confirmed zero).
+- MOD `app/races/page.module.css`:
+  - Added `min-height: 36px` to `.upcomingBanner` so the box reserves space whether populated or loading. Matches the natural populated height (8+8 padding + ~14-18px content).
+  - Added `.upcomingBannerLoading` modifier to suppress hover/cursor on the placeholder div (it's not a link).
+  - Added `.upcomingBannerSkeleton` — single ~12px tall, 220px wide rounded bar with a 1.4s `linear-gradient` shimmer animation (`upcomingBannerShimmer` keyframe), tinted with the banner's accent teal at 10%/22%/10% opacity stops so it reads as part of the banner, not a foreign skeleton block. `@media (prefers-reduced-motion: reduce)` kills the animation and drops opacity to 0.5.
+
+**Effect:** the banner area is committed to the layout from first paint with the teal-tinted box + shimmer line. When the fetch resolves: text populates without movement, OR the box collapses (only if user has zero upcoming). No more 1-2s jump.
+
+**Verified:** None — Captain waived dev/visual checks. No build/lint/test runs.
+
+---
+
+## 2026-04-28 - Upcoming-race page: skin/mod parity, compact track, 3 new strategy cards
+
+**Captain ask:** Mirror the drone-manager skin/mod styling on the upcoming-race matchup cards (read-only; just show what's equipped or "no skin/mod equipped"). Shrink the track to tracks-page sizing. Add three new strategy cards on the bottom row to replace the wide track section: (a) Conditions, (b) Edge, (c) Win Probability. All three should ship.
+
+**Files modified (2):**
+
+- MOD `app/races/[raceId]/page.jsx`:
+  - Imports: added `SkinThumb` from `@/components/ui/SkinThumb` and `TrackPlaceholder` from `@/components/tracks/TrackPlaceholder`.
+  - Constants: added `TRACKS_WITH_IMAGES`, `TRACK_ACCENT_COLORS`, and `trackSlugFromName()` near the top — mirrored from `app/tracks/page.jsx` so the compact track card knows whether to render `<img>` or the placeholder. Comment notes the duplication and that they need to be kept in sync.
+  - **`MatchupDroneCard`**: replaced the single `matchupModBlock` (mod only) with a `collectibleRow` containing both a `skinBlock` AND a `modBlock`, mirroring drone-manager's structure. Triggers are rendered as styled `<div>`s (NOT `<button>`s) — no chevron, no swap dropdown, no bind CTA — so it reads as a static read-only display. Per-rarity background tint (`modSelector_legendary` etc.) carries over from the drone-manager classes. Empty states render "No skin equipped" / "No mod equipped" inside the same trigger frame so it doesn't shift layout.
+  - **Replaced `TrackSection` + `TrackSpec` + `TrackSpecSep`** (the 3 unused functions, ~85 lines) with four new components:
+    - `CompactTrackCard({ race })` — name above a 5/2 image frame, body row with Difficulty (color-coded) + Length, then Straights / Turns / Laps. Mirrors `app/tracks/page.jsx` `TrackCard`. Uses `TrackPlaceholder` when `slug` not in `TRACKS_WITH_IMAGES`. Image src uses `slug.replace(/-/g, '_')` to match the underscore filenames in `public/tracks/`.
+    - `ConditionsCard({ race })` — large weather + time-of-day icons (`size={28}`), each labeled and value-rowed. Reads `race.weather` / `race.timeOfDay`, falls back to `Cloud` / `Sun` icons.
+    - `EdgeCard({ viewerDrone, opponentDrone })` — computes per-stat deltas across all 9 `STAT_KEYS`, splits into top-3 strengths (positive deltas) and top-3 gaps (negative deltas). Shows `+N` / `-N` next to each stat label (uses the existing `RADAR_LABELS` map for short codes like SPD / TRN / NV). Empty-state per block is `—`.
+    - `WinProbabilityCard({ viewerDrone, opponentDrone })` — Elo-based forecast `1 / (1 + 10^((opp - viewer) / 400))` rounded to whole percent, displayed as a big number + horizontal bar fill + caption `ELO X vs Y`. Falls back to `—` when either drone is missing.
+  - **`RaceStrategyView`**: bottom row swapped from `<TrackSection race={race} />` (full-width) to a new `<div className={styles.strategyGrid}>` containing the four cards in order: track, conditions, edge, win probability. The viewer drone for Edge/WinProb is `leftDrone` (already computed to be the user's drone if they own one, falling back to `drone1`); opponent is `rightDrone`. Section comment at the top of the function block updated.
+- MOD `app/races/[raceId]/page.module.css`:
+  - Appended ~370 lines at the end of the file. Three blocks:
+    - **Skin/mod read-only mirror**: `.collectibleRow`, `.skinBlock` / `.modBlock`, `.skinLabel` / `.modLabel`, `.skinSwatch`, `.modSelector` + per-rarity backgrounds (`_common` / `_rare` / `_epic` / `_legendary` with the legendary-glisten animation, scoped behind a renamed keyframe `collectibleLegendaryGlisten` so it doesn't collide with the source keyframe in the drone-manager module), `.modSelectorReadOnly` (cursor reset, kills hover assumptions), `.modSelectorIcon`, `.modCurrentText`, `.modName`. Copy-of-drone-manager source noted in the section comment.
+    - **Compact track card**: `.compactTrackCard` + name / image frame (5/2) / body / meta row (difficulty + length) / specs row (straights / turns / laps with separators). Sized to fit one quarter of the strategy grid at desktop.
+    - **Strategy grid + shared `.strategyCard` frame**: 4-col grid at >1100px, 2-col at 1100, 1-col at 600. `.strategyCardHeading` gives the small uppercase mono label at the top of each card. Per-card styling for ConditionsCard (icon + label/value rows), EdgeCard (`.edgeBlock` / `.edgeList` / `.edgeRow` with `.edgeDeltaPos` teal and `.edgeDeltaNeg` error-red), and WinProbabilityCard (`.winProbValue` 2xl heading + `.winProbBar` + `.winProbBarFill`).
+
+**Untouched (intentionally — left as dead CSS for follow-up cleanup):** the old `.matchupModBlock`, `.matchupModText`, `.matchupModName`, `.matchupModEffect`, `.matchupModEmpty`, `.trackSection`, `.trackSectionInner`, `.trackImageBox`, `.trackImagePlaceholder`, `.trackSectionImg`, `.trackInfo`, `.trackName`, `.trackDiffRow*`, `.trackSpecRow*`, `.trackCondRow*` rules in `page.module.css`. Removing them across a 1500-line CSS file with a 1300-line JSX render path is risky to do blind without a visual check; flagging here so a follow-up sweep can clean them up safely.
+
+**Layout summary (upcoming-race / `RaceStrategyView`):**
+1. `<H2HStrip>` — full-width comparison strip (unchanged).
+2. `<MatchupDroneCard>` × 2 — side-by-side. Each now ends with the dual `collectibleRow` (skin + mod) instead of just the mod pill.
+3. `<div .strategyGrid>` — 4-column row at desktop (`CompactTrackCard` · `ConditionsCard` · `EdgeCard` · `WinProbabilityCard`), 2-col at tablet, stacked at mobile.
+
+**Verified:** None — Captain waived dev/visual checks. No build/lint/test runs.
+
+**Captain to spot-check at 1440 / 1024 / 375:**
+- Matchup card now has TWO read-only chips at the bottom (Skin + Mod), each with the same per-rarity background tint as the drone-manager swap selectors. No chevron, no clickable feel.
+- Track is compact and sits as the first card of the bottom 4-card row. Tracks without transparent renders show the wireframe motif inline.
+- Conditions card: big weather + time icons, clear labels.
+- Edge card: list of `+N` / `-N` deltas, top 3 each side.
+- Win probability: big percent + bar; ELO caption underneath.
+
+---
+
 ## 2026-04-28 - Tracks: image allowlist swap + drop placeholder tagline
 
 **Captain ask:** (1) Set `TRACKS_WITH_IMAGES` to exactly the 6 tracks with transparent-optimized renders (`horizon-express`, `neon-straightaway`, `the-grid`, `circuit-alpha`, `keyhole`, `meridian`). Drop `skyline-drift`, `tempest-run`, `voltage-loop` — those files exist but aren't transparent-optimized. (2) Drop the "Track Preview Coming Soon" tagline from `TrackPlaceholder` so it reads as a deliberate motif, not a "missing content" apology.

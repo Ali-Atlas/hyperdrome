@@ -105,12 +105,6 @@ export async function POST(request) {
   }
 
   try {
-    await seedDemoPlayer(user.id);
-  } catch (err) {
-    console.error('[demo] seedDemoPlayer failed:', err);
-  }
-
-  try {
     await signIn('credentials', {
       userId: user.id,
       demoSecret: process.env.NEXTAUTH_SECRET,
@@ -123,6 +117,14 @@ export async function POST(request) {
       { status: 500 },
     );
   }
+
+  // Fire-and-forget. The dashboard renders an empty/loading state and
+  // picks up volts, drones, and race history as the seed writes them.
+  // Captain accepted the tradeoff: 1-2s redirect beats holding the user
+  // on the landing page for the full ~30s seed.
+  seedDemoPlayer(user.id).catch((err) => {
+    console.error('[demo] background seedDemoPlayer failed:', err);
+  });
 
   return NextResponse.json({ redirectUrl: '/dashboard' });
 }

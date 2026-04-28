@@ -5,7 +5,8 @@
 }
 
 /* ==========================================================================
- * Hero - full viewport with looping video bg + dark overlay + centered copy
+ * Hero - full viewport with looping video bg + dark overlay + bottom gradient.
+ * Captain: video, overlay, and bottom gradient stay exactly as they are.
  * ========================================================================== */
 
 .hero {
@@ -32,6 +33,43 @@
   z-index: 1;
 }
 
+/* Bottom-edge fade. Sits over the video + the dark overlay; the gradient
+   keeps the top transparent and ramps to solid black across the bottom
+   ~10% of the hero. Below .heroContent (z-index 2) so text remains crisp. */
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 90%,
+    rgba(0, 0, 0, 0.9) 96%,
+    #000000 100%
+  );
+  pointer-events: none;
+}
+
+/* Top-right hero login link. Subtle, mono, never competes with PLAY DEMO. */
+.heroLogin {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 3;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.heroLogin:hover {
+  color: var(--text-primary);
+}
+
 .heroContent {
   position: absolute;
   inset: 0;
@@ -40,144 +78,491 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
+  gap: var(--space-12);
   padding: var(--space-8);
   text-align: center;
 }
 
-.heroHex {
-  color: var(--accent-primary);
-}
-
+/* HYPERDROME wordmark. -webkit-text-stroke thickens glyphs without needing
+   a heavier font weight than Orbitron 700. */
 .heroTitle {
   font-family: var(--font-display);
-  font-size: var(--text-4xl);
+  font-size: var(--text-6xl);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   letter-spacing: 0.1em;
   margin: 0;
   line-height: 1;
+  -webkit-text-stroke: 0.6px var(--text-primary);
 }
 
-.heroSubtitle {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--text-secondary);
-  max-width: 600px;
-  margin: 0;
-  line-height: 1.6;
-}
-
-.heroTiming {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--accent-primary);
-  margin: 0;
-  letter-spacing: 0.05em;
-}
-
-/* ==========================================================================
- * Features - 1/2/4 responsive grid below the fold
- * ========================================================================== */
-
-.featuresSection {
-  padding: var(--space-20) var(--space-8);
-  background: var(--bg-primary);
-}
-
-.featuresGrid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-6);
-  max-width: 1280px;
-  margin: 0 auto;
-}
-
-.featureCard {
-  background: var(--bg-card);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.featureIcon {
-  color: var(--accent-primary);
-}
-
-.featureTitle {
+.heroTagline {
   font-family: var(--font-heading);
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   margin: 0;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
 }
 
-.featureDescription {
+/* ==========================================================================
+ * Section heading (shared across Gameplay / Mods / Collect)
+ * Captain: --text-lg, uppercase, centered. Smaller than prior --text-2xl.
+ * Packs section uses .packsHeading instead (conversational tagline).
+ * ========================================================================== */
+
+.sectionHeading {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 var(--space-6);
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* Inline highlight tokens. Used in Economy body for "player-driven
+   marketplace" and Packs body for "3 items per pack" / "legendary pack". */
+.accent {
+  color: var(--accent-primary);
+  font-weight: var(--font-semibold);
+}
+
+.accentGold {
+  color: var(--rarity-legendary);
+  font-weight: var(--font-semibold);
+}
+
+/* ==========================================================================
+ * Section 1 - The Game (3 columns, no card chrome, bg #000)
+ * ========================================================================== */
+
+.gameSection {
+  background: var(--bg-primary);
+  padding: var(--space-10) var(--space-8);
+}
+
+.gameGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-8);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.gameColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-6);
+}
+
+.gameColumnIcon {
+  color: var(--accent-primary);
+  filter: drop-shadow(0 0 8px rgba(3, 218, 198, 0.3));
+}
+
+.gameColumnTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.gameColumnBody {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   color: var(--text-secondary);
   line-height: 1.6;
   margin: 0;
 }
 
 /* ==========================================================================
- * Footer - tiny mono copyright. 9px is below the smallest token (--text-xs
- * = 12px); Captain explicitly approved the hardcoded sizing for this
- * landing-page-only chrome.
+ * Section 2 - Economy (no visible h2, .economyBigLine is the heading, bg #121212)
  * ========================================================================== */
 
-.footer {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text-tertiary);
+.economySection {
+  background: var(--bg-card);
+  padding: var(--space-10) var(--space-8);
+}
+
+.economyContent {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  padding: var(--space-6);
-  letter-spacing: 0.05em;
+  gap: var(--space-4);
+}
+
+.economyBigLine {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+}
+
+/* Inline VoltIcon + "Volts" word painted in accent teal. */
+.economyVoltsToken {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-primary);
+  vertical-align: -0.15em;
+}
+
+.economyBody {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 0;
+  max-width: 640px;
 }
 
 /* ==========================================================================
- * Breakpoints (1440 / 1024 / 375)
+ * Section 3 - Mods (capsule grid, bg #000). Sits between Economy and Packs
+ * so the bg sequence stays #000 / #121212 / #000 / #121212 / #000.
+ * Reuses .packsBody / .packsRow / .packItem / .packImage / .packLabel /
+ * .packPrice for the grid - same layout, different art.
+ * ========================================================================== */
+
+.modsSection {
+  background: var(--bg-primary);
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+}
+
+/* ==========================================================================
+ * Section 4 - Packs (3 large pack foils, bg #121212)
+ * Captain: each pack ~30% of section width, edge to edge with gaps.
+ * ========================================================================== */
+
+.packsSection {
+  background: var(--bg-card);
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+}
+
+/* Conversational tagline-style heading. Exempted from the shared
+   .sectionHeading spec - the prompt voice is the point. Captain swapped
+   to font-display in this pass to match every other landing heading. */
+.packsHeading {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3);
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+.packsBody {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin: 0 auto var(--space-8);
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+.packsRow {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+  max-width: 1600px;
+  align-items: end;
+}
+
+/* Items use 0 base gap and explicit margins on label/price so the
+   image -> label gap (--space-3) and label -> price gap (--space-1) can
+   be tuned independently. Captain wants tight label/price stacking. */
+.packItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.packImage {
+  width: 100%;
+  max-width: none;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.55));
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+
+.packItem:hover .packImage {
+  transform: scale(1.04);
+}
+
+.packLabel {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  margin-top: var(--space-3);
+}
+
+.packPrice {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+  letter-spacing: 0.04em;
+  margin-top: 0;
+}
+
+/* ==========================================================================
+ * Section 4 - Collect (legendary drone showcase, bg #121212)
+ * ========================================================================== */
+
+.collectSection {
+  background: var(--bg-card);
+  padding: var(--space-10) var(--space-8);
+}
+
+/* Three stacked body lines, ascending in prominence so the eye lands on
+   "8 legendaries in Season 1." */
+.collectBodySmall {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-2);
+  line-height: 1.6;
+  text-align: center;
+}
+
+.collectBodyMid {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.collectBodyLegendary {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-5);
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* Floating renders on dark background. No card chrome. */
+.collectDronesRow {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--space-6);
+  flex-wrap: nowrap;
+  max-width: 1500px;
+}
+
+.collectDroneItem {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.collectDroneImage {
+  display: block;
+  max-width: 350px;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.5));
+  transition: transform 0.3s ease;
+}
+
+.collectDroneItem:hover .collectDroneImage {
+  transform: scale(1.05);
+}
+
+.collectDroneCaption {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  text-align: center;
+}
+
+/* ==========================================================================
+ * Footer - studio credit + Guide / FAQ links, bg #000
+ * Captain: 11px (not 9px). Two stacked lines: credit on top, links below.
+ * ========================================================================== */
+
+.footer {
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+}
+
+.footerCopy {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+/* "Hyperdrome" inside the studio credit. Orbitron uppercase to read as
+   the brand mark; the rest of the sentence stays in body font. */
+.footerBrand {
+  font-family: var(--font-display);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--text-secondary);
+}
+
+.footerLinks {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.footerDot {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  user-select: none;
+}
+
+.footerLink {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.footerLink:hover {
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+ * Breakpoints. Captain: standardize on 1024 (tablet) and 768 (mobile).
+ * Hero font scaling keeps the existing 1024/1440 desktop scale plus a
+ * mobile step at 768.
  * ========================================================================== */
 
 @media (min-width: 768px) {
-  .featuresGrid {
-    grid-template-columns: repeat(2, 1fr);
+  .gameGrid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
 @media (min-width: 1024px) {
   .heroTitle {
-    font-size: var(--text-5xl);
-  }
-  .featuresGrid {
-    grid-template-columns: repeat(4, 1fr);
+    font-size: calc(var(--text-6xl) * 1.15);
   }
 }
 
-@media (min-width: 1440px) {
-  .heroTitle {
-    font-size: var(--text-6xl);
+/* 1440 keeps the same size as 1024 - calc bump above already reads big
+   enough on widescreen. */
+
+/* Tablet: collect drones become 2x2 grid, packs gap tightens. */
+@media (max-width: 1024px) {
+  .packsRow {
+    gap: var(--space-5);
+  }
+  .collectDronesRow {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    justify-items: center;
+    gap: var(--space-6);
+    max-width: 720px;
+  }
+  .collectDroneImage {
+    max-width: 320px;
   }
 }
 
-@media (max-width: 480px) {
+/* Mobile: hero shrinks, packs stack, collect goes horizontal scroll. */
+@media (max-width: 768px) {
   .heroContent {
     padding: var(--space-6) var(--space-4);
-    gap: var(--space-3);
+    gap: var(--space-5);
   }
   .heroTitle {
-    font-size: var(--text-3xl);
+    font-size: var(--text-5xl);
   }
-  .heroSubtitle {
-    font-size: var(--text-sm);
+  .heroTagline {
+    font-size: var(--text-lg);
   }
-  .featuresSection {
-    padding: var(--space-12) var(--space-4);
+
+  .gameSection,
+  .economySection,
+  .modsSection,
+  .packsSection,
+  .collectSection {
+    padding: var(--space-10) var(--space-4);
   }
-  .featureCard {
-    padding: var(--space-5);
+
+  .packsRow {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: var(--space-8);
+  }
+  .packImage {
+    max-width: 320px;
+  }
+
+  .collectDronesRow {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    max-width: none;
+  }
+  .collectDroneItem {
+    scroll-snap-align: center;
+  }
+  .collectDroneImage {
+    max-width: 280px;
   }
 }

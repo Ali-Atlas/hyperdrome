@@ -28,13 +28,53 @@ import {
 } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
 import DroneImage from '@/components/ui/DroneImage';
+import SkinThumb from '@/components/ui/SkinThumb';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
+import TrackPlaceholder from '@/components/tracks/TrackPlaceholder';
 import {
   STAT_KEYS,
   calculatePerStatCap,
 } from '@/lib/game-engine/economy.js';
 import styles from './page.module.css';
+
+/** Tracks with a transparent-optimized image at /tracks/<slug>.webp.
+ *  Mirrored from app/tracks/page.jsx so the upcoming-race compact track
+ *  card knows when to render an <img> vs a <TrackPlaceholder>. */
+const TRACKS_WITH_IMAGES = [
+  'horizon-express',
+  'neon-straightaway',
+  'the-grid',
+  'circuit-alpha',
+  'keyhole',
+  'meridian',
+];
+
+/** Per-track accent color for the placeholder wireframe + name glow.
+ *  Mirrored from app/tracks/page.jsx (kept in sync — if you rename a
+ *  track or change a color, update both). */
+const TRACK_ACCENT_COLORS = {
+  'horizon-express':   '#00E676',
+  'neon-straightaway': '#00E5FF',
+  'keyhole':           '#40C4FF',
+  'the-grid':          '#E0E0E0',
+  'meridian':          '#00BFA5',
+  'circuit-alpha':     '#FF9100',
+  'crossfire':         '#FF4081',
+  'iron-ribbon':       '#FF5252',
+  'skyline-drift':     '#D050FF',
+  'helix':             '#E040FB',
+  'switchblade':       '#18FFFF',
+  'phantom-circuit':   '#B0BEC5',
+  'voltage-loop':      '#FFD600',
+  'obsidian-maze':     '#FF6D00',
+  'apex-descent':      '#D50000',
+  'tempest-run':       '#FF1744',
+};
+
+function trackSlugFromName(name) {
+  return (name ?? '').toLowerCase().trim().replace(/\s+/g, '-');
+}
 
 const RADAR_LABELS = {
   speed: 'SPD',
@@ -869,12 +909,19 @@ function mulberry32(a) {
 /* Strategy view - rendered when race.status === 'pending'.                   */
 /*                                                                            */
 /* Top-to-bottom sections:                                                    */
-/*   1. StatusBar  - centered text. "RACE LOCKS IN MM:SS" or pulsing teal     */
-/*                   "RACE IN PROGRESS". Not a card.                          */
-/*   2. H2HStrip   - thin card, single horizontal row of comparison stats.    */
-/*   3. Drone cards - two side-by-side, drone-management style (radar +      */
-/*                    form dots + stat strip), each links to /drones/[id].   */
-/*   4. TrackSection - full-width card. Desktop: image left + info right.    */
+/*   1. StatusBar      - centered text, "RACE LOCKS IN MM:SS" or pulsing     */
+/*                       teal "RACE IN PROGRESS". Not a card.                */
+/*   2. H2HStrip       - thin card, single horizontal row of comparison      */
+/*                       stats.                                               */
+/*   3. Drone cards    - two side-by-side, drone-management style (radar +   */
+/*                       form dots + stat strip), each links to              */
+/*                       /drones/[id].                                        */
+/*   4. raceBottomGrid - 60/40 split at >=768px (stacks below):              */
+/*        a. RaceTrackCard - mirrors /tracks index card; weather +           */
+/*           time-of-day chips live in the bottom info bar, right-aligned.   */
+/*        b. RaceEdgeCard - Strengths / Gaps / Win Probability for the       */
+/*           "perspective drone" (user's drone if racing, else the favorite  */
+/*           by ELO); header names the drone.                                */
 /* -------------------------------------------------------------------------- */
 
 function RaceStrategyView({ race }) {
@@ -942,7 +989,14 @@ function RaceStrategyView({ race }) {
             slotLabel="Drone 2"
           />
         </div>
-        <TrackSection race={race} />
+        <div className={styles.raceBottomGrid}>
+          <RaceTrackCard race={race} />
+          <RaceEdgeCard
+            leftDrone={leftDrone}
+            rightDrone={rightDrone}
+            viewerUserId={user?.id}
+          />
+        </div>
       </div>
     </NavShell>
   );
@@ -1220,24 +1274,57 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId, slotLabel }
         </div>
       </div>
 
-        <div className={styles.matchupModBlock}>
-          {drone.appliedMod ? (
-            <>
-              <ModPlaceholder rarity={drone.appliedMod.rarity} size={24} />
-              <div className={styles.matchupModText}>
-                <span className={styles.matchupModName}>
-                  {drone.appliedMod.name}
+        <div className={styles.collectibleRow}>
+          <div className={styles.skinBlock}>
+            <span className={styles.skinLabel}>Skin Equipped</span>
+            <div
+              className={cn(
+                styles.modSelector,
+                styles.modSelectorReadOnly,
+                drone.appliedSkin?.rarity &&
+                  styles[`modSelector_${drone.appliedSkin.rarity}`],
+              )}
+            >
+              {drone.appliedSkin ? (
+                <SkinThumb
+                  skin={drone.appliedSkin}
+                  rarity={drone.appliedSkin.rarity}
+                  alt={drone.appliedSkin.name}
+                  className={styles.skinSwatch}
+                />
+              ) : (
+                <span className={styles.skinSwatch} aria-hidden="true" />
+              )}
+              <div className={styles.modCurrentText}>
+                <span className={styles.modName}>
+                  {drone.appliedSkin?.name ?? 'No skin equipped'}
                 </span>
-                {drone.appliedMod.description && (
-                  <span className={styles.matchupModEffect}>
-                    {drone.appliedMod.description}
-                  </span>
-                )}
               </div>
-            </>
-          ) : (
-            <span className={styles.matchupModEmpty}>No mod equipped</span>
-          )}
+            </div>
+          </div>
+
+          <div className={styles.modBlock}>
+            <span className={styles.modLabel}>Mod Equipped</span>
+            <div
+              className={cn(
+                styles.modSelector,
+                styles.modSelectorReadOnly,
+                drone.appliedMod?.rarity &&
+                  styles[`modSelector_${drone.appliedMod.rarity}`],
+              )}
+            >
+              <ModPlaceholder
+                rarity={drone.appliedMod?.rarity ?? 'common'}
+                size={20}
+                className={styles.modSelectorIcon}
+              />
+              <div className={styles.modCurrentText}>
+                <span className={styles.modName}>
+                  {drone.appliedMod?.name ?? 'No mod equipped'}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </Link>
@@ -1246,90 +1333,228 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId, slotLabel }
 
 /** Full-width track card. Desktop: image left (16/9, radius-md), info right
  *  (name + difficulty + specs + conditions). Mobile: stacks vertically. */
-function TrackSection({ race }) {
+/** Standalone track preview card mirroring /tracks index: grey name bar,
+ *  transparent image, grey info bar. The info bar carries track stats on
+ *  the left and weather + time-of-day chip pills on the right. */
+function RaceTrackCard({ race }) {
   const track = race.track;
   if (!track) return null;
-  const WeatherIcon = WEATHER_ICONS[race.weather] ?? Cloud;
-  const TimeIcon = TIME_ICONS[race.timeOfDay] ?? Sun;
+  const slug = trackSlugFromName(track.name);
+  const hasImage = TRACKS_WITH_IMAGES.includes(slug);
+  const accentColor = TRACK_ACCENT_COLORS[slug] ?? '#03DAC6';
   const diff = Number(track.difficulty) || 0;
   const difficultyColor = getDifficultyColor(diff);
+  const WeatherIcon = WEATHER_ICONS[race.weather] ?? Cloud;
+  const TimeIcon = TIME_ICONS[race.timeOfDay] ?? Sun;
 
   return (
-    <section className={styles.trackSection}>
-      <h2 className={styles.sectionHeading}>Track</h2>
-      <div className={styles.trackSectionInner}>
-        <div className={styles.trackImageBox}>
-          {track.imageUrl ? (
-            <img
-              src={track.imageUrl}
-              alt={track.name}
-              className={styles.trackSectionImg}
-            />
-          ) : (
-            <div className={styles.trackImagePlaceholder} aria-hidden="true" />
-          )}
-        </div>
-
-        <div className={styles.trackInfo}>
-        <h2 className={styles.trackName}>{track.name}</h2>
-
-        <div
-          className={styles.trackDiffRow}
-          style={{ '--diff-color': difficultyColor }}
-        >
-          <span className={styles.trackDiffLabel}>Difficulty</span>
-          <span className={styles.trackDiffDots} aria-hidden="true">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <span
-                key={i}
-                className={cn(
-                  styles.trackDiffDot,
-                  i < diff && styles.trackDiffDotOn,
-                )}
-              />
-            ))}
-          </span>
-          <span className={styles.trackDiffScore}>{diff}/10</span>
-        </div>
-
-        <div className={styles.trackSpecRow}>
-          <TrackSpec label="Straights" value={track.straights ?? 0} />
-          <TrackSpecSep />
-          <TrackSpec label="Turns" value={track.turns ?? 0} />
-          <TrackSpecSep />
-          <TrackSpec label="Laps" value={track.laps ?? 3} />
-          <TrackSpecSep />
-          <TrackSpec
-            label="Length"
-            value={(track.length ?? '-').toString().toUpperCase()}
+    <article className={styles.raceTrackCard}>
+      <h3 className={styles.raceTrackName}>{track.name}</h3>
+      <div className={styles.raceTrackImage}>
+        {hasImage ? (
+          <img
+            src={`/tracks/${slug.replace(/-/g, '_')}.webp`}
+            alt={track.name}
+            className={styles.raceTrackImg}
           />
+        ) : (
+          <TrackPlaceholder
+            trackName={track.name}
+            accentColor={accentColor}
+          />
+        )}
+      </div>
+      <div className={styles.raceTrackInfo}>
+        <div className={styles.raceTrackStats}>
+          <div className={styles.raceTrackMetaRow}>
+            <span
+              className={styles.raceTrackMetaItem}
+              style={{ '--diff-color': difficultyColor }}
+            >
+              <span className={styles.raceTrackMetaLabel}>Difficulty</span>
+              <span className={styles.raceTrackDiffScore}>{diff}/10</span>
+            </span>
+            <span className={styles.raceTrackMetaItem}>
+              <span className={styles.raceTrackMetaLabel}>Length</span>
+              <span className={styles.raceTrackMetaValue}>
+                {(track.length ?? '-').toString().toUpperCase()}
+              </span>
+            </span>
+          </div>
+          <div className={styles.raceTrackSpecs}>
+            <span className={styles.raceTrackSpec}>
+              <span className={styles.raceTrackSpecLabel}>Straights</span>
+              <span className={styles.raceTrackSpecValue}>
+                {track.straights ?? 0}
+              </span>
+            </span>
+            <span className={styles.raceTrackSpecSep} aria-hidden="true" />
+            <span className={styles.raceTrackSpec}>
+              <span className={styles.raceTrackSpecLabel}>Turns</span>
+              <span className={styles.raceTrackSpecValue}>
+                {track.turns ?? 0}
+              </span>
+            </span>
+            <span className={styles.raceTrackSpecSep} aria-hidden="true" />
+            <span className={styles.raceTrackSpec}>
+              <span className={styles.raceTrackSpecLabel}>Laps</span>
+              <span className={styles.raceTrackSpecValue}>
+                {track.laps ?? 3}
+              </span>
+            </span>
+          </div>
         </div>
-
-        <div className={styles.trackCondRow}>
-          <span className={styles.trackCondPill}>
-            <WeatherIcon size={13} aria-hidden="true" />
+        <div className={styles.raceTrackPills}>
+          <span className={styles.raceConditionPill}>
+            <WeatherIcon
+              size={12}
+              aria-hidden="true"
+              className={styles.raceConditionPillIcon}
+            />
             {WEATHER_LABELS[race.weather] ?? race.weather ?? '-'}
           </span>
-          <span className={styles.trackCondPill}>
-            <TimeIcon size={13} aria-hidden="true" />
+          <span className={styles.raceConditionPill}>
+            <TimeIcon
+              size={12}
+              aria-hidden="true"
+              className={styles.raceConditionPillIcon}
+            />
             {TIME_LABELS[race.timeOfDay] ?? race.timeOfDay ?? '-'}
           </span>
         </div>
+      </div>
+    </article>
+  );
+}
+
+/** Pick the perspective drone for the edge container.
+ *
+ *  - When the viewer owns one of the racing drones, that drone is the
+ *    perspective (this is the existing behavior the rest of the page
+ *    already uses for left/right ordering).
+ *  - When the viewer is spectating, the favorite (higher ELO) takes
+ *    the perspective so the headline reads as "this is who's expected
+ *    to win, and here's why."
+ *
+ *  Returns `[perspectiveDrone, otherDrone]`. The header in
+ *  `RaceEdgeCard` names the perspective drone explicitly so a viewer
+ *  always sees whose strengths/gaps they're looking at.
+ */
+function pickEdgePerspective(left, right, viewerUserId) {
+  const userOwnsLeft = !!(viewerUserId && left?.userId === viewerUserId);
+  const userOwnsRight = !!(viewerUserId && right?.userId === viewerUserId);
+  if (userOwnsLeft) return [left, right];
+  if (userOwnsRight) return [right, left];
+  const lElo = left?.eloRating ?? 1000;
+  const rElo = right?.eloRating ?? 1000;
+  return lElo >= rElo ? [left, right] : [right, left];
+}
+
+/** Race-edge container: Strengths / Gaps / Win Probability for the
+ *  perspective drone. Sits to the right of the track at >=768px and
+ *  stacks beneath at <768px. The header always names the drone whose
+ *  perspective is shown. */
+function RaceEdgeCard({ leftDrone, rightDrone, viewerUserId }) {
+  if (!leftDrone || !rightDrone) {
+    return (
+      <section className={styles.raceEdgeCard}>
+        <h3 className={styles.raceEdgeHeader}>Race Edge</h3>
+        <div className={styles.raceEdgeBody}>
+          <div className={styles.raceEdgeNone}>—</div>
+        </div>
+      </section>
+    );
+  }
+  const [viewer, opponent] = pickEdgePerspective(
+    leftDrone,
+    rightDrone,
+    viewerUserId,
+  );
+  const deltas = STAT_KEYS.map((k) => ({
+    stat: k,
+    label: RADAR_LABELS[k] ?? k,
+    delta: (viewer[k] ?? 0) - (opponent[k] ?? 0),
+  }));
+  const advantages = deltas
+    .filter((d) => d.delta > 0)
+    .sort((a, b) => b.delta - a.delta)
+    .slice(0, 3);
+  const gaps = deltas
+    .filter((d) => d.delta < 0)
+    .sort((a, b) => a.delta - b.delta)
+    .slice(0, 3);
+
+  const viewerElo = viewer.eloRating ?? 1000;
+  const oppElo = opponent.eloRating ?? 1000;
+  const prob = 1 / (1 + Math.pow(10, (oppElo - viewerElo) / 400));
+  const pct = Math.round(prob * 100);
+
+  return (
+    <section className={styles.raceEdgeCard}>
+      <h3 className={styles.raceEdgeHeader}>
+        <span className={styles.raceEdgeHeaderTitle}>Race Edge</span>
+        <span className={styles.raceEdgeHeaderDrone}>{viewer.name}</span>
+      </h3>
+      <div className={styles.raceEdgeBody}>
+        <div className={styles.raceEdgeSection}>
+          <span className={styles.raceEdgeSectionLabel}>Strengths</span>
+          {advantages.length === 0 ? (
+            <span className={styles.raceEdgeNone}>None</span>
+          ) : (
+            <ul className={styles.raceEdgeList}>
+              {advantages.map((d) => (
+                <li key={d.stat} className={styles.raceEdgeRow}>
+                  <span className={styles.raceEdgeStat}>{d.label}</span>
+                  <span
+                    className={cn(
+                      styles.raceEdgeDelta,
+                      styles.raceEdgeDeltaPos,
+                    )}
+                  >
+                    +{d.delta}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className={styles.raceEdgeSection}>
+          <span className={styles.raceEdgeSectionLabel}>Gaps</span>
+          {gaps.length === 0 ? (
+            <span className={styles.raceEdgeNone}>None</span>
+          ) : (
+            <ul className={styles.raceEdgeList}>
+              {gaps.map((d) => (
+                <li key={d.stat} className={styles.raceEdgeRow}>
+                  <span className={styles.raceEdgeStat}>{d.label}</span>
+                  <span
+                    className={cn(
+                      styles.raceEdgeDelta,
+                      styles.raceEdgeDeltaNeg,
+                    )}
+                  >
+                    {d.delta}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className={styles.raceEdgeSection}>
+          <span className={styles.raceEdgeSectionLabel}>Win Probability</span>
+          <div className={styles.raceEdgeWinValue}>{pct}%</div>
+          <div className={styles.raceEdgeWinBar}>
+            <div
+              className={styles.raceEdgeWinBarFill}
+              style={{ width: `${pct}%` }}
+              aria-hidden="true"
+            />
+          </div>
+          <div className={styles.raceEdgeWinCaption}>
+            ELO {viewerElo} vs {oppElo}
+          </div>
         </div>
       </div>
     </section>
   );
-}
-
-function TrackSpec({ label, value }) {
-  return (
-    <span className={styles.trackSpecItem}>
-      <span className={styles.trackSpecLabel}>{label}</span>
-      <span className={styles.trackSpecValue}>{value}</span>
-    </span>
-  );
-}
-
-function TrackSpecSep() {
-  return <span className={styles.trackSpecSep} aria-hidden="true" />;
 }

@@ -1581,3 +1581,507 @@
     font-size: var(--text-base);
   }
 }
+
+/* ==========================================================================
+ * Matchup card skin/mod equipped row — read-only mirror of the drone-manager
+ * `.collectibleRow` / `.skinBlock` / `.modBlock` styling. The race page never
+ * lets you swap or bind, so the trigger is rendered as a `<div>` (not a
+ * `<button>`) and the chevron + dropdown are omitted. Visual parity is
+ * intentional: see app/drones/[droneId]/page.module.css for the source.
+ * ========================================================================== */
+
+.collectibleRow {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+  align-items: stretch;
+}
+
+.skinBlock,
+.modBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.skinLabel,
+.modLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.skinSwatch {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modSelector {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 4px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  min-width: 0;
+}
+
+/* Read-only marker: the matchup card's selectors aren't interactive, so kill
+   any hover/cursor expectations downstream consumers might pick up. */
+.modSelectorReadOnly {
+  cursor: default;
+}
+
+.modSelector.modSelector_common {
+  background: rgba(158, 158, 158, 0.10);
+}
+.modSelector.modSelector_rare {
+  background: rgba(74, 158, 255, 0.12);
+}
+.modSelector.modSelector_epic {
+  background: rgba(187, 134, 252, 0.14);
+}
+.modSelector.modSelector_legendary {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 215, 0, 0.55) 0%, rgba(255, 215, 0, 0.28) 100%),
+    var(--bg-elevated);
+}
+
+.modSelector.modSelector_legendary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(255, 215, 0, 0.10) 40%,
+    rgba(255, 215, 0, 0.22) 50%,
+    rgba(255, 215, 0, 0.10) 60%,
+    transparent 65%,
+    transparent 100%
+  );
+  background-size: 400% 400%;
+  animation: collectibleLegendaryGlisten 6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.modSelector.modSelector_legendary > * {
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes collectibleLegendaryGlisten {
+  0%   { background-position: 100% 100%; opacity: 0.4; }
+  25%  { opacity: 0.8; }
+  50%  { background-position: 0% 0%;     opacity: 1; }
+  75%  { opacity: 0.8; }
+  100% { background-position: 100% 100%; opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modSelector.modSelector_legendary::after {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+.modSelectorIcon {
+  flex-shrink: 0;
+}
+
+.modCurrentText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.modName {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+ * Bottom grid - track card on the left (60%) + race-edge card on the
+ * right (40%) at >=768px. Stacks vertically below.
+ * ========================================================================== */
+
+.raceBottomGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+@media (min-width: 768px) {
+  .raceBottomGrid {
+    grid-template-columns: 60% 1fr;
+  }
+}
+
+/* ==========================================================================
+ * Race track card - mirrors the /tracks index card chrome (grey name
+ * bar, transparent image frame, grey info bar). The info bar carries
+ * track stats on the left and condition chip pills (weather +
+ * time-of-day) on the right.
+ * ========================================================================== */
+
+.raceTrackCard {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.raceTrackName {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--header-bar-bg);
+  border-bottom: 1px solid var(--border-default);
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--header-bar-text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  min-height: 44px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+
+.raceTrackImage {
+  width: 100%;
+  aspect-ratio: 5 / 2;
+  overflow: hidden;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.raceTrackImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.raceTrackInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--header-bar-bg);
+  border-top: 1px solid var(--border-default);
+  flex-wrap: wrap;
+}
+
+.raceTrackStats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.raceTrackMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.raceTrackMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.raceTrackMetaLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.raceTrackMetaValue {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.raceTrackDiffScore {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  color: var(--diff-color, var(--accent-primary));
+  letter-spacing: 0.04em;
+}
+
+.raceTrackSpecs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.raceTrackSpec {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.raceTrackSpecLabel {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 8px;
+}
+
+.raceTrackSpecValue {
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
+}
+
+.raceTrackSpecSep {
+  width: 1px;
+  height: 9px;
+  background: var(--border-subtle);
+}
+
+/* ---- Race condition chip pills (right-aligned in the info bar) ---- */
+
+.raceTrackPills {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.raceConditionPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(160, 160, 160, 0.1);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: var(--font-medium);
+  letter-spacing: 0.02em;
+  text-transform: capitalize;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.raceConditionPillIcon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+ * Race edge card - Strengths / Gaps / Win Probability for the
+ * "perspective drone" (user's drone if racing, else the favorite by
+ * ELO). Header names the drone explicitly.
+ * ========================================================================== */
+
+.raceEdgeCard {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.raceEdgeHeader {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--header-bar-bg);
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  box-sizing: border-box;
+  letter-spacing: 0.01em;
+  flex-wrap: wrap;
+}
+
+.raceEdgeHeaderTitle {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--header-bar-text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.raceEdgeHeaderDrone {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-left: auto;
+}
+
+.raceEdgeBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.raceEdgeSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.raceEdgeSectionLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+}
+
+.raceEdgeList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.raceEdgeRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.raceEdgeStat {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--font-semibold);
+}
+
+.raceEdgeDelta {
+  font-weight: var(--font-bold);
+  letter-spacing: 0.04em;
+  font-size: 12px;
+}
+
+.raceEdgeDeltaPos {
+  color: var(--accent-primary);
+}
+
+.raceEdgeDeltaNeg {
+  color: var(--accent-error);
+}
+
+.raceEdgeNone {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.raceEdgeWinValue {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.raceEdgeWinBar {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.raceEdgeWinBarFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: var(--accent-primary);
+  border-radius: inherit;
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.raceEdgeWinCaption {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+@media (max-width: 767px) {
+  .raceTrackInfo {
+    align-items: flex-start;
+  }
+  .raceTrackPills {
+    margin-left: 0;
+    margin-top: var(--space-2);
+    width: 100%;
+  }
+}

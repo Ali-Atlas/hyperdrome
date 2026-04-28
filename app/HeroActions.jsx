@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { Volume2, VolumeX } from 'lucide-react';
 import styles from './HeroActions.module.css';
 
 /**
- * Client-only hero interactivity: the PLAY DEMO button (POST
- * /api/auth/demo, then redirect), the LOGIN link, and an optional
- * audio toggle that only renders when /hero-audio.mp3 is actually
- * served (HEAD probe on mount).
+ * Client-only hero CTA. Single dominant PLAY DEMO button: POSTs to
+ * /api/auth/demo, then redirects to the dashboard. Login moved to a
+ * subtle top-right link in the hero (rendered by app/page.jsx). Audio
+ * toggle only renders when /hero-audio.mp3 is actually served (HEAD
+ * probe on mount).
  */
 export default function HeroActions() {
   const [loading, setLoading] = useState(false);
@@ -85,22 +85,14 @@ export default function HeroActions() {
       )}
 
       <div className={styles.cluster}>
-        <div className={styles.buttons}>
-          <button
-            type="button"
-            onClick={handleDemo}
-            disabled={loading}
-            className={styles.primary}
-          >
-            {loading ? 'Loading...' : 'Play Demo'}
-          </button>
-          <Link href="/login" className={styles.secondary}>
-            Login
-          </Link>
-        </div>
-        <p className={styles.helper}>
-          Demo creates a pre-progressed pilot account instantly
-        </p>
+        <button
+          type="button"
+          onClick={handleDemo}
+          disabled={loading}
+          className={styles.primary}
+        >
+          {loading ? 'Loading...' : 'Play Demo'}
+        </button>
         {error && (
           <p role="alert" className={styles.errorText}>
             {error}
