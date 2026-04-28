@@ -446,6 +446,12 @@
   border-radius: var(--radius-lg);
   box-shadow: none;
   overflow: hidden;
+  /* Defensive rounded clipping: `overflow: hidden` + `border-radius`
+     alone can drop the rounded clip on transformed/animated descendants
+     in some browsers, so the rotating ::before peeks past the card's
+     curve at one corner. clip-path enforces the rounded shape directly
+     and is independent of overflow + border-radius behavior. */
+  clip-path: inset(0 round var(--radius-lg));
   animation: none;
 }
 

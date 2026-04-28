@@ -11,7 +11,7 @@
   align-items: baseline;
   flex-wrap: wrap;
   gap: 8px;
-  max-width: 1400px;
+  max-width: 1100px;
   margin: 0 auto;
   width: 100%;
   padding: 0 2px;
@@ -26,32 +26,17 @@
   letter-spacing: 0.08em;
 }
 
-.summaryRange {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: var(--font-bold);
-  color: var(--text-secondary);
-  letter-spacing: 0.06em;
-}
-
-.summaryIntro {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-
-.summaryDot {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-tertiary);
+.bracketBarWrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 2px;
 }
 
 /* Marketplace-style tab pill bar: bg-card container, pills with
    transparent default + bg-elevated/accent active. */
 .bracketBar {
   display: inline-flex;
-  align-self: flex-start;
   gap: 2px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
@@ -88,7 +73,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
-  max-width: 1400px;
+  max-width: 1100px;
   margin: 0 auto;
   width: 100%;
 }
@@ -117,13 +102,23 @@
   overflow: hidden;
 }
 
+.name {
+  margin: 0;
+  padding: 10px 12px 8px;
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
 .imageFrame {
   width: 100%;
-  aspect-ratio: 2 / 1;
+  aspect-ratio: 5 / 2;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.35)),
-    var(--bg-elevated);
+  background: var(--bg-elevated);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -132,64 +127,49 @@
 .trackImg {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
 .body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 18px 16px;
-}
-
-.name {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: var(--text-lg);
-  font-weight: var(--font-bold);
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  line-height: 1.2;
+  gap: 6px;
+  padding: 8px 12px 10px;
 }
 
 .metaRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-/* ---- Level bracket badge - gradient from level_min tier to level_max tier ---- */
-
-.levelBracket {
+.metaItem {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--level-from) 20%, transparent),
-    color-mix(in oklab, var(--level-to) 20%, transparent)
-  );
-  border: 1px solid color-mix(in oklab, var(--level-to) 50%, transparent);
-  color: var(--text-primary);
+  gap: 6px;
+}
+
+.metaLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.levelValue {
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  color: var(--text-primary);
+  letter-spacing: 0.06em;
   white-space: nowrap;
 }
 
 /* ---- Difficulty dots ---- */
-
-.difficultyDots {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
 
 .dotsTrack {
   display: inline-flex;
@@ -206,8 +186,8 @@
 }
 
 .dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.12);
   flex-shrink: 0;
@@ -223,9 +203,9 @@
 .specs {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-secondary);
   flex-wrap: wrap;
 }
@@ -233,14 +213,14 @@
 .spec {
   display: inline-flex;
   align-items: baseline;
-  gap: 5px;
+  gap: 4px;
 }
 
 .specLabel {
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .specValue {
@@ -254,6 +234,6 @@
 
 .specSep {
   width: 1px;
-  height: 10px;
+  height: 9px;
   background: var(--border-subtle);
 }

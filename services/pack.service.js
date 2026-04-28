@@ -1,4 +1,4 @@
-import { and, eq, isNull, like, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, like, notInArray, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { ApiError } from '@/lib/api/response.js';
 
@@ -87,19 +87,18 @@ export async function openPack(userId, packType) {
   const rarityList = resolveRarityList(packType);
   if (!rarityList) throw new ApiError('Unknown pack type', 400);
 
-  // Count skins needed per rarity.
+  // Count skins needed per rarity for the pre-flight availability check.
   const counts = {};
   for (const r of rarityList) counts[r] = (counts[r] || 0) + 1;
 
-  // Pre-fetch candidate pools + confirm enough available of each rarity
-  // before we charge the player.
-  const awarded = [];
+  // Pre-flight: confirm the vault has at least `count` unowned image-backed
+  // skins for each rarity in the list. This is a cheap availability gate
+  // before we touch the wallet; the actual claim still uses an atomic CAS
+  // (see below) since another concurrent open could grab one between this
+  // check and the assignment.
   for (const [rarity, count] of Object.entries(counts)) {
-    // Restrict drops to image-backed skins so packs only yield real
-     // designed skins, never the legacy placeholder rows whose image_url
-     // points to non-existent paths.
-    const candidates = await db
-      .select()
+    const [{ available }] = await db
+      .select({ available: sql`count(*)::int` })
       .from(skins)
       .where(
         and(
@@ -108,35 +107,88 @@ export async function openPack(userId, packType) {
           like(skins.imageUrl, '/skins/%'),
           like(skins.imageUrl, '%.webp'),
         ),
-      )
-      .limit(count * 4);
-    if (candidates.length < count) {
+      );
+    if (available < count) {
       throw new ApiError(
         `Not enough ${rarity} skins available in the vault. Try again later.`,
         400,
       );
     }
-    // Fisher-Yates shuffle then take the first `count`.
-    const shuffled = [...candidates];
-    for (let i = shuffled.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    awarded.push(...shuffled.slice(0, count));
   }
 
-  // Debit the wallet first - atomic SQL decrement.
+  // Debit the wallet first - atomic SQL decrement. Refunded on the catch
+  // path below if any slot fails to claim.
   await db
     .update(users)
     .set({ points: sql`${users.points} - ${price}` })
     .where(eq(users.id, userId));
 
-  // Assign the skins to the user. Best-effort on Neon HTTP (no txns).
-  for (const skin of awarded) {
+  /** @type {Array<object>} skins successfully CAS-claimed for this open. */
+  const awarded = [];
+  try {
+    for (const rarity of rarityList) {
+      let claimed = null;
+      const skipIds = awarded.map((s) => s.id);
+      for (let attempt = 0; attempt < 3 && !claimed; attempt += 1) {
+        // Pick a random unowned image-backed skin of this rarity that we
+        // haven't already claimed in this same pack-open. Fetch a small
+        // candidate pool and pick one at random to reduce the odds of two
+        // concurrent opens picking the same row.
+        const baseFilters = [
+          eq(skins.rarity, rarity),
+          isNull(skins.userId),
+          like(skins.imageUrl, '/skins/%'),
+          like(skins.imageUrl, '%.webp'),
+        ];
+        if (skipIds.length > 0) {
+          baseFilters.push(notInArray(skins.id, skipIds));
+        }
+        const candidates = await db
+          .select()
+          .from(skins)
+          .where(and(...baseFilters))
+          .limit(8);
+        if (candidates.length === 0) break;
+        const candidate =
+          candidates[Math.floor(Math.random() * candidates.length)];
+
+        // Atomic CAS: only claim if still unowned. `.returning()` lets us
+        // detect whether the row was actually flipped — if another opener
+        // beat us to it, returned rows are empty and we retry.
+        const claimedRows = await db
+          .update(skins)
+          .set({ userId })
+          .where(and(eq(skins.id, candidate.id), isNull(skins.userId)))
+          .returning({ id: skins.id });
+        if (claimedRows.length === 1) {
+          claimed = candidate;
+        }
+        // else: lost the race, loop will pick another candidate.
+      }
+
+      if (!claimed) {
+        // All retries exhausted for this slot — bail out so the catch
+        // refunds the wallet and releases anything we did claim.
+        throw new ApiError('Skin unavailable, volts refunded.', 409);
+      }
+      awarded.push(claimed);
+    }
+  } catch (err) {
+    // Refund the full price.
     await db
-      .update(skins)
-      .set({ userId })
-      .where(eq(skins.id, skin.id));
+      .update(users)
+      .set({ points: sql`${users.points} + ${price}` })
+      .where(eq(users.id, userId));
+    // Release any skins we successfully claimed before the failure so they
+    // return to the unowned vault for other openers.
+    if (awarded.length > 0) {
+      await db
+        .update(skins)
+        .set({ userId: null })
+        .where(inArray(skins.id, awarded.map((s) => s.id)));
+    }
+    if (err instanceof ApiError) throw err;
+    throw new ApiError('Skin unavailable, volts refunded.', 409);
   }
 
   return awarded;

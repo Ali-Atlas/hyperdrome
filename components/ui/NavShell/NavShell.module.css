@@ -25,12 +25,12 @@
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-6);
-  font-family: var(--font-heading);
-  font-size: var(--text-xl);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
   font-weight: var(--font-bold);
   color: var(--accent-primary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   margin-bottom: var(--space-8);
   text-decoration: none;
 }
@@ -56,7 +56,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
   color: var(--text-secondary);
@@ -98,7 +98,7 @@
 }
 
 .username {
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: var(--text-base);
   font-weight: var(--font-semibold);
   color: #F0F0F0;
@@ -106,7 +106,7 @@
 }
 
 .points {
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   color: #F0F0F0;
@@ -195,7 +195,7 @@
 }
 
 .mobileUsername {
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   color: #F0F0F0;
@@ -211,7 +211,7 @@
 }
 
 .mobilePoints {
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   color: #F0F0F0;

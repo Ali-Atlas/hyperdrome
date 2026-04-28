@@ -442,7 +442,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
 
   const bindSkinFn = async (skinId) => {
     setSkinActionPending(true);
-    setShowBindSkinList(false);
     try {
       const res = await fetch('/api/skins/apply', {
         method: 'POST',
@@ -464,8 +463,8 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   };
 
   const performance = useMemo(
-    () => analyzeDronePerformance(editedStats),
-    [editedStats],
+    () => analyzeDronePerformance(editedStats, drone.level),
+    [editedStats, drone.level],
   );
 
   const radarLabels = useMemo(
@@ -786,19 +785,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                         </ul>
                       )}
                   </div>
-                  {isOwner &&
-                    !(drone.boundSkins?.length > 0) &&
-                    unboundSkins.length === 0 && (
-                      <span className={styles.modEmpty}>
-                        NONE -{' '}
-                        <Link
-                          href="/marketplace"
-                          className={styles.modEmptyLink}
-                        >
-                          visit marketplace
-                        </Link>
-                      </span>
-                    )}
                 </div>
 
                 <div className={styles.modBlock}>
@@ -911,19 +897,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                         </ul>
                       )}
                   </div>
-                  {isOwner &&
-                    !(drone.boundMods?.length > 0) &&
-                    unboundMods.length === 0 && (
-                      <span className={styles.modEmpty}>
-                        NONE -{' '}
-                        <Link
-                          href="/marketplace"
-                          className={styles.modEmptyLink}
-                        >
-                          visit marketplace
-                        </Link>
-                      </span>
-                    )}
                 </div>
               </div>
             </div>
@@ -1294,7 +1267,7 @@ function BindCollectibleModal({
               disabled={count === 0 || working || pending}
               loading={working}
             >
-              {count > 0 ? `Bind ${count} to ${droneName}` : 'Bind'}
+              Bind
             </Button>
           </div>
         </div>

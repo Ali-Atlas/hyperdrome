@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import NavShell from '@/components/ui/NavShell';
-import { cn, getLevelColor, getDifficultyColor, getTrackNeon } from '@/lib/utils';
+import { cn, getDifficultyColor, getTrackNeon } from '@/lib/utils';
 import styles from './page.module.css';
 
 const BRACKETS = [
@@ -44,10 +44,6 @@ export default function TracksPage() {
   }, [sorted, bracket]);
 
   const totalCount = tracks.length;
-  const overallMin =
-    tracks.length > 0 ? Math.min(...tracks.map((t) => t.levelMin)) : null;
-  const overallMax =
-    tracks.length > 0 ? Math.max(...tracks.map((t) => t.levelMax)) : null;
 
   return (
     <NavShell>
@@ -56,40 +52,26 @@ export default function TracksPage() {
           <span className={styles.summaryCount}>
             {totalCount} {totalCount === 1 ? 'TRACK' : 'TRACKS'}
           </span>
-          {overallMin != null && overallMax != null && (
-            <>
-              <span className={styles.summaryDot} aria-hidden="true">
-                ·
-              </span>
-              <span className={styles.summaryRange}>
-                LV {overallMin} — LV {overallMax}
-              </span>
-            </>
-          )}
-          <span className={styles.summaryDot} aria-hidden="true">
-            ·
-          </span>
-          <span className={styles.summaryIntro}>
-            Race circuits across all difficulty levels
-          </span>
         </div>
 
-        <div className={styles.bracketBar} role="tablist">
-          {BRACKETS.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              role="tab"
-              aria-selected={bracket === b.id}
-              className={cn(
-                styles.bracketTab,
-                bracket === b.id && styles.bracketTabActive,
-              )}
-              onClick={() => setBracket(b.id)}
-            >
-              {b.label}
-            </button>
-          ))}
+        <div className={styles.bracketBarWrap}>
+          <div className={styles.bracketBar} role="tablist">
+            {BRACKETS.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                role="tab"
+                aria-selected={bracket === b.id}
+                className={cn(
+                  styles.bracketTab,
+                  bracket === b.id && styles.bracketTabActive,
+                )}
+                onClick={() => setBracket(b.id)}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className={styles.grid}>
@@ -106,6 +88,7 @@ function TrackCard({ track }) {
   const neon = getTrackNeon(track.name);
   return (
     <article className={styles.card} style={{ '--track-neon': neon }}>
+      <h3 className={styles.name}>{track.name}</h3>
       <div className={styles.imageFrame}>
         <img
           src={track.imageUrl}
@@ -114,10 +97,9 @@ function TrackCard({ track }) {
         />
       </div>
       <div className={styles.body}>
-        <h3 className={styles.name}>{track.name}</h3>
         <div className={styles.metaRow}>
-          <LevelBracket min={track.levelMin} max={track.levelMax} />
-          <DifficultyDots value={track.difficulty} />
+          <Difficulty value={track.difficulty} />
+          <LevelText min={track.levelMin} max={track.levelMax} />
         </div>
         <div className={styles.specs}>
           <Spec label="Straights" value={track.straights} />
@@ -137,29 +119,27 @@ function TrackCard({ track }) {
 /* Shared level + difficulty + specs primitives                                */
 /* ========================================================================== */
 
-function LevelBracket({ min, max }) {
+function LevelText({ min, max }) {
   return (
-    <span
-      className={styles.levelBracket}
-      style={{
-        '--level-from': getLevelColor(min),
-        '--level-to': getLevelColor(max),
-      }}
-    >
-      LV {min}-{max}
+    <span className={styles.metaItem}>
+      <span className={styles.metaLabel}>Level</span>
+      <span className={styles.levelValue}>
+        LV {min}-{max}
+      </span>
     </span>
   );
 }
 
-function DifficultyDots({ value }) {
+function Difficulty({ value }) {
   const v = Math.max(0, Math.min(10, Number(value) || 0));
   const color = getDifficultyColor(v);
   return (
     <span
-      className={styles.difficultyDots}
+      className={styles.metaItem}
       aria-label={`Difficulty ${v} of 10`}
       style={{ '--diff-color': color }}
     >
+      <span className={styles.metaLabel}>Difficulty</span>
       <span className={styles.dotsTrack} aria-hidden="true">
         {Array.from({ length: 10 }).map((_, i) => (
           <span

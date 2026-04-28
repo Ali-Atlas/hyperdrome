@@ -36,6 +36,7 @@ async function loadConfig() {
   return {
     raceIntervalSeconds:   num('race_interval_seconds', 120),
     pointsPerWinBase:      num('points_per_win_base', 3),
+    pointsPerLossBase:     num('points_per_loss_base', 2),
     xpPerWin:              num('xp_per_win', 10),
     xpPerLoss:             num('xp_per_loss', 4),
     botDensityMinimum:     num('bot_density_minimum', 4),
@@ -67,12 +68,14 @@ async function maybeUnlockSlot(userId, cfg) {
   let target = u.activeDroneSlots;
   if (u.totalRaces >= cfg.slot3UnlockRaces && target < 3) target = 3;
   else if (u.totalRaces >= cfg.slot2UnlockRaces && target < 2) target = 2;
-  if (target > u.activeDroneSlots) {
-    await db
-      .update(users)
-      .set({ activeDroneSlots: target })
-      .where(eq(users.id, userId));
-  }
+  // Idempotency guard: skip the UPDATE when the user's current slot count
+  // already meets/exceeds the calculated target — saves a redundant write
+  // every race once a player has been at their tier ceiling.
+  if (target <= u.activeDroneSlots) return;
+  await db
+    .update(users)
+    .set({ activeDroneSlots: target })
+    .where(eq(users.id, userId));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -112,7 +115,7 @@ async function rollSkinDropForWinner(userId, cfg) {
  *  executes any PENDING whose scheduled time has passed. The cron's
  *  own tick interval is independent (admin_config.race_interval_seconds)
  *  and dictates how soon AFTER the schedule a race actually executes. */
-const PENDING_WINDOW_SECONDS = 180; // 3 minutes
+const PENDING_WINDOW_SECONDS = 120; // 2 minutes
 
 /**
  * Run one full race cycle. Two phases per tick:
@@ -365,16 +368,17 @@ async function executePendingRace(pending, cfg) {
       .where(eq(users.id, winner.userId));
   }
   if (loser.userId && !loser.isBot) {
-    // Consolation reward: every loss still pays 2 points to the wallet
-    // (and 2 to seasonPoints) so player progression doesn't stall on a
-    // losing streak. Wins still pay base + difficulty + upset via
-    // calculateRacePoints; the loss payout is a flat 2.
+    // Consolation reward: every loss still pays a flat amount to the
+    // wallet + seasonPoints so player progression doesn't stall on a
+    // losing streak. Configurable via admin_config `points_per_loss_base`
+    // (default 2). Wins use calculateRacePoints (base + difficulty + upset).
+    const lossPayout = cfg.pointsPerLossBase;
     await db
       .update(users)
       .set({
         totalRaces: sql`${users.totalRaces} + 1`,
-        points: sql`${users.points} + 2`,
-        seasonPoints: sql`${users.seasonPoints} + 2`,
+        points: sql`${users.points} + ${lossPayout}`,
+        seasonPoints: sql`${users.seasonPoints} + ${lossPayout}`,
       })
       .where(eq(users.id, loser.userId));
   }
