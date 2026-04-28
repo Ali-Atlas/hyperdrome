@@ -12,6 +12,20 @@ export const PACK_PRICES = {
 };
 
 /**
+ * Legendary skin names withheld from demo (PILOT_*) accounts. The first
+ * four are pre-equipped on real player rosters and the last two are
+ * marketplace-listed showcase legendaries; demos pull from the
+ * complement (Gilded Throne, Samurai, Necromancer) instead.
+ */
+const DEMO_LEGENDARY_BLOCKLIST = [
+  'Kraken',
+  'Diamond Hand',
+  'Apex Predator',
+  'Celestial',
+  'Valiant',
+];
+
+/**
  * Per-pack rarity slot recipe. A string slot always yields that rarity; an
  * object slot is a probability distribution rolled at open time. Each slot
  * resolves to exactly one skin.
@@ -72,7 +86,7 @@ export async function openPack(userId, packType) {
   if (!price) throw new ApiError('Unknown pack type', 400);
 
   const [user] = await db
-    .select({ id: users.id, points: users.points })
+    .select({ id: users.id, points: users.points, name: users.name })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -83,6 +97,7 @@ export async function openPack(userId, packType) {
       400,
     );
   }
+  const isDemo = user.name?.startsWith('PILOT_') ?? false;
 
   const rarityList = resolveRarityList(packType);
   if (!rarityList) throw new ApiError('Unknown pack type', 400);
@@ -97,17 +112,19 @@ export async function openPack(userId, packType) {
   // (see below) since another concurrent open could grab one between this
   // check and the assignment.
   for (const [rarity, count] of Object.entries(counts)) {
+    const conditions = [
+      eq(skins.rarity, rarity),
+      isNull(skins.userId),
+      like(skins.imageUrl, '/skins/%'),
+      like(skins.imageUrl, '%.webp'),
+    ];
+    if (isDemo && rarity === 'legendary') {
+      conditions.push(notInArray(skins.name, DEMO_LEGENDARY_BLOCKLIST));
+    }
     const [{ available }] = await db
       .select({ available: sql`count(*)::int` })
       .from(skins)
-      .where(
-        and(
-          eq(skins.rarity, rarity),
-          isNull(skins.userId),
-          like(skins.imageUrl, '/skins/%'),
-          like(skins.imageUrl, '%.webp'),
-        ),
-      );
+      .where(and(...conditions));
     if (available < count) {
       throw new ApiError(
         `Not enough ${rarity} skins available in the vault. Try again later.`,
@@ -142,6 +159,9 @@ export async function openPack(userId, packType) {
         ];
         if (skipIds.length > 0) {
           baseFilters.push(notInArray(skins.id, skipIds));
+        }
+        if (isDemo && rarity === 'legendary') {
+          baseFilters.push(notInArray(skins.name, DEMO_LEGENDARY_BLOCKLIST));
         }
         const candidates = await db
           .select()

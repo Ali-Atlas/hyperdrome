@@ -1,0 +1,51 @@
+.placeholder {
+  position: relative;
+  width: 100%;
+  /* `height: 100%` lets the placeholder fill any sized parent (e.g.
+     app/tracks/page.module.css's .imageFrame which enforces its own
+     aspect-ratio: 5/2). For standalone use where the parent has no
+     fixed height, `aspect-ratio: 2 / 1` kicks in as a fallback. */
+  height: 100%;
+  aspect-ratio: 2 / 1;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+/* Holographic oval wireframe. Stroke + glow both pull from
+   --track-accent (set inline by the consumer). Drop-shadow gives the
+   "powered-down hologram" feel — soft, dim, minimal. */
+.outline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--track-accent, var(--text-tertiary));
+  opacity: 0.55;
+  filter:
+    drop-shadow(0 0 4px color-mix(in srgb, var(--track-accent, var(--text-tertiary)) 60%, transparent))
+    drop-shadow(0 0 12px color-mix(in srgb, var(--track-accent, var(--text-tertiary)) 28%, transparent));
+}
+
+.label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.name {
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--track-accent, var(--text-secondary));
+  text-shadow: 0 0 6px
+    color-mix(in srgb, var(--track-accent, var(--text-secondary)) 40%, transparent);
+}

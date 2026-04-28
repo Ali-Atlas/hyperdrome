@@ -214,10 +214,7 @@ export async function equipSkin(userId, droneId, skinId) {
     .limit(1);
   if (!skin) throw new ApiError('Skin not found', 404);
   if (!canEquipSkin(skin, drone.level)) {
-    throw new ApiError(
-      'No drone artwork is available for this skin at this drone tier yet.',
-      400,
-    );
+    throw new ApiError('Not available in demo.', 400);
   }
 
   await db

@@ -44,6 +44,16 @@ export async function createListing(userId, itemType, itemId, price) {
       400,
     );
   }
+  // Demo accounts hold cloned cosmetics; letting them list would put
+  // duplicate-named items on the public marketplace and confuse buyers.
+  const [seller] = await db
+    .select({ name: users.name })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (seller?.name?.startsWith('PILOT_')) {
+    throw new ApiError('Demo accounts cannot list items.', 400);
+  }
   if (itemType === 'drone') {
     const [drone] = await db
       .select()

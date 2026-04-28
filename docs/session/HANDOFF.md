@@ -4,6 +4,218 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-28 - Tracks: image allowlist swap + drop placeholder tagline
+
+**Captain ask:** (1) Set `TRACKS_WITH_IMAGES` to exactly the 6 tracks with transparent-optimized renders (`horizon-express`, `neon-straightaway`, `the-grid`, `circuit-alpha`, `keyhole`, `meridian`). Drop `skyline-drift`, `tempest-run`, `voltage-loop` — those files exist but aren't transparent-optimized. (2) Drop the "Track Preview Coming Soon" tagline from `TrackPlaceholder` so it reads as a deliberate motif, not a "missing content" apology.
+
+**Files modified (3):**
+
+- MOD `app/tracks/page.jsx` — replaced the 7-entry `TRACKS_WITH_IMAGES` allowlist with the 6 Captain prescribed. Net: removed `'skyline-drift'`, `'tempest-run'`, `'voltage-loop'`; added `'keyhole'`, `'meridian'`. Those three removed tracks will now render `<TrackPlaceholder>` instead of `<img>`. All 16 tracks still render on the page (placeholder for the 10 without transparent-optimized renders).
+- MOD `components/tracks/TrackPlaceholder.jsx`:
+  - Removed the `<div className={styles.tagline}>Track Preview Coming Soon</div>` line.
+  - Updated `aria-label` from `${trackName} preview coming soon` to just `trackName` (the placeholder is now a deliberate motif, not a stand-in).
+  - JSDoc rewritten to describe the motif rather than a "powered-down placeholder".
+- MOD `components/tracks/TrackPlaceholder.module.css` — removed the now-unused `.tagline` rule (mono 9px tertiary text). Kept `.placeholder`, `.outline`, `.label`, `.name`.
+
+**Effect on the tracks page:**
+- 6 tracks render their `<img>`: Horizon Express, Neon Straightaway, The Grid, Circuit Alpha, Keyhole, Meridian.
+- 10 tracks render the wireframe motif (track name + accent oval, no tagline): Crossfire, Iron Ribbon, Skyline Drift, Helix, Switchblade, Phantom Circuit, Voltage Loop, Obsidian Maze, Apex Descent, Tempest Run.
+
+**Heads-up:** I previously flagged that `meridian_express.webp` exists in `public/tracks/` but the canonical track name is "Meridian", so the seed wrote `image_url = '/tracks/meridian.webp'`. With `'meridian'` now in the allowlist, the page will request `/tracks/meridian.webp` — that path 404s unless the file got renamed (or replaced with a transparent-optimized version). If Meridian renders as a broken image, that's the cause; the file just needs to land at `meridian.webp`.
+
+**Verified:** None — Captain waived dev/visual checks. No build/lint/test runs.
+
+---
+
+## 2026-04-28 - Seed all 16 tracks + image-file audit
+
+**Captain ask:** (1) Write + run an idempotent script that seeds all 16 tracks into the DB, upsert by name, with `image_url` derived from `name -> /tracks/{name_with_underscores}.webp`. (2) Audit `public/tracks/` and report which of the 16 have actual image files.
+
+**Files added (1):**
+
+- ADD `scripts/seed-all-tracks.js`. Hardcoded array of all 16 tracks with the canonical `levelMin/levelMax/difficulty/straights/turns/laps/length` values from Captain's spec. Spec's "Conditions" column is informational only — the `tracks` schema has no conditions column (weather + time-of-day are picked at race-creation time by `lib/game-engine/race-simulator.js`), so the script ignores it. For each track:
+  - `SELECT id FROM tracks WHERE name = ?` to test existence.
+  - If found: `UPDATE` every field to the canonical values (preserves `id` so existing `races.track_id` foreign keys stay valid).
+  - If not: `INSERT` with all fields. `laps` defaults to 3, `image_url` = `/tracks/${name.toLowerCase().replace(/\s+/g, '_')}.webp`.
+
+**Run output:** first run = `9 inserted, 7 updated`. The 7 prior tracks (Horizon Express, Neon Straightaway, The Grid, Circuit Alpha, Skyline Drift, Tempest Run, Voltage Loop) were all updated to the canonical values; 9 new tracks landed (Keyhole, Meridian, Crossfire, Iron Ribbon, Helix, Switchblade, Phantom Circuit, Obsidian Maze, Apex Descent). Final tally: 16 rows in `tracks`. Re-run = `0 inserted, 16 updated` (every UPDATE re-sets canonical values; no-op writes).
+
+**Image-file audit (`public/tracks/`):** 9 files present. Canonical paths are `/tracks/{name_with_underscores}.webp`.
+
+| # | Track | Expected file | Status |
+|---|---|---|---|
+| 1 | Horizon Express   | `horizon_express.webp`   | ✅ present |
+| 2 | Neon Straightaway | `neon_straightaway.webp` | ✅ present |
+| 3 | Keyhole           | `keyhole.webp`           | ✅ present |
+| 4 | The Grid          | `the_grid.webp`          | ✅ present |
+| 5 | Meridian          | `meridian.webp`          | ❌ missing (`meridian_express.webp` exists but doesn't match the track name) |
+| 6 | Circuit Alpha     | `circuit_alpha.webp`     | ✅ present |
+| 7 | Crossfire         | `crossfire.webp`         | ❌ missing |
+| 8 | Iron Ribbon       | `iron_ribbon.webp`       | ❌ missing |
+| 9 | Skyline Drift     | `skyline_drift.webp`     | ✅ present |
+| 10 | Helix            | `helix.webp`             | ❌ missing |
+| 11 | Switchblade      | `switchblade.webp`       | ❌ missing |
+| 12 | Phantom Circuit  | `phantom_circuit.webp`   | ❌ missing |
+| 13 | Voltage Loop     | `voltage_loop.webp`      | ✅ present |
+| 14 | Obsidian Maze    | `obsidian_maze.webp`     | ❌ missing |
+| 15 | Apex Descent     | `apex_descent.webp`      | ❌ missing |
+| 16 | Tempest Run      | `tempest_run.webp`       | ✅ present |
+
+**Have images (8 of 16):** Horizon Express, Neon Straightaway, Keyhole, The Grid, Circuit Alpha, Skyline Drift, Voltage Loop, Tempest Run.
+
+**Missing images (8 of 16):** Meridian, Crossfire, Iron Ribbon, Helix, Switchblade, Phantom Circuit, Obsidian Maze, Apex Descent.
+
+**Two heads-ups Captain should know about:**
+1. **`meridian_express.webp` is in the directory** but the canonical track name is "Meridian", so the seed wrote `image_url = '/tracks/meridian.webp'`. That file doesn't exist — Meridian will 404 unless the file is renamed to `meridian.webp` or the track is renamed to "Meridian Express".
+2. **The `TRACKS_WITH_IMAGES` allowlist in `app/tracks/page.jsx` does NOT include `keyhole`** — currently it lists 7 slugs (`horizon-express`, `neon-straightaway`, `the-grid`, `circuit-alpha`, `skyline-drift`, `tempest-run`, `voltage-loop`). So the Keyhole card on `/tracks` will render the placeholder even though `keyhole.webp` is on disk. Add `'keyhole'` to the allowlist to fix. (Captain said "Do NOT modify any frontend code" so I left it alone — flagging for next batch.)
+
+**Verified:** Script self-prints + idempotency re-run. No build/lint/test runs.
+
+---
+
+## 2026-04-28 - Frozen Abyss tier-4 render + legendary vault refill (track-path fix already shipped)
+
+**Captain ask:** Three quick fixes. (1) Add `'frozen-abyss': [4]` to `APPLIED_RENDERS` in `lib/utils.js` so demo can equip Frozen Abyss directly instead of falling back to Chrome Fury. (2) Track image path underscore fix. (3) Seed 3 unowned vault rows per legendary so packs can drop them — 8 names x 3 = 24 target rows.
+
+**Files modified (1) / added (1):**
+
+- MOD `lib/utils.js` — added `frozen_abyss: [4]` to the `APPLIED_RENDERS` map, between `dragon_scale` and `obsidian_core` in alphabetical order. **Convention deviation flagged:** Captain wrote `'frozen-abyss': [4]` (hyphen), but every existing key in the map uses underscores (`chrome_fury`, `crystal_phantom`, `dragon_scale`, `obsidian_core`), and the runtime lookup at `getAppliedTierRender` derives the slug straight from the file basename (`parts[3].replace(/\.webp$/, '')`). The actual render file is `public/skins/epic/frozen_abyss_tier4.webp` (underscore). The hyphen key would never match — so I went with `frozen_abyss: [4]` matching the convention.
+- ADD `scripts/seed-legendary-vault-stock.js`. For each of the 8 legendary names in spec order, the script:
+  1. Picks a canonical image-backed source row to copy `image_url` + `description` from (`ORDER BY created_at ASC, id ASC LIMIT 1`).
+  2. Counts current unowned image-backed rows for that name.
+  3. Inserts `max(0, 3 - unowned)` fresh rows with `user_id = NULL` and the canonical `image_url` / `description`. Image-backed filter is preserved on every insert so they pass the pack-open `image_url LIKE '/skins/%' AND '%.webp'` check.
+
+**Task 2 was a no-op:** verified `app/tracks/page.jsx:137` already reads `src={`/tracks/${slug.replace(/-/g, '_')}.webp`}` from a prior turn this session — the underscore conversion is in place. No further change needed there.
+
+**Vault seeding output (first run):**
+- Apex Predator / Celestial / Diamond Hand / Gilded Throne / Necromancer / Samurai / Valiant: each was at `unowned=0` -> bumped to 3 (3 inserts each = 21 inserts).
+- Kraken: was at `unowned=1` from the earlier `seed-kraken-skin.js` run -> bumped to 3 (2 inserts).
+- **Total: 23 new vault rows. Final tally: 24 unowned image-backed legendary rows (8 names x 3).**
+
+**Idempotency confirmed:** second run reported `Total inserts: 0` and identical final tally (3 per name).
+
+**Verified:** Script self-prints + idempotency re-run. No build/lint/test runs.
+
+---
+
+## 2026-04-28 - Track image paths: convert hyphens -> underscores at src
+
+**Captain ask:** Files in `public/tracks/` use underscores (`horizon_express.webp`, `the_grid.webp`, ...) but the wiring I added previously built `<img src>` with hyphens. Fix it.
+
+**Files modified (1):**
+
+- MOD `app/tracks/page.jsx` — single change inside `TrackCard`'s image branch: `src={`/tracks/${slug}.webp`}` -> `src={`/tracks/${slug.replace(/-/g, '_')}.webp`}`. Took option B from the heads-up: convert at the URL site only. `TRACKS_WITH_IMAGES` and `TRACK_ACCENT_COLORS` keys stay hyphenated per Captain's original spec (lookups still work, no other code changes). Placeholder branch is unaffected.
+
+**Verified:** None — Captain waived dev/visual checks. No build/lint/test runs.
+
+---
+
+## 2026-04-28 - Demo auth + pre-progressed seed + landing page redesign
+
+**Captain ask:** (Prompt 2) Build a Credentials-backed PILOT_* demo flow that creates a user, runs a full account seed (7 drones with skins/mods + 30-80 races each), and signs them in via JWT cookie. (Prompt 3) Replace the landing page with a video-bg hero (HYPERDROME brand, hex icon, subtitle, race timing line, PLAY DEMO + LOGIN buttons, optional audio toggle) and a 4-card features grid. Both prompts approved with explicit scope overrides.
+
+**Files added / modified (10):**
+
+- ADD `lib/auth/index.js` (mod) — added `Credentials` provider import + a server-only provider entry that accepts `{ userId, demoSecret }`, verifies `demoSecret === NEXTAUTH_SECRET`, and rejects any user whose `name` doesn't start with `PILOT_`. Existing Resend magic-link provider untouched.
+- ADD `scripts/seed-demo-player.js` — exports `seedDemoPlayer(userId)`. Sets points to 110_000 + activeDroneSlots=3, creates 7 drones (STRIKER LV18, PHANTOM LV12, VIPER LV17, GHOST LV15, SPARK LV8, BOLT LV6, ROOKIE LV3) with 4 randomized headline stats clamped to TSB, clones equipped skins onto STRIKER/PHANTOM/VIPER (named lookup with rarity fallback so missing seed rows still produce a legendary/epic), clones unbound inventory (Apex Predator / Ember / Chrome Fury), binds 2 commons + 1 rare unequipped to random non-VIPER drones, clones + equips 2 common mods (STRIKER + PHANTOM) and 1 rare mod (SPARK) plus 2 unbound common mods, and generates 30-80 completed-race rows per drone (batched in chunks of 50) versus level-bracketed bots with ELO-driven win rates. Rolls drone wins/losses/totalRaces back into the user's totalRaces/totalWins. **Frozen Abyss falls back to Chrome Fury via `canEquipSkin` runtime check** (the tier-4 webp exists at `public/skins/epic/frozen_abyss_tier4.webp` but the slug isn't yet registered in `APPLIED_RENDERS`).
+- ADD `app/api/auth/demo/route.js` — POST handler. In-memory `Map<ip, {count, resetAt}>` rate limit (5 per IP per hour, per process — acceptable per Captain). Generates `PILOT_${4-char A-Z0-9}` with 5-attempt collision retry, creates user via direct `db.insert(users)` (skips the NextAuth adapter so `events.createUser` doesn't auto-spawn a starter drone), calls `seedDemoPlayer`, then `signIn('credentials', { userId, demoSecret, redirect: false })` to set the JWT cookie. Returns `{ redirectUrl: '/dashboard' }`. Already-signed-in PILOT users short-circuit to the same response.
+- MOD `services/pack.service.js` — added `DEMO_LEGENDARY_BLOCKLIST` (Kraken, Diamond Hand, Apex Predator, Celestial, Valiant). The user query now also pulls `name`, computes `isDemo` once, and passes a `notInArray(skins.name, DEMO_LEGENDARY_BLOCKLIST)` filter into both the pre-flight availability check and the candidate-pool query whenever the rolled rarity is `legendary`. Applies to **every** legendary roll (any pack), not just the legendary pack's guaranteed slot.
+- MOD `services/skin.service.js` — replaced the canEquipSkin error message in `equipSkin` ("No drone artwork is available...") with `'Not available in demo.'` per the brief.
+- MOD `services/marketplace.service.js` — added an early demo-seller check at the top of `createListing`: looks up `users.name`; throws `400 'Demo accounts cannot list items.'` if it starts with `PILOT_`. Blocks demo cosmetic clones from polluting the public market.
+- ADD `app/page.jsx` — full rewrite. Server component, keeps `auth()` redirect for logged-in users. Hero section: `<video autoPlay muted loop playsInline>` background pointed at `/hero-video.mp4` (silently no-ops if missing → black fallback via `--bg-primary`), 50% black overlay, centered Hexagon (lucide) + HYPERDROME h1 (`--font-display` / Orbitron) + subtitle + mono race-timing line + `<HeroActions/>`. Below the fold: 4 feature cards (Cpu / ShoppingCart / Sparkles / Trophy). Footer: "Dendrite Games © 2026" mono 9px (Captain-approved hardcode). All previous landing content (sticky nav, How It Works, stats ticker, 5-card features, footer link list, inline drone SVG) deleted.
+- ADD `app/page.module.css` — full rewrite. CSS Modules + tokens only. Hero is `position: relative; min-height: 100vh`; video / overlay / content are stacked at z-index 0/1/2. `.heroContent` is `position: absolute; inset: 0` so absolutely-positioned children inside it (the audio toggle) resolve to the full hero bounds. Heading scales `--text-4xl` → `--text-5xl` (≥1024) → `--text-6xl` (≥1440). Features grid is 1 col mobile, 2 cols (≥768), 4 cols (≥1024). Footer 9px hardcoded; everything else from tokens.
+- ADD `app/HeroActions.jsx` — `'use client'`. Audio toggle (lucide Volume2/VolumeX, only renders after a `HEAD /hero-audio.mp3` returns 2xx). Demo button POSTs to `/api/auth/demo`, on success `window.location.href = data.redirectUrl`; on error shows an inline mono error below the button (no ToastProvider on landing per Captain). Login link uses `<Link href="/login">`.
+- ADD `app/HeroActions.module.css` — co-located styles. Audio toggle: `position: absolute; top/right: var(--space-4); z-index: 3` (resolves to hero bounds via `.heroContent` ancestry). Buttons: 52px min-height, 200px min-width, uppercase, teal primary on black + transparent ghost with teal border. Helper text 8px hardcoded (Captain-approved, --text-xs is 12px).
+
+**Rule exceptions (Captain-approved):**
+- 4-file cap exceeded → 6 files for Prompt 2 (5 originally, +1 for `services/marketplace.service.js` to enforce decision 2 "PILOT_* cannot list items").
+- Hardcoded font sizes (8px helper, 9px footer) in `HeroActions.module.css` and `page.module.css`. Smallest `--text-*` token is 12px.
+
+**Verified by Mercenary (against the running dev server at :3000):**
+- `npm run lint` → 0 errors, 14 pre-existing `<img>` warnings unrelated.
+- `POST /api/auth/demo` → HTTP 200, `Set-Cookie: authjs.session-token=...`, body `{"redirectUrl":"/dashboard"}`. Cookie decrypts via `/api/auth/session` to `{ name: PILOT_5V09, email: pilot_5v09@demo.hyperdrome.gg, points: 110000, activeDroneSlots: 3 }`.
+- `/api/leaderboard/me` with the demo cookie returns the new pilot ranked at 8 with totalRaces=381, totalWins=188 (matches ~7 drones × ~54 avg races).
+- `/api/drones` for the demo returns 7 rows with the right name/level/active flags, STRIKER → Kraken equipped, PHANTOM → Diamond Hand equipped, VIPER → Chrome Fury equipped (Frozen Abyss fallback), STRIKER + PHANTOM + SPARK have `appliedModId` set.
+- Owned-skin inventory has 9 rows with the expected 3 unbound: Chrome Fury (rare), Ember (common), Apex Predator (legendary).
+- `POST /api/marketplace { item_type:'skin', skin_id, price:500 }` as the demo → 400 `"Demo accounts cannot list items."`
+- `POST /api/marketplace/packs/open { packType:'legendary' }` as the demo → 400 (vault depleted of unowned epics blocks the pre-flight before reaching the legendary slot; my filter is correct by inspection).
+- Landing page `GET /` → 200, contains HYPERDROME, subtitle, race timing, Play Demo button, Login link, helper, all 4 feature titles, footer copy, `<video>` tag, overlay class. Old "Total Races Run", "How It Works", "Start Racing" nav copy all gone.
+
+**Not verified (require browser eyes — Captain to spot-check):**
+- Hero visual at 1440 / 1024 / 375 with the actual `/hero-video.mp4` once Captain drops the asset in `public/`. Until then the hero is a 100vh black panel with overlay + centered copy.
+- Audio toggle visibility once `/hero-audio.mp3` is added (HEAD probe currently 404s → button hidden, as designed).
+- The "Not available in demo" toast surfacing in the drone-management flow when a demo binds a non-legendary skin without a matching tier render and tries to equip it.
+- The legendary blocklist actually filtering once epic vault stock is replenished — at which point a demo opening a legendary pack should never roll Kraken / Diamond Hand / Apex Predator / Celestial / Valiant.
+
+**Open follow-ups (not in this session's scope):**
+- `frozen_abyss: [4]` should probably land in `APPLIED_RENDERS` (lib/utils.js) so the existing tier-4 webp actually renders. Currently the demo substitutes Chrome Fury instead.
+- The track lookup errors in `.next/dev/logs/next-development.log` (`params: horizon-express.webp,1`) are pre-existing and unrelated to this session.
+
+---
+
+## 2026-04-28 - Wire TrackPlaceholder into tracks page + Kraken skin row + verify Kraken theme
+
+**Captain ask:** (1) Wire `TrackPlaceholder` into `app/tracks/page.jsx`: hardcoded `TRACKS_WITH_IMAGES` allowlist of 7 slugs, slug helper, accent color map for all 16 tracks; render `<img>` if has image else `<TrackPlaceholder>`. (2) Insert a Kraken legendary skin row if absent. (3) Add `kraken` entry to `lib/legendary-skins.js` if absent.
+
+**Files modified (2) / added (1):**
+
+- MOD `app/tracks/page.jsx`:
+  - Imported `TrackPlaceholder` from `@/components/tracks/TrackPlaceholder`.
+  - Added top-level constants: `TRACKS_WITH_IMAGES` (7 hyphenated slugs per Captain's spec — `horizon-express`, `neon-straightaway`, `the-grid`, `circuit-alpha`, `skyline-drift`, `tempest-run`, `voltage-loop`) and `TRACK_ACCENT_COLORS` (full 16-entry map covering every track in the game spec).
+  - Added `trackSlug(name)` helper: lowercase + trim + collapse whitespace to single hyphen.
+  - `TrackCard`: computes `slug`, `hasImage` (allowlist membership), `accentColor` (map lookup, fallback to `--accent-primary` teal `#03DAC6`). Renders `<img src={`/tracks/${slug}.webp`}>` if `hasImage`, else `<TrackPlaceholder trackName={track.name} accentColor={accentColor} />`.
+- MOD `components/tracks/TrackPlaceholder.module.css`:
+  - `.placeholder`: added `height: 100%` so the placeholder fills any sized parent (the tracks-page `.imageFrame` enforces its own `aspect-ratio: 5 / 2`, which would have fought the placeholder's own `aspect-ratio: 2 / 1`). Kept `aspect-ratio: 2 / 1` as a standalone fallback for parents with no fixed height. Comment in the rule explains the dual sizing.
+- ADD `scripts/seed-kraken-skin.js`: idempotent insert of `name='Kraken'`, `rarity='legendary'`, `image_url='/skins/legendary/kraken.webp'`, `user_id=NULL`, `description=NULL`. First run inserted (id `77ded8e6-…`); second run reported "already exists; skipping" — clean idempotent.
+
+**Task 3 (legendary-skins.js) — no-op:** verified `lib/legendary-skins.js` line 77 already has:
+```js
+kraken: {
+  name: 'Kraken',
+  body: '#0A0A0A',
+  primary: '#2979FF',
+  secondary: '#7C4DFF',
+  description: 'Deep abyssal blue-black body, electric blue eyes, violet patterns.',
+}
+```
+Exact match for Captain's prescription (`primary: #2979FF` electric blue, `secondary: #7C4DFF` purple, `body: #0A0A0A`). Per "if not already present" — present and correct, file untouched.
+
+**Heads-up flagged:** Captain's spec says `<img src="/tracks/${slug}.webp">` with hyphenated slugs, but the actual files in `public/tracks/` use **underscores** (`horizon_express.webp`, `the_grid.webp`, etc.). Following Captain's spec literally — the new img tags will issue 404s in the browser until either:
+  - The files in `public/tracks/` are renamed to use hyphens (matches the spec), OR
+  - The `src` is changed to `slug.replace(/-/g, '_')` (matches existing files).
+Pick one and ping me; one-line change either way. Placeholder rendering for non-image tracks is unaffected.
+
+**Verified:** Script self-prints + idempotency re-run. No build/lint/test runs.
+
+---
+
+## 2026-04-28 - TrackPlaceholder component (holographic placeholder for un-rendered tracks)
+
+**Captain ask:** Create a `TrackPlaceholder` React component for tracks that don't have their final Gemini-generated image yet. Spec: dark/transparent background, dim holographic oval wireframe in the track's accent color (thin dashed/dotted stroke + subtle glow), track name centered in accent, "TRACK PREVIEW COMING SOON" beneath, 2:1 aspect ratio, props `{ trackName: string, accentColor: string }`, CSS-only, no external deps, "powered-down hologram" feel. The rest of the prompt (16-track data dump, gate logic, tier colors) is reference for downstream work — not implemented this turn.
+
+**Files added (2):**
+
+- ADD `components/tracks/TrackPlaceholder.jsx`. Default-exported component. Renders a `div` (CSS `aspect-ratio: 2 / 1`, `bg-elevated` background) containing:
+  - An inline `<svg viewBox="0 0 200 100">` with a single `<ellipse>` — `cx=100 cy=50 rx=78 ry=34`, `fill=none`, `stroke=currentColor` so it inherits the accent, `stroke-width=1` with `vector-effect="non-scaling-stroke"` so the line stays thin at any size, `stroke-dasharray="3 4"` for the dashed wireframe.
+  - A `.label` overlay with the track name + tagline. The wrapper carries `role="img"` + `aria-label="${trackName} preview coming soon"`; the SVG is `aria-hidden`. JSDoc describes both props.
+  - The accent color is piped via a single CSS custom property `--track-accent` set inline (`style={{ '--track-accent': accentColor }}`), so wireframe stroke, glow, and track-name color all share it. New folder `components/tracks/` created (matches project's `components/{feature}/` convention).
+- ADD `components/tracks/TrackPlaceholder.module.css`. Plain CSS Module, all colors / fonts pulled from `globals.css` design tokens (`--bg-elevated`, `--text-tertiary`, `--font-heading`, `--font-mono`, `--text-sm`, `--font-bold`).
+  - `.placeholder`: positioning + 2:1 aspect ratio + bg.
+  - `.outline`: absolute fill, `color: var(--track-accent, fallback)` so SVG `currentColor` resolves to the accent, `opacity: 0.55` for the dim hologram look, double `filter: drop-shadow(...)` using `color-mix` against transparent for a soft accent-colored glow at 60% / 28%.
+  - `.label`: absolute fill, flex-centered, `pointer-events: none` so it doesn't intercept clicks.
+  - `.name`: heading font, uppercase, `0.12em` tracking, accent color, soft `text-shadow` glow.
+  - `.tagline`: mono 9px, tertiary text, uppercase `0.16em` tracking, `opacity: 0.7`.
+
+**Untouched / not in scope:**
+- The tracks page (`app/tracks/page.jsx`) is NOT wired to use this component yet — Captain only asked for the component itself. When ready, swap the `<img>` in `TrackCard` for `<TrackPlaceholder ...>` for tracks where `hasImage === false` (note: `hasImage` is in Captain's spec but not yet a column in `tracks` schema — would need either a DB migration or a hardcoded "image-backed names" allowlist in the page).
+- The 16-track data list, `generateGates` function, and tier color table are reference data — not committed in this turn. Defer to whoever wires the gate UI / DB seed.
+
+**Verified:** None — Captain waived dev/visual checks. No build/lint/test runs.
+
+**Captain to spot-check at 1440 / 1024 / 375 once wired in:** dim oval wireframe in the track's accent color, soft glow, track name centered in the same accent (uppercase Rajdhani), "TRACK PREVIEW COMING SOON" in dim mono below it. 2:1 box matching the real track image aspect.
+
+---
+
 ## 2026-04-28 - Pack price overhaul + demo marketplace reseed
 
 **Captain ask:** (1) Bump skin pack prices in `app/marketplace/page.jsx` `PACK_DEFS`: Starter 500 -> 2,000; Premium 2,000 -> 25,000; Legendary 10,000 -> 100,000. (2) Set capsule pack prices in `CAPSULE_PACK_DEFS`: Starter 1,000; Premium 12,000; Legendary 50,000. (3) Mirror the new prices in Guide + FAQ copy. (4) Wipe all marketplace listings and reseed a curated demo set with bot sellers and fixed prices, including the legendary skins Celestial @ 135,000V (MKT_PULSE) and Valiant @ 142,000V (MKT_ORBIT). Idempotent.

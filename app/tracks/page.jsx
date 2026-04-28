@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import NavShell from '@/components/ui/NavShell';
+import TrackPlaceholder from '@/components/tracks/TrackPlaceholder';
 import { cn, getDifficultyColor, getTrackNeon } from '@/lib/utils';
 import styles from './page.module.css';
 
@@ -12,6 +13,43 @@ const BRACKETS = [
   { id: '11-15', label: 'LV 11-15', min: 11, max: 15 },
   { id: '16-20', label: 'LV 16-20', min: 16, max: 20 },
 ];
+
+/** Slugs of tracks that have a final rendered image at /tracks/<slug>.webp.
+ *  Tracks not in this list render the holographic placeholder. */
+const TRACKS_WITH_IMAGES = [
+  'horizon-express',
+  'neon-straightaway',
+  'the-grid',
+  'circuit-alpha',
+  'keyhole',
+  'meridian',
+];
+
+/** Per-track accent colors. Used by both the placeholder (wireframe +
+ *  glow + name color) and could be wired to image-having cards later. */
+const TRACK_ACCENT_COLORS = {
+  'horizon-express':   '#00E676',
+  'neon-straightaway': '#00E5FF',
+  'keyhole':           '#40C4FF',
+  'the-grid':          '#E0E0E0',
+  'meridian':          '#00BFA5',
+  'circuit-alpha':     '#FF9100',
+  'crossfire':         '#FF4081',
+  'iron-ribbon':       '#FF5252',
+  'skyline-drift':     '#D050FF',
+  'helix':             '#E040FB',
+  'switchblade':       '#18FFFF',
+  'phantom-circuit':   '#B0BEC5',
+  'voltage-loop':      '#FFD600',
+  'obsidian-maze':     '#FF6D00',
+  'apex-descent':      '#D50000',
+  'tempest-run':       '#FF1744',
+};
+
+/** Lowercase track name with whitespace -> single hyphen. */
+function trackSlug(name) {
+  return (name ?? '').toLowerCase().trim().replace(/\s+/g, '-');
+}
 
 export default function TracksPage() {
   const [tracks, setTracks] = useState([]);
@@ -86,15 +124,25 @@ export default function TracksPage() {
 
 function TrackCard({ track }) {
   const neon = getTrackNeon(track.name);
+  const slug = trackSlug(track.name);
+  const hasImage = TRACKS_WITH_IMAGES.includes(slug);
+  const accentColor = TRACK_ACCENT_COLORS[slug] ?? '#03DAC6';
   return (
     <article className={styles.card} style={{ '--track-neon': neon }}>
       <h3 className={styles.name}>{track.name}</h3>
       <div className={styles.imageFrame}>
-        <img
-          src={track.imageUrl}
-          alt={track.name}
-          className={styles.trackImg}
-        />
+        {hasImage ? (
+          <img
+            src={`/tracks/${slug.replace(/-/g, '_')}.webp`}
+            alt={track.name}
+            className={styles.trackImg}
+          />
+        ) : (
+          <TrackPlaceholder
+            trackName={track.name}
+            accentColor={accentColor}
+          />
+        )}
       </div>
       <div className={styles.body}>
         <div className={styles.metaRow}>
