@@ -221,7 +221,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What can I spend volts on?',
-        a: 'Stat upgrades, marketplace listings (drones, unbound skins, unbound mods), skin packs and mod capsules (Starter 500, Premium 2,000, Legendary 10,000 - 3 items per pack on either line).',
+        a: 'Stat upgrades, marketplace listings (drones, unbound skins, unbound mods), skin packs (Starter 2,000 / Premium 25,000 / Legendary 100,000) and mod capsules (Starter 1,000 / Premium 12,000 / Legendary 50,000) - 3 items per pack on either line.',
       },
       {
         q: 'Can I buy XP?',
@@ -340,15 +340,15 @@ const FAQ_SECTIONS = [
         a: 'No. Each skin is a single instance. When a player owns it, no one else can. Sell or apply changes ownership.',
       },
       {
-        q: 'What\'s in the Starter Pack (500 volts)?',
+        q: 'What\'s in the Starter Pack (2,000 volts)?',
         a: '3 skins. Slot 1: Common. Slot 2: Common. Slot 3: Rare 70% / Epic 25% / Legendary 5%.',
       },
       {
-        q: 'What\'s in the Premium Pack (2,000 volts)?',
+        q: 'What\'s in the Premium Pack (25,000 volts)?',
         a: '3 skins. Slot 1: Rare. Slot 2: Epic 60% / Legendary 40%. Slot 3: Common 40% / Rare 35% / Epic 20% / Legendary 5%.',
       },
       {
-        q: 'What\'s in the Legendary Pack (10,000 volts)?',
+        q: 'What\'s in the Legendary Pack (100,000 volts)?',
         a: '3 skins. Slot 1: Epic. Slot 2: Legendary. Slot 3: Rare 30% / Epic 50% / Legendary 20%.',
       },
       {
@@ -369,7 +369,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What\'s in a mod capsule?',
-        a: 'Same structure as skin packs - 3 mods per capsule, same prices (500 / 2,000 / 10,000), same slot rarity tables. The capsules roll mods instead of skins. Mods are functional (bonus + tradeoff per equip).',
+        a: 'Same structure as skin packs - 3 mods per capsule, same slot rarity tables. Mod capsules are priced separately (1,000 / 12,000 / 50,000) and run cheaper than skin packs (2,000 / 25,000 / 100,000). The capsules roll mods instead of skins. Mods are functional (bonus + tradeoff per equip).',
       },
     ],
   },

@@ -4,6 +4,51 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-28 - Pack price overhaul + demo marketplace reseed
+
+**Captain ask:** (1) Bump skin pack prices in `app/marketplace/page.jsx` `PACK_DEFS`: Starter 500 -> 2,000; Premium 2,000 -> 25,000; Legendary 10,000 -> 100,000. (2) Set capsule pack prices in `CAPSULE_PACK_DEFS`: Starter 1,000; Premium 12,000; Legendary 50,000. (3) Mirror the new prices in Guide + FAQ copy. (4) Wipe all marketplace listings and reseed a curated demo set with bot sellers and fixed prices, including the legendary skins Celestial @ 135,000V (MKT_PULSE) and Valiant @ 142,000V (MKT_ORBIT). Idempotent.
+
+**Files modified (3) / added (1):**
+
+- MOD `app/marketplace/page.jsx` — `PACK_DEFS` Starter `500 -> 2_000`, Premium `2_000 -> 25_000`, Legendary `10_000 -> 100_000`. `CAPSULE_PACK_DEFS` Starter `500 -> 1_000`, Premium `2_000 -> 12_000`, Legendary `10_000 -> 50_000`. No other code in the file touched.
+- MOD `app/faq/page.jsx` — five copy updates:
+  - Line 224 (the "what do volts buy" answer): split skin pack vs capsule prices into separate lists with the new values.
+  - Line 343 / 347 / 351 (the per-pack Q heads): "(500 volts)"/"(2,000 volts)"/"(10,000 volts)" -> "(2,000 volts)"/"(25,000 volts)"/"(100,000 volts)".
+  - Line 372 (mod capsule answer): replaced "same prices (500 / 2,000 / 10,000)" with the new dual list noting capsules run cheaper.
+- MOD `app/guide/page.jsx` — three numeric updates and two textual fixes for now-broken parity claims:
+  - The two single-line bullet entries listing pack pricing (`Skin packs` / `Mod capsules`) updated to the new tiered numbers.
+  - Three subheading texts (`Starter Pack - 500 volts` etc.) updated to `2,000` / `25,000` / `100,000`.
+  - Two paragraphs that claimed "the volt prices and odds are identical" or "the same volt prices" between skin packs and mod capsules — rewritten to reflect that capsules now cost less than skin packs (1,000/12,000/50,000 vs 2,000/25,000/100,000); slot rarity tables remain identical.
+- ADD `scripts/seed-demo-marketplace.js`. Loads .env.local, resolves MKT_PULSE / MKT_NEXUS / MKT_ORBIT, then:
+  1. `DELETE FROM marketplace_listings RETURNING id` — wipes all rows for the clean slate.
+  2. **Celestial / Valiant first**: looks up by name + rarity + image_url filter; deletes any `drone_skins` rows for the skin (releases collection bindings); sets `drones.applied_skin_id = NULL` on any drone that had it equipped; re-homes `skins.user_id` to the chosen bot; inserts the listing.
+  3. **Other skins**: queries unbound, image-backed, non-Celestial-non-Valiant pool, ordered by `(rarity, name, id)` for deterministic selection across runs. Walks per-rarity cursors to pick 2 epic / 3 rare / 3 common, re-homes ownership, lists.
+  4. **Mods**: same pattern against `mods` + `drone_mods` junction. Picks 1 legendary / 2 epic / 3 rare / 3 common.
+  5. **Drones**: picks bot-owned drones with `applied_skin_id IS NULL` per tier (level brackets from `lib/utils.js#getLevelTier`: 16-20 / 11-15 / 6-10 / 1-5), 2 per tier, lists at the prescribed prices under the existing owner. Never moves drone ownership.
+  6. Final `COUNT(*) WHERE status = 'active'` printed.
+
+**Run output (first run, identical second run):**
+- Wiped 172 existing listings.
+- Created 27 active listings (10 skins + 9 mods + 8 drones).
+- **Destructive transfers from HELLO collection (one-time, expected):**
+  - **Celestial**: had been equipped on `HELLO_LEG_1` and bound to 12 drones (the prior bind-all script). Unequipped from HELLO_LEG_1 (`applied_skin_id` cleared) + 12 `drone_skins` rows deleted + ownership moved to MKT_PULSE.
+  - **Valiant**: had been bound to 1 drone (HELLO_SKIMMER_1) and equipped there. Unequipped + 1 `drone_skins` row deleted + ownership moved to MKT_ORBIT.
+- Other skin listings: Dragon Scale, Frozen Abyss (epic); Arctic Fury, Copper King, Gunmetal Storm (rare); Cobalt, Dusk, Frost (common).
+- Mod listings: Phantom Drive (legendary); 2x Iron Hull (epic); 3x Aero Shell (rare); 3x Grip Pads (common). The mod-name repeats across rarities are because the seeded `mods` table has multiple rows of each name across rarities — the script picked them deterministically by id.
+- Drone listings: MKT_APEX_09 + MKT_ASCENT_11 (tier 4); MKT_ASCENT_08 + MKT_ASCENT_40 (tier 3); MKT_SKIMMER_28 + MKT_SKIMMER_01 (tier 2); CYBER-T1 + GHOST-L8 (tier 1).
+
+**Idempotency:** re-run = identical 27 listings, same UUIDs would re-issue (we delete + re-insert each time), same skin/mod/drone selections (deterministic ordering).
+
+**Heads-up flags:**
+- HELLO's collection lost 12 Celestial bindings + the Valiant binding + 2 equipped legendaries off HELLO_LEG_1 / HELLO_SKIMMER_1. This was explicit in Captain's spec but worth surfacing — the prior demo-seed scripts (`bind-hello-legendaries-except-one`, `equip-hello-legendaries-on-new-drones`, `bind-all-legendaries-to-every-hello-drone`) created that state on purpose for QA, and this script tears the relevant chunks down to free the listables.
+- Celestial / Valiant primary colors were tweaked earlier this session for `/drones` legendary card visuals (Valiant: `primary: '#B0E0FF'` ice-blue border + `bgTint: '#FFFFFF'` white wash). The data on the skin row itself isn't relevant to listings — just calling it out so you know the cards on `/marketplace` will now render Celestial / Valiant as legendaries with their existing themes.
+
+**Verified:** Script self-prints + idempotency re-run. No lint/build/test runs.
+
+**No frontend changes beyond the pack price constants and Guide/FAQ copy.**
+
+---
+
 ## 2026-04-28 - Revert chip + cardBody border-radius (wrong element); diagnosis ask
 
 **Captain ask:** "you applied the border radius to the wrong element again, undo that". Captain's screenshot points DevTools at `.cardBody` and says "I think it's this one" + "that bottom-left purple border causing the trouble". So undo what I just added to `.cardBody` and the chips, but the diagnosis is still open — Captain wants me to verify which element is actually responsible before applying anything new.

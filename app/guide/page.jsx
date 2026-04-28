@@ -359,8 +359,8 @@ const SECTIONS = [
         items: [
           { name: 'Stat upgrades', desc: 'Permanent. Cost depends on the stat\'s current value.' },
           { name: 'Marketplace', desc: 'Drones, unbound skins, and unbound mods listed by other players.' },
-          { name: 'Skin packs', desc: 'Starter (500), Premium (2,000), Legendary (10,000). 3 skins per pack.' },
-          { name: 'Mod capsules', desc: 'Starter (500), Premium (2,000), Legendary (10,000). 3 mods per capsule.' },
+          { name: 'Skin packs', desc: 'Starter (2,000), Premium (25,000), Legendary (100,000). 3 skins per pack.' },
+          { name: 'Mod capsules', desc: 'Starter (1,000), Premium (12,000), Legendary (50,000). 3 mods per capsule.' },
         ],
       },
     ],
@@ -452,7 +452,7 @@ const SECTIONS = [
         text: 'Two product lines: skin packs (cosmetics) and mod capsules (functional). Both lines come in three tiers - Starter, Premium, Legendary - at the same price points. Every pack opens 3 items. Each slot has a guaranteed minimum rarity or a probability table.',
       },
 
-      { type: 'subheading', text: 'Starter Pack - 500 volts' },
+      { type: 'subheading', text: 'Starter Pack - 2,000 volts' },
       {
         type: 'list',
         items: [
@@ -462,7 +462,7 @@ const SECTIONS = [
         ],
       },
 
-      { type: 'subheading', text: 'Premium Pack - 2,000 volts' },
+      { type: 'subheading', text: 'Premium Pack - 25,000 volts' },
       {
         type: 'list',
         items: [
@@ -472,7 +472,7 @@ const SECTIONS = [
         ],
       },
 
-      { type: 'subheading', text: 'Legendary Pack - 10,000 volts' },
+      { type: 'subheading', text: 'Legendary Pack - 100,000 volts' },
       {
         type: 'list',
         items: [
@@ -485,7 +485,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Skin packs vs mod capsules' },
       {
         type: 'paragraph',
-        text: 'Skin packs roll skins (cosmetic). Mod capsules roll mods (functional, with bonus + tradeoff). The slot rarity tables above apply to both. Pick the line that matches what you\'re collecting; the volt prices and odds are identical.',
+        text: 'Skin packs roll skins (cosmetic). Mod capsules roll mods (functional, with bonus + tradeoff). The slot rarity tables above apply to both. Mod capsules are priced separately and run cheaper than skin packs - Starter 1,000 / Premium 12,000 / Legendary 50,000 vs the skin pack tiers of 2,000 / 25,000 / 100,000.',
       },
 
       { type: 'subheading', text: 'Vault rules' },
@@ -691,7 +691,7 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'Packs' },
       {
         type: 'paragraph',
-        text: 'Two product lines: skin packs (cosmetics) and mod capsules (functional). Each comes in three tiers - Starter, Premium, and Legendary - with the same volt prices and the same slot rarity tables. Every pack opens 3 items.',
+        text: 'Two product lines: skin packs (cosmetics) and mod capsules (functional). Each comes in three tiers - Starter, Premium, and Legendary - sharing the same slot rarity tables. Skin packs cost 2,000 / 25,000 / 100,000; mod capsules cost 1,000 / 12,000 / 50,000. Every pack opens 3 items.',
       },
       { type: 'subheading', text: 'Building value' },
       {

@@ -29,7 +29,7 @@ const PACK_DEFS = [
   {
     id: 'starter',
     name: 'Starter Pack',
-    price: 500,
+    price: 2_000,
     variant: 'gray',
     contents: '3 Skins - 2 Common guaranteed, 1 Rare or higher',
     description:
@@ -50,7 +50,7 @@ const PACK_DEFS = [
   {
     id: 'premium',
     name: 'Premium Pack',
-    price: 2_000,
+    price: 25_000,
     variant: 'purple',
     contents: '3 Skins - 1 Rare guaranteed, 1 Epic or higher, 1 any rarity',
     description:
@@ -75,7 +75,7 @@ const PACK_DEFS = [
   {
     id: 'legendary',
     name: 'Legendary Pack',
-    price: 10_000,
+    price: 100_000,
     variant: 'gold',
     contents: '3 Skins - 1 Epic guaranteed, 1 Legendary, 1 Rare or higher',
     description:
@@ -179,7 +179,7 @@ const CAPSULE_PACK_DEFS = [
   {
     id: 'capsule-starter',
     name: 'Starter Capsule',
-    price: 500,
+    price: 1_000,
     variant: 'gray',
     description:
       '3 mods to boost your drone. Common-heavy with a chance at rare.',
@@ -188,7 +188,7 @@ const CAPSULE_PACK_DEFS = [
   {
     id: 'capsule-premium',
     name: 'Premium Capsule',
-    price: 2_000,
+    price: 12_000,
     variant: 'purple',
     description:
       'Guaranteed rare plus an epic-or-better slot. Best value for competitive upgrades.',
@@ -201,7 +201,7 @@ const CAPSULE_PACK_DEFS = [
   {
     id: 'capsule-legendary',
     name: 'Legendary Capsule',
-    price: 10_000,
+    price: 50_000,
     variant: 'gold',
     description:
       '1 Epic guaranteed · 1 Legendary guaranteed · 1 Rare+ wild slot. The only way to pull exclusive legendary mods.',
