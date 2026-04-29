@@ -644,28 +644,38 @@
    .card { background: var(--bg-card) } rule on cross-module specificity
    tiebreak (same fix as the level tints). No hover transitions on the
    border - the tier/rarity color is the constant. */
+/* Skin/mod listing cards mirror the pack-preview .possibleCard_<rarity>
+   treatments exactly, so the marketplace and the pack previews read as
+   the same family. Common gets the elevated grey bg (faint but lifted
+   off the page); rare/epic get the same vertical tint + breath animation
+   as the previews; legendary gets the gold gradient + inset glow + border
+   pulse + diagonal glisten (latter applied via .cardLegendaryShimmer). */
 .listingCard.card_common {
+  background: var(--bg-elevated);
   border-color: rgba(158, 158, 158, 0.45);
 }
 
 .listingCard.card_rare {
   background: linear-gradient(
       180deg,
-      rgba(74, 158, 255, 0.16) 0%,
-      rgba(74, 158, 255, 0.03) 100%
+      rgba(74, 158, 255, 0.18) 0%,
+      rgba(74, 158, 255, 0.04) 100%
     ),
-    var(--bg-card);
+    var(--bg-elevated);
   border-color: rgba(74, 158, 255, 0.5);
+  animation: rarePulse 3s ease-in-out infinite;
 }
 
 .listingCard.card_epic {
   background: linear-gradient(
       180deg,
       rgba(187, 134, 252, 0.18) 0%,
-      rgba(187, 134, 252, 0.03) 100%
+      rgba(187, 134, 252, 0.04) 100%
     ),
-    var(--bg-card);
+    var(--bg-elevated);
   border-color: rgba(187, 134, 252, 0.5);
+  box-shadow: 0 0 0px rgba(187, 134, 252, 0);
+  animation: epicPulse 2.5s ease-in-out infinite;
 }
 
 .listingCard.card_legendary {
@@ -676,6 +686,10 @@
     ),
     var(--bg-card);
   border-color: rgba(255, 215, 0, 0.55);
+  box-shadow:
+    inset 0 0 15px rgba(255, 215, 0, 0.06),
+    0 0 8px rgba(255, 215, 0, 0.08);
+  animation: legendaryBorderPulse 4s ease-in-out infinite;
 }
 
 /* Level-tier-tinted drone card backgrounds. Selectors are chained with
@@ -3710,7 +3724,7 @@
   color: var(--cta-text, #000);
   border: none;
   border-radius: var(--radius-lg);
-  font-family: var(--font-body);
+  font-family: var(--font-heading);
   font-size: var(--text-base);
   font-weight: var(--font-semibold);
   text-transform: uppercase;
@@ -3721,6 +3735,57 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+}
+
+/* Ghost-outline counterpart to .purchaseCta for secondary modal actions
+   (Save for Later, Close, etc). Same dimensions and font as .purchaseCta
+   so paired buttons in the same modal read as a matched set. */
+.modalSecondaryBtn {
+  align-self: center;
+  width: 100%;
+  max-width: 400px;
+  min-height: 52px;
+  padding: 0 var(--space-4);
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.modalSecondaryBtn:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.modalSecondaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Hexagon icon shown inside face-down placeholder cards in the pack reveal
+   "Ready to Open" stage. Tinted to match the rarity-tinted card back. */
+.revealBackIcon {
+  color: var(--text-tertiary);
+  opacity: 0.55;
+}
+
+/* Stage-1 placeholder cards still allocate space for the rarity label,
+   but keep it invisible so the cards don't telegraph what's inside. */
+.revealHiddenLabel {
+  visibility: hidden;
 }
 
 .purchaseCta:hover:not(:disabled) {
@@ -4186,15 +4251,18 @@
 }
 
 /* Doubled selector outranks Button's variant/size classes so paired
-   buttons share an identical 44px slab regardless of variant. */
+   buttons share dimensions identical to the .purchaseCta / .modalSecondaryBtn
+   pair used by other modals. */
 .listFormActionBtn.listFormActionBtn {
   width: 100%;
-  min-height: 44px;
-  padding: var(--space-2) var(--space-4);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
+  min-height: 52px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
   font-weight: var(--font-semibold);
-  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .listFormFooter {
@@ -4733,11 +4801,11 @@
 
 .cancelKeepBtn,
 .cancelDangerBtn {
-  min-height: 44px;
+  min-height: 52px;
   padding: 0 var(--space-4);
-  border-radius: var(--radius-md);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
   font-weight: var(--font-semibold);
   text-transform: uppercase;
   letter-spacing: 0.06em;

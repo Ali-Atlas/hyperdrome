@@ -393,7 +393,14 @@ const IMAGE_BACKED_SKINS = [
 
 /* 70 placeholder skins: rarity-distributed, no real image (the path is
  * intentional: marketplace + drone-equip code already detects the
- * non-/skins/ prefix and renders a placeholder swatch). */
+ * non-/skins/ prefix and renders a placeholder swatch).
+ *
+ * Names come from PLACEHOLDER_NAME_POOLS below. The pool per rarity is
+ * sourced from the dev seed (lib/db/seed.js#SKIN_NAMES) plus curated
+ * overflow names where the placeholder count exceeds the dev pool. The
+ * imageUrl path stays `/placeholder/legacy_NNN.png` as the durable
+ * marker that identifies these rows for the idempotency check below
+ * and for fallback-render code in marketplace/drone-equip. */
 const PLACEHOLDER_RARITY_SPLIT = [
   { rarity: 'common', count: 28 },
   { rarity: 'rare',   count: 24 },
@@ -401,16 +408,55 @@ const PLACEHOLDER_RARITY_SPLIT = [
   { rarity: 'legendary', count: 4 },
 ];
 
+/* Name pool per rarity. If the placeholder count exceeds the pool, the
+ * generator wraps with `pool[i % pool.length]`, so the same name can
+ * appear on multiple placeholder rows. That's already how vault copies
+ * share names (the schema allows duplicate names by design).
+ *
+ * The pool is kept in sync with scripts/rename-legacy-skins-prod.js (a
+ * one-shot script that renames any existing Legacy-prefixed rows in the
+ * prod DB to themed names from this same source). */
+const PLACEHOLDER_NAME_POOLS = {
+  common: [
+    'Carbon Fiber', 'Gunmetal', 'Stealth Gray', 'Arctic White', 'Obsidian',
+    'Matte Black', 'Brushed Steel', 'Copper Plate', 'Navy Blue', 'Forest Green',
+    'Desert Tan', 'Slate Gray', 'Rust Patina', 'Industrial Iron', 'Concrete',
+    'Military Olive', 'Plasma Gray', 'Alloy Silver', 'Chrome Plate', 'Warning Yellow',
+    'Flare Orange', 'Ember Red', 'Cool Blue', 'Stormcloud', 'Midnight Black',
+    'Ash Gray', 'Riveted Steel', 'Bronze Plating', 'Aluminum Finish', 'Coal Matte',
+  ],
+  rare: [
+    'Neon Pulse', 'Cyber Stripe', 'Electric Blue', 'Hologram', 'Signal Red',
+    'Grid Runner', 'Data Stream', 'Binary Wave', 'Tron Line', 'Synthwave',
+    'Laser Mesh', 'Circuit Board', 'Prism', 'Quantum Weave', 'Plasma Core',
+    'Phantom Edge', 'Iron Veil', 'Cobalt Strike', 'Static Drift', 'Mirror Coil',
+    'Spectral Mesh', 'Voltage Husk', 'Ion Lattice', 'Nova Burst',
+  ],
+  epic: [
+    'Inferno Phoenix', 'Tidal Surge', 'Thunder Strike', 'Void Walker',
+    'Blizzard Hunter', 'Volcanic Drift', 'Celestial Guard', 'Zephyr Dancer',
+    'Eclipse Prowler', 'Ember Coil', 'Glacial Tempest', 'Stormcaller',
+    'Riftwalker', 'Aurora Reaver',
+  ],
+  legendary: [
+    'Chimera', 'Phoenix Reborn', 'Dragonlord', 'Onyx Sovereign',
+  ],
+};
+
 function placeholderSkinRows() {
   const out = [];
   let n = 1;
   for (const { rarity, count } of PLACEHOLDER_RARITY_SPLIT) {
+    const pool = PLACEHOLDER_NAME_POOLS[rarity] ?? [];
     for (let i = 0; i < count; i += 1) {
+      const name = pool.length > 0
+        ? pool[i % pool.length]
+        : `Placeholder ${rarity} ${String(n).padStart(3, '0')}`;
       out.push({
-        name: `Legacy ${rarity[0].toUpperCase()}${rarity.slice(1)} ${String(n).padStart(3, '0')}`,
+        name,
         rarity,
         imageUrl: `/placeholder/legacy_${String(n).padStart(3, '0')}.png`,
-        description: `Legacy ${rarity} skin (no tier render).`,
+        description: `${name} (no tier render).`,
       });
       n += 1;
     }
@@ -474,6 +520,12 @@ async function seedSkinVault() {
   }
 
   // Placeholders. Only insert if the placeholder pool is below the target.
+  // Idempotency keyed on imageUrl (durable marker for placeholder rows)
+  // rather than name. The one-shot rename script
+  // (scripts/rename-legacy-skins-prod.js) flips placeholder names from
+  // `Legacy <Rarity> NNN` to themed pool names, so a name-prefix check
+  // would think the pool is empty after rename and re-insert 70 dupes.
+  // The imageUrl path `/placeholder/legacy_NNN.png` doesn't change.
   const placeholderTarget = PLACEHOLDER_RARITY_SPLIT.reduce(
     (s, r) => s + r.count,
     0,
@@ -482,7 +534,7 @@ async function seedSkinVault() {
     .select()
     .from(skins)
     .where(
-      and(isNull(skins.userId), sql`${skins.name} LIKE 'Legacy %'`),
+      and(isNull(skins.userId), sql`${skins.imageUrl} LIKE '/placeholder/%'`),
     );
   if (placeholderExisting.length < placeholderTarget) {
     const want = placeholderSkinRows().slice(placeholderExisting.length);

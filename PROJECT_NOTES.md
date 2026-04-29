@@ -11,3 +11,9 @@ issues that should not be lost.
 
 - **Same-owner top bracket starvation.** If a player owns the #1 and #2 ELO drones in a bracket, the matchmaker can leave #1 idle for a cycle (no eligible cross-owner partner). Bot backfill catches it on the next cycle, but the gap is visible. Consider relaxing the cross-owner-only constraint when no other pairing exists in the bracket.
 - **Skin drop reservoir monitoring.** When the winner's roll lands on a rarity whose vault is fully owned, `rollSkinDropForWinner` returns `null` silently — the player gets nothing and never knows a roll fired. Surface a "No skins available" toast/event, or compensate with volts. Add admin-side monitoring for per-rarity vault depletion so the team sees the reservoir running dry before players do.
+
+## Pre-Launch Security
+
+- Strip detailed segment scores from race API response. Currently `races.raceLog` ships per-segment `drone1Score`, `drone2Score`, segment type, and weather multipliers to the browser. A motivated player could reverse-engineer stat weight formulas from this data. Fix: only send cumulative time gap per segment (enough for the gap-over-race chart). Keep full segment data in the DB for internal analytics. Do NOT expose individual scores, stat weights, or multiplier values.
+
+- Race log sanitization endpoint: create a helper that transforms the raw raceLog into a client-safe version before sending in API responses. Apply it in the race detail and race list endpoints.

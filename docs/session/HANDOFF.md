@@ -4,6 +4,106 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-29 - My Drones + Drone Management: Diamond Hands rename, vendor modal, None option, auto-equip, demo toast
+
+**Captain ask:** Seven-part Drone Manager fix. (1) Legendary card theme on `/drones`: Diamond Hands wasn't picking up its palette. (2) Vendor modal: tighten header/content spacing, match standard modal button sizes, add new explanatory copy below the milestone progress bars (bars stay), swap the black drop-shadow on the drone image for a teal glow. (3) Add "None" entry to skin and mod selector dropdowns so users can unequip. (4) Auto-equip on bind: replace whatever was previously equipped. (5) Skin bind on non-renderable items: card click shows "Not available in demo." toast instead of toggling selection or binding. (6) Stat upgrade audit (TSB enforcement), report only. (7) Legacy skin name audit, flag for follow-up. Captain elected to rename `diamond_hand` -> `diamond_hands` everywhere rather than dupe the entry.
+
+**Files modified (9):**
+
+- MOD `lib/legendary-skins.js`: key `diamond_hand` -> `diamond_hands`, `name` field 'Diamond Hand' -> 'Diamond Hands'. The `getLegendaryTheme()` lookup slugifies the skin name from the DB, and prod seed stores 'Diamond Hands' (plural) -> slug `diamond_hands`. The previous singular key whiffed and fell through to the neutral gold fallback.
+- MOD `services/pack.service.js`: `DEMO_LEGENDARY_BLOCKLIST` entry 'Diamond Hand' -> 'Diamond Hands'. Without this, the hello-pilot demo accounts could roll Diamond Hands from a legendary pack (the blocklist is name-matched against the seeded row).
+- MOD `scripts/seed-legendary-vault-stock.js`: comment header + `LEGENDARY_NAMES` array entry 'Diamond Hand' -> 'Diamond Hands'. Matches the seeded prod skin name so the vault-refill script actually finds and counts the correct row.
+- MOD `app/drones/page.jsx` (vendor modal): kept both `<MilestoneRow>` instances. Removed `.milestoneCap` `<p>` ("XP drones cap at 3"). Added a new `<p className={styles.vendorModalNote}>` paragraph below `.milestoneList` with the Captain's exact copy: "Your first drone is free on account creation. Earn 2 more through XP milestones (at 3,000 and 10,000 total races). After that, purchase additional Level 1 drones here for 3,500V each." Cancel + Purchase buttons `size="md"` -> `size="sm"` to match BindCollectibleModal and the marketplace cinematic purchase modal (both use `sm`).
+- MOD `app/drones/page.module.css`:
+  - `.vendorModalBody`: `gap: var(--space-4)` -> `var(--space-3)` (tightens vertical rhythm across image / desc / price / milestones / note / actions). Top padding `var(--space-2)` -> `0` (header bar already provides the upper gutter via Modal primitive's `.body { padding: var(--space-6) }`).
+  - `.vendorModalImage`: filter swapped from `drop-shadow(0 8px 18px rgba(0, 0, 0, 0.5))` (black smudge) to `drop-shadow(0 0 24px rgba(3, 218, 198, 0.35))` (teal accent glow). Equivalent in spirit to the marketplace cinematic modal's ground-puddle technique without the extra DOM element.
+  - Removed `.milestoneCap` rule (no longer used). Added new `.vendorModalNote` rule: body font, sm size, secondary tone, centered, line-height 1.5, max-width 380px (matches `.vendorModalDesc` so the two paragraphs share column width).
+- MOD `lib/validators/index.js`: `equipSkinSchema.skin_id` and `equipModSchema.mod_id` -> `.nullable()`. JSDoc updated to note that null is the unequip path.
+- MOD `services/skin.service.js`:
+  - `equipSkin(userId, droneId, skinId)`: added a `skinId == null` short-circuit. Sets all of the drone's `droneSkins.is_equipped` to false and clears `drones.applied_skin_id`. Bound rows stay; only the equipped flag is cleared.
+  - `bindSkinToDrone`: dropped the `drone.appliedSkinId == null` guard. New rule is `shouldEquip = canEquipSkin(skin, drone.level)`. When equipping, the existing droneSkins rows are flipped to `is_equipped=false` before the new binding is inserted with `is_equipped=true`. Non-renderable skins (frontend filters these with the demo toast) bind without equipping as defense in depth.
+- MOD `services/mod.service.js`:
+  - `equipMod(userId, droneId, modId)`: same null-short-circuit pattern as `equipSkin`.
+  - `bindMod`: dropped the `drone.appliedModId == null` guard. Now always equips: clears existing droneMods rows, inserts the new binding with `is_equipped=true`, updates `drones.applied_mod_id`. Mods don't have a tier-render gate.
+- MOD `app/drones/[droneId]/page.jsx`:
+  - Added `canEquipSkin` to the lib/utils import.
+  - `equipSkinFn` and `equipModFn`: the early-return now compares against `drone.appliedSkinId ?? null` / `drone.appliedModId ?? null` so unequipping when nothing is equipped no-ops cleanly. Success toast picks "Skin/Mod unequipped" when the new value is null, "equipped" otherwise.
+  - Skin selector dropdown: added a "None" `<li>` (only rendered for owners) directly after "+ Bind New Skin" and before the bound-skins list. Clicking fires `equipSkinFn(null)`. Disabled when nothing is equipped (`drone.appliedSkinId == null`); shows the same `current` chip as bound entries when it IS the active selection.
+  - Mod selector dropdown: same "None" pattern with a common-rarity ModPlaceholder swatch.
+  - `BindCollectibleModal`: takes a new `droneLevel` prop. Skin-kind cards now check `canEquipSkin(item, droneLevel)` on click. Non-renderable cards fire `showToast('Not available in demo.', 'info')` and do not toggle selection. Mod-kind cards behave as before (mods have no renderability gate).
+
+**Stat upgrade audit (item 6), no code changes:**
+
+- Per-stat cap: `calculatePerStatCap(level) = min(100, 10 + floor(4.5 * level))`. LV18 = 91, LV20 = 100. Matches Captain's spec.
+- Per-session/per-race cap: none. Players can stage as many `+` increments as their wallet, per-stat cap, and TSB allow.
+- TSB: `calculateTSB(level) = 9 + 20 * level`. LV18 = 369. LV20 = 409.
+- TSB enforcement: server-side at `lib/game-engine/economy.js:194-199` (`validateStatAllocation` errors when `proposedSum > tsb`); client-side at `app/drones/[droneId]/page.jsx:234` (the `+` button no-ops when `currentSum + 1 > tsb`). Server is source of truth via `services/drone.service.js#allocateStats` -> `validateStatAllocation` with `availablePoints: user.points`.
+- Cost enforcement: `validateStatAllocation` checks `totalCost > available` and rejects. Server debits `users.points` before writing the stat updates (`services/drone.service.js:200-205`).
+- Conclusion: TSB and per-stat cap are enforced both ends. The user's "unlimited dump" claim is not reproducible from the code as written. Most likely explanation: per-stat cap (91 at LV18) bites on speed but the player still has TSB room to push the remaining 8 stats up to the same total budget. That's correct behavior. If a regression turns up, capture the proposed stat block + drone level + wallet balance and we can reproduce against `validateStatAllocation` directly.
+
+**Legacy skin name audit (item 7), follow-up flagged:**
+
+- Dev seed (`lib/db/seed.js:106-127`) defines themed names by rarity: 30 commons (Carbon Fiber, Gunmetal, Stealth Gray, ...), 15 rares (Neon Pulse, Cyber Stripe, Hologram, ...), 8 epics (Inferno Phoenix, Tidal Surge, Void Walker, ...), 3 legendaries (Chimera, Phoenix Reborn, Dragonlord).
+- Prod seed (`scripts/seed-production.js:404-419`) generates 70 placeholder rows with names `Legacy <Rarity> <NNN>` (28/24/14/4 split by rarity).
+- Confirmed regression for the production DB. Captain has scoped the fix to a separate prompt (rename script against `PROD_DATABASE_URL`).
+
+**Verified:**
+- `grep -P "—|–"` on the 9 touched files returns matches only in pre-existing comments / console-output strings on lines I didn't modify (4 in `lib/legendary-skins.js`, `services/pack.service.js`, `scripts/seed-legendary-vault-stock.js`, `app/drones/page.module.css`). Skipped per "match existing style, don't reformat unrelated lines."
+- `npm run lint` for the 9 touched files: clean. Pre-existing warnings (`<img>` LCP) and one unrelated error in `app/global-error.jsx` (Link vs `<a>`) untouched.
+- No `npm run build` per Captain's instruction. No `npm run dev` run.
+- Stale-ref grep: `diamond_hand` (singular slug) and `'Diamond Hand'` (singular display name) outside `.next/` and HANDOFF.md history return zero matches in app source. The image file `/skins/legendary/diamond_hand.webp` and the imageUrl strings that reference it stay singular (file on disk, separate from the theme key).
+
+**Captain to spot-check (1440 / 1024 / 375):**
+- `/drones`: Diamond Hands legendary card now reads with its electric-blue `#2979FF` rotating border + body wash, not the neutral gold fallback. Other legendary skins unaffected.
+- `/drones` -> "+ New Drone" vendor card: modal opens with tighter header-to-image spacing. Drone image floats with a teal glow underneath, no black smudge. Both milestone progress bars present (3k always, 10k once 3k crossed). New explanatory paragraph reads beneath the bars in body font / secondary tone / 380px max-width / centered. Cancel + Purchase buttons read at the same `sm` size as the Bind modal's Cancel + Bind buttons.
+- `/drones/[droneId]`: skin selector dropdown shows "+ Bind New Skin", "None" (with empty swatch), then the bound-skins list. Mod selector mirrors. Selecting "None" fires the unequip path; toast reads "Skin/Mod unequipped"; the drone image reverts to its tier silhouette / no mod. Selecting an already-current entry no-ops (no toast).
+- `/drones/[droneId]` -> "+ Bind New Skin": placeholder skins (legacy / no tier render) still render in the grid but clicking them produces an info toast "Not available in demo." instead of toggling selection. Renderable skins toggle and bind as before. After bind, the newly-bound skin auto-equips, replacing whatever was previously equipped (or staying unequipped if non-renderable).
+- Stat editor: TSB and per-stat cap behavior unchanged.
+
+**Follow-up landed in this same session:**
+- Wrote `scripts/rename-legacy-skins-prod.js` (one-shot, dry-run by default, `--commit` to apply). Connects to `PROD_DATABASE_URL`. Renames `Legacy <Rarity> NNN` skins to themed pool names sourced from `lib/db/seed.js#SKIN_NAMES` plus curated overflow per rarity (rare +9 / epic +6 / legendary +1). Mods scanned for `Legacy %` / `Generic %` / `Placeholder %` patterns and reported (zero matches in prod, expected). Deterministic mapping: rows ordered by id, position N gets `pool[N % pool.length]`. Idempotent: re-runs after commit find zero matching rows.
+- Dry-run results against prod: 96 placeholder skins to rename (common 33, rare 39, epic 18, legendary 6), 0 mods. Image-backed catalog rows untouched (222 non-Legacy rows including all 32 image-backed skins + their vault copies stayed out of the WHERE filter).
+- Modified `scripts/seed-production.js` so a fresh seed run no longer regenerates `Legacy <Rarity> NNN` names. Inlined `PLACEHOLDER_NAME_POOLS` (mirror of the rename script's pools, comment cross-references both) and rewrote `placeholderSkinRows()` to draw from the pool with `pool[i % pool.length]` wrap. Description string also stops referencing "Legacy". `IMAGE_BACKED_SKINS` array and `vaultCopyRows()` untouched, so all 32 real catalog rows + their vault copies keep their existing names.
+- Critical idempotency fix in `seedSkinVault()`: the placeholder-existence check switched from `name LIKE 'Legacy %'` to `imageUrl LIKE '/placeholder/%'`. Without this, post-rename rows with themed names would slip past the name-prefix gate and the seed would re-insert 70 duplicates. The `imageUrl` path stays as `/placeholder/legacy_NNN.png` and is the durable marker for these rows.
+- Captain authorized commit. Ran `node scripts/rename-legacy-skins-prod.js --commit` against prod. Result: 96 skins renamed, 0 mods touched. Re-run dry-run after the commit returned 0 rows to rename (idempotency verified). Direct count check: 0 rows remain with `name LIKE 'Legacy %'`, 96 placeholder rows still flagged via `image_url LIKE '/placeholder/%'` (same count, themed names), 222 image-backed rows untouched.
+
+---
+
+## 2026-04-29 - Race results page: volts/XP per drone, gap chart redesign, real track images, side-by-side layout
+
+**Captain ask:** Six-part fix to `/races/[raceId]` results view: (1) volts + XP on each drone container, opposite ELO/Time; (2) clean up gap-over-race chart (thinner midline, thinner line, baseline at X-axis, Y-axis labels in seconds, professional polish); (3) real `/tracks/<slug>.webp` images with `TrackPlaceholder` fallback; (4) gap chart + track side-by-side at >=1024px, stacked below; (5) smaller track text, weather/time-of-day as colored pill badges; (6) race log container stretches to match adjacent column height. Captain picked option C: persist loser volts on the race row.
+
+**Files modified (4):**
+
+- MOD `lib/db/schema.js`: added nullable `loserPointsAwarded` integer column to the `races` table. Nullable on purpose so rows written before the column existed return null and trigger the formula fallback in the UI.
+- MOD `services/race.service.js`: `executePendingRace` now writes `loserPointsAwarded: lossPayout` alongside the existing `pointsAwarded` on the PENDING -> COMPLETED update. `lossPayout` was already computed earlier in the same function via `computeLoserPayout`; no new derivation.
+- MOD `app/races/[raceId]/page.jsx`:
+  - Derived `drone1Points` / `drone2Points` / `drone1Xp` / `drone2Xp` at render time. Loser volts read `race.loserPointsAwarded`, falling back to `1 + Math.floor(loserDrone.level / 4)` when null (mirrors `computeLoserPayout` with default base of 1, so historical rows still display sensibly).
+  - `DroneCard` accepts new `points` + `xp` props and renders them on the right side of the meta row. Layout split into two `.droneMetaSide` groups inside a flex space-between (ELO + Time on the left, VOLTS + XP on the right). VOLTS label includes a `<VoltIcon size={10} />`.
+  - Rewrote `GapSparkline`: baseline moved from `H/2` to `H - padBottom` so the gap line grows up from the X-axis. Sign dropped from gaps (uses `Math.abs`) since the visual is now "how far apart were they". H 56 -> 80. Stroke 1.5 -> 2px with `vector-effect: non-scaling-stroke` so the line stays crisp under `preserveAspectRatio="none"`. Area fill removed. Y-axis (max / mid / 0s) rendered as an HTML column to the left of the SVG via the new `.sparklineYAxis`. Timeline X-axis now lives inside the component and is offset 44px so it aligns with the chart plotting area, not the Y-axis.
+  - Track card: `<TrackSvg track={...} />` replaced with the same image-or-placeholder pattern already used by `RaceTrackCard` further down the file. Image filename uses underscored slug (`/tracks/${slug.replace(/-/g, '_')}.webp`). Falls back to `<TrackPlaceholder>` for tracks not in the existing `TRACKS_WITH_IMAGES` allowlist (which is already declared at the top of the file). Inline weather/time-of-day text replaced with `.trackConditionPill` styling. Image moved up under the header so it reads as the visual anchor.
+  - Removed dead helpers: `TrackSvg`, `hashString`, `buildCircuit`, `mulberry32` - the procedural track-outline path generator. Only ever consumed by the result-view track card; nothing else imports them.
+- MOD `app/races/[raceId]/page.module.css`:
+  - `.raceLayout` grid template: dropped the third row (`"track track log"`); gap and track now share one row at the desktop layout. `align-items: start` -> `align-items: stretch` so the two cards equalize.
+  - Breakpoint shifted from 1200px -> 1023px for the stacked fallback. Mobile (<=768px) unchanged.
+  - `.logCard` lost its `max-height: calc(100vh - 200px)` cap. Combined with the grid-area still spanning rows 1-2 plus the existing `align-self: stretch`, the log card now fills the right column to the bottom of the track row.
+  - `.droneMeta` re-shaped to flex space-between, new `.droneMetaSide` for each side. `.metaKpiLabel` now an `inline-flex` so the VoltIcon sits beside the "VOLTS" text correctly.
+  - Gap chart styles rebuilt: new `.sparklineChart` (flex row), `.sparklineYAxis`, `.sparkline` (now `flex: 1`, `min-height: 80px`). `.timeline` gets `margin-left: 44px` so its ticks align with the chart's x range. `.sparklineAxis` color `--border-default` -> `--text-tertiary` at 0.45 opacity (the dashed line is now solid 1px). `.sparklineArea` deleted. `.sparklineLine` stroke 1.5 -> 2, drop-shadow removed for the cleaner look, `vector-effect: non-scaling-stroke` added.
+  - Track block: `.trackImage` switched from fixed `height: 200px` (with absolutely-positioned SVG) to `aspect-ratio: 5 / 2` flex container. New `.trackImg` for the rendered image. `.trackHeaderRow .sectionHeading` font dropped one notch to `var(--text-xs)`. Stat label/value sizes reduced to 10/11px. `.trackConditionPill` added (mirrors the existing `.raceConditionPill` styling already on the strategy view). `.conditionInline` rule deleted.
+  - 768px breakpoint: removed the now-obsolete `.trackImage { height: 160px }` override (aspect-ratio handles mobile sizing). Added a `.droneMeta { flex-wrap: wrap }` so the two sides stack on narrow phones.
+
+**Verified:** `npm run lint` clean for the modified files. The new `<img>` warning at page.jsx:533 matches the existing project-wide pattern (every track/drone/skin image renders `<img>`; the lone ESLint error in the repo, in `app/global-error.jsx`, is pre-existing). Em-dash sweep on the 4 files returns zero. Per Captain's "Do NOT run npm run build" - skipped build. Visual verification deferred until the schema change has been pushed (see follow-up).
+
+**Captain to action before visual verification:**
+
+1. Run `npm run db:push` so the new `loser_points_awarded` column lands in the database. Without it, `executePendingRace` will fail to write the column on the next race execution.
+2. Spot-check `/races/[raceId]` on a completed race at 1440 / 1024 / 375. Watch for: (a) VOLTS + XP appearing on both drone cards, with the winner's volts greater than the loser's; (b) gap chart's curve growing up from the bottom, Y-axis labels visible on the left, no dashed midline; (c) real track image for any of the 9 webp-stocked tracks, holographic `TrackPlaceholder` for the others; (d) gap card + track card sitting side-by-side at >=1024px and stacking below; (e) weather/time-of-day rendering as pill badges, not plain text; (f) race-log container running flush to the bottom of the track-row content (no awkward short box next to a tall one).
+3. Old completed races (written before the schema change) will display the formula-fallback loser volts: `1 + floor(loserLevel / 4)`. New races written after `db:push` will show the persisted value.
+
+**Follow-up:** None outstanding from this task. If you want a backfill script for `loser_points_awarded` on historical rows, that's a separate ask.
+
+---
+
 ## 2026-04-28 - Accent highlights on two landing phrases
 
 **Captain ask:** Two inline phrases on the landing should pop in accent teal: (1) "XP only comes from racing" inside the "Earn Your Edge" gameplay column; (2) "Boost one stat, penalize another" inside the new Mods section body.

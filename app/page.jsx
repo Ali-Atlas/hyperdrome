@@ -240,8 +240,8 @@ export default async function LandingPage() {
           Collect
         </h2>
         <p className={styles.collectBodySmall}>
-          4 drone tiers. Common, rare, and epic skins. Functional mods
-          with real stat tradeoffs.
+          4 drone tiers. 4 skin classes including epic, rare and common.
+          Functional mods with real stat tradeoffs.
         </p>
         <p className={styles.collectBodyMid}>
           <span className={styles.accentGold}>Legendary skins</span> are

@@ -235,6 +235,8 @@ function generateCommentary(log, winnerIsDrone1, winnerName) {
  */
 export default function RaceDetailPage({ params }) {
   const { raceId } = use(params);
+  const { user } = useSession();
+  const viewerUserId = user?.id ?? null;
   const [race, setRace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -352,6 +354,24 @@ export default function RaceDetailPage({ params }) {
   const difficultyStyle =
     difficultyOutOfTen != null ? getDifficultyStyle(difficultyOutOfTen) : null;
 
+  const trackSlug = trackSlugFromName(race.track?.name);
+  const trackHasImage = TRACKS_WITH_IMAGES.includes(trackSlug);
+  const trackAccent = TRACK_ACCENT_COLORS[trackSlug] ?? '#03DAC6';
+
+  // Per-drone earnings. Winner volts read race.pointsAwarded; loser volts
+  // read race.loserPointsAwarded (added April 2026). Rows written before
+  // that column existed return null - fall back to the same formula the
+  // service uses (see computeLoserPayout in race.service.js).
+  const drone1IsWinner = race.drone1Id === winnerId;
+  const drone2IsWinner = race.drone2Id === winnerId;
+  const loserVolts =
+    race.loserPointsAwarded ??
+    1 + Math.floor(((drone1IsWinner ? race.drone2 : race.drone1)?.level ?? 0) / 4);
+  const drone1Points = drone1IsWinner ? race.pointsAwarded : loserVolts;
+  const drone2Points = drone2IsWinner ? race.pointsAwarded : loserVolts;
+  const drone1Xp = drone1IsWinner ? race.xpWinner : race.xpLoser;
+  const drone2Xp = drone2IsWinner ? race.xpWinner : race.xpLoser;
+
   const isComplete = Boolean(winnerId);
 
   return (
@@ -451,19 +471,25 @@ export default function RaceDetailPage({ params }) {
           <div className={styles.drone1Slot}>
             <DroneCard
               drone={race.drone1}
-              isWinner={race.drone1Id === winnerId}
+              isWinner={drone1IsWinner}
               time={race.drone1Time}
               eloBefore={race.drone1EloBefore}
               eloChange={race.drone1EloChange}
+              viewerUserId={viewerUserId}
+              points={drone1Points}
+              xp={drone1Xp}
             />
           </div>
           <div className={styles.drone2Slot}>
             <DroneCard
               drone={race.drone2}
-              isWinner={race.drone2Id === winnerId}
+              isWinner={drone2IsWinner}
               time={race.drone2Time}
               eloBefore={race.drone2EloBefore}
               eloChange={race.drone2EloChange}
+              viewerUserId={viewerUserId}
+              points={drone2Points}
+              xp={drone2Xp}
             />
           </div>
 
@@ -474,22 +500,6 @@ export default function RaceDetailPage({ params }) {
               </h2>
               <div className={styles.sparklineWrap}>
                 <GapSparkline gaps={gaps} times={winnerCumTimes} />
-                {winnerCumTimes.length > 0 && (
-                  <div className={styles.timeline} aria-hidden="true">
-                    {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (
-                      <span
-                        key={i}
-                        className={styles.timelineTick}
-                        style={{ left: `${f * 100}%` }}
-                      >
-                        {(
-                          f * winnerCumTimes[winnerCumTimes.length - 1]
-                        ).toFixed(1)}
-                        s
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
             </Card>
           )}
@@ -518,6 +528,20 @@ export default function RaceDetailPage({ params }) {
                 )}
               </div>
             </div>
+            <div className={styles.trackImage} aria-label="Track visualization">
+              {trackHasImage ? (
+                <img
+                  src={`/tracks/${trackSlug.replace(/-/g, '_')}.webp`}
+                  alt={race.track?.name ?? ''}
+                  className={styles.trackImg}
+                />
+              ) : (
+                <TrackPlaceholder
+                  trackName={race.track?.name ?? ''}
+                  accentColor={trackAccent}
+                />
+              )}
+            </div>
             <div className={styles.trackStatsRow}>
               <TrackStat
                 label="Straights"
@@ -534,18 +558,14 @@ export default function RaceDetailPage({ params }) {
               />
             </div>
             <div className={styles.trackConditionsRow}>
-              <span className={styles.conditionInline}>
-                <WeatherIcon size={13} aria-hidden="true" />
+              <span className={styles.trackConditionPill}>
+                <WeatherIcon size={12} aria-hidden="true" />
                 {WEATHER_LABELS[race.weather] ?? race.weather ?? '-'}
               </span>
-              <TrackStatDivider />
-              <span className={styles.conditionInline}>
-                <TimeIcon size={13} aria-hidden="true" />
+              <span className={styles.trackConditionPill}>
+                <TimeIcon size={12} aria-hidden="true" />
                 {TIME_LABELS[race.timeOfDay] ?? race.timeOfDay ?? '-'}
               </span>
-            </div>
-            <div className={styles.trackImage} aria-label="Track visualization">
-              <TrackSvg track={race.track} />
             </div>
           </Card>
 
@@ -638,8 +658,10 @@ export default function RaceDetailPage({ params }) {
 function GapSparkline({ gaps, times }) {
   if (!gaps || gaps.length < 2) return null;
   const W = 300;
-  const H = 56;
-  const padY = 4;
+  const H = 80;
+  const padTop = 6;
+  const padBottom = 2;
+  const usableH = H - padTop - padBottom;
   const maxAbs = Math.max(...gaps.map((g) => Math.abs(g)), 0.001);
 
   // If segment times are provided, position vertices proportional to
@@ -649,32 +671,58 @@ function GapSparkline({ gaps, times }) {
     times && times.length > 0 ? times[times.length - 1] : null;
   const useTime = Number.isFinite(totalTime) && totalTime > 0;
 
+  // Gap line baselines on the X-axis (bottom edge); larger absolute gaps
+  // grow upward. Sign is dropped so the chart reads as "how far apart
+  // were they" rather than "who was ahead" - lead-change detail lives
+  // in the race log table.
   const points = gaps.map((g, i) => {
     const x = useTime ? (times[i] / totalTime) * W : (i / (gaps.length - 1)) * W;
-    const y = H / 2 - (g / maxAbs) * (H / 2 - padY);
+    const y = (H - padBottom) - (Math.abs(g) / maxAbs) * usableH;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
-  const areaPath = `M 0,${H / 2} L ${points.join(' L ')} L ${W},${H / 2} Z`;
+  const baselineY = H - padBottom;
+
   return (
-    <svg
-      className={styles.sparkline}
-      viewBox={`0 0 ${W} ${H}`}
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <line
-        x1="0"
-        y1={H / 2}
-        x2={W}
-        y2={H / 2}
-        className={styles.sparklineAxis}
-      />
-      <path d={areaPath} className={styles.sparklineArea} />
-      <polyline
-        points={points.join(' ')}
-        className={styles.sparklineLine}
-      />
-    </svg>
+    <>
+      <div className={styles.sparklineChart}>
+        <div className={styles.sparklineYAxis} aria-hidden="true">
+          <span>{maxAbs.toFixed(1)}s</span>
+          <span>{(maxAbs / 2).toFixed(1)}s</span>
+          <span>0s</span>
+        </div>
+        <svg
+          className={styles.sparkline}
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <line
+            x1="0"
+            y1={baselineY}
+            x2={W}
+            y2={baselineY}
+            className={styles.sparklineAxis}
+          />
+          <polyline
+            points={points.join(' ')}
+            className={styles.sparklineLine}
+          />
+        </svg>
+      </div>
+      {useTime && (
+        <div className={styles.timeline} aria-hidden="true">
+          {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (
+            <span
+              key={i}
+              className={styles.timelineTick}
+              style={{ left: `${f * 100}%` }}
+            >
+              {(f * totalTime).toFixed(1)}s
+            </span>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -691,7 +739,16 @@ function TrackStatDivider() {
   return <span className={styles.trackStatDivider} aria-hidden="true" />;
 }
 
-function DroneCard({ drone, isWinner, time, eloBefore, eloChange }) {
+function DroneCard({
+  drone,
+  isWinner,
+  time,
+  eloBefore,
+  eloChange,
+  viewerUserId,
+  points,
+  xp,
+}) {
   if (!drone) {
     return (
       <Card className={styles.droneCard}>
@@ -710,6 +767,19 @@ function DroneCard({ drone, isWinner, time, eloBefore, eloChange }) {
       : drone.eloRating;
   const hasChange = eloChange != null && eloChange !== 0;
   const changeSign = eloChange != null && eloChange > 0 ? '+' : '';
+
+  // YOU badge for the viewer's own drone, owner username for any other
+  // human player, "Bot" for matchmaker bots. Falls back to "Player" when
+  // the username join didn't populate (defensive - shouldn't happen for
+  // human-owned drones since getRaceById joins it).
+  const isViewerDrone = !!(
+    viewerUserId && drone.userId && drone.userId === viewerUserId
+  );
+  const ownerLabel = drone.isBot
+    ? 'Bot'
+    : drone.userId == null
+      ? 'Bot'
+      : drone.owner?.username ?? 'Player';
 
   return (
     <Link href={`/drones/${drone.id}`} className={styles.droneLink}>
@@ -732,32 +802,57 @@ function DroneCard({ drone, isWinner, time, eloBefore, eloChange }) {
             <Badge variant="level" value={drone.level} />
           </div>
           <div className={styles.droneOwner}>
-            Owner: {drone.userId ? drone.userId.slice(0, 8) : 'Bot'}
+            {isViewerDrone ? (
+              <span className={styles.droneOwnerYouBadge}>YOU</span>
+            ) : (
+              <>Owner: {ownerLabel}</>
+            )}
           </div>
           <div className={styles.droneMeta}>
-            <div className={styles.droneMetaItem}>
-              <span className={styles.metaKpiLabel}>ELO</span>
-              <span className={styles.metaKpiValue}>
-                {eloDisplay}
-                {hasChange && (
-                  <span
-                    className={cn(
-                      styles.eloDelta,
-                      eloChange > 0 ? styles.eloDeltaUp : styles.eloDeltaDown,
-                    )}
-                  >
-                    {' '}({changeSign}
-                    {eloChange})
-                  </span>
+            <div className={styles.droneMetaSide}>
+              <div className={styles.droneMetaItem}>
+                <span className={styles.metaKpiLabel}>ELO</span>
+                <span className={styles.metaKpiValue}>
+                  {eloDisplay}
+                  {hasChange && (
+                    <span
+                      className={cn(
+                        styles.eloDelta,
+                        eloChange > 0 ? styles.eloDeltaUp : styles.eloDeltaDown,
+                      )}
+                    >
+                      {' '}({changeSign}
+                      {eloChange})
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className={styles.droneMetaItem}>
+                <span className={styles.metaKpiLabel}>Time</span>
+                <span className={styles.metaKpiValue}>
+                  {time != null ? `${Number(time).toFixed(2)}s` : '-'}
+                </span>
+              </div>
+            </div>
+            {(points != null || xp != null) && (
+              <div className={styles.droneMetaSide}>
+                {points != null && (
+                  <div className={styles.droneMetaItem}>
+                    <span className={styles.metaKpiLabel}>
+                      <VoltIcon size={10} />
+                      VOLTS
+                    </span>
+                    <span className={styles.metaKpiValue}>+{points}</span>
+                  </div>
                 )}
-              </span>
-            </div>
-            <div className={styles.droneMetaItem}>
-              <span className={styles.metaKpiLabel}>Time</span>
-              <span className={styles.metaKpiValue}>
-                {time != null ? `${Number(time).toFixed(2)}s` : '-'}
-              </span>
-            </div>
+                {xp != null && (
+                  <div className={styles.droneMetaItem}>
+                    <span className={styles.metaKpiLabel}>XP</span>
+                    <span className={styles.metaKpiValue}>+{xp}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           {drone.appliedMod && (
             <div className={styles.droneModRow}>
@@ -778,131 +873,6 @@ function DroneCard({ drone, isWinner, time, eloBefore, eloChange }) {
       </Card>
     </Link>
   );
-}
-
-function TrackSvg({ track }) {
-  // Procedural racing-circuit outline based on track turn count. Each track id
-  // gets a deterministic variant so different tracks look different.
-  const turns = track?.turns ?? 6;
-  const seed = hashString(track?.id ?? track?.name ?? 'track');
-  const path = buildCircuit(turns, seed);
-
-  return (
-    <svg
-      viewBox="0 0 800 200"
-      xmlns="http://www.w3.org/2000/svg"
-      preserveAspectRatio="xMidYMid meet"
-    >
-      <defs>
-        <pattern
-          id="startFinish"
-          width="10"
-          height="10"
-          patternUnits="userSpaceOnUse"
-        >
-          <rect width="5" height="5" x="0" y="0" fill="#ffffff" />
-          <rect width="5" height="5" x="5" y="5" fill="#ffffff" />
-          <rect width="5" height="5" x="5" y="0" fill="#1a1a1a" />
-          <rect width="5" height="5" x="0" y="5" fill="#1a1a1a" />
-        </pattern>
-      </defs>
-
-      {/* Tarmac outline (thicker, darker) */}
-      <path
-        d={path}
-        fill="none"
-        stroke="#0d0d0d"
-        strokeWidth="30"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Kerb/edge highlight */}
-      <path
-        d={path}
-        fill="none"
-        stroke="#1a1a1a"
-        strokeWidth="22"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Racing line */}
-      <path
-        d={path}
-        fill="none"
-        stroke="#03DAC6"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeOpacity="0.95"
-      />
-      {/* Start/finish marker */}
-      <rect
-        x="56"
-        y="83"
-        width="10"
-        height="34"
-        fill="url(#startFinish)"
-        stroke="#03DAC6"
-        strokeWidth="1"
-      />
-    </svg>
-  );
-}
-
-function hashString(str) {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i += 1) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function buildCircuit(turns, seed) {
-  const rand = mulberry32(seed);
-  const margin = 60;
-  const w = 800;
-  const h = 200;
-  const r = 40 + Math.floor(rand() * 20);
-
-  const x1 = margin;
-  const y1 = margin;
-  const x2 = w - margin;
-  const y2 = h - margin;
-
-  const extraTurns = Math.max(0, turns - 4);
-  const chicaneCount = Math.min(extraTurns, 5);
-
-  let path = `M ${x1 + r} ${y1}`;
-  if (chicaneCount > 0) {
-    const topLen = x2 - r - (x1 + r);
-    const step = topLen / (chicaneCount + 1);
-    for (let i = 1; i <= chicaneCount; i += 1) {
-      const cx = x1 + r + step * i;
-      const jog = 18 * (i % 2 === 0 ? 1 : -1);
-      path += ` Q ${cx - step / 3} ${y1 + jog} ${cx} ${y1}`;
-      path += ` T ${cx + step / 3} ${y1}`;
-    }
-  }
-  path += ` L ${x2 - r} ${y1}`;
-  path += ` Q ${x2} ${y1} ${x2} ${y1 + r}`;
-  path += ` L ${x2} ${y2 - r}`;
-  path += ` Q ${x2} ${y2} ${x2 - r} ${y2}`;
-  path += ` L ${x1 + r} ${y2}`;
-  path += ` Q ${x1} ${y2} ${x1} ${y2 - r}`;
-  path += ` L ${x1} ${y1 + r}`;
-  path += ` Q ${x1} ${y1} ${x1 + r} ${y1}`;
-  path += ' Z';
-  return path;
-}
-
-function mulberry32(a) {
-  return function rand() {
-    let t = (a += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 /* -------------------------------------------------------------------------- */

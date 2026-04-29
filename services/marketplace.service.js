@@ -323,14 +323,21 @@ export async function updateListingPrice(userId, listingId, newPrice) {
 
 /**
  * Curated default order: image-backed items first, then by rarity rank
- * (legendary > epic > rare > common), then newest first. The post-fetch
- * JS sort needs the joined item rows to detect image backing + rarity, so
- * for the curated path we fetch everything matching the filters and slice
- * the page after sorting. Volume cap (CURATED_FETCH_CAP) bounds memory if
- * the active pool ever runs into the thousands.
+ * (legendary > epic > rare > common), then by price DESCENDING within
+ * rarity (so a 180k legendary drone beats a 12k legendary skin), then
+ * newest as a final tiebreaker.
+ *
+ * The 'rarity' sort drops the image-backed bucket so placeholder cards
+ * still sort by their actual rarity — useful when the user wants to see
+ * every legendary regardless of whether it has a render.
+ *
+ * Both modes need the joined item rows to detect rarity + image backing,
+ * so we overfetch up to CURATED_FETCH_CAP and slice the page after the
+ * JS sort.
  */
 const CURATED_FETCH_CAP = 500;
 const RARITY_RANK = { legendary: 3, epic: 2, rare: 1, common: 0 };
+const POST_FETCH_SORTS = new Set(['curated', 'rarity']);
 
 /** Decide whether a listing's display image is a real /skins/...webp render
  *  vs. a legacy placeholder URL. Mirrors the convention used in
@@ -367,28 +374,29 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
   if (filters.minPrice != null) conditions.push(gte(marketplaceListings.price, filters.minPrice));
   if (filters.maxPrice != null) conditions.push(lte(marketplaceListings.price, filters.maxPrice));
 
-  // For non-curated sorts the original SQL paging applies; for curated we
-  // overfetch up to CURATED_FETCH_CAP and slice after the JS sort.
+  // Post-fetch sorts (curated / rarity) need joined rarity + image data,
+  // so we overfetch up to CURATED_FETCH_CAP and slice after the JS sort.
+  // Pure SQL sorts page directly.
+  const usePostFetchSort = POST_FETCH_SORTS.has(sort);
   const baseQuery = db
     .select()
     .from(marketplaceListings)
     .where(and(...conditions));
 
-  const rows =
-    sort === 'curated'
-      ? await baseQuery
-          .orderBy(desc(marketplaceListings.createdAt))
-          .limit(CURATED_FETCH_CAP)
-      : await baseQuery
-          .orderBy(
-            sort === 'priceLow'
-              ? marketplaceListings.price
-              : sort === 'priceHigh'
-                ? desc(marketplaceListings.price)
-                : desc(marketplaceListings.createdAt),
-          )
-          .limit(limit)
-          .offset(offset);
+  const rows = usePostFetchSort
+    ? await baseQuery
+        .orderBy(desc(marketplaceListings.createdAt))
+        .limit(CURATED_FETCH_CAP)
+    : await baseQuery
+        .orderBy(
+          sort === 'priceLow'
+            ? marketplaceListings.price
+            : sort === 'priceHigh'
+              ? desc(marketplaceListings.price)
+              : desc(marketplaceListings.createdAt),
+        )
+        .limit(limit)
+        .offset(offset);
 
   if (rows.length === 0) return [];
 
@@ -474,15 +482,22 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
     seller: sellerMap[r.sellerId] ?? null,
   }));
 
-  if (sort !== 'curated') return enriched;
+  if (!usePostFetchSort) return enriched;
 
+  // Curated bumps image-backed items above placeholders; the explicit
+  // 'rarity' sort drops that step so placeholder rares still rank above
+  // image-backed commons.
+  const useImageBacked = sort === 'curated';
   enriched.sort((a, b) => {
-    const aImg = isImageBacked(a) ? 1 : 0;
-    const bImg = isImageBacked(b) ? 1 : 0;
-    if (aImg !== bImg) return bImg - aImg;
+    if (useImageBacked) {
+      const aImg = isImageBacked(a) ? 1 : 0;
+      const bImg = isImageBacked(b) ? 1 : 0;
+      if (aImg !== bImg) return bImg - aImg;
+    }
     const aR = RARITY_RANK[rarityForRow(a)] ?? 0;
     const bR = RARITY_RANK[rarityForRow(b)] ?? 0;
     if (aR !== bR) return bR - aR;
+    if (b.price !== a.price) return b.price - a.price;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
   return enriched.slice(offset, offset + limit);

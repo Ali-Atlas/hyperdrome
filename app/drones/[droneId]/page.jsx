@@ -31,7 +31,7 @@ import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
-import { cn, getLevelColor } from '@/lib/utils';
+import { cn, getLevelColor, canEquipSkin } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
@@ -372,8 +372,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
     };
   }, [isOwner, drone.id, drone.appliedModId, drone.appliedSkinId]);
 
+  // `modId === null` is the unequip path. The early-return prevents
+  // re-firing the same equip on the already-current value (and for null,
+  // re-firing unequip when nothing is equipped).
   const equipModFn = async (modId) => {
-    if (!modId || modId === drone.appliedModId) return;
+    const current = drone.appliedModId ?? null;
+    if (modId === current) return;
     setModActionPending(true);
     try {
       const res = await fetch(`/api/drones/${drone.id}/mods/equip`, {
@@ -385,7 +389,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
       if (!res.ok) {
         showToast(body?.error || 'Equip failed', 'error');
       } else {
-        showToast('Mod equipped', 'success');
+        showToast(modId == null ? 'Mod unequipped' : 'Mod equipped', 'success');
         await onReload();
       }
     } catch (err) {
@@ -417,8 +421,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
     }
   };
 
+  // `skinId === null` is the unequip path. The early-return prevents
+  // re-firing the same equip on the already-current value (and for null,
+  // re-firing unequip when nothing is equipped).
   const equipSkinFn = async (skinId) => {
-    if (!skinId || skinId === drone.appliedSkinId) return;
+    const current = drone.appliedSkinId ?? null;
+    if (skinId === current) return;
     setSkinActionPending(true);
     try {
       const res = await fetch('/api/skins/equip', {
@@ -430,7 +438,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
       if (!res.ok) {
         showToast(body?.error || 'Equip failed', 'error');
       } else {
-        showToast('Skin equipped', 'success');
+        showToast(skinId == null ? 'Skin unequipped' : 'Skin equipped', 'success');
         await onReload();
       }
     } catch (err) {
@@ -737,6 +745,30 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                               </button>
                             </li>
                           )}
+                          {isOwner && (
+                            <li>
+                              <button
+                                type="button"
+                                className={styles.modSwapItem}
+                                onClick={() => {
+                                  setShowSwapSkinList(false);
+                                  equipSkinFn(null);
+                                }}
+                                disabled={
+                                  skinActionPending ||
+                                  drone.appliedSkinId == null
+                                }
+                              >
+                                <span className={styles.skinSwatch} aria-hidden="true" />
+                                <span className={styles.modSwapName}>None</span>
+                                {drone.appliedSkinId == null && (
+                                  <span className={styles.modSwapCurrent}>
+                                    current
+                                  </span>
+                                )}
+                              </button>
+                            </li>
+                          )}
                           {[...(drone.boundSkins ?? [])]
                             .sort((a, b) => {
                               if (a.id === drone.appliedSkinId) return -1;
@@ -847,6 +879,34 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                                 <span className={styles.modSwapCount}>
                                   ({unboundMods.length})
                                 </span>
+                              </button>
+                            </li>
+                          )}
+                          {isOwner && (
+                            <li>
+                              <button
+                                type="button"
+                                className={styles.modSwapItem}
+                                onClick={() => {
+                                  setShowSwapList(false);
+                                  equipModFn(null);
+                                }}
+                                disabled={
+                                  modActionPending ||
+                                  drone.appliedModId == null
+                                }
+                              >
+                                <ModPlaceholder
+                                  rarity="common"
+                                  size={20}
+                                  className={styles.modSwapIcon}
+                                />
+                                <span className={styles.modSwapName}>None</span>
+                                {drone.appliedModId == null && (
+                                  <span className={styles.modSwapCurrent}>
+                                    current
+                                  </span>
+                                )}
                               </button>
                             </li>
                           )}
@@ -1013,6 +1073,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
         onClose={() => setShowSkinBindModal(false)}
         kind="skin"
         droneName={drone.name}
+        droneLevel={drone.level}
         items={unboundSkins}
         onBind={bindSkinFn}
         pending={skinActionPending}
@@ -1022,6 +1083,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
         onClose={() => setShowModBindModal(false)}
         kind="mod"
         droneName={drone.name}
+        droneLevel={drone.level}
         items={unboundMods}
         onBind={bindModFn}
         pending={modActionPending}
@@ -1123,10 +1185,12 @@ function BindCollectibleModal({
   onClose,
   kind,
   droneName,
+  droneLevel,
   items,
   onBind,
   pending,
 }) {
+  const { showToast } = useToast();
   const [selected, setSelected] = useState(new Set());
   const [working, setWorking] = useState(false);
 
@@ -1134,7 +1198,19 @@ function BindCollectibleModal({
     if (!isOpen) setSelected(new Set());
   }, [isOpen]);
 
+  // Skins without a tier render for this drone tier (and that aren't
+  // legendary, which always render) can't actually display on the drone.
+  // Captain spec: keep the click active so the user gets explicit demo
+  // feedback instead of a silent no-op or a confusing partial-state bind.
+  const isPlaceholderSkin = (item) =>
+    kind === 'skin' && !canEquipSkin(item, droneLevel);
+
   const toggle = (id) => {
+    const item = items.find((i) => i.id === id);
+    if (item && isPlaceholderSkin(item)) {
+      showToast('Not available in demo.', 'info');
+      return;
+    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);

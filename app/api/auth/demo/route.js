@@ -103,7 +103,7 @@ function randomPilotName() {
 export async function POST(request) {
   const session = await auth();
   if (session?.user?.name?.startsWith('PILOT_')) {
-    return NextResponse.json({ redirectUrl: '/dashboard' });
+    return NextResponse.json({ redirectUrl: '/drones' });
   }
 
   const ip = getClientIp(request);
@@ -162,7 +162,7 @@ export async function POST(request) {
           { status: 500 },
         );
       }
-      return NextResponse.json({ redirectUrl: '/dashboard' });
+      return NextResponse.json({ redirectUrl: '/drones' });
     }
     // The conditional update lost the race - fall through to fresh-create.
   }
@@ -214,5 +214,5 @@ export async function POST(request) {
     console.error('[demo] background seedDemoPlayer failed:', err);
   });
 
-  return NextResponse.json({ redirectUrl: '/dashboard' });
+  return NextResponse.json({ redirectUrl: '/drones' });
 }

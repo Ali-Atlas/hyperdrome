@@ -51,12 +51,12 @@ const SECTIONS = [
       { type: 'subheading', text: 'Creating your account' },
       {
         type: 'paragraph',
-        text: 'Sign up with email. We send a magic link. No password. On first sign-in you get a free Level 1 starter drone, your wallet starts at 0 volts, your account starts at ELO 1000 with 1 active drone slot.',
+        text: 'Sign up with email. We send a magic link. No password. On first sign-in you get a free Level 1 starter drone (active by default), 500 volts in your wallet, one unbound common skin and one unbound common mod sitting in your inventory, and 1 active drone slot at ELO 1000.',
       },
       { type: 'subheading', text: 'Your first drone' },
       {
         type: 'paragraph',
-        text: 'Level 1, all 9 stats at 1, Total Stat Budget of 29, active by default. It enters the next race cycle automatically. The 9 stats sum to 9 already, so you have 20 points of TSB headroom to allocate as you earn. Every upgrade costs volts from your wallet, so the first wins fund the first upgrades.',
+        text: 'Level 1, active by default, with all 9 stats randomized in the 1-5 range and trimmed to fit a Level 1 Total Stat Budget of 29. It enters the next race cycle automatically. Every upgrade costs volts from your wallet, so the first wins fund the first upgrades.',
       },
     ],
   },
@@ -325,17 +325,23 @@ const SECTIONS = [
       { type: 'subheading', text: 'Race rewards' },
       {
         type: 'paragraph',
-        text: 'Winner payout = 3 base + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)). Losers earn a flat 2 volts as a participation payout, so every active drone earns something every cycle.',
+        text: 'Winner payout = 3 base + floor(winnerLevel / 2) + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)) + dominance bonus. Loser payout = 1 base + floor(loserLevel / 4). Every active drone earns something every cycle.',
       },
       {
         type: 'list',
         items: [
-          { name: 'Loser payout', desc: '2 volts. Every race, regardless of result.' },
-          { name: 'Min winner payout', desc: '3 volts. Difficulty-1 track, no upset.' },
-          { name: 'Mid winner payout', desc: '5 volts. Difficulty-5 track (+2), even matchup.' },
-          { name: 'Strong winner payout', desc: '7 volts. Difficulty-9 track (+4), even matchup.' },
-          { name: 'Big upset', desc: '12 volts. Difficulty-9 track (+4), 500 ELO underdog (+5).' },
+          { name: 'Winner base', desc: '3 volts. Always.' },
+          { name: 'Winner level bonus', desc: 'floor(winnerLevel / 2). LV1: +0. LV8: +4. LV20: +10.' },
+          { name: 'Winner difficulty bonus', desc: 'floor(track difficulty / 2). Difficulty 1: +0. Difficulty 5: +2. Difficulty 10: +5.' },
+          { name: 'Winner upset bonus', desc: 'floor((loserElo - winnerElo) / 100) when negative. 100 ELO underdog: +1. 500 underdog: +5.' },
+          { name: 'Winner dominance bonus', desc: 'Margin = |drone1Time - drone2Time| / minTime * 100. Margin > 40%: +5 volts. Margin > 20%: +2 volts. Otherwise: +0.' },
+          { name: 'Loser base', desc: '1 volt. Always.' },
+          { name: 'Loser level bonus', desc: 'floor(loserLevel / 4). LV1-3: +0. LV4-7: +1. LV20: +5.' },
         ],
+      },
+      {
+        type: 'paragraph',
+        text: 'Worked examples. LV1 winner on a difficulty-1 track in a narrow win against an even-rated opponent: 3 + 0 + 0 + 0 + 0 = 3 volts. LV8 winner on a difficulty-5 track, narrow win, even matchup: 3 + 4 + 2 + 0 + 0 = 9 volts. LV16 winner on a difficulty-9 track, dominant win (margin > 20%) against an even-rated opponent: 3 + 8 + 4 + 0 + 2 = 17 volts. LV20 winner on a difficulty-10 track, dominant win (margin > 40%) over a 500-ELO favorite: 3 + 10 + 5 + 5 + 5 = 28 volts.',
       },
 
       { type: 'subheading', text: 'Other volt income' },
@@ -344,6 +350,7 @@ const SECTIONS = [
         items: [
           { name: 'Level-up bonus', desc: '+20 volts per level. Paid into your wallet on the level-up.' },
           { name: 'Marketplace sale', desc: '95% of the sale price (5% platform fee).' },
+          { name: 'Skin drops', desc: 'Random per-race chance lands an unbound skin in your inventory you can list for volts.' },
         ],
       },
 
@@ -361,6 +368,7 @@ const SECTIONS = [
           { name: 'Marketplace', desc: 'Drones, unbound skins, and unbound mods listed by other players.' },
           { name: 'Skin packs', desc: 'Starter (2,000), Premium (25,000), Legendary (100,000). 3 skins per pack.' },
           { name: 'Mod capsules', desc: 'Starter (1,000), Premium (12,000), Legendary (50,000). 3 mods per capsule.' },
+          { name: 'NPC drone vendor', desc: '3,500 volts buys a fresh Level 1 drone with mid-range randomized stats, plus one common skin and one common mod bound to the new drone (not equipped). No marketplace dependency, no auction.' },
         ],
       },
     ],
@@ -399,7 +407,7 @@ const SECTIONS = [
     blocks: [
       {
         type: 'paragraph',
-        text: 'Cosmetic items that change a drone\'s appearance. Zero effect on race math. 56 skins exist today: 30 commons, 15 rares, 8 epics, 3 legendaries.',
+        text: 'Cosmetic items that change a drone\'s appearance. Zero effect on race math. 61 skins exist today: 30 commons, 15 rares, 8 epics, 8 legendaries.',
       },
 
       { type: 'subheading', text: 'Rarities' },
@@ -594,14 +602,20 @@ const SECTIONS = [
         type: 'list',
         items: [
           { name: 'Slot 1', desc: 'Granted at signup.' },
-          { name: 'Slot 2', desc: 'Unlocks at 500 total races (across all your drones).' },
-          { name: 'Slot 3', desc: 'Unlocks at 2,000 total races.' },
+          { name: 'Slot 2', desc: 'Unlocks at 3,000 total races (across all your drones). The same milestone also auto-spawns a free Level 1 drone with one unbound common skin and one unbound common mod, so the new slot has somewhere to go.' },
+          { name: 'Slot 3', desc: 'Unlocks at 10,000 total races. Same auto-spawn: a free Level 1 drone plus an unbound common skin and mod.' },
         ],
       },
 
       {
         type: 'paragraph',
-        text: 'Slot unlocks check on every race cycle, so the new slot becomes available the next time the cycle runs after you cross the threshold.',
+        text: 'Slot unlocks and milestone spawns check on every race cycle, so the new slot and the new drone both become available the next time the cycle runs after you cross the threshold.',
+      },
+
+      { type: 'subheading', text: 'Beyond the milestones' },
+      {
+        type: 'paragraph',
+        text: 'Milestone spawns cap at 3 free drones (your starter + slot-2 spawn + slot-3 spawn). Past that, additional Level 1 drones are available from the NPC vendor at 3,500 volts each — random mid-range stats, one bound common skin, one bound common mod. There is no marketplace dependency to grow your fleet.',
       },
     ],
   },
@@ -664,12 +678,12 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'Rewards and Progression' },
       {
         type: 'paragraph',
-        text: 'Winners earn 10 XP plus volts (3 base + difficulty + upset bonus). Losers earn 4 XP plus a flat 2-volt participation payout. ELO ratings adjust based on the outcome. Upsets (a lower-rated drone beating a higher-rated one) flag in the log and pay a volts bonus to the winner. XP drives leveling, which unlocks higher stat caps and access to harder tracks. Volts fund the rest of the economy: stat upgrades, packs, and Marketplace buys. You cannot buy XP - leveling only happens by racing.',
+        text: 'Winners earn 10 XP plus tiered volts: 3 base, plus level / difficulty / upset / dominance bonuses. Losers earn 4 XP plus 1 base volt scaled by their level (floor(loserLevel / 4) bonus). ELO ratings adjust based on the outcome. Upsets (a lower-rated drone beating a higher-rated one) flag in the log and pay a volts bonus to the winner. XP drives leveling, which unlocks higher stat caps and access to harder tracks. Volts fund the rest of the economy: stat upgrades, packs, NPC vendor purchases, and Marketplace buys. You cannot buy XP - leveling only happens by racing.',
       },
       { type: 'subheading', text: 'Active Drone Slots' },
       {
         type: 'paragraph',
-        text: 'You start with 1 active drone slot. Slot 2 unlocks at 500 total races, slot 3 at 2,000 races. Only active drones enter race batches. Changes to active/inactive status take effect after the current race batch resolves.',
+        text: 'You start with 1 active drone slot. Slot 2 unlocks at 3,000 total races, slot 3 at 10,000 races. Each milestone also auto-spawns a free Level 1 drone (plus an unbound common skin and mod) so the new slot has something to fill it. Only active drones enter race batches. Changes to active/inactive status take effect after the current race batch resolves.',
       },
     ],
   },
@@ -681,7 +695,7 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'Volts' },
       {
         type: 'paragraph',
-        text: 'Volts are the only in-game currency. You earn them by racing - winners take 3 base plus track and upset bonuses, losers take a flat 2. Volts buy stat upgrades, packs, and other players\' listings on the Marketplace.',
+        text: 'Volts are the only in-game currency. You earn them by racing — winners take 3 base plus level, difficulty, upset, and dominance bonuses; losers take 1 base plus a level bonus. Volts buy stat upgrades, packs, NPC vendor drones (3,500V each), and other players\' listings on the Marketplace.',
       },
       { type: 'subheading', text: 'The Marketplace' },
       {
@@ -869,9 +883,11 @@ export default function GuidePage() {
 
                   <h3 className={styles.subheading}>Fixed Supply</h3>
                   <p className={styles.paragraph}>
-                    Each legendary skin and mod has a fixed, limited supply.
-                    Early Season 1 legendaries become the rarest items in the
-                    game permanently.
+                    Each legendary skin and mod has a fixed, limited supply.{' '}
+                    <span style={{ color: 'var(--rarity-legendary)', fontWeight: 600 }}>
+                      Early Season 1 legendaries become the rarest items in the
+                      game permanently.
+                    </span>
                   </p>
                   <p className={styles.paragraph}>
                     Epic items have small defined supply caps. Rare and common

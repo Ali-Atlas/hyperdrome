@@ -121,33 +121,37 @@ export async function bindMod(userId, modId, droneId) {
     );
   }
 
-  // First mod on the drone becomes the equipped one automatically.
-  const shouldEquip = drone.appliedModId == null;
+  // Binding now always equips, replacing whatever was previously equipped.
+  // Captain spec: bind means "I want to use this." Mods don't depend on
+  // tier renders, so every bound mod is equippable.
+  await db
+    .update(droneMods)
+    .set({ isEquipped: false })
+    .where(eq(droneMods.droneId, droneId));
 
   await db.insert(droneMods).values({
     droneId,
     modId,
-    isEquipped: shouldEquip,
+    isEquipped: true,
   });
 
-  if (shouldEquip) {
-    await db
-      .update(drones)
-      .set({ appliedModId: modId })
-      .where(eq(drones.id, droneId));
-  }
+  await db
+    .update(drones)
+    .set({ appliedModId: modId })
+    .where(eq(drones.id, droneId));
 
-  return { droneId, modId, isEquipped: shouldEquip };
+  return { droneId, modId, isEquipped: true };
 }
 
 /**
- * Equip a different mod from the drone's bound collection. Sets is_equipped
- * to true on the chosen mod, false on all others belonging to that drone,
- * and updates drones.applied_mod_id.
+ * Equip a different mod from the drone's bound collection, or unequip the
+ * currently-equipped mod when `modId` is null. In the unequip path, all
+ * of the drone's droneMods rows get is_equipped=false and
+ * drones.applied_mod_id is cleared; bound mods stay in the collection.
  *
  * @param {string} userId
  * @param {string} droneId
- * @param {string} modId
+ * @param {string|null} modId
  */
 export async function equipMod(userId, droneId, modId) {
   const [drone] = await db
@@ -158,6 +162,18 @@ export async function equipMod(userId, droneId, modId) {
   if (!drone) throw new ApiError('Drone not found', 404);
   if (drone.userId !== userId) {
     throw new ApiError('You do not own this drone', 403);
+  }
+
+  if (modId == null) {
+    await db
+      .update(droneMods)
+      .set({ isEquipped: false })
+      .where(eq(droneMods.droneId, droneId));
+    await db
+      .update(drones)
+      .set({ appliedModId: null })
+      .where(eq(drones.id, droneId));
+    return { droneId, modId: null };
   }
 
   const [binding] = await db

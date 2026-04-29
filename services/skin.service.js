@@ -145,14 +145,22 @@ export async function bindSkinToDrone(userId, skinId, droneId) {
     );
   }
 
-  // First skin on the drone becomes the equipped one automatically -
-  // BUT only if it's actually renderable on this drone's tier. A
-  // non-legendary skin with no applied-tier render is bound to the
-  // collection unequipped; the user can equip it later if/when a
-  // renderable combo is available (or never, for purely cosmetic
-  // catalog skins).
-  const shouldEquip =
-    drone.appliedSkinId == null && canEquipSkin(skin, drone.level);
+  // Binding now always equips the skin if it's renderable on this drone's
+  // tier, replacing whatever was previously equipped. Captain spec: bind
+  // means "I want to use this." Non-renderable skins (frontend filters
+  // these out with a demo toast) bind without equipping as a defense in
+  // depth; the user keeps them in the collection but the drone keeps its
+  // current visual.
+  const shouldEquip = canEquipSkin(skin, drone.level);
+
+  if (shouldEquip) {
+    // Clear any currently-equipped skin on this drone so the new one is
+    // the sole equipped row in droneSkins.
+    await db
+      .update(droneSkins)
+      .set({ isEquipped: false })
+      .where(eq(droneSkins.droneId, droneId));
+  }
 
   await db.insert(droneSkins).values({
     droneId,
@@ -179,13 +187,14 @@ export async function bindSkinToDrone(userId, skinId, droneId) {
 }
 
 /**
- * Equip a different skin from the drone's bound collection. Sets
- * is_equipped to true on the chosen skin, false on all others belonging
- * to that drone, and updates drones.applied_skin_id.
+ * Equip a different skin from the drone's bound collection, or unequip
+ * the currently-equipped skin when `skinId` is null. In the unequip path,
+ * all of the drone's droneSkins rows get is_equipped=false and
+ * drones.applied_skin_id is cleared; bound skins stay in the collection.
  *
  * @param {string} userId
  * @param {string} droneId
- * @param {string} skinId
+ * @param {string|null} skinId
  */
 export async function equipSkin(userId, droneId, skinId) {
   const [drone] = await db
@@ -196,6 +205,18 @@ export async function equipSkin(userId, droneId, skinId) {
   if (!drone) throw new ApiError('Drone not found', 404);
   if (drone.userId !== userId) {
     throw new ApiError('You do not own this drone', 403);
+  }
+
+  if (skinId == null) {
+    await db
+      .update(droneSkins)
+      .set({ isEquipped: false })
+      .where(eq(droneSkins.droneId, droneId));
+    await db
+      .update(drones)
+      .set({ appliedSkinId: null })
+      .where(eq(drones.id, droneId));
+    return { droneId, skinId: null };
   }
 
   const [binding] = await db

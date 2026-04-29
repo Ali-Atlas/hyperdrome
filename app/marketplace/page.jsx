@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, ChevronDown, ChevronRight, X, Check } from 'lucide-react';
+import { Search, Plus, ChevronDown, ChevronRight, X, Check, Hexagon } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -947,6 +947,8 @@ export default function MarketplacePage() {
                       setFilters((f) => ({ ...f, sort: e.target.value }))
                     }
                   >
+                    <option value="curated">Featured</option>
+                    <option value="rarity">Rarity</option>
                     <option value="newest">Newest</option>
                     <option value="priceLow">Price: Low to High</option>
                     <option value="priceHigh">Price: High to Low</option>
@@ -1289,71 +1291,22 @@ export default function MarketplacePage() {
         </div>
       </Modal>
 
-      {/* ---- Pack reveal modal ---- */}
+      {/* ---- Pack reveal modal (Ready to Open + Opened in same shell) ---- */}
       <Modal
         isOpen={!!packReveal}
         onClose={closePackReveal}
-        title={packOpened ? 'Pack Opened' : 'Pack Purchased'}
-        size="md"
+        chromeless
+        className={styles.purchaseModal}
+        overlayClassName={styles.purchaseOverlay}
       >
-        {packReveal && !packOpened && (
-          <div className={styles.revealWrap}>
-            <div className={styles.preRevealStage}>
-              <img
-                src={`/skin_packs/${packReveal.packType}_pack.webp`}
-                alt=""
-                className={styles.preRevealImg}
-              />
-              <p className={styles.preRevealHint}>
-                Ready to open your {packReveal.packType} pack?
-              </p>
-            </div>
-            <div className={styles.revealActions}>
-              <Button variant="secondary" onClick={closePackReveal}>
-                Save for Later
-              </Button>
-              <Button variant="primary" onClick={handleRevealPack}>
-                Open Pack
-              </Button>
-            </div>
-          </div>
-        )}
-        {packReveal && packOpened && (
-          <div className={styles.revealWrap}>
-            <div className={styles.revealGrid}>
-              {packReveal.awarded.map((skin, i) => (
-                <div
-                  key={skin.id}
-                  className={cn(
-                    styles.revealCard,
-                    styles[`card_${skin.rarity}`],
-                    i < packRevealStep && styles.revealVisible,
-                  )}
-                >
-                  <div className={styles.revealImage}>
-                    <SkinThumb skin={skin} rarity={skin.rarity} alt={skin.name} />
-                  </div>
-                  <div className={styles.revealName}>{skin.name}</div>
-                  <Badge variant="rarity" value={skin.rarity} />
-                </div>
-              ))}
-            </div>
-            <div className={styles.revealActions}>
-              <Button variant="secondary" onClick={closePackReveal}>
-                Close
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setTab('skins');
-                  setView('mine');
-                  closePackReveal();
-                }}
-              >
-                View in Inventory
-              </Button>
-            </div>
-          </div>
+        {packReveal && (
+          <PackRevealModalBody
+            packReveal={packReveal}
+            packOpened={packOpened}
+            packRevealStep={packRevealStep}
+            onReveal={handleRevealPack}
+            onClose={closePackReveal}
+          />
         )}
       </Modal>
     </NavShell>
@@ -2496,12 +2449,13 @@ function ListingCard({
   const handleCardClick = (e) => {
     // The card surface is the click target. Inner buttons / links call
     // stopPropagation so this only fires on body clicks. Owner cards
-    // open the cancel modal; non-owner cards open the buy modal (only
-    // if affordable, mirroring the in-button gating).
+    // open the cancel modal; non-owner cards always open the buy modal -
+    // affordability gating happens inside the modal so users can still
+    // see item details when they can't afford it.
     if (e.target.closest('[data-stop-card-click]')) return;
     if (isOwner) {
       onCancel();
-    } else if (canAfford) {
+    } else {
       onBuy();
     }
   };
@@ -2525,7 +2479,7 @@ function ListingCard({
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           if (isOwner) onCancel();
-          else if (canAfford) onBuy();
+          else onBuy();
         }
       }}
       aria-label={
@@ -2763,22 +2717,18 @@ function ListingItemPicker({ kind, items, selectedId, onSelect }) {
 /* -------------------------------------------------------------------------- */
 
 function SkinSlot({ skin, rarity, alt }) {
-  const url = skin?.imageUrl;
-  const isImageBacked =
-    typeof url === 'string' && url.startsWith('/skins/') && url.endsWith('.webp');
-  const [errored, setErrored] = useState(false);
-
-  if (isImageBacked && !errored) {
-    return (
-      <img
-        src={url}
-        alt={alt ?? ''}
-        className={styles.skinImg}
-        onError={() => setErrored(true)}
-      />
-    );
-  }
-  return <MarketplaceSkinPlaceholder rarity={rarity} />;
+  // Defer to SkinThumb so the placeholder fallback uses the shared
+  // SkinMini diamond/prism — same shape as the pack-preview cards. Wrap
+  // gives the rarity-tinted SVG room to breathe inside the listing's
+  // image slot without imposing an aspect ratio at this level.
+  return (
+    <SkinThumb
+      skin={skin}
+      rarity={rarity}
+      alt={alt}
+      className={styles.skinImg}
+    />
+  );
 }
 
 /* Open-envelope-pointing-down swatch placeholder. Five corners: a narrow
@@ -3227,16 +3177,11 @@ function PurchaseModalBody({
             onClick={onConfirm}
             disabled={!canAfford || pending}
           >
-            {pending ? (
-              <span className={styles.purchaseProcessing}>Processing...</span>
-            ) : !canAfford ? (
-              <>
-                Need <VoltIcon size={16} style={{ color: 'currentColor' }} />
-                {shortBy.toLocaleString()}
-              </>
-            ) : (
-              'Confirm Purchase'
-            )}
+            {pending
+              ? 'Processing...'
+              : !canAfford
+                ? 'Not enough Volts'
+                : 'Confirm Purchase'}
           </button>
 
           {error && <div className={styles.purchaseError}>{error}</div>}
@@ -3354,6 +3299,141 @@ function PackPurchaseModalBody({
           Capsule packs launching soon
         </div>
       )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pack reveal modal body (Ready to Open + Opened)                             */
+/*                                                                             */
+/* Two stages share one shell so the user perceives a single "pack" modal      */
+/* that flips its cards. Stage 1 shows 3 face-down placeholder cards using     */
+/* the same .possibleCard / .possibleCard_<rarity> styling as the pack         */
+/* preview grid in the packs section, so the rarity-tinted backs match the     */
+/* user's expectation from the previews. Stage 2 reveals the awarded skins    */
+/* in those same slots, styled identically to PossibleCard.                    */
+/* -------------------------------------------------------------------------- */
+
+function PackRevealModalBody({
+  packReveal,
+  packOpened,
+  packRevealStep,
+  onReveal,
+  onClose,
+}) {
+  const { awarded, packType } = packReveal;
+  const tier =
+    packType === 'legendary' || packType === 'premium' ? packType : 'starter';
+  const glowColor =
+    tier === 'legendary'
+      ? '#FFD700'
+      : tier === 'premium'
+        ? '#BB86FC'
+        : '#03DAC6';
+  const ctaBg =
+    tier === 'legendary'
+      ? 'var(--rarity-legendary)'
+      : tier === 'premium'
+        ? 'var(--accent-secondary)'
+        : 'var(--accent-primary)';
+
+  return (
+    <div className={styles.purchaseStage} style={{ '--glow-color': glowColor }}>
+      <button
+        type="button"
+        className={styles.purchaseCloseBtn}
+        onClick={onClose}
+        aria-label="Close"
+      >
+        <X size={18} />
+      </button>
+
+      <div className={styles.purchaseTitleRow}>
+        <h3
+          className={cn(styles.purchaseName, styles[`packCardName_${tier}`])}
+        >
+          {packOpened ? 'Pack Opened' : 'Ready to Open'}
+        </h3>
+      </div>
+
+      <div className={styles.revealGrid}>
+        {awarded.map((skin, i) => {
+          const isLegendary = skin.rarity === 'legendary';
+          const isVisible = packOpened && i < packRevealStep;
+          return (
+            <div
+              key={skin.id}
+              className={cn(
+                styles.possibleCard,
+                styles[`possibleCard_${skin.rarity}`],
+                isVisible && styles.revealVisible,
+              )}
+            >
+              <div className={styles.possibleInner}>
+                {!isVisible ? (
+                  <Hexagon
+                    size={36}
+                    strokeWidth={1.5}
+                    className={styles.revealBackIcon}
+                    aria-hidden="true"
+                  />
+                ) : isLegendary ? (
+                  <span className={styles.possibleL} aria-hidden="true">L</span>
+                ) : (
+                  <SkinThumb
+                    skin={skin}
+                    rarity={skin.rarity}
+                    alt={skin.name}
+                    className={styles.possibleSkinThumb}
+                  />
+                )}
+              </div>
+              <span className={styles.possibleName}>
+                {isVisible ? skin.name : ' '}
+              </span>
+              <span
+                className={cn(
+                  styles.possibleRarity,
+                  styles[`rarity_${skin.rarity}`],
+                  !isVisible && styles.revealHiddenLabel,
+                )}
+              >
+                {RARITY_LABELS[skin.rarity]}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className={styles.revealActions}>
+        {!packOpened ? (
+          <>
+            <button
+              type="button"
+              className={styles.modalSecondaryBtn}
+              onClick={onClose}
+            >
+              Save for Later
+            </button>
+            <button
+              type="button"
+              className={styles.purchaseCta}
+              style={{ '--cta-bg': ctaBg, '--cta-text': '#000' }}
+              onClick={onReveal}
+            >
+              Open Pack
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className={styles.modalSecondaryBtn}
+            onClick={onClose}
+          >
+            Close
+          </button>
+        )}
+      </div>
     </div>
   );
 }

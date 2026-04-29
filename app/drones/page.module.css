@@ -804,15 +804,19 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-2) var(--space-1);
+  gap: var(--space-3);
+  padding: 0 var(--space-2) var(--space-1);
 }
 
+/* Teal accent glow on the starter drone render. Keeps the visual treatment
+   consistent with the cinematic purchase modal in marketplace (which puts a
+   colored ground-puddle under hero items) without the dark drop-shadow that
+   read as a smudge against the modal panel. */
 .vendorModalImage {
   width: 160px;
   height: 160px;
   object-fit: contain;
-  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 0 24px rgba(3, 218, 198, 0.35));
 }
 
 .vendorModalDesc {
@@ -893,14 +897,17 @@
   transition: width var(--duration-normal) var(--ease-out);
 }
 
-.milestoneCap {
+/* Explanatory copy below the milestone bars. Body text, secondary tone,
+   centered, max-width matched to .vendorModalDesc so the two paragraphs
+   share the same column width. */
+.vendorModalNote {
   margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
   text-align: center;
+  line-height: 1.5;
+  max-width: 380px;
 }
 
 /* ---- Footer + actions ---- */

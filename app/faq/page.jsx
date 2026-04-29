@@ -17,7 +17,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Is it free to play?',
-        a: 'Yes. Sign up and you get a free Level 1 starter drone. All progression is earned by racing.',
+        a: 'Yes. Sign up and you get a free Level 1 starter drone (active by default), 500 volts in your wallet, one unbound common skin, and one unbound common mod sitting in your inventory. All further progression is earned by racing.',
       },
       {
         q: 'Do I need to be online for races?',
@@ -47,7 +47,7 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I get more drones?',
-        a: 'Buy them on the marketplace from other players. There\'s no other way to acquire additional drones today.',
+        a: 'Three ways. (1) XP milestones: at 3,000 total races (across all your drones) you auto-receive a free Level 1 drone, plus a slot 2 unlock. At 10,000 races, the same again with slot 3. Each milestone spawn includes one unbound common skin and one unbound common mod. (2) NPC vendor: 3,500 volts per Level 1 drone — random mid-range stats, one bound common skin, one bound common mod. Available anytime, no marketplace dependency. (3) Marketplace: buy a drone listed by another player at any level with whatever skins, mods, and race history the seller built into it.',
       },
       {
         q: 'Can I buy XP or buy levels?',
@@ -55,7 +55,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Can I have multiple active drones?',
-        a: 'Yes, up to 3 once you unlock the slots. Slot 2 unlocks at 500 total races. Slot 3 unlocks at 2,000 total races. Total races counts every race any of your drones runs.',
+        a: 'Yes, up to 3 once you unlock the slots. Slot 2 unlocks at 3,000 total races. Slot 3 unlocks at 10,000 total races. Total races counts every race any of your drones runs. Each unlock also auto-spawns a free Level 1 drone (with an unbound common skin and mod) so the new slot has a drone to fill it.',
       },
       {
         q: 'What happens when my drone levels up?',
@@ -87,7 +87,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What do I start with?',
-        a: 'A Level 1 drone with all 9 stats at 1, TSB 29, ELO 1000, active. Wallet 0 volts. 1 active drone slot.',
+        a: 'A Level 1 drone (active, ELO 1000, TSB 29, all 9 stats randomized in the 1-5 range and trimmed to fit TSB), 500 volts in your wallet, one unbound common skin, one unbound common mod, and 1 active drone slot.',
       },
     ],
   },
@@ -205,15 +205,19 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I earn volts?',
-        a: 'Race - winners take 3 base plus track difficulty and upset bonuses, losers take a flat 2-volt participation payout. Also: marketplace sales (95% of sale price), and a +20 wallet bonus on every level-up.',
+        a: 'Race — winners take 3 base plus level, difficulty, upset, and dominance bonuses; losers take 1 base plus a level bonus. Also: marketplace sales (95% of sale price), and a +20 wallet bonus on every level-up.',
       },
       {
         q: 'Do losers earn volts?',
-        a: 'Yes - 2 volts every race, regardless of result. Plus 4 XP. The flat payout means every active drone earns something every cycle.',
+        a: 'Yes — 1 base volt plus floor(loserLevel / 4) every race. LV1-3: 1V. LV4-7: 2V. LV20: 6V. The level bonus means high-level losses still pay enough to feel non-zero. Plus 4 XP every loss.',
       },
       {
         q: 'How much does a win pay?',
-        a: 'Base 3 + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)). Range: 3 volts (difficulty-1 track, even matchup) up to 12+ on a hard track with a big upset.',
+        a: '3 base + floor(winnerLevel / 2) + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)) + dominance bonus. Range: 3 volts (LV1 winner, difficulty-1 track, narrow win, even matchup) up to 28+ for a LV20 winner on a difficulty-10 track dominantly beating a 500-ELO favorite.',
+      },
+      {
+        q: 'How does the payout system work?',
+        a: 'Wins are tiered. Base 3V + (a) level bonus floor(winnerLevel/2) up to +10 at LV20, (b) difficulty bonus floor(track.difficulty/2) up to +5 on the hardest track, (c) upset bonus floor((loserElo-winnerElo)/100) when negative — +1 per 100 ELO underdog, (d) dominance bonus +2V if your win margin is above 20% of the loser\'s time, +5V if above 40% (margin is computed from the actual race times). Losses pay 1V base + floor(loserLevel/4) up to +5 at LV20. The intent is that losing a tight race at high level still earns meaningful volts, while crushing wins on hard tracks against higher-ranked opponents pay out big.',
       },
       {
         q: 'Are volts shared between my drones?',
@@ -299,7 +303,7 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I earn volts?',
-        a: 'By racing. Winners earn 3 base + difficulty + upset bonuses. Losers earn 2 volts. Plus level-up bonuses (+20 volts each level) and marketplace sales (95% of price after the 5% rake).',
+        a: 'By racing. Winners earn 3 base + level + difficulty + upset + dominance bonuses. Losers earn 1 base + a level bonus. Plus level-up bonuses (+20 volts each level) and marketplace sales (95% of price after the 5% rake).',
       },
       {
         q: 'Is this pay-to-win?',
@@ -333,7 +337,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'How many skins exist?',
-        a: '56 in the vault: 30 commons, 15 rares, 8 epics, 3 legendaries. Legendaries are unique one-of-ones.',
+        a: '61 in the vault: 30 commons, 15 rares, 8 epics, 8 legendaries. Legendaries are unique one-of-ones.',
       },
       {
         q: 'Can two players own the same skin?',

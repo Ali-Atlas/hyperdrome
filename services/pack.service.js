@@ -19,7 +19,7 @@ export const PACK_PRICES = {
  */
 const DEMO_LEGENDARY_BLOCKLIST = [
   'Kraken',
-  'Diamond Hand',
+  'Diamond Hands',
   'Apex Predator',
   'Celestial',
   'Valiant',

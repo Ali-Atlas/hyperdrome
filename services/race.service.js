@@ -390,6 +390,7 @@ async function executePendingRace(pending, cfg) {
       status: 'completed',
       winnerDroneId: winner.id,
       pointsAwarded,
+      loserPointsAwarded: lossPayout,
       drone1Time: String(result.drone1Time),
       drone2Time: String(result.drone2Time),
       drone1EloChange,
@@ -694,16 +695,31 @@ export async function getRaceById(raceId) {
 
   const race = row.race;
 
+  // Owner username is needed by the race detail UI: the COMPLETED
+  // DroneCard renders "YOU" for the viewer's own drone and the opponent's
+  // username for the other slot. The PENDING MatchupDroneCard already
+  // reads `drone.owner.username` - this join makes that path live too.
   const droneRows = await db
-    .select({ drone: drones, appliedSkin: skins, appliedMod: mods })
+    .select({
+      drone: drones,
+      appliedSkin: skins,
+      appliedMod: mods,
+      ownerUsername: users.username,
+    })
     .from(drones)
     .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
     .leftJoin(mods, eq(drones.appliedModId, mods.id))
+    .leftJoin(users, eq(drones.userId, users.id))
     .where(inArray(drones.id, [race.drone1Id, race.drone2Id]));
   const byId = Object.fromEntries(
-    droneRows.map(({ drone, appliedSkin, appliedMod }) => [
+    droneRows.map(({ drone, appliedSkin, appliedMod, ownerUsername }) => [
       drone.id,
-      { ...drone, appliedSkin, appliedMod },
+      {
+        ...drone,
+        appliedSkin,
+        appliedMod,
+        owner: ownerUsername ? { username: ownerUsername } : null,
+      },
     ]),
   );
 

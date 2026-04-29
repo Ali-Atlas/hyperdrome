@@ -483,13 +483,15 @@ function PodiumCard({ rank, entry, tab }) {
           <div className={styles.podiumName}>
             {empty ? 'Unclaimed' : name}
             {droneLevel != null && (
-              <span
-                className={styles.podiumLevel}
-                style={{ color: getLevelColor(droneLevel) }}
-              >
+              <>
                 {' '}
-                · LV {droneLevel}
-              </span>
+                <span
+                  className={styles.podiumLevel}
+                  style={{ color: getLevelColor(droneLevel) }}
+                >
+                  LV {droneLevel}
+                </span>
+              </>
             )}
           </div>
           <div className={styles.podiumRankLabel}>{rankLabel}</div>

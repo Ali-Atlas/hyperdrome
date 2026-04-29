@@ -532,11 +532,22 @@
   font-size: var(--text-base);
 }
 
+/* Level indicator on podium cards. Bumped from 10px text to a chip with
+   real vertical presence (text size + padding) so the level reads as a
+   proper badge, not a footnote. Width is content-driven so the name
+   row's layout isn't disturbed. */
 .podiumLevel {
+  display: inline-block;
+  padding: 3px 8px;
+  margin-left: 2px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.05em;
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
   font-weight: var(--font-bold);
+  line-height: 1.1;
 }
 
 .podiumStats {

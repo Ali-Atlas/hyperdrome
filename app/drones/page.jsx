@@ -329,15 +329,20 @@ function VendorModal({
               target={MILESTONE_SECOND}
             />
           )}
-          <p className={styles.milestoneCap}>XP drones cap at 3</p>
         </div>
+
+        <p className={styles.vendorModalNote}>
+          Your first drone is free on account creation. Earn 2 more through
+          XP milestones (at 3,000 and 10,000 total races). After that,
+          purchase additional Level 1 drones here for 3,500V each.
+        </p>
 
         {error && <p className={styles.vendorError}>{error}</p>}
 
         <div className={styles.vendorActions}>
           <Button
             variant="ghost"
-            size="md"
+            size="sm"
             onClick={onClose}
             disabled={pending}
           >
@@ -349,7 +354,7 @@ function VendorModal({
           >
             <Button
               variant="primary"
-              size="md"
+              size="sm"
               onClick={onPurchase}
               loading={pending}
               disabled={!canAfford || pending}

@@ -2,7 +2,7 @@
 /**
  * Refill the unowned-vault stock of every legendary skin to 3 copies
  * each so the pack-open system has supply to draw from. For each of:
- *   Apex Predator, Celestial, Diamond Hand, Gilded Throne,
+ *   Apex Predator, Celestial, Diamond Hands, Gilded Throne,
  *   Necromancer, Samurai, Valiant, Kraken
  * count current rows where `user_id IS NULL` and insert as many fresh
  * unowned rows as needed to reach 3. Each insert mirrors the canonical
@@ -41,7 +41,7 @@ const sql = neon(process.env.DATABASE_URL);
 const LEGENDARY_NAMES = [
   'Apex Predator',
   'Celestial',
-  'Diamond Hand',
+  'Diamond Hands',
   'Gilded Throne',
   'Necromancer',
   'Samurai',
