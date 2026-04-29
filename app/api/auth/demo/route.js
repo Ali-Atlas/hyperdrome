@@ -19,7 +19,7 @@ const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
  * created PILOT_<4chars>, claimed or not). At cap, we block both the
  * claim and the fresh-create paths.
  */
-const TOTAL_DEMO_CAP = 20;
+const TOTAL_DEMO_CAP = 50;
 
 async function getTotalDemoCount() {
   const [row] = await db
