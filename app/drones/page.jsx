@@ -289,7 +289,7 @@ function VendorModal({
       <div className={styles.vendorModalBody}>
         <p className={styles.vendorModalIntro}>
           You earn up to 3 free drones from racing. You can also buy one any
-          time for {DRONE_PRICE.toLocaleString()}V.
+          time.
         </p>
 
         <section className={styles.milestoneSection}>
@@ -297,7 +297,8 @@ function VendorModal({
             <span className={styles.milestoneTitle}>Free Drones</span>
             <span className={styles.milestoneCount}>
               <span className={styles.milestoneCountNum}>{freeEarned}</span>
-              <span className={styles.milestoneCountSlash}> / {FREE_DRONE_CAP}</span>
+              <span className={styles.milestoneCountSep}>/</span>
+              <span className={styles.milestoneCountNum}>{FREE_DRONE_CAP}</span>
             </span>
           </div>
           <div

@@ -855,9 +855,11 @@
   color: var(--accent-primary);
 }
 
-.milestoneCountSlash {
-  font-size: var(--text-xs);
+.milestoneCountSep {
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
   color: var(--text-tertiary);
+  margin: 0 2px;
 }
 
 .milestoneBar {
@@ -962,7 +964,6 @@
   height: 80px;
   object-fit: contain;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 16px rgba(3, 218, 198, 0.3));
 }
 
 .buyDetails {

@@ -4,6 +4,29 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-29 - Activate-toggle toast distinguishes cap-hit vs slot-not-unlocked + recruit modal polish
+
+**Captain ask:** Two-part change. (1) The toast that fires when activating a drone fails always read "complete more races to unlock slots" - wrong when the user is already at the 3-slot ceiling, where the real action is to deactivate one of their other drones. (2) Recruit modal polish: drop "for 3,500V" from the intro (price is shown in the buy section anyway), the "1/3" counter should render the two numbers at matching sizes with tight spacing around the slash, and the buy-section drone thumb should lose its teal glow.
+
+**Files modified (3):**
+
+- MOD `services/drone.service.js`: `toggleActive` branches on `slots >= 3` (the hard ceiling enforced by `maybeUnlockSlot` in race.service.js). When the player is at the ceiling -> "You already have N active drones. Deactivate one to activate this drone." When they still have unlock headroom -> "You already have N active drones. Run more races to unlock another slot." Comment in the service points at the matching `3` in race.service.js.
+- MOD `app/drones/page.jsx`:
+  - Intro: dropped the trailing "for {DRONE_PRICE}V" from the modal intro paragraph.
+  - Counter: split the "1 / 3" render into three spans - both numbers wrap in `.milestoneCountNum`, the slash sits in a new `.milestoneCountSep`. Drops `.milestoneCountSlash` (now unused).
+- MOD `app/drones/page.module.css`:
+  - New `.milestoneCountSep` rule: same `text-base` size as the numbers, `font-medium` weight (vs the numbers' `font-bold`) so the slash reads quieter without dropping in size, `--text-tertiary` colour, `margin: 0 2px` for tight spacing.
+  - Removed `.milestoneCountSlash` (no longer referenced).
+  - `.buyImage`: removed the `filter: drop-shadow(0 0 16px rgba(3, 218, 198, 0.3))` line.
+
+**Verified:** `npm run lint` - same 18 pre-existing problems, my edits added zero new ones. Em-dash sweep on the 3 files returns zero. UI changes are CSS-only for the modal polish; the toast change is a service-layer branch with no UI work needed (the page already relays `body.error` through `showToast`).
+
+**Captain to spot-check:**
+- Tripping the toast: try activating a 4th drone (a) when `users.activeDroneSlots = 3` -> "Deactivate one to activate this drone." (b) when `activeDroneSlots = 2` and you have 2 active and `totalRaces < 2,000` -> "Run more races to unlock another slot." (c) when `activeDroneSlots = 1` and you have 1 active and `totalRaces < 500` -> same as (b) with `1` in the count. The "race more" message stays generic per Captain's spec.
+- Modal: intro reads "You earn up to 3 free drones from racing. You can also buy one any time." (no trailing price). Counter renders `1 / 3` with both digits the same size and the slash sitting tight between them. Buy-section drone thumb is a plain image with no teal halo.
+
+---
+
 ## 2026-04-29 - Drones page reads canonical users.totalRaces (display-only fix)
 
 **Captain ask:** The recruit modal sums each owned drone's `totalRaces` to derive the user's milestone progress. Wrong source of truth: if a user sells a drone, that drone's race count drops out of the sum but the user's actual lifetime race count (and the milestone gate in `services/race.service.js`) keeps it. Surface `users.totalRaces` instead. Captain confirmed no DB migration needed (the column has always been tracked) - this is purely a read path fix.

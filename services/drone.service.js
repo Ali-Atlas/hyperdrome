@@ -254,10 +254,16 @@ export async function toggleActive(droneId, userId, active) {
     const slots = userRow?.activeDroneSlots ?? 1;
     const currentActive = await getActiveDroneCount(userId);
     if (currentActive >= slots) {
-      throw new ApiError(
-        `You already have ${slots} active drones. Unlock more slots by completing more races.`,
-        400,
-      );
+      // Two distinct failure modes:
+      //   - slots >= 3 (the hard ceiling enforced by maybeUnlockSlot in
+      //     race.service.js): all slots already unlocked, the player just
+      //     needs to free one up.
+      //   - slots < 3: more slots are reachable by racing more.
+      const message =
+        slots >= 3
+          ? `You already have ${slots} active drones. Deactivate one to activate this drone.`
+          : `You already have ${slots} active drones. Run more races to unlock another slot.`;
+      throw new ApiError(message, 400);
     }
   }
 
