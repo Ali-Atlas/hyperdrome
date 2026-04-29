@@ -15,11 +15,12 @@ export const SessionProvider = NextAuthSessionProvider;
 /**
  * App-level session hook. Returns `{ user, status, signIn, signOut }`.
  *
- * `user` is the shape we stash in the JWT callback (id, username, points)
- * with the base next-auth fields merged. `null` when unauthenticated.
+ * `user` is the shape we stash in the JWT callback (id, username, points,
+ * totalRaces) with the base next-auth fields merged. `null` when
+ * unauthenticated.
  *
  * @returns {{
- *   user: (null | { id?: string, username?: string, points?: number, name?: string|null, email?: string|null, image?: string|null }),
+ *   user: (null | { id?: string, username?: string, points?: number, totalRaces?: number, name?: string|null, email?: string|null, image?: string|null }),
  *   status: 'loading' | 'authenticated' | 'unauthenticated',
  *   signIn: typeof signIn,
  *   signOut: typeof signOut

@@ -4,6 +4,53 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-29 - Drones page reads canonical users.totalRaces (display-only fix)
+
+**Captain ask:** The recruit modal sums each owned drone's `totalRaces` to derive the user's milestone progress. Wrong source of truth: if a user sells a drone, that drone's race count drops out of the sum but the user's actual lifetime race count (and the milestone gate in `services/race.service.js`) keeps it. Surface `users.totalRaces` instead. Captain confirmed no DB migration needed (the column has always been tracked) - this is purely a read path fix.
+
+**Files modified (3):**
+
+- MOD `lib/auth/index.js`: extended the JWT `jwt` callback's per-call user-row refresh to also select `users.totalRaces` and stash it on the token. Extended the `session` callback to surface `token.totalRaces` as `session.user.totalRaces`. Zero extra round-trips - the same SELECT that already pulled `username` + `points` now pulls one more column.
+- MOD `hooks/useSession.js`: updated the JSDoc `user` shape to include `totalRaces?: number` so IDEs / future readers see the new field.
+- MOD `app/drones/page.jsx`:
+  - VendorModal call site: `totalRaces={drones.reduce(...)}` -> `totalRaces={session.user?.totalRaces ?? 0}`.
+  - Milestone toast effect: same swap on the local `totalRaces` derivation. Added `session.user?.totalRaces` to the effect's dependency array so the toast fires the moment the JWT refresh delivers the new count, not just when the drone list reshuffles.
+
+**Verified the milestone spawn service path is unchanged and correct:** `maybeSpawnMilestoneDrone` in `services/race.service.js:485-507` reads `users.totalRaces` directly via Drizzle. The fix here is display-only - the gating logic was already canonical.
+
+**Verified:** `npm run lint` - same 18 pre-existing problems, my edits added zero new errors or warnings. Em-dash sweep on the 3 files returns zero. No build, no tests per house rules.
+
+**Captain to spot-check:** Open the recruit modal at /drones. Race count under the bar should match the canonical user row (compare against `SELECT total_races FROM users WHERE id = $userId` if needed). Sell a drone and reopen the modal - the count should NOT decrease (previously it would drop by that drone's race count).
+
+---
+
+## 2026-04-29 - Recruit-drone modal redesign: continuous milestone bar, FAQ link, no XP copy
+
+**Captain ask:** Fix the recruit-new-drone modal on /drones. The old version had three problems: (1) "XP milestones" copy that doesn't match a race-based system, (2) wall-of-text description, (3) confusing layout with the Volts price floating above the progress bars. Redesign with a 1-2 sentence intro, a single continuous progress bar from 0 to 10,000 races with tick marks/labels at 0 / 3,000 / 10,000, a buy section separated below, and a Guide/FAQ link bottom-left. Captain confirmed the link target is /faq.
+
+**Files modified (2):**
+
+- MOD `app/drones/page.jsx`:
+  - Deleted `MilestoneRow` (replaced inline by the new single-bar layout).
+  - Rewrote `VendorModal`. New derivations: `freeEarned` (1/2/3 based on which race-count thresholds have been crossed), `fillPct` (totalRaces / 10,000 capped at 100), `milestone1Pct` (3000 / 10000 = 30%), `nextThreshold` (3,000 if you've earned 1, else 10,000).
+  - JSX structure top-to-bottom: intro paragraph -> milestone section (header with "Free Drones · X/3", continuous bar with three tick marks, three absolute-positioned labels, status caption) -> divider -> buy section (small heading "Or buy one now", drone thumb, meta line, price) -> error banner -> action row (Guide link left, Cancel + Purchase right).
+  - Tick marks: each rendered with `data-state` past/future driving fill colour (accent for crossed, tertiary for upcoming). The fill bar's right edge is the current position; ticks at 0/3,000/10,000 sit on the same bar so the player sees the full journey.
+  - Guide link: `<Link href="/faq" onClick={onClose}>` so a click both navigates and dismisses the modal cleanly.
+  - Removed the `droneCount` prop (no longer needed - both milestones are always shown via the single-bar design, no conditional showing of the second milestone).
+
+- MOD `app/drones/page.module.css`:
+  - Replaced the old `.vendorModalImage` / `.vendorModalDesc` / `.vendorModalPriceRow` / `.vendorModalPrice` / `.milestoneList` / `.milestone` / `.milestoneLabel` / `.milestoneTrack` / `.milestoneFill` / `.vendorModalNote` rule cluster with a new layout. Old grid-based two-row milestone row is gone; new bar uses absolute-positioned ticks + labels.
+  - New rules: `.vendorModalIntro` (small body, 1.5 line-height); `.milestoneSection` (bordered card on `--bg-card-alt`); `.milestoneHeader` (flex space-between); `.milestoneTitle` (mono uppercase tertiary label); `.milestoneCount` (mono with `.milestoneCountNum` accent + `.milestoneCountSlash` tertiary); `.milestoneBar` (relative, height 8px, rounded 999px, overflow visible so ticks can extend past the bar edge); `.milestoneFill` (absolute, accent with soft glow, animated width); `.milestoneTick` (absolute 2x14px crossbar centered via translate -50%); `.milestoneTickPast` / `.milestoneTickFuture` state classes; `.milestoneLabels` (relative wrapper); `.milestoneLabel` (absolute mono 10px tertiary, first/last child get translate-X overrides so 0 sticks left and 10,000 sticks right inside the bar); `.milestoneStatus` (mono caption "X of Y races" or "All 3 free drones earned"); `.buySection` (flex column with top border separator); `.buyHeader` (small mono uppercase); `.buyContent` (flex row image + details); `.buyImage` (80x80 with teal drop-shadow, replaces the old 160x160 hero); `.buyDetails` / `.buyMeta` / `.buyPrice` (price now lives inside this section, not floating above the bars); `.vendorActions` switched from `justify-content: flex-end` to `justify-content: space-between`; `.vendorActionsRight` for the Cancel/Purchase pair; `.vendorGuideLink` (underlined body text, accent on hover).
+  - Kept `.vendorModalBody`, `.vendorError`, `.vendorPurchaseWrap` (still applies for the disabled-button tooltip workaround).
+
+**Verified:** `npm run lint` clean. The single warning on this file (line 369, `<img>` for the buy-section drone thumb) carries over from the old vendorModalImage and matches the project-wide pattern (every drone/skin/track image renders as `<img>`). The lone repo-level ESLint error in `app/global-error.jsx` is pre-existing. Em-dash sweep on the 2 files returns zero. No build, no tests per house rules.
+
+**Captain to spot-check:** open the Recruit New Drone modal on /drones and verify (a) intro reads "You earn up to 3 free drones from racing. You can also buy one any time for 3,500V." (b) "Free Drones · 1/3" header with X/3 reflecting the user's milestone state; (c) single bar from 0 -> 10,000 with three vertical tick marks and labels (0 / 3,000 / 10,000) underneath; (d) tick marks past the current position read in accent teal, future ones in tertiary grey; (e) status caption shows current race count and the next threshold (or "All 3 free drones earned" once both milestones cleared); (f) buy section below the bar shows a small drone image, "LV 1 · 1 common skin · 1 common mod" line, and 3,500V price; (g) bottom row has "How drone acquisition works" link on the left (jumps to /faq and closes the modal) and Cancel + Purchase on the right; (h) zero "XP" mentions inside the modal copy.
+
+**Follow-up flagged in PROJECT_NOTES.md candidate (not added this pass):** the `totalRaces` value passed to the modal is computed by summing each owned drone's `totalRaces`. This matches `users.totalRaces` for active fleets but diverges if a user sells a drone (the canonical `users.totalRaces` is preserved on the user row but the drone leaves the sum). The session object only exposes `id` / `username` / `points` so swapping in `users.totalRaces` would need a session shape change or an extra fetch. Not blocking, worth a separate Captain-owned decision.
+
+---
+
 ## 2026-04-29 - Drone management: active-toggle error becomes a toast
 
 **Captain ask:** Activating a 4th drone when the 3 cap is full rendered red text under the Active toggle. That layout shift broke the toggle UI. Surface the error as a Toast notification instead.

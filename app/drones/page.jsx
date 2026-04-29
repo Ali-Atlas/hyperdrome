@@ -102,7 +102,7 @@ export default function DronesPage() {
     if (loading || drones.length === 0) return;
     const userId = session.user?.id;
     if (!userId) return;
-    const totalRaces = drones.reduce((s, d) => s + (d.totalRaces ?? 0), 0);
+    const totalRaces = session.user?.totalRaces ?? 0;
     const droneCount = drones.length;
     const key = `hyperdrome:drones:milestone:${userId}`;
     let prev = null;
@@ -132,7 +132,7 @@ export default function DronesPage() {
     } catch {
       /* localStorage may be disabled - skip silently */
     }
-  }, [loading, drones, session.user?.id, showToast]);
+  }, [loading, drones, session.user?.id, session.user?.totalRaces, showToast]);
 
   async function handlePurchase() {
     setVendorPending(true);
@@ -226,11 +226,7 @@ export default function DronesPage() {
           pending={vendorPending}
           error={vendorError}
           userPoints={session.user?.points ?? 0}
-          totalRaces={drones.reduce(
-            (s, d) => s + (d.totalRaces ?? 0),
-            0,
-          )}
-          droneCount={drones.length}
+          totalRaces={session.user?.totalRaces ?? 0}
         />
       </div>
     </NavShell>
@@ -264,24 +260,6 @@ function VendorCard({ onClick }) {
   );
 }
 
-function MilestoneRow({ label, current, target }) {
-  const progress = Math.min(100, (current / target) * 100);
-  return (
-    <div className={styles.milestone}>
-      <div className={styles.milestoneLabel}>{label}</div>
-      <div className={styles.milestoneCount}>
-        {current.toLocaleString()} / {target.toLocaleString()} races
-      </div>
-      <div className={styles.milestoneTrack} aria-hidden="true">
-        <div
-          className={styles.milestoneFill}
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
 function VendorModal({
   isOpen,
   onClose,
@@ -290,78 +268,152 @@ function VendorModal({
   error,
   userPoints,
   totalRaces,
-  droneCount,
 }) {
   const canAfford = userPoints >= DRONE_PRICE;
-  // Captain spec: show second milestone only when fleet is small AND the
-  // first milestone was already crossed.
-  const showSecond =
-    droneCount < FREE_DRONE_CAP && totalRaces >= MILESTONE_FIRST;
+  // Starter drone counts as #1; milestones at 3k and 10k races add #2 and
+  // #3. The bar always spans 0 -> 10,000 (the full free-drone journey) so
+  // a single visual carries both milestones.
+  const freeEarned =
+    totalRaces >= MILESTONE_SECOND
+      ? FREE_DRONE_CAP
+      : totalRaces >= MILESTONE_FIRST
+        ? 2
+        : 1;
+  const allEarned = freeEarned >= FREE_DRONE_CAP;
+  const fillPct = Math.min(100, (totalRaces / MILESTONE_SECOND) * 100);
+  const milestone1Pct = (MILESTONE_FIRST / MILESTONE_SECOND) * 100;
+  const nextThreshold = freeEarned === 1 ? MILESTONE_FIRST : MILESTONE_SECOND;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Recruit New Drone" size="md">
       <div className={styles.vendorModalBody}>
-        <img
-          src="/drones/tier-1.webp"
-          alt="Tier 1 starter drone"
-          className={styles.vendorModalImage}
-        />
-        <p className={styles.vendorModalDesc}>
-          LV 1 starter drone with randomized stats. Includes 1 random
-          common skin and 1 random common mod.
+        <p className={styles.vendorModalIntro}>
+          You earn up to 3 free drones from racing. You can also buy one any
+          time for {DRONE_PRICE.toLocaleString()}V.
         </p>
-        <div className={styles.vendorModalPriceRow}>
-          <VoltIcon size={20} />
-          <span className={styles.vendorModalPrice}>
-            {DRONE_PRICE.toLocaleString()}
-          </span>
-        </div>
 
-        <div className={styles.milestoneList}>
-          <MilestoneRow
-            label="Free drone at 3,000 races"
-            current={totalRaces}
-            target={MILESTONE_FIRST}
-          />
-          {showSecond && (
-            <MilestoneRow
-              label="Free drone at 10,000 races"
-              current={totalRaces}
-              target={MILESTONE_SECOND}
+        <section className={styles.milestoneSection}>
+          <div className={styles.milestoneHeader}>
+            <span className={styles.milestoneTitle}>Free Drones</span>
+            <span className={styles.milestoneCount}>
+              <span className={styles.milestoneCountNum}>{freeEarned}</span>
+              <span className={styles.milestoneCountSlash}> / {FREE_DRONE_CAP}</span>
+            </span>
+          </div>
+          <div
+            className={styles.milestoneBar}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={MILESTONE_SECOND}
+            aria-valuenow={Math.min(totalRaces, MILESTONE_SECOND)}
+            aria-label="Race progress toward free drone milestones"
+          >
+            <div
+              className={styles.milestoneFill}
+              style={{ width: `${fillPct}%` }}
             />
-          )}
-        </div>
+            {[
+              { pct: 0, value: 0 },
+              { pct: milestone1Pct, value: MILESTONE_FIRST },
+              { pct: 100, value: MILESTONE_SECOND },
+            ].map(({ pct, value }) => (
+              <span
+                key={value}
+                className={cn(
+                  styles.milestoneTick,
+                  fillPct >= pct
+                    ? styles.milestoneTickPast
+                    : styles.milestoneTickFuture,
+                )}
+                style={{ left: `${pct}%` }}
+                aria-hidden="true"
+              />
+            ))}
+          </div>
+          <div className={styles.milestoneLabels} aria-hidden="true">
+            <span className={styles.milestoneLabel} style={{ left: '0%' }}>0</span>
+            <span
+              className={styles.milestoneLabel}
+              style={{ left: `${milestone1Pct}%` }}
+            >
+              {MILESTONE_FIRST.toLocaleString()}
+            </span>
+            <span
+              className={styles.milestoneLabel}
+              style={{ left: '100%' }}
+            >
+              {MILESTONE_SECOND.toLocaleString()}
+            </span>
+          </div>
+          <div className={styles.milestoneStatus}>
+            {allEarned ? (
+              <>
+                All 3 free drones earned ·{' '}
+                {totalRaces.toLocaleString()} races
+              </>
+            ) : (
+              <>
+                {totalRaces.toLocaleString()} of{' '}
+                {nextThreshold.toLocaleString()} races
+              </>
+            )}
+          </div>
+        </section>
 
-        <p className={styles.vendorModalNote}>
-          Your first drone is free on account creation. Earn 2 more through
-          XP milestones (at 3,000 and 10,000 total races). After that,
-          purchase additional Level 1 drones here for 3,500V each.
-        </p>
+        <section className={styles.buySection}>
+          <h3 className={styles.buyHeader}>Or buy one now</h3>
+          <div className={styles.buyContent}>
+            <img
+              src="/drones/tier-1.webp"
+              alt="LV 1 starter drone"
+              className={styles.buyImage}
+            />
+            <div className={styles.buyDetails}>
+              <span className={styles.buyMeta}>
+                LV 1 · 1 common skin · 1 common mod
+              </span>
+              <span className={styles.buyPrice}>
+                <VoltIcon size={16} />
+                {DRONE_PRICE.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </section>
 
         {error && <p className={styles.vendorError}>{error}</p>}
 
         <div className={styles.vendorActions}>
-          <Button
-            variant="ghost"
-            size="sm"
+          <Link
+            href="/faq"
+            className={styles.vendorGuideLink}
             onClick={onClose}
-            disabled={pending}
           >
-            Cancel
-          </Button>
-          <span
-            title={!canAfford ? 'Not enough Volts' : undefined}
-            className={styles.vendorPurchaseWrap}
-          >
+            How drone acquisition works
+          </Link>
+          <div className={styles.vendorActionsRight}>
             <Button
-              variant="primary"
+              variant="ghost"
               size="sm"
-              onClick={onPurchase}
-              loading={pending}
-              disabled={!canAfford || pending}
+              onClick={onClose}
+              disabled={pending}
             >
-              Purchase
+              Cancel
             </Button>
-          </span>
+            <span
+              title={!canAfford ? 'Not enough Volts' : undefined}
+              className={styles.vendorPurchaseWrap}
+            >
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={onPurchase}
+                loading={pending}
+                disabled={!canAfford || pending}
+              >
+                Purchase
+              </Button>
+            </span>
+          </div>
         </div>
       </div>
     </Modal>
