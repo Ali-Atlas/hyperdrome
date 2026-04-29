@@ -834,6 +834,11 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                         <span className={styles.modName}>
                           {drone.appliedMod?.name ?? 'None'}
                         </span>
+                        {drone.appliedMod?.description && (
+                          <span className={styles.modDescription}>
+                            {drone.appliedMod.description}
+                          </span>
+                        )}
                       </div>
                       {((isOwner && (drone.boundMods?.length > 0 || unboundMods.length > 0)) ||
                         (listing && drone.boundMods?.length > 0)) && (

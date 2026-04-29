@@ -326,11 +326,32 @@
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  /* Hard cap on the scroll body so the log card can never extend past
-     the height of the adjacent drone1+gap / drone2+track stacks. The
-     internal table scrolls past this point. Tightened on smaller
-     viewports below. */
-  max-height: 480px;
+  /* Fills .logCard fully (flex: 1) and scrolls on overflow (overflow-y).
+     Removed the prior 480px cap that left dead space below the table on
+     short logs - the parent .logCard's stretched height is now the
+     bound, and adjacent column heights are matched by the grid's
+     align-items: stretch. */
+
+  /* Thin dark grey scrollbar - minimal and subtle. WebKit + Firefox. */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.logScroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.logScroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.logScroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.logScroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* DataTable ships with `min-width: 600px` on its inner <table> for
@@ -983,14 +1004,19 @@
       "drone1 drone2"
       "gap    track"
       "log    log";
-    align-items: start;
+    /* Tablet: stretch row items so the gap card matches the height of
+       the track card next to it, instead of each shrinking to its own
+       content. Fixes the "gap chart container needs to stretch to fill
+       the vertical space below it" complaint. */
+    align-items: stretch;
   }
-  .raceLayout .logCard {
-    align-self: auto;
+  .raceLayout .gapCard,
+  .raceLayout .trackCard {
+    align-self: stretch;
   }
-  /* Tablet keeps the scrolling table (sticky header + max-height) so a
-     deep log doesn't blow out the page. Cap is a touch tighter than
-     desktop since the log row is full-width and below the fold. */
+  /* Tablet: log row is full-width below the fold. Cap kept here so a
+     deep log doesn't blow out the page since on tablet the log card no
+     longer shares row-height with the drone columns above. */
   .logScroll {
     max-height: 420px;
   }

@@ -2421,3 +2421,83 @@ Awaiting Captain's call. Default behavior is to preserve the prescribed copy ver
 - Race History table renders with WIN (teal) / LOSS (red) results.
 - At ≤1024px, left panel + right stack collapse to single column, maintaining all spacing. At ≤768px, action buttons stack full-width, drone image aspect goes to 4:3.
 - Public drone profile (non-owner view) unchanged.
+
+---
+
+## 2026-04-29 - Race engine: weight redistribution + variance bump for lead changes
+
+**Captain ask:** Lead changes weren't happening — leader from segment 1 stayed leader to the finish in most races. Approved combined fix:
+- **Option 2** — strip `consistency` from segment scoring; redistribute its 0.15 weight back into segment-defining stats. Straights become `speed×0.5 + accel×0.3 + windRes×0.2`; turns become `turning×0.5 + durability×0.3 + accel×0.2`. Consistency stays as a purely defensive stat (variance dampener).
+- **Option 1** — bump variance ceiling `0.10 → 0.14` so the per-segment swing is ±7% at consistency=0 (was ±5%).
+
+**Files modified (1):**
+- `lib/game-engine/race-simulator.js`
+  - `scoreSegment` straight branch: `speed * 0.5 + acceleration * 0.3 + windResistance * 0.2` (consistency removed; speed/windRes lifted).
+  - `scoreSegment` turn branch: `turning * 0.5 + durability * 0.3 + acceleration * 0.2` (consistency removed; turning/durability lifted).
+  - `varianceRange` constant `0.1 → 0.14` so the ±5% per-segment ceiling becomes ±7%.
+
+**Verification (`npm run lint`):** No new errors or warnings. Same 18-issue baseline (1 pre-existing error in `app/global-error.jsx:92`, 17 pre-existing `<img>` warnings).
+
+**Verification (synthetic matchups, 5 runs each, all clear/day):**
+
+| Matchup | Track (diff, s/t, length) | A avg | B avg | Avg gap | Wins |
+|---|---|---|---|---|---|
+| LV1 balanced vs LV1 turn-bias | Neon Straightaway (2, 3s/3t, med) | 40.39s | 40.35s | 0.05s | 0/5 → LV1_TRN |
+| LV10 speed-spec vs LV12 turn-spec | Circuit Alpha (4, 4s/5t, med) | 75.31s | 73.55s | 1.76s | 0/5 → LV12_TRN |
+| LV18 speed-spec vs LV20 turn-spec | Voltage Loop (7, 4s/8t, long) | 133.22s | 126.92s | 6.30s | 0/5 → LV20_TRN |
+| LV5 balanced vs LV15 balanced | Skyline Drift (5, 3s/7t, long) | 95.59s | 91.35s | 4.23s | 0/5 → LV15 |
+| LV1 vs LV20 (extreme) | Tempest Run (9, 2s/8t, long) | 136.63s | 128.27s | 8.36s | 0/5 → LV20 |
+| LV15 healthy vs LV15 batt=10 | Tempest Run (9, 2s/8t, long) | 130.83s | 131.73s | 0.90s | 5/5 → healthy |
+
+Goals met:
+- LV1 v LV1 still tight (0.05s) ✓
+- LV5 v LV15 mid-mismatch ~4s ✓
+- LV1 v LV20 extreme stays under 15s ceiling (8.36s) ✓
+- Battery test: low-battery loses by 0.90s on a 9-difficulty long track ✓
+
+**Sample segment-by-segment traces (one each, single run, with cumulative gap and leader arrows):**
+
+**Trace 1 — LV10 speed-spec vs LV10 turn-spec on Circuit Alpha (4 straights / 5 turns / medium / diff 4):**
+Track is turn-favoring (5 turns vs 4 straights), so the turn-spec drone leads start to finish — 0 lead changes, expected. Final gap 0.90s. The interesting datum is segment-by-segment volatility: gap oscillates between 0.07s and 1.10s within the race, showing the new variance band working. Speed drone closes some straights (segs 4, 8, 18) but never quite overhauls.
+
+**Trace 2 — LV18 speed-spec vs LV20 turn-spec on Voltage Loop (4 straights / 8 turns / long / diff 7):**
+
+```
+seg lap type      sA      sB      tA      tB    cumGap   leader
+  1 1   turn      18.45  101.85   3.818   3.401    0.417s →LV20_TRN
+  2 1   straight  93.66   32.46   3.442   3.748    0.111s →LV20_TRN
+  3 1   turn      18.74   99.08   3.816   3.415    0.513s →LV20_TRN
+  4 1   straight  95.67   31.53   3.432   3.752    0.192s →LV20_TRN
+  5 1   straight  92.17   31.90   3.449   3.751   -0.110s ←LV18_SPD   ← LEAD FLIP
+  6 1   turn      17.88   94.90   3.821   3.436    0.276s →LV20_TRN   ← FLIP BACK
+  7 1   turn      18.70   98.70   3.817   3.417    0.676s →LV20_TRN
+  ...
+ 36 3   turn      18.28   97.23   3.819   3.424    6.191s →LV20_TRN
+```
+
+**2 lead changes** in a single race. Speed-spec drone takes the lead briefly on segment 5 (a straight) before the turn-heavy track + level differential pulls the turn-spec ahead permanently. Pre-fix this race was a flat one-sided cumulative.
+
+**Trace 3 — LV15 healthy vs LV15 low-battery on Tempest Run (2 straights / 8 turns / long / diff 9):**
+
+```
+seg lap type      sA      sB      tA      tB    cumGap   leader
+  1 1   turn      50.45   50.48   4.318   4.318    0.000s →LV15_LOWBAT
+  2 1   turn      51.35   50.10   4.313   4.319   -0.006s ←LV15_HLTHY   ← variance flip
+  3 1   straight  40.37   41.28   4.368   4.364   -0.002s ←LV15_HLTHY
+  4 1   turn      50.57   50.54   4.317   4.317   -0.002s ←LV15_HLTHY
+  5 1   turn      50.25   50.72   4.319   4.316    0.001s →LV15_LOWBAT  ← flip
+  6 1   turn      49.77   50.34   4.321   4.318    0.003s →LV15_LOWBAT
+  ...
+ 11 2   turn      42.62   37.59   4.357   4.382   -0.014s ←LV15_HLTHY   ← BATTERY KICKS IN, lap 2
+  ...
+ 30 3   turn      36.75   23.04   4.386   4.455   -0.866s ←LV15_HLTHY   ← gap widens steadily on lap 3
+```
+
+**3 lead changes**. Lap 1 is essentially even (variance-driven flips). Lap 2 the battery degradation kicks in on the low-battery drone — `score *= (1 - degradation)` halves on long tracks at lap 3 with batt=10 — and the healthy drone pulls ahead permanently. Final gap 0.866s. This was the textbook "battery overtake" Captain asked the engine to support, and it works.
+
+**What changed in player-facing terms:**
+- A turn-spec drone on a turn-heavy track will still win, but the speed drone will visibly take some straights. Pre-fix the gap chart was monotonically widening; now it oscillates segment-to-segment.
+- Same-level matchups with similar specs see lead trades from variance alone (±3.5–7% at typical consistency).
+- Low-battery drones can lead through lap 1 then get overtaken by lap 2/3 — the gap chart now shows that crossover.
+
+**Verification script:** `scripts/_verify_race_formula.mjs` — used to capture the data above, deleted after this commit.

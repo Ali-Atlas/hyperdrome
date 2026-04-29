@@ -25,7 +25,7 @@
 
 import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import readline from 'node:readline';
 
 import * as schema from '../lib/db/schema.js';
@@ -834,6 +834,125 @@ async function bindModToDrone(sellerId, droneId, rarity) {
   return true;
 }
 
+/* -------------------------------------------------------------------------- */
+/* G2. Drone listings with skins bound (mixed rarities)                       */
+/* -------------------------------------------------------------------------- */
+
+/* Hand-picked drone listings that ship with a bound + equipped skin so the
+ * marketplace board has visible cosmetic listings at every rarity tier.
+ *
+ * Two legendary featurings (Valiant + Celestial) anchor the top of the
+ * board, plus a couple of normal drones with epic / rare skins applied
+ * to read as "regular drones someone listed that happen to have a skin
+ * on them". The skin transfers with the drone on sale (per
+ * marketplace.service.buyListing).
+ *
+ * Drone names are random `MARKET_<lvl>_<6char>` like the rest of the
+ * mint+list path so these listings don't visually stand out from the
+ * regular drone listings — the skin alone is the differentiator.
+ *
+ * Idempotency: count active drone listings owned by MKT_* sellers whose
+ * drone has an appliedSkinId. If we already have >= the target count,
+ * skip the whole section. */
+const DRONE_LISTINGS_WITH_SKINS = [
+  { level: 19, profile: 'speedster',  price: 175_000, skinName: 'Valiant',     skinRarity: 'legendary' },
+  { level: 18, profile: 'cornerer',   price: 165_000, skinName: 'Celestial',   skinRarity: 'legendary' },
+  { level: 12, profile: 'allrounder', price:  14_000, skinName: 'Chrome Fury', skinRarity: 'rare'      },
+  { level:  8, profile: 'speedster',  price:   9_000, skinName: 'Ember',       skinRarity: 'common'    },
+];
+
+async function seedDroneListingsWithSkins(botUserMap) {
+  const counts = { inserted: 0, skipped: 0, missingSkin: 0 };
+  const sellerIds = ['MKT_PULSE', 'MKT_NEXUS', 'MKT_ORBIT']
+    .map((u) => botUserMap[u]?.id)
+    .filter(Boolean);
+  if (sellerIds.length === 0) return counts;
+
+  // Idempotency anchor: drone names are random per run so we can't key on
+  // name. Instead count MKT_-owned active drone listings whose drone has
+  // ANY applied skin. If we already have at least the target count, the
+  // section is considered seeded.
+  const existingSkinned = await db
+    .select({ id: marketplaceListings.id })
+    .from(marketplaceListings)
+    .innerJoin(drones, eq(drones.id, marketplaceListings.droneId))
+    .where(
+      and(
+        eq(marketplaceListings.status, 'active'),
+        inArray(marketplaceListings.sellerId, sellerIds),
+        sql`${drones.appliedSkinId} IS NOT NULL`,
+      ),
+    );
+  if (existingSkinned.length >= DRONE_LISTINGS_WITH_SKINS.length) {
+    counts.skipped = existingSkinned.length;
+    return counts;
+  }
+
+  for (let idx = 0; idx < DRONE_LISTINGS_WITH_SKINS.length; idx += 1) {
+    const def = DRONE_LISTINGS_WITH_SKINS[idx];
+    const sellerId = sellerIds[idx % sellerIds.length];
+
+    const droneName = `MARKET_${def.level
+      .toString()
+      .padStart(2, '0')}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+    const { stats, tsb } = buildStats(def.level, def.profile);
+    const [drone] = await db
+      .insert(drones)
+      .values({
+        userId: sellerId,
+        name: droneName,
+        level: def.level,
+        xp: 0,
+        xpToNextLevel: 300 * def.level * def.level,
+        totalStatBudget: tsb,
+        ...stats,
+        active: false,
+        isBot: false,
+        eloRating: 1000,
+        imageUrl: '/drones/default.png',
+      })
+      .returning();
+
+    // Pull a vault copy of the legendary skin, transfer to the seller,
+    // bind to the drone, mark equipped. If no vault stock remains, log
+    // it but still ship the drone listing (without the bound skin).
+    const [vaultSkin] = await db
+      .select()
+      .from(skins)
+      .where(and(eq(skins.name, def.skinName), isNull(skins.userId)))
+      .limit(1);
+
+    if (vaultSkin) {
+      await db
+        .update(skins)
+        .set({ userId: sellerId })
+        .where(eq(skins.id, vaultSkin.id));
+      await db.insert(schema.droneSkins).values({
+        droneId: drone.id,
+        skinId: vaultSkin.id,
+        isEquipped: true,
+      });
+      await db
+        .update(drones)
+        .set({ appliedSkinId: vaultSkin.id })
+        .where(eq(drones.id, drone.id));
+    } else {
+      counts.missingSkin += 1;
+    }
+
+    await db.insert(marketplaceListings).values({
+      sellerId,
+      itemType: 'drone',
+      droneId: drone.id,
+      price: def.price,
+      status: 'active',
+    });
+    counts.inserted += 1;
+  }
+  return counts;
+}
+
 async function seedMarketplaceListings(botUserMap) {
   const counts = { skins: 0, mods: 0, drones: 0 };
   // Idempotency anchor: if MKT_PULSE already has 10+ active listings,
@@ -953,10 +1072,16 @@ async function seedDemoAccounts() {
     const email = `pilot_d${num}@demo.hyperdrome.gg`;
 
     let userRow;
+    // Look up by username OR email. After a demo claim, the email is
+    // rewritten to claimed_*@demo.hyperdrome.gg but the username stays
+    // PILOT_D##; an email-only lookup would miss the row and the
+    // subsequent INSERT would conflict on the unique username
+    // constraint. The username path catches claimed accounts; the email
+    // path catches the original unclaimed state.
     const [existing] = await db
       .select()
       .from(users)
-      .where(eq(users.email, email))
+      .where(or(eq(users.username, username), eq(users.email, email)))
       .limit(1);
 
     if (existing) {
@@ -1039,6 +1164,9 @@ async function main() {
 
   const marketplace = await seedMarketplaceListings(botUserMap);
   fmt('G. marketplace', marketplace);
+
+  const skinnedDrones = await seedDroneListingsWithSkins(botUserMap);
+  fmt('G2. skinned_drones', skinnedDrones);
 
   console.log('\n  Seeding 10 demo accounts (real race simulation)...');
   const demo = await seedDemoAccounts();
