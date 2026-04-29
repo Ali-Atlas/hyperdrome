@@ -670,6 +670,18 @@ export default function MarketplacePage() {
     setPackOpened(false);
   };
 
+  // Unified close for the pack-flow modal. The flow has three stages
+  // (confirm purchase / ready to open / opened) all rendered inside ONE
+  // <Modal>; closing must hit the right stage's reset path so React's
+  // batched state lands the modal in a clean closed state. Reveal takes
+  // priority over buy because the transition from stage 1 -> 2 sets
+  // packReveal before packBuyModal is fully cleared on the same tick.
+  const closePackFlow = () => {
+    if (packOpening) return;
+    if (packReveal) closePackReveal();
+    else if (packBuyModal) closePackBuyModal();
+  };
+
   return (
     <NavShell>
       <div className={styles.page}>
@@ -1101,30 +1113,6 @@ export default function MarketplacePage() {
         )}
       </Modal>
 
-      {/* ---- Pack purchase confirmation modal (skin packs + capsules) ---- */}
-      <Modal
-        isOpen={!!packBuyModal}
-        onClose={closePackBuyModal}
-        chromeless
-        className={styles.purchaseModal}
-        overlayClassName={styles.purchaseOverlay}
-      >
-        {packBuyModal && (
-          <PackPurchaseModalBody
-            kind={packBuyModal.kind}
-            pack={packBuyModal.pack}
-            pending={packOpening !== null}
-            capsuleNote={packBuyCapsuleNote}
-            onConfirm={
-              packBuyModal.kind === 'skin'
-                ? confirmSkinPackPurchase
-                : confirmCapsulePackPurchase
-            }
-            onClose={closePackBuyModal}
-          />
-        )}
-      </Modal>
-
       {/* ---- Cancel-listing confirmation modal ---- */}
       <Modal
         isOpen={!!cancelModal}
@@ -1290,15 +1278,32 @@ export default function MarketplacePage() {
         </div>
       </Modal>
 
-      {/* ---- Pack reveal modal (Ready to Open + Opened in same shell) ---- */}
+      {/* ---- Pack flow modal: confirm purchase / ready to open / opened.
+              ONE Modal shell stays mounted across all three stages so the
+              outer panel never unmounts/remounts. Inner body branches on
+              which state is set; React batches the stage 1 -> 2 transition
+              so isOpen stays true through the swap. ---- */}
       <Modal
-        isOpen={!!packReveal}
-        onClose={closePackReveal}
+        isOpen={!!(packBuyModal || packReveal)}
+        onClose={closePackFlow}
         chromeless
         className={styles.purchaseModal}
         overlayClassName={styles.purchaseOverlay}
       >
-        {packReveal && (
+        {packBuyModal ? (
+          <PackPurchaseModalBody
+            kind={packBuyModal.kind}
+            pack={packBuyModal.pack}
+            pending={packOpening !== null}
+            capsuleNote={packBuyCapsuleNote}
+            onConfirm={
+              packBuyModal.kind === 'skin'
+                ? confirmSkinPackPurchase
+                : confirmCapsulePackPurchase
+            }
+            onClose={closePackBuyModal}
+          />
+        ) : packReveal ? (
           <PackRevealModalBody
             packReveal={packReveal}
             packOpened={packOpened}
@@ -1306,7 +1311,7 @@ export default function MarketplacePage() {
             onReveal={handleRevealPack}
             onClose={closePackReveal}
           />
-        )}
+        ) : null}
       </Modal>
     </NavShell>
   );

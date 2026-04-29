@@ -4,6 +4,90 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-29 - Seed-production hardening + marketplace skinned-drone refresh
+
+**Captain ask:** Six items, in three buckets.
+1. Seed script improvements: `--fresh` flag, tracks insert-only, demo-account username-only idempotency, batched race writes.
+2. Audit demo-seeding rules vs the spec — report only.
+3. Marketplace skinned-drone listings: 1 Valiant + 2 epic-with-render replacing 2 legendaries + 2 lower-tier.
+
+**Captain decisions during plan review:** vault budget bumped to option (a) — `VAULT_COPY_PLAN.epic 3 → 4`. Epic picks: Dragon Scale + Crystal Phantom. Demo balance fixed to exactly 110,000V (not 110k + simulated winnings).
+
+**Files modified (3):**
+
+### `scripts/seed-production.js`
+- **`--fresh` flag.** Added `FRESH_TRUNCATE_TABLES` constant (12 tables, identical to `seed-dev.js`: races, marketplace_listings, drone_skins, drone_mods, drone_ownership_history, drones, skins, mods, accounts, sessions, verification_token, users — preserves tracks/seasons/admin_config). New `truncateForFresh()` runs `TRUNCATE ... RESTART IDENTITY CASCADE` via `db.execute(sql.raw(...))`. Plumbed `fresh: boolean` through `runSeed({ skipConfirm, fresh })`. Direct invocation parses `process.argv.includes('--fresh')`. `npm run seed:prod -- --fresh` works because npm's `--` forwards to argv. The Type-YES gate still runs.
+- **Section D (tracks) idempotency.** Changed from SELECT-then-UPDATE-or-INSERT to SELECT-then-INSERT-only. If a track row exists by name → skip. Manual prod tweaks to difficulty/laps/imageUrl now survive a reseed. Return shape changed from `{ inserted, updated }` to `{ inserted, skipped }`.
+- **Section H (demo accounts) idempotency.** Skip the entire account if a user row matches `username OR email`, regardless of drone presence. The previous "user exists AND has drones" witness would re-seed an 8-drone roster onto a claimed user whose drones had been manually deleted. Now: row presence alone is the witness.
+- **`DRONE_LISTINGS_WITH_SKINS`** rewritten from 4 entries (2 legendaries + Chrome Fury rare + Ember common) to 3 entries: 1 Valiant legendary @ 175k, Dragon Scale epic @ 22k, Crystal Phantom epic @ 18k. Both epics have tier-4 entries in `lib/utils.js#APPLIED_RENDERS`.
+- **`VAULT_COPY_PLAN.epic 3 → 4`.** Added so the new G2 epic listings + the Section G plain-skin listings + demo VIPER rotation can all draw from vault stock without bottoming out. Net +8 epic vault rows. Comment block in the constant explains the allocation arithmetic.
+
+### `scripts/seed-demo-player.js`
+- **`runRealRaces` batched writes.** Replaced the per-race `await db.insert(races)` + `await db.update(drones)` (bot side) with:
+  1. A local `raceRows` array — all 10 race payloads accumulated in the loop, then bulk-inserted once at the end.
+  2. A `botDeltas` Map keyed by bot id — accumulates `{ eloRating, racesInc, winsInc, lossesInc }`. Bot ELO still mutates in-memory each iteration so subsequent races see the updated rating; only the DB write is deferred. After the loop, one UPDATE per *unique* bot id with `sql\`${col} + ${inc}\`` increments.
+  - Per-drone round trips: 4–7 (was ~10). Across 80 drones: ~560 (was ~1,600). Cuts the dominant cost of a clean reseed roughly in half.
+- **Demo balance fixed to exactly 110,000V.** Removed the `userVoltsEarned` accumulator and the `+ userVoltsEarned` term in the user roll-up update. Demo users now see exactly STARTING_VOLTS on first login regardless of simulated race winnings. The `points` field is dropped from the final UPDATE entirely (already set to STARTING_VOLTS at line 418, no need to re-write).
+
+### `scripts/fix-marketplace-featured.js`
+- **`NEW_LISTINGS`** updated to match the new 3-entry mix.
+- **Header comment** rewritten from "2 tier-4 + 2 lower-tier non-legendaries" to "1 Valiant legendary + 2 tier-4 epic with applied renders". The deletion/idempotency-anchor logic is unchanged — `alreadySeeded` still counts MKT_-owned active drone listings with applied skins against `NEW_LISTINGS.length` (now 3, not 4).
+
+**Verification:**
+- `npx eslint scripts/seed-production.js scripts/seed-demo-player.js scripts/fix-marketplace-featured.js` → no output (clean).
+- Full repo lint unchanged from pre-session baseline: 1 pre-existing error in `app/global-error.jsx`, 17 pre-existing `<img>` warnings. None from this change.
+- **Not run:** the seed itself. Captain explicitly said don't run it. The truncate path, the bulk-insert path, and the per-bot aggregate UPDATE haven't been exercised against a real DB.
+
+**Demo seeding audit (Captain ask #2 — report only):**
+
+| Spec item | Code reference | Match |
+|---|---|---|
+| 8 drones STRIKER LV18 / RUNNER LV3 / VIPER LV17 / SCOUT LV12 / BOLT LV7 / HAWK LV16 / PHANTOM LV5 / GHOST LV14, active = STRIKER+RUNNER+VIPER | `DEMO_DRONES` lines 57–66 | ✓ exact |
+| 110,000V starting balance | `STARTING_VOLTS = 110_000` line 46, set on user.points line 418 — and now NOT overwritten at the end of `seedDemoAccount` per Captain's fix this session | ✓ now exactly 110k post-fix |
+| Diamond Hands equipped on STRIKER | lines 451–458, `equipClonedSkin` | ✓ |
+| Ember equipped on RUNNER | lines 461–476, gated by `canEquipSkin`. Ember has tier 1 render, RUNNER LV3 = tier 1 | ✓ |
+| Tier 4 skin on VIPER (rotated) | `VIPER_SKIN_ROTATION` line 69 — Chrome Fury (rare), Crystal Phantom, Dragon Scale, Obsidian Core, Frozen Abyss. All 5 have tier-4 renders. VIPER LV17 = tier 4 | ✓ (spec said "tier 4 skin", didn't constrain rarity) |
+| 1 unbound legendary, rotated Apex Predator / Kraken / Celestial | `UNBOUND_LEGENDARY_ROTATION` line 78, cloned not equipped at line 504 | ✓ |
+| 1 unbound legendary mod | `LEGENDARY_MOD_ROTATION` line 81, cloned line 518 | ✓ |
+| 2–3 unbound placeholder skins | `pickPlaceholderSkinTemplates(db, randInt(2, 3))` line 521 | ✓ |
+| 2–3 unbound mods | 1–2 commons + 1 rare = 2–3 total, lines 531–532 | ✓ |
+| 80 races (10 per drone) | `RACES_PER_DRONE = 10` × all 8 drones in DEMO_DRONES loop line 585 | ✓ |
+| Pack blocklist Kraken / Diamond Hands / Apex Predator / Celestial / Valiant | `DEMO_LEGENDARY_BLOCKLIST` in `services/pack.service.js` lines 20–26 — exactly these 5 names | ✓ |
+
+Every spec item matches the code. No mismatches.
+
+**Not verified by Mercenary:**
+- Live truncate against a real DB. The `--fresh` path needs an end-to-end run before Captain trusts it on prod.
+- Round-trip savings — estimated from code shape, not measured.
+- Vault arithmetic post-bump — paper math says epic vault has a 1-copy buffer per name after Section G, G2, and demo-VIPER consumption. Not exercised against an actual seed run.
+
+---
+
+## 2026-04-29 - Marketplace listing card: fixed-height image container
+
+**Captain ask:** Marketplace listing cards' image containers were not consistent height across cards (some drone images taller, some shorter), pushing stat bars / price / buttons below them to different vertical positions. Make the image container a fixed height regardless of image content. Image scales within via object-fit: contain.
+
+**Files modified (1):**
+
+- MOD `app/marketplace/page.module.css`:
+  - `.listingImage` base rule: `aspect-ratio: 16 / 10` -> `height: 200px`. Added `flex-shrink: 0` so the column-flex parent (`.listingCard`) can't squeeze the image area when card content is denser than expected. Padding (`40px var(--space-2) var(--space-2)`) unchanged so the YOUR LISTING ribbon clearance and content y-coordinate stay where they were.
+  - `.cardMod .listingImage`: removed `aspect-ratio: 4 / 3`. Padding (`22px var(--space-2) 4px`) kept. Comment updated to note that height now comes from the base rule.
+  - `.card_level_{steel,orange,purple,gold} .listingImage`: removed `aspect-ratio: 4 / 3`. Padding (`26px var(--space-2) 10px`) kept. Same comment update.
+  - `.card_{common,rare,epic,legendary}:not(.cardMod) .listingImage`: removed `aspect-ratio: 1 / 1`. Padding (`24px var(--space-2) 6px`) kept. Same comment update.
+  - `.droneImg` and `.skinImg` already use `height: 100%; object-fit: contain` so the image fills the new fixed-height container and letter-boxes naturally for off-aspect renders. No JSX changes needed.
+
+**Why fixed pixel height instead of aspect-ratio:** with `aspect-ratio: X / Y` on a flex item, the computed height tracks the card width. Captain's report of varied heights across cards points at content-driven container growth somewhere in the chain. A pixel `height` removes any path for the image's natural dimensions to influence the container, making the row-anchor for the body grid identical across all listings.
+
+**Verified:**
+- `grep` for `listingImage` shows the base rule with `height: 200px` plus 3 type-specific blocks (mod / drone tier / skin rarity) carrying only their padding overrides. No aspect-ratio on any listingImage rule.
+- Other `aspect-ratio` references in the file (on `.revealImage`, `.listFormCardImage`, and a couple of pack-reveal helpers) are unrelated to listing cards and untouched.
+- Em-dash sweep on the touched file: clean for new content.
+- No `npm run build`. No `npm run dev` browser run by Mercenary.
+
+**Captain to spot-check at 1440 / 1024 / 375:** mixed-content marketplace grid (drones + skins + mods on the same row): every card's image container reads at the same height. Stat bars on drone cards, prism placeholder on skin cards, and the mod chip on mod cards all sit at the same y-coordinate across the row. Wide drone renders letter-box vertically inside the 200px container; tall renders fill the height.
+
+---
+
 ## 2026-04-29 - Race engine: score-to-time formula rewrite (bounded linear)
 
 **Captain ask:** Replace the hyperbolic `time = 100 / score` in `lib/game-engine/race-simulator.js` with a bounded linear formula keyed off track difficulty. Per-segment gaps in tenths of a second, total race gaps 1–5s typical (5–8s for cross-bracket, <15s ever), lead changes natural, battery fade visible. Touch only the formula; leave `scoreSegment`, weather, battery, variance, segment generation, and everything else intact.

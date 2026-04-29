@@ -265,9 +265,18 @@ async function cloneMod(db, userId, template) {
 
 /**
  * Run RACES_PER_DRONE real `simulateRace` matches against bracket-eligible
- * bots, write each race row, update both drones' aggregates after each
- * race. Captain spec: race history must be indistinguishable from live
- * gameplay - same engine, same ELO formula, same point payout.
+ * bots and persist them with batched DB writes. Captain spec: race
+ * history must be indistinguishable from live gameplay — same engine,
+ * same ELO formula, same point payout.
+ *
+ * Batching strategy (cuts ~50% of round trips on the 800-race demo seed):
+ *   - All race rows for this drone are accumulated locally and bulk-
+ *     inserted in a single statement.
+ *   - Bot side-effects (ELO drift + win/loss counters) are accumulated
+ *     in a Map keyed by bot id and flushed as one UPDATE per unique bot
+ *     touched, rather than one per race. Bot ELO still mutates in-memory
+ *     between iterations so subsequent races within the loop see the
+ *     up-to-date rating — only the DB write is deferred.
  */
 async function runRealRaces(db, demoDrone, allBots, allTracks) {
   const eligibleTracks = allTracks.filter(
@@ -286,6 +295,10 @@ async function runRealRaces(db, demoDrone, allBots, allTracks) {
   let wins = 0;
   let losses = 0;
   let points = 0;
+
+  const raceRows = [];
+  /** botId -> { eloRating, racesInc, winsInc, lossesInc } */
+  const botDeltas = new Map();
 
   for (let i = 0; i < RACES_PER_DRONE; i += 1) {
     const track = pick(eligibleTracks);
@@ -327,7 +340,7 @@ async function runRealRaces(db, demoDrone, allBots, allTracks) {
     const ageMs = Math.random() * 30 * 24 * 60 * 60 * 1000;
     const createdAt = new Date(Date.now() - ageMs);
 
-    await db.insert(races).values({
+    raceRows.push({
       status: 'completed',
       createdAt,
       scheduledAt: createdAt,
@@ -349,19 +362,22 @@ async function runRealRaces(db, demoDrone, allBots, allTracks) {
       raceLog: result.raceLog,
     });
 
-    // Bot side-effects: ELO drift + win/loss counters so the bot pool
-    // looks alive across many demo accounts.
+    // Bot side-effects: keep the in-memory ELO mutated so subsequent
+    // iterations using the same bot reference see the new rating, but
+    // defer the DB write into a per-bot aggregate flushed after the loop.
     const botNewElo = demoWon ? newLoserElo : newWinnerElo;
-    await db
-      .update(drones)
-      .set({
-        eloRating: botNewElo,
-        totalRaces: sql`${drones.totalRaces} + 1`,
-        wins: demoWon ? drones.wins : sql`${drones.wins} + 1`,
-        losses: demoWon ? sql`${drones.losses} + 1` : drones.losses,
-      })
-      .where(eq(drones.id, bot.id));
     bot.eloRating = botNewElo;
+    const prev = botDeltas.get(bot.id) ?? {
+      eloRating: botNewElo,
+      racesInc: 0,
+      winsInc: 0,
+      lossesInc: 0,
+    };
+    prev.eloRating = botNewElo; // last write wins
+    prev.racesInc += 1;
+    if (demoWon) prev.lossesInc += 1;
+    else prev.winsInc += 1;
+    botDeltas.set(bot.id, prev);
 
     droneElo = demoWon ? newWinnerElo : newLoserElo;
     if (demoWon) {
@@ -370,6 +386,22 @@ async function runRealRaces(db, demoDrone, allBots, allTracks) {
     } else {
       losses += 1;
     }
+  }
+
+  // Flush: 1 bulk INSERT for all race rows + 1 UPDATE per unique bot.
+  if (raceRows.length > 0) {
+    await db.insert(races).values(raceRows);
+  }
+  for (const [botId, delta] of botDeltas) {
+    await db
+      .update(drones)
+      .set({
+        eloRating: delta.eloRating,
+        totalRaces: sql`${drones.totalRaces} + ${delta.racesInc}`,
+        wins: sql`${drones.wins} + ${delta.winsInc}`,
+        losses: sql`${drones.losses} + ${delta.lossesInc}`,
+      })
+      .where(eq(drones.id, botId));
   }
 
   return { wins, losses, points, finalElo: droneElo };
@@ -580,7 +612,6 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
 
   let userTotalRaces = 0;
   let userTotalWins = 0;
-  let userVoltsEarned = 0;
 
   for (const def of DEMO_DRONES) {
     const drone = droneByName[def.name];
@@ -598,17 +629,18 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
 
     userTotalRaces += result.wins + result.losses;
     userTotalWins += result.wins;
-    userVoltsEarned += result.points;
     counts.races += result.wins + result.losses;
   }
 
-  // 12. Roll up onto the user row.
+  // 12. Roll up onto the user row. Balance stays at STARTING_VOLTS —
+  // simulated race winnings are NOT added to the demo balance, so every
+  // demo player sees exactly 110,000V on first login regardless of how
+  // many races their roster won during seeding.
   await db
     .update(users)
     .set({
       totalRaces: userTotalRaces,
       totalWins: userTotalWins,
-      points: STARTING_VOLTS + userVoltsEarned,
       eloRating:
         1000 +
         Math.round((userTotalWins - (userTotalRaces - userTotalWins)) / 2),

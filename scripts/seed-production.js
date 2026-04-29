@@ -1,6 +1,12 @@
 /**
  * Production seed script. Run via:
- *   npm run seed:prod
+ *   npm run seed:prod                  (idempotent additive seed)
+ *   npm run seed:prod -- --fresh       (TRUNCATE first, then seed)
+ *
+ * The `--fresh` flag wipes the same set of tables that the dev wrapper
+ * truncates (preserves tracks, seasons, admin_config) so the seed runs
+ * against an empty player/inventory/race state. The "Type YES" gate
+ * still runs.
  *
  * Reads PROD_DATABASE_URL out of .env.local (loaded by `node --env-file`)
  * and seeds the live database in idempotent sections:
@@ -46,15 +52,25 @@ const {
 /* Bootstrap                                                                  */
 /* -------------------------------------------------------------------------- */
 
-const PROD_URL = process.env.PROD_DATABASE_URL;
-if (!PROD_URL) {
+/**
+ * URL resolution: production runs read PROD_DATABASE_URL. The dev wrapper
+ * (scripts/seed-dev.js) runs the same seed against the local DB; it sets
+ * ALLOW_LOCAL_SEED=1 and we fall through to DATABASE_URL. The flag is
+ * required because dropping into DATABASE_URL silently would let
+ * `npm run seed:prod` accidentally hit a local DB if PROD_DATABASE_URL
+ * is missing - keep that fail-closed.
+ */
+const RESOLVED_URL =
+  process.env.PROD_DATABASE_URL ??
+  (process.env.ALLOW_LOCAL_SEED === '1' ? process.env.DATABASE_URL : null);
+if (!RESOLVED_URL) {
   console.error(
-    'PROD_DATABASE_URL is not set. Add it to .env.local and re-run with `npm run seed:prod`.',
+    'PROD_DATABASE_URL is not set. Add it to .env.local and re-run with `npm run seed:prod` (or use `npm run seed:dev` for the local DB).',
   );
   process.exit(1);
 }
 
-const db = drizzle(neon(PROD_URL), { schema });
+export const db = drizzle(neon(RESOLVED_URL), { schema });
 
 async function confirmProd() {
   const rl = readline.createInterface({
@@ -72,6 +88,41 @@ async function confirmProd() {
     console.log('Aborted.');
     process.exit(0);
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* --fresh truncate                                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Tables wiped by `--fresh`. Mirrors scripts/seed-dev.js — preserves
+ * `tracks`, `seasons`, and `admin_config` so manual prod tweaks to those
+ * reference tables aren't blown away by a reseed.
+ */
+const FRESH_TRUNCATE_TABLES = [
+  'races',
+  'marketplace_listings',
+  'drone_skins',
+  'drone_mods',
+  'drone_ownership_history',
+  'drones',
+  'skins',
+  'mods',
+  'accounts',
+  'sessions',
+  'verification_token',
+  'users',
+];
+
+async function truncateForFresh() {
+  const list = FRESH_TRUNCATE_TABLES.map((t) => `"${t}"`).join(', ');
+  console.log(
+    `[fresh] Truncating ${FRESH_TRUNCATE_TABLES.length} tables (RESTART IDENTITY CASCADE)...`,
+  );
+  // sql.raw is intentional: the table list is hardcoded above, not user
+  // input. TRUNCATE doesn't accept value parameters, only identifiers.
+  await db.execute(sql.raw(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE;`));
+  console.log('[fresh] Truncate complete.\n');
 }
 
 /* -------------------------------------------------------------------------- */
@@ -109,6 +160,45 @@ const BOT_PROFILES = {
   consistent:  [1, 2, 1, 1, 1, 1, 1, 1, 5],
   allrounder:  [2, 2, 2, 2, 1, 1, 1, 1, 2],
 };
+
+/**
+ * Marketplace drone pricing tier table. Price scales linearly with level
+ * inside the tier band (4 steps across the 5-level span) plus a ±15%
+ * random variance so two same-level drones don't list identical. The
+ * NPC vendor sells LV1 drones at 3,500V, so even T1 starts above that
+ * to reflect the leveling work a marketplace drone has already done.
+ *
+ *   T1 (LV 1-5):    5,000 - 15,000V
+ *   T2 (LV 6-10):   40,000 - 90,000V
+ *   T3 (LV 11-15):  150,000 - 300,000V
+ *   T4 (LV 16-20):  400,000 - 750,000V
+ *
+ * Update both ends in lockstep with scripts/fix-marketplace-featured.js
+ * if these tiers ever shift (legacy script mirrors the same numbers).
+ */
+const PRICE_TIERS = [
+  { min: 1,  max: 5,  base:   5_000, top:  15_000 },
+  { min: 6,  max: 10, base:  40_000, top:  90_000 },
+  { min: 11, max: 15, base: 150_000, top: 300_000 },
+  { min: 16, max: 20, base: 400_000, top: 750_000 },
+];
+
+function priceForLevel(level) {
+  const tier = PRICE_TIERS.find((t) => level >= t.min && level <= t.max);
+  if (!tier) return 5_000; // Out-of-range fallback; LV0 / LV21+ shouldn't occur.
+  const span = tier.max - tier.min; // 4 (5-level tier).
+  const linear =
+    span === 0
+      ? tier.base
+      : tier.base + ((tier.top - tier.base) * (level - tier.min)) / span;
+  // ±15% variance keeps prices from clustering at the level-derived
+  // value. Clamp the result back into the stated tier band so the
+  // variance can't push a top-of-tier roll past the published ceiling
+  // (a LV20 + 15% would otherwise list above 750K).
+  const variance = 0.85 + Math.random() * 0.3;
+  const raw = Math.round(linear * variance);
+  return Math.max(tier.base, Math.min(tier.top, raw));
+}
 
 function buildStats(level, profileName) {
   const tsb = TSB_BASE + TSB_PER_LEVEL * level;
@@ -310,24 +400,26 @@ function trackImagePath(name) {
 }
 
 async function seedTracks() {
+  // Insert-only: if a track with this name exists, leave it alone so any
+  // manual edits in prod (difficulty tweaks, lap count changes, image
+  // overrides) survive a reseed. Adding a new track to TRACK_DATA still
+  // gets picked up on the next run.
   let inserted = 0;
-  let updated = 0;
+  let skipped = 0;
   for (const t of TRACK_DATA) {
     const [existing] = await db
       .select()
       .from(tracks)
       .where(eq(tracks.name, t.name))
       .limit(1);
-    const payload = { ...t, imageUrl: trackImagePath(t.name) };
     if (existing) {
-      await db.update(tracks).set(payload).where(eq(tracks.id, existing.id));
-      updated += 1;
-    } else {
-      await db.insert(tracks).values(payload);
-      inserted += 1;
+      skipped += 1;
+      continue;
     }
+    await db.insert(tracks).values({ ...t, imageUrl: trackImagePath(t.name) });
+    inserted += 1;
   }
-  return { inserted, updated };
+  return { inserted, skipped };
 }
 
 async function seedSeasonOne() {
@@ -466,7 +558,12 @@ function placeholderSkinRows() {
 
 const VAULT_COPY_PLAN = {
   legendary: 5,
-  epic: 3,
+  // Epic bumped from 3 to 4 (Apr 2026): demo VIPER rotation pulls 2
+  // copies of each tier-4-rendered epic across 10 demos, Section G
+  // plain-skin listings pull 1 more, and the new G2 skinned-drone
+  // marketplace listings pull 1 more — at 3 copies the epic vault ran
+  // empty before demos finished. 4 keeps a 1-copy buffer per name.
+  epic: 4,
   rare: 5,
   common: 8,
 };
@@ -838,14 +935,13 @@ async function bindModToDrone(sellerId, droneId, rarity) {
 /* G2. Drone listings with skins bound (mixed rarities)                       */
 /* -------------------------------------------------------------------------- */
 
-/* Hand-picked drone listings that ship with a bound + equipped skin so the
- * marketplace board has visible cosmetic listings at every rarity tier.
+/* Hand-picked drone listings that ship with a bound + equipped skin so
+ * the marketplace board has visible cosmetic listings.
  *
- * Two legendary featurings (Valiant + Celestial) anchor the top of the
- * board, plus a couple of normal drones with epic / rare skins applied
- * to read as "regular drones someone listed that happen to have a skin
- * on them". The skin transfers with the drone on sale (per
- * marketplace.service.buyListing).
+ * One legendary anchor (Valiant) + two epic-skinned tier-4 drones using
+ * skins that have applied tier-4 renders in lib/utils.js#APPLIED_RENDERS
+ * (Dragon Scale, Crystal Phantom). The skin transfers with the drone on
+ * sale (per marketplace.service.buyListing).
  *
  * Drone names are random `MARKET_<lvl>_<6char>` like the rest of the
  * mint+list path so these listings don't visually stand out from the
@@ -854,11 +950,17 @@ async function bindModToDrone(sellerId, droneId, rarity) {
  * Idempotency: count active drone listings owned by MKT_* sellers whose
  * drone has an appliedSkinId. If we already have >= the target count,
  * skip the whole section. */
+/**
+ * Per-listing price ranges baked in: Valiant LV19 (T4 base + legendary
+ * value), Dragon Scale LV17 (T4 base + epic premium), Crystal Phantom
+ * LV12 (T3 base + epic premium). Each run rolls a price uniformly inside
+ * its range so two seed runs don't list identical prices on the
+ * showcase. Mirror these in scripts/fix-marketplace-featured.js.
+ */
 const DRONE_LISTINGS_WITH_SKINS = [
-  { level: 19, profile: 'speedster',  price: 175_000, skinName: 'Valiant',     skinRarity: 'legendary' },
-  { level: 18, profile: 'cornerer',   price: 165_000, skinName: 'Celestial',   skinRarity: 'legendary' },
-  { level: 12, profile: 'allrounder', price:  14_000, skinName: 'Chrome Fury', skinRarity: 'rare'      },
-  { level:  8, profile: 'speedster',  price:   9_000, skinName: 'Ember',       skinRarity: 'common'    },
+  { level: 19, profile: 'speedster',  priceRange: [550_000, 650_000], skinName: 'Valiant',         skinRarity: 'legendary' },
+  { level: 17, profile: 'cornerer',   priceRange: [400_000, 500_000], skinName: 'Dragon Scale',    skinRarity: 'epic'      },
+  { level: 12, profile: 'allrounder', priceRange: [180_000, 220_000], skinName: 'Crystal Phantom', skinRarity: 'epic'      },
 ];
 
 async function seedDroneListingsWithSkins(botUserMap) {
@@ -941,11 +1043,12 @@ async function seedDroneListingsWithSkins(botUserMap) {
       counts.missingSkin += 1;
     }
 
+    const price = randInt(def.priceRange[0], def.priceRange[1]);
     await db.insert(marketplaceListings).values({
       sellerId,
       itemType: 'drone',
       droneId: drone.id,
-      price: def.price,
+      price,
       status: 'active',
     });
     counts.inserted += 1;
@@ -1020,23 +1123,27 @@ async function seedMarketplaceListings(botUserMap) {
     if (await listOneModFromVault(seller(i++), 'common', randInt(200, 700))) counts.mods += 1;
   }
 
-  /* --- Drone listings (~30) --- */
+  /* --- Drone listings (~30) --- Counts mirror the bracket distribution
+       (T4 small, T1/T2 long tail). Prices come from priceForLevel(level)
+       so the per-tier band lives in one place (PRICE_TIERS at the top of
+       this file). */
   const droneListPlan = [
-    { count: 4,  level: () => randInt(16, 20), price: () => randInt(22_000, 32_000) },
-    { count: 6,  level: () => randInt(11, 15), price: () => randInt(10_000, 18_000) },
-    { count: 10, level: () => randInt(6, 10),  price: () => randInt(4_000, 9_000) },
-    { count: 10, level: () => randInt(1, 5),   price: () => randInt(1_000, 3_000) },
+    { count: 4,  level: () => randInt(16, 20) },
+    { count: 6,  level: () => randInt(11, 15) },
+    { count: 10, level: () => randInt(6, 10) },
+    { count: 10, level: () => randInt(1, 5) },
   ];
   const profiles = Object.keys(BOT_PROFILES);
   let droneIdx = 0;
   for (const plan of droneListPlan) {
     for (let k = 0; k < plan.count; k += 1) {
       const profile = profiles[droneIdx % profiles.length];
+      const lvl = plan.level();
       const { drone } = await mintAndListDrone(
         seller(i++),
-        plan.level(),
+        lvl,
         profile,
-        plan.price(),
+        priceForLevel(lvl),
       );
       counts.drones += 1;
       // 1 in 6 drones gets a bound mod, marketplace listing price already
@@ -1071,13 +1178,16 @@ async function seedDemoAccounts() {
     const username = `PILOT_D${num}`;
     const email = `pilot_d${num}@demo.hyperdrome.gg`;
 
-    let userRow;
     // Look up by username OR email. After a demo claim, the email is
     // rewritten to claimed_*@demo.hyperdrome.gg but the username stays
     // PILOT_D##; an email-only lookup would miss the row and the
     // subsequent INSERT would conflict on the unique username
     // constraint. The username path catches claimed accounts; the email
     // path catches the original unclaimed state.
+    //
+    // Idempotency: if the row exists at all, skip — drone presence is
+    // not the witness. A claimed account with manually-deleted drones
+    // would otherwise get re-seeded onto the claimed user.
     const [existing] = await db
       .select()
       .from(users)
@@ -1085,31 +1195,21 @@ async function seedDemoAccounts() {
       .limit(1);
 
     if (existing) {
-      userRow = existing;
-      // Idempotency: if the account already has drones, assume it's
-      // fully seeded and skip the per-account work.
-      const [anyDrone] = await db
-        .select()
-        .from(drones)
-        .where(eq(drones.userId, userRow.id))
-        .limit(1);
-      if (anyDrone) {
-        counts.skipped += 1;
-        continue;
-      }
-    } else {
-      const [created] = await db
-        .insert(users)
-        .values({
-          name: username,
-          username,
-          email,
-          emailVerified: new Date(),
-        })
-        .returning();
-      userRow = created;
-      counts.users += 1;
+      counts.skipped += 1;
+      continue;
     }
+
+    const [created] = await db
+      .insert(users)
+      .values({
+        name: username,
+        username,
+        email,
+        emailVerified: new Date(),
+      })
+      .returning();
+    const userRow = created;
+    counts.users += 1;
 
     const result = await seedDemoAccount({
       db,
@@ -1134,9 +1234,21 @@ function fmt(label, payload) {
   console.log(`  ${label.padEnd(22)} ${JSON.stringify(payload)}`);
 }
 
-async function main() {
-  await confirmProd();
+/**
+ * Run the full seed pipeline. Exposed so the dev wrapper
+ * (scripts/seed-dev.js) can call it after truncating the local DB.
+ *
+ * @param {{ skipConfirm?: boolean, fresh?: boolean }} [opts]
+ *   `skipConfirm: true` bypasses the interactive YES gate. Used by the
+ *   dev wrapper since the operator already opted in via the seed:dev
+ *   command and the local-only env flag.
+ *   `fresh: true` truncates the player/inventory/race tables before
+ *   seeding. Tracks, seasons, and admin_config are preserved.
+ */
+export async function runSeed({ skipConfirm = false, fresh = false } = {}) {
+  if (!skipConfirm) await confirmProd();
   const t0 = Date.now();
+  if (fresh) await truncateForFresh();
   console.log('\nSeeding production database...\n');
 
   const adminCount = await seedAdminConfig();
@@ -1176,7 +1288,18 @@ async function main() {
   console.log(`\nDone in ${dt}s.`);
 }
 
-main().catch((err) => {
-  console.error('\nSeed failed:', err);
-  process.exit(1);
-});
+// Auto-run only when invoked directly (`node scripts/seed-production.js`),
+// not when imported by the dev wrapper. fileURLToPath converts the ESM
+// module URL to an absolute path that matches Node's resolution of
+// process.argv[1].
+const { fileURLToPath } = await import('node:url');
+const path = await import('node:path');
+const isDirectInvocation =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isDirectInvocation) {
+  const fresh = process.argv.includes('--fresh');
+  runSeed({ fresh }).catch((err) => {
+    console.error('\nSeed failed:', err);
+    process.exit(1);
+  });
+}

@@ -527,7 +527,8 @@
 }
 
 .cardMod .listingImage {
-  aspect-ratio: 4 / 3;
+  /* Height comes from base .listingImage (200px); only padding differs
+     per item type to dial the visual breathing around the chip. */
   padding: 22px var(--space-2) 4px;
 }
 
@@ -554,7 +555,8 @@
 .card_level_orange .listingImage,
 .card_level_purple .listingImage,
 .card_level_gold .listingImage {
-  aspect-ratio: 4 / 3;
+  /* Height comes from base .listingImage (200px); only padding differs
+     per drone tier to dial the visual breathing around the render. */
   padding: 26px var(--space-2) 10px;
 }
 
@@ -581,7 +583,8 @@
 .card_rare:not(.cardMod) .listingImage,
 .card_epic:not(.cardMod) .listingImage,
 .card_legendary:not(.cardMod) .listingImage {
-  aspect-ratio: 1 / 1;
+  /* Height comes from base .listingImage (200px); only padding differs
+     per skin rarity to dial the visual breathing around the prism. */
   padding: 24px var(--space-2) 6px;
 }
 
@@ -933,7 +936,14 @@
 
 .listingImage {
   width: 100%;
-  aspect-ratio: 16 / 10;
+  /* Fixed pixel height so every listing card has the same image footprint
+     regardless of the image's natural aspect ratio or the item type
+     (drone/skin/mod). The image inside scales via object-fit: contain on
+     .droneImg / .skinImg, so a wide drone render and a square skin both
+     letter-box within the same 200px box. flex-shrink: 0 protects the
+     height from being squeezed by the column-flex parent. */
+  height: 200px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2891,8 +2901,47 @@
 .revealGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  /* Row defaults to `auto` height (content-driven). Cards read at their
+     improved natural size (`.revealGrid .possibleCard { min-height: 240px }`
+     below); leftover vertical space inside the flex container sits
+     between the card row and the action buttons - intentional gap. */
   gap: var(--space-3);
   perspective: 1200px;
+  /* Stage 2/3 grid claims the panel's vertical space the same way Stage
+     1's .purchaseHero does (`flex: 1 1 auto`), so the reveal cards read
+     full-size inside the modal instead of pinned to the top. */
+  flex: 1 1 auto;
+  align-items: stretch;
+  padding: var(--space-2) 0;
+}
+
+/* Reveal-grid cards override the small .possibleCard preview sizing.
+   The packs-section preview uses .possibleCard for compact 6-card rows;
+   inside the reveal modal we want each card at full scale so the prism
+   or mod chip fills the body. Padding, gap, min-height and the inner
+   prism wrap all bump up. */
+.revealGrid .possibleCard {
+  padding: var(--space-4);
+  gap: var(--space-3);
+  min-height: 240px;
+  justify-content: space-between;
+}
+
+.revealGrid .possibleSkinThumb {
+  width: 75%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.revealGrid .possibleName,
+.revealGrid .possibleRarity {
+  font-size: var(--text-sm);
+}
+
+.revealGrid .possibleL {
+  font-size: var(--text-6xl);
 }
 
 .revealCard {
@@ -2964,10 +3013,25 @@
   text-align: center;
 }
 
+/* Stage-2 action row matches Stage 1's CTA footprint exactly: same
+   horizontal band (centered, max-width 400px) so the buttons sit in the
+   same screen position users saw on Confirm Purchase. Two equal cells
+   for Save for Later + Open Pack; the children are .modalSecondaryBtn
+   and .purchaseCta which already share dimensions and font, so each
+   half-width button reads as a matched pair. */
 .revealActions {
-  display: flex;
-  justify-content: flex-end;
+  align-self: center;
+  width: 100%;
+  max-width: 400px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
+}
+
+.revealActions > .purchaseCta,
+.revealActions > .modalSecondaryBtn {
+  max-width: none;
+  width: 100%;
 }
 
 .preRevealStage {

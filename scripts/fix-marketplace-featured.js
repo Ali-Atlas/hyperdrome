@@ -5,13 +5,13 @@
  * which used Diamond Hands / Apex Predator / Kraken legendaries) with
  * the new mix:
  *
- *   - 2 tier-4 drones with Valiant + Celestial legendary skins,
- *     priced 150-200k V each
- *   - 2 lower-tier drones with non-legendary skins (Chrome Fury rare,
- *     Ember common), priced 8-18k V — read as "regular drones someone
- *     listed that happen to have a skin on them"
+ *   - 1 tier-4 drone with the Valiant legendary skin, priced 175k V
+ *   - 2 tier-4 drones with epic skins that have applied tier-4 renders
+ *     in lib/utils.js#APPLIED_RENDERS (Dragon Scale, Crystal Phantom),
+ *     priced 18-22k V — only one legendary on the board at a time, the
+ *     epics fill out the cosmetic-listing slot.
  *
- * All four use the standard `MARKET_<lvl>_<6char>` random name pattern
+ * All three use the standard `MARKET_<lvl>_<6char>` random name pattern
  * so they don't visually stand out from the rest of the marketplace
  * board — the bound skin is the only differentiator.
  *
@@ -69,15 +69,28 @@ const LEGACY_FEATURED_NAMES = [
   'FEATURED_TIDAL_REIGN',
 ];
 
+/**
+ * Mirror of DRONE_LISTINGS_WITH_SKINS in scripts/seed-production.js —
+ * if you change one, change both. Prices come as `priceRange: [lo, hi]`
+ * so each run picks a value uniformly from the band.
+ *
+ *   Valiant      LV19 legendary  T4 + legendary      550-650K
+ *   Dragon Scale LV17 epic       T4 + epic premium   400-500K
+ *   Crystal Phantom LV12 epic    T3 + epic premium   180-220K
+ */
 const NEW_LISTINGS = [
-  // Premium tier-4 with bound legendaries — anchor the top of the board.
-  { level: 19, profile: 'speedster',  price: 175_000, skinName: 'Valiant',     skinRarity: 'legendary' },
-  { level: 18, profile: 'cornerer',   price: 165_000, skinName: 'Celestial',   skinRarity: 'legendary' },
-  // Regular drones with non-legendary skins applied — read as "someone's
-  // listing with a skin happening to be on it" rather than a featured slot.
-  { level: 12, profile: 'allrounder', price:  14_000, skinName: 'Chrome Fury', skinRarity: 'rare'      },
-  { level:  8, profile: 'speedster',  price:   9_000, skinName: 'Ember',       skinRarity: 'common'    },
+  // One legendary anchor at the top of the board.
+  { level: 19, profile: 'speedster',  priceRange: [550_000, 650_000], skinName: 'Valiant',         skinRarity: 'legendary' },
+  // Two epic-skinned drones — Dragon Scale at the top of T4, Crystal
+  // Phantom mid-T3 so the showcase doesn't cluster everything in T4.
+  { level: 17, profile: 'cornerer',   priceRange: [400_000, 500_000], skinName: 'Dragon Scale',    skinRarity: 'epic'      },
+  { level: 12, profile: 'allrounder', priceRange: [180_000, 220_000], skinName: 'Crystal Phantom', skinRarity: 'epic'      },
 ];
+
+// Inclusive on both ends. Standalone here because this script doesn't
+// share helpers with seed-production.js; the math is small and the
+// duplication is intentional (script is a one-shot fix).
+const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 
 /* -------------------------------------------------------------------------- */
 /* Stat helpers (mirrored from scripts/seed-production.js)                    */
@@ -288,13 +301,14 @@ async function insertSkinnedListing({ def, sellerId }) {
   await sql`
     UPDATE drones SET applied_skin_id = ${skin.id} WHERE id = ${drone.id}
   `;
+  const price = randInt(def.priceRange[0], def.priceRange[1]);
   await sql`
     INSERT INTO marketplace_listings (seller_id, item_type, drone_id, price, status)
-    VALUES (${sellerId}, 'drone', ${drone.id}, ${def.price}, 'active')
+    VALUES (${sellerId}, 'drone', ${drone.id}, ${price}, 'active')
   `;
 
   console.log(
-    `  + ${name} (LV${def.level}, ${def.skinRarity} ${def.skinName}) @ ${def.price.toLocaleString()}V`,
+    `  + ${name} (LV${def.level}, ${def.skinRarity} ${def.skinName}) @ ${price.toLocaleString()}V`,
   );
   return true;
 }
