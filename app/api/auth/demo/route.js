@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { and, eq, inArray, notLike } from 'drizzle-orm';
+import { and, eq, inArray, like, notLike, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { auth, signIn } from '@/lib/auth';
 import { seedDemoPlayer } from '@/scripts/seed-demo-player';
@@ -7,11 +7,27 @@ import { seedDemoPlayer } from '@/scripts/seed-demo-player';
 const { users } = schema;
 
 /* -------------------------------------------------------------------------- */
-/* Rate limit                                                                 */
+/* Limits                                                                     */
 /* -------------------------------------------------------------------------- */
 
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * Hard ceiling on lifetime demo accounts in the DB. Counts every user
+ * whose `name` starts with PILOT_ (pre-seeded D01..D10 + every fresh-
+ * created PILOT_<4chars>, claimed or not). At cap, we block both the
+ * claim and the fresh-create paths.
+ */
+const TOTAL_DEMO_CAP = 20;
+
+async function getTotalDemoCount() {
+  const [row] = await db
+    .select({ count: sql`count(*)::int` })
+    .from(users)
+    .where(like(users.name, 'PILOT_%'));
+  return row?.count ?? 0;
+}
 
 /** @type {Map<string, { count: number, resetAt: number }>} */
 const ipBuckets = new Map();
@@ -93,7 +109,17 @@ export async function POST(request) {
   const ip = getClientIp(request);
   if (!checkRateLimit(ip)) {
     return NextResponse.json(
-      { error: 'Demo limit reached, try again later.' },
+      { error: 'Demo limit reached. Try again later.' },
+      { status: 429 },
+    );
+  }
+
+  // Total cap across pre-seeded + dynamically created demo accounts.
+  // Checked after the per-IP rate limit so an abusive IP doesn't burn a
+  // count(*) query each request.
+  if ((await getTotalDemoCount()) >= TOTAL_DEMO_CAP) {
+    return NextResponse.json(
+      { error: 'Demo is full. Check back later.' },
       { status: 429 },
     );
   }

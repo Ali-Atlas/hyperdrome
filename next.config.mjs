@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
+
   /**
    * Long-cache static assets. Captain's spec used the v15 pattern
    * `/:path*\\.(webp|png|...)` with an unnamed regex group, which v6
