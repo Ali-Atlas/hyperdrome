@@ -14,19 +14,15 @@
  *   A. admin_config (7 keys, racing_enabled=false; Captain flips manually)
  *   B. bot users (BOT_ALPHA/BETA/GAMMA + MKT_PULSE/NEXUS/ORBIT)
  *   C. racing bot drones (24, owned by BOT_* users)
- *   D. tracks (16, name-keyed UPSERT)
- *   E. skin vault (270 rows: 32 image-backed + 70 placeholders + 168 vault copies)
- *   F. mod vault (76 rows: 26 templates + 50 vault copies)
+ *   D. tracks (16, name-keyed; insert-only — manual prod tweaks survive)
+ *   E. skin vault (~814 rows: 744 image-backed + 70 placeholders;
+ *      sized for heavy demo pack purchasing across 50 demo accounts)
+ *   F. mod vault (~776 rows: 26 templates + 750 vault copies)
  *   G. marketplace listings (~100, sold by MKT_* users)
- *   H. demo accounts PILOT_D01..D10 via scripts/seed-demo-player.js
+ *   H. demo accounts PILOT_D01..D50 via scripts/seed-demo-player.js
  *
  * Every section reports a row-count delta so the operator can see what
  * the pass actually changed. Re-running is safe.
- *
- * Captain spec said 31 image-backed catalog skins; we ship 32 (8 per
- * rarity) so the vault math (`Epic vault: 3 copies each = 24` requires
- * 8 distinct epic names) works without duplicates. Net 102 catalog
- * (32 + 70 placeholders) and 270 total still match.
  */
 
 import { drizzle } from 'drizzle-orm/neon-http';
@@ -556,16 +552,29 @@ function placeholderSkinRows() {
   return out;
 }
 
+/**
+ * Vault stock plan: copies per (image-backed) skin name. With 8 names
+ * per rarity, total unbound image-backed stock per rarity is 8 × value.
+ *
+ * Captain spec (Apr 2026) — minimum total unbound copies per rarity to
+ * survive heavy demo pack purchasing across 50 demo accounts:
+ *   common ≥ 400, rare ≥ 200, epic ≥ 100, legendary ≥ 40.
+ *
+ * Per-name values: 50 / 25 / 13 / 15 → totals 400 / 200 / 104 / 120.
+ *
+ * Legendary bumped from 5 → 15 (Apr 2026): pack.service.js blocks 5 of
+ * the 8 legendary names for demo accounts (Kraken, Diamond Hands, Apex
+ * Predator, Celestial, Valiant — see DEMO_LEGENDARY_BLOCKLIST), so
+ * demos can only consume vault stock for 3 unblocked names (Gilded
+ * Throne, Samurai, Necromancer). 15 per name × 3 demo-eligible = 45
+ * pullable legendaries against 50 demo accounts — covers everyone with
+ * a small buffer.
+ */
 const VAULT_COPY_PLAN = {
-  legendary: 5,
-  // Epic bumped from 3 to 4 (Apr 2026): demo VIPER rotation pulls 2
-  // copies of each tier-4-rendered epic across 10 demos, Section G
-  // plain-skin listings pull 1 more, and the new G2 skinned-drone
-  // marketplace listings pull 1 more — at 3 copies the epic vault ran
-  // empty before demos finished. 4 keeps a 1-copy buffer per name.
-  epic: 4,
-  rare: 5,
-  common: 8,
+  legendary: 15,
+  epic: 13,
+  rare: 25,
+  common: 50,
 };
 
 /** Catalog row + (count - 1) extra vault copies. The catalog row IS the
@@ -740,7 +749,18 @@ function modTemplateRow(t) {
   };
 }
 
-const MOD_VAULT_EXTRA_PLAN = { common: 25, rare: 15, epic: 8, legendary: 2 };
+/**
+ * Mod vault extras (beyond the templates) per rarity. Templates count
+ * toward the rarity total too, so total unbound mods per rarity is
+ * `templates(rarity) + extras(rarity)`. Templates: 10 common, 8 rare,
+ * 5 epic, 3 legendary.
+ *
+ * Captain spec (Apr 2026) — same minimum totals as the skin vault:
+ *   common ≥ 400, rare ≥ 200, epic ≥ 100, legendary ≥ 40.
+ *
+ * Extras below give totals: 410 / 208 / 105 / 43.
+ */
+const MOD_VAULT_EXTRA_PLAN = { common: 400, rare: 200, epic: 100, legendary: 40 };
 
 async function seedModVault() {
   const counts = { templates: 0, vaultCopies: 0 };
@@ -1173,7 +1193,10 @@ async function seedDemoAccounts() {
     skipped: 0,
   };
 
-  for (let i = 0; i < 10; i += 1) {
+  // Captain Apr 2026: bumped from 10 to 50. Pre-seeded pool covers
+  // PILOT_D01..PILOT_D50; rotation arrays in seed-demo-player.js (3 and
+  // 5 entries) wrap cleanly via demoIndex modulus.
+  for (let i = 0; i < 50; i += 1) {
     const num = String(i + 1).padStart(2, '0');
     const username = `PILOT_D${num}`;
     const email = `pilot_d${num}@demo.hyperdrome.gg`;

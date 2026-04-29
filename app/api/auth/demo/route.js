@@ -15,11 +15,11 @@ const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 /**
  * Hard ceiling on lifetime demo accounts in the DB. Counts every user
- * whose `name` starts with PILOT_ (pre-seeded D01..D10 + every fresh-
+ * whose `name` starts with PILOT_ (pre-seeded D01..D50 + every fresh-
  * created PILOT_<4chars>, claimed or not). At cap, we block both the
  * claim and the fresh-create paths.
  */
-const TOTAL_DEMO_CAP = 50;
+const TOTAL_DEMO_CAP = 100;
 
 async function getTotalDemoCount() {
   const [row] = await db
@@ -54,8 +54,8 @@ function checkRateLimit(ip) {
 /* Pre-seeded pool                                                            */
 /* -------------------------------------------------------------------------- */
 
-/** Fixed pool of 10 pre-seeded demo emails. seed-production.js owns these. */
-const PRE_SEEDED_EMAILS = Array.from({ length: 10 }, (_, i) => {
+/** Fixed pool of 50 pre-seeded demo emails. seed-production.js owns these. */
+const PRE_SEEDED_EMAILS = Array.from({ length: 50 }, (_, i) => {
   const num = String(i + 1).padStart(2, '0');
   return `pilot_d${num}@demo.hyperdrome.gg`;
 });
@@ -87,11 +87,11 @@ function randomPilotName() {
  * POST /api/auth/demo
  *
  * Claim flow:
- *   1. Try to claim one of PILOT_D01..D10 if any remain unclaimed. The claim
+ *   1. Try to claim one of PILOT_D01..D50 if any remain unclaimed. The claim
  *      is an UPDATE that rewrites the email to `claimed_*` so a concurrent
  *      claimer can't grab the same row. Sign in, redirect. Instant - no
  *      seeding work, the account already has its drones, items, and races.
- *   2. If all 10 are claimed, fall back to the original fresh-create flow:
+ *   2. If all 50 are claimed, fall back to the original fresh-create flow:
  *      mint a PILOT_<4chars> user, fire-and-forget `seedDemoPlayer` so the
  *      dashboard fills in over the next ~30s.
  *

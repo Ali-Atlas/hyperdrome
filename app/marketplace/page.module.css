@@ -857,6 +857,10 @@
 }
 
 .skinRarity_legendary.skinRarity_legendary .listingImage img {
+  /* Captain Apr 2026: 90% cap removed — legendary drone listings should
+     match the regular tier-4 drone image footprint exactly, no special
+     sizing. Bob animation kept; it only animates transform: translateY
+     and doesn't affect layout. */
   animation: legendaryDroneBob 4s ease-in-out infinite;
 }
 

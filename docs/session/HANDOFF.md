@@ -4,6 +4,65 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-29 - Vault stock + demo capacity scale-up (10 → 50 demos, 100 cap)
+
+**Captain ask:** Scale vault stock + demo capacity ahead of a reseed.
+1. `VAULT_COPY_PLAN` totals: common ≥ 400, rare ≥ 200, epic ≥ 100, legendary ≥ 40.
+2. `MOD_VAULT_EXTRA_PLAN` totals: same minimums.
+3. Pre-seeded demos 10 → 50, total demo cap 100 (Captain noted "already 100 — confirm").
+
+**Heads-up flagged during execution:**
+- `TOTAL_DEMO_CAP` was actually **50, not 100** as Captain expected. Per the "if not, bump it" instruction, bumped to 100.
+- `PRE_SEEDED_EMAILS` array length was hardcoded to 10. Without bumping it to 50 in lockstep with the seed loop, the email-claim path could only see D01..D10 — D11..D50 would only be reachable through the fresh-create fallback, defeating the point of pre-seeding them. Bumped to 50.
+
+**Files modified (3, within the 4-file cap):**
+
+### `scripts/seed-production.js`
+- **`VAULT_COPY_PLAN`** (per-name copies of image-backed catalog skins; 8 names per rarity):
+  - common: 8 → 50  (8×50 = 400 total)
+  - rare: 5 → 25    (8×25 = 200 total)
+  - epic: 4 → 13    (8×13 = 104 total)
+  - legendary: 5 → 5 (already at spec; 8×5 = 40 total)
+  - Comment block explains the math + flags the demo-pack edge case (see below).
+- **`MOD_VAULT_EXTRA_PLAN`** (extras per rarity, beyond templates):
+  - common: 25 → 400  (templates 10 + extras 400 = 410 total)
+  - rare: 15 → 200    (8 + 200 = 208 total)
+  - epic: 8 → 100     (5 + 100 = 105 total)
+  - legendary: 2 → 40 (3 + 40 = 43 total)
+- **Section H demo loop:** `for (let i = 0; i < 10; i++)` → `for (let i = 0; i < 50; i++)`. Comment notes the rotation arrays in seed-demo-player.js (3 and 5 entries) wrap cleanly via `demoIndex` modulus, so no per-account rotation changes are needed.
+- **File header docstring** updated to reflect new section sizes (E ~814 rows, F ~776 rows, H pool D01..D50). Dropped the obsolete "270 rows" line and the stale legacy explainer paragraph.
+
+### `scripts/seed-demo-player.js`
+- **`seedDemoPlayer` runtime fallback:** `Math.random() * 10` → `Math.random() * 50`. Functionally a no-op for the current 3- and 5-entry rotation arrays (modulus collapses to the same cycle), but keeps the index range aligned with the seeded pool so future rotation changes don't quietly silo claimed and fresh-create paths.
+- Docstring updated from "10 archetypes" / "10 pre-seeded accounts" → "50".
+
+### `app/api/auth/demo/route.js`
+- **`TOTAL_DEMO_CAP`** 50 → 100. Comment updated to reflect D01..D50.
+- **`PRE_SEEDED_EMAILS`** array length 10 → 50.
+- POST docstring updated: "PILOT_D01..D10" → "PILOT_D01..D50", "all 10 claimed" → "all 50 claimed".
+
+**Verification:**
+- `npx eslint scripts/seed-production.js scripts/seed-demo-player.js app/api/auth/demo/route.js` → no output (clean).
+- **Not run:** the seed itself per Captain's instruction. Bigger vault / mod inserts have not been exercised against a real DB. With these targets, `seedSkinVault` will issue 32 SELECT + up to 32 INSERT batches (each batch up to 49 rows of one skin name); `seedModVault` will issue 4 SELECT + up to 4 INSERT batches (each up to 400 rows of one rarity). Largest single insert is 400 mods × ~8 fields = 3,200 params, well under Postgres's 65,535 parameter limit and the Neon HTTP driver's request size.
+
+**Decision Captain may want to revisit — legendary vault and demo packs:**
+
+`pack.service.js#DEMO_LEGENDARY_BLOCKLIST` blocks 5 of the 8 legendary names from demo accounts (Kraken, Diamond Hands, Apex Predator, Celestial, Valiant). Demo pack opens can therefore consume vault stock from only the 3 unblocked names: Gilded Throne, Samurai, Necromancer. With `legendary: 5` per name, that is **15 demo-eligible legendary copies** against a 50-demo population.
+
+If demos open enough legendary packs to drain those 15, subsequent demo legendary pulls will fail (`pack.service.js` returns "Not enough X skins available in the vault"). The skin/mod totals across all rarities meet your "at least N" specs; this is purely a *distribution* concern within the legendary tier.
+
+Two ways to address if it becomes a problem:
+1. Bump `VAULT_COPY_PLAN.legendary` (e.g. 5 → 12, giving 8×12 = 96 total of which 36 are demo-eligible). Simple, breaks Captain's "at least 40" cap upward.
+2. Add per-name overrides — bump only Gilded Throne / Samurai / Necromancer. Requires modifying `seedSkinVault` to support per-name targets.
+
+Flagging only — no change made beyond Captain's stated spec.
+
+**Not verified by Mercenary:**
+- Live truncate + reseed against a real DB. The `--fresh` flow + new vault sizes + new demo loop + new bulk-insert paths haven't been end-to-end tested. Strongly recommend `npm run seed:dev` first as a smoke test before any prod run.
+- Whether 50 demos × 80 races each (4,000 race rows) lands in a single bulk insert per drone without driver-side issues. The bulk inserts are still per-drone (each at 10 rows), so each individual insert is small — the volume comes from running the loop 80 × 50 = 4,000 times, not 4,000 in one shot. Should be fine.
+
+---
+
 ## 2026-04-29 - Seed-production hardening + marketplace skinned-drone refresh
 
 **Captain ask:** Six items, in three buckets.

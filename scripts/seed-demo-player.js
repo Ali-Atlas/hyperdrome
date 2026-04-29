@@ -655,10 +655,10 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Used by /api/auth/demo when all 10 pre-seeded accounts are claimed.
+ * Used by /api/auth/demo when all 50 pre-seeded accounts are claimed.
  * Builds its own Drizzle client off DATABASE_URL (the live app DB) and
  * picks a random `demoIndex` so the fresh account looks like one of the
- * 10 archetypes.
+ * 50 archetypes.
  *
  * @param {string} userId
  */
@@ -669,6 +669,6 @@ export async function seedDemoPlayer(userId) {
   return seedDemoAccount({
     db: localDb,
     userId,
-    demoIndex: Math.floor(Math.random() * 10),
+    demoIndex: Math.floor(Math.random() * 50),
   });
 }
