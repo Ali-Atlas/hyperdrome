@@ -313,23 +313,27 @@
   transform: translateY(-2px);
 }
 
+/* 1st-place card sits taller than 2nd/3rd via extra vertical padding.
+   Horizontal padding stays the same so the card width is unchanged
+   (grid still drives column width via `.podium`'s 1fr 1.12fr 1fr). */
 .podiumFirst {
-  padding: var(--space-3);
+  padding: var(--space-5) var(--space-3);
 }
 
-/* Tier treatments - thick coloured borders + stronger tinted gradient bgs
-   so silver/bronze read as real medals, not greyed-out states. */
+/* Tier treatments. Captain: backgrounds must be identical across all
+   three podium positions - height is the only differentiator for 1st.
+   Border, trophy, and rank-label colors still differ per tier so the
+   medal hierarchy still reads. */
+
+.gold,
+.silver,
+.bronze {
+  background: var(--bg-card);
+}
 
 .gold {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 215, 0, 0.22) 0%,
-      rgba(255, 215, 0, 0.05) 100%
-    ),
-    var(--bg-card);
   border-color: rgba(255, 215, 0, 0.75);
-  box-shadow: 0 0 34px rgba(255, 215, 0, 0.3);
+  box-shadow: 0 0 26px rgba(255, 215, 0, 0.22);
 }
 
 .gold .podiumRankLabel,
@@ -338,13 +342,6 @@
 }
 
 .silver {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(192, 192, 192, 0.18) 0%,
-      rgba(192, 192, 192, 0.04) 100%
-    ),
-    var(--bg-card);
   border-color: rgba(192, 192, 192, 0.7);
   box-shadow: 0 0 26px rgba(192, 192, 192, 0.22);
 }
@@ -355,15 +352,8 @@
 }
 
 .bronze {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(205, 127, 50, 0.22) 0%,
-      rgba(205, 127, 50, 0.05) 100%
-    ),
-    var(--bg-card);
   border-color: rgba(205, 127, 50, 0.75);
-  box-shadow: 0 0 26px rgba(205, 127, 50, 0.26);
+  box-shadow: 0 0 26px rgba(205, 127, 50, 0.22);
 }
 
 .bronze .podiumRankLabel,

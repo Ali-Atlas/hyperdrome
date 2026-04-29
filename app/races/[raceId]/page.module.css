@@ -290,6 +290,11 @@
   align-self: stretch;
   display: flex;
   flex-direction: column;
+  /* min-height: 0 lets the grid item shrink below its content's intrinsic
+     height so the inner .logScroll's max-height + overflow-y can take
+     effect. Without this, the grid item grows to fit the table and
+     the log column extends past the gap+track row's bottom. */
+  min-height: 0;
 }
 
 .gapCard {
@@ -300,10 +305,53 @@
   flex-direction: column;
 }
 
+/* Empty-state placeholder shown when the race log doesn't have enough
+   segments to plot gaps (legacy rows without a log, or any future
+   ultra-short race). Matches the surrounding card's flex column so the
+   message centers vertically across the gap card's min-height. */
+.gapEmpty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .logScroll {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  /* Hard cap on the scroll body so the log card can never extend past
+     the height of the adjacent drone1+gap / drone2+track stacks. The
+     internal table scrolls past this point. Tightened on smaller
+     viewports below. */
+  max-height: 480px;
+}
+
+/* DataTable ships with `min-width: 600px` on its inner <table> for
+   readability across most contexts. Inside the narrow log column on
+   the desktop 3-up grid (roughly 320-420px wide), that minimum forces
+   the wrapper into horizontal scroll and pushes the rows off-screen.
+   Override locally so the table compresses to the column's actual
+   width and rows stay visible.
+   `table-layout: fixed` shares the column widths equally; combined
+   with `white-space: normal` on th/td below, the long drone-name
+   headers wrap to two lines instead of forcing the table wider. */
+.logScroll table {
+  min-width: 0;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.logScroll th,
+.logScroll td {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* ==========================================================================
@@ -495,7 +543,9 @@
   max-width: 260px;
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 0 12px rgba(3, 218, 198, 0.28));
+  /* No drop-shadow on the race results drone image. Glow is reserved
+     for the legendary card's body wash + bob animation, which renders
+     via the .skinRarity_legendary tree on the card itself. */
 }
 
 .droneCardBody {
@@ -931,19 +981,18 @@
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "drone1 drone2"
-      "gap    gap"
-      "track  track"
+      "gap    track"
       "log    log";
     align-items: start;
   }
   .raceLayout .logCard {
     align-self: auto;
   }
+  /* Tablet keeps the scrolling table (sticky header + max-height) so a
+     deep log doesn't blow out the page. Cap is a touch tighter than
+     desktop since the log row is full-width and below the fold. */
   .logScroll {
-    overflow-y: visible;
-  }
-  .logScroll thead {
-    position: static;
+    max-height: 420px;
   }
 }
 
@@ -1159,7 +1208,9 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 10px 12px rgba(3, 218, 198, 0.32));
+  /* No drop-shadow on the matchup drone image either. Glow stays
+     reserved for the legendary card body wash + bob animation, which
+     renders via the .skinRarity_legendary tree on the card itself. */
 }
 
 /* Two-column split: radar on the left, form + stats on the right.
@@ -1420,6 +1471,30 @@
   padding-top: var(--space-2);
   border-top: 1px solid var(--border-subtle);
   min-width: 0;
+  /* Lock a consistent height so the two drone cards stay aligned even
+     when only one drone has a mod equipped. The 40px floor matches the
+     ModPlaceholder's 24px chip + 8px row padding above and below. */
+  min-height: 40px;
+}
+
+/* Empty-mod variant - same row footprint, dimmed treatment so it reads
+   as a placeholder rather than an active equip. */
+.droneModRowEmpty {
+  opacity: 0.55;
+}
+
+.droneModEmptyIcon {
+  filter: grayscale(0.6);
+  opacity: 0.7;
+}
+
+.droneModEmptyText {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-style: italic;
 }
 
 .droneModText {

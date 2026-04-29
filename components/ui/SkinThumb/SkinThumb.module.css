@@ -1,12 +1,17 @@
 .wrap {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: relative;
   overflow: hidden;
 }
 
+/* Pentagon prism placeholder is sized to ~half the slot so it reads as a
+   compact motif rather than filling the frame. Real images (.img below)
+   keep their 100/100 fill + object-fit contain. */
 .wrap > svg {
-  width: 100%;
-  height: 100%;
+  width: 55%;
+  height: 55%;
   display: block;
 }
 

@@ -4,6 +4,121 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-29 - Race engine: score-to-time formula rewrite (bounded linear)
+
+**Captain ask:** Replace the hyperbolic `time = 100 / score` in `lib/game-engine/race-simulator.js` with a bounded linear formula keyed off track difficulty. Per-segment gaps in tenths of a second, total race gaps 1–5s typical (5–8s for cross-bracket, <15s ever), lead changes natural, battery fade visible. Touch only the formula; leave `scoreSegment`, weather, battery, variance, segment generation, and everything else intact.
+
+**Plan approved by Captain:** Compass plan above this entry — slope 0.005 s/score-pt, baseTime = 1.6 + 0.33·difficulty, clamp [0.8, 8.0].
+
+**Files modified (1):**
+- `lib/game-engine/race-simulator.js`
+  - Added `SCORE_TIME_SLOPE`, `MIN_SEGMENT_TIME`, `MAX_SEGMENT_TIME` constants and a `scoreToTime(score, difficulty)` helper directly under `LENGTH_BATTERY_MULTIPLIER`.
+  - `simulateRace` now reads `const difficulty = Number(track.difficulty) || 5;` once, passes it into `scoreToTime` for both drones each segment.
+  - Replaced `const t1 = 100 / s1` / `const t2 = 100 / s2` with `scoreToTime(...)` calls.
+  - Updated the `simulateRace` JSDoc track param to include `difficulty?: number` and `length?: string`.
+  - `scoreSegment` body untouched. Weather, battery, variance, consistency dampening, segment-type weights, segment shuffling — all unchanged.
+
+**Verification (`npm run lint`):** No new errors or warnings from this change. Pre-existing 1 error (`<a>` in `app/global-error.jsx:92`) and 17 `<img>` warnings remain — same as last session, untouched.
+
+**Verification (synthetic matchups):** Threw together `scripts/_verify_race_formula.mjs` (deleted after capturing output) using `calculateTSB` / `calculatePerStatCap` to build representative drones with bias toward straight-spec or turn-spec stats. Five runs per matchup against seed-equivalent tracks, all `clear/day`:
+
+| Matchup | Track (diff) | Drone 1 avg | Drone 2 avg | Avg gap | Wins |
+|---|---|---|---|---|---|
+| LV1 vs LV1 (turn-bias) | Neon Straightaway (2) | 67.39s | 67.50s | 0.11s | 5/5 to drone1 |
+| LV10 (speed) vs LV12 (turn) | Circuit Alpha (4) | 84.70s | 84.25s | 0.45s | 0/5 → LV12 |
+| LV18 (speed) vs LV20 (turn) | Voltage Loop (7) | 135.48s | 133.00s | 2.48s | 0/5 → LV20 |
+| LV5 vs LV15 (mismatch) | Skyline Drift (5) | 96.08s | 93.17s | 2.92s | 0/5 → LV15 |
+| LV1 vs LV20 (extreme) | Tempest Run (9) | 136.74s | 131.35s | 5.39s | 0/5 → LV20 |
+| LV15 healthy vs LV15 batt=10 | Tempest Run (9) | 132.93s | 133.05s | 0.12s | 5/5 → healthy |
+
+Goals met:
+- Per-segment gaps in the 0.05–0.4s range; total race times 67–137s (target was ~68–140+s).
+- LV1 v LV1 close + slow ✓, LV18 v LV20 tight 1–3s ✓, LV5 v LV15 clear winner ~3s ✓, LV1 v LV20 extreme stays under 6s (15s ceiling intact) ✓.
+- Battery test: same-level drones, low-battery loses 5/5 even with compensating speed allocation. Lap 3 segment differences are visible in the engine's logs (battery deg multiplier still applied to score, now translates to a meaningful per-segment time gap).
+
+**Sample segment-by-segment race log** — LV10 (speed/accel-biased) vs LV12 (turn/durability-biased) on Circuit Alpha (5 straights, 5 turns, 3 laps, difficulty 4):
+
+```
+seg= 1 lap=1 turn     s1=12.48 s2=39.84  t1=2.858 t2=2.721  gap=+0.137s
+seg= 2 lap=1 straight s1=35.49 s2=13.89  t1=2.743 t2=2.850  gap=+0.029s
+seg= 3 lap=1 straight s1=36.76 s2=13.47  t1=2.736 t2=2.853  gap=-0.088s   ← LV10 ahead
+seg= 4 lap=1 turn     s1=11.99 s2=41.54  t1=2.860 t2=2.712  gap=+0.060s
+seg= 5 lap=1 turn     s1=12.32 s2=39.42  t1=2.858 t2=2.723  gap=+0.196s
+seg= 6 lap=1 straight s1=37.00 s2=13.95  t1=2.735 t2=2.850  gap=+0.080s
+seg= 7 lap=1 turn     s1=12.31 s2=39.71  t1=2.858 t2=2.721  gap=+0.217s
+seg= 8 lap=1 straight s1=34.96 s2=13.58  t1=2.745 t2=2.852  gap=+0.110s
+seg= 9 lap=1 straight s1=35.82 s2=13.55  t1=2.741 t2=2.852  gap=-0.001s   ← lead flips again
+seg=10 lap=1 turn     s1=12.19 s2=41.57  t1=2.859 t2=2.712  gap=+0.146s
+seg=11 lap=2 straight s1=29.78 s2=11.21  t1=2.771 t2=2.864  gap=+0.053s
+seg=12 lap=2 turn     s1= 9.82 s2=33.46  t1=2.871 t2=2.753  gap=+0.171s
+seg=13 lap=2 straight s1=29.34 s2=11.47  t1=2.773 t2=2.863  gap=+0.082s
+seg=14 lap=2 straight s1=28.90 s2=11.69  t1=2.776 t2=2.862  gap=-0.004s   ← lead flips
+seg=15 lap=2 straight s1=28.99 s2=11.51  t1=2.775 t2=2.862  gap=-0.092s   ← LV10 still ahead
+seg=16 lap=2 turn     s1= 9.93 s2=32.06  t1=2.870 t2=2.760  gap=+0.019s
+seg=17 lap=2 turn     s1= 9.60 s2=34.31  t1=2.872 t2=2.748  gap=+0.143s
+seg=18 lap=2 straight s1=28.14 s2=11.52  t1=2.779 t2=2.862  gap=+0.060s
+seg=19 lap=2 turn     s1= 9.83 s2=32.87  t1=2.871 t2=2.756  gap=+0.175s
+seg=20 lap=2 turn     s1= 9.74 s2=33.80  t1=2.871 t2=2.751  gap=+0.295s
+seg=21 lap=3 straight s1=21.47 s2= 9.20  t1=2.813 t2=2.874  gap=+0.234s   ← lap-3 battery fade visible: scores down ~30%
+seg=22 lap=3 straight s1=22.85 s2= 9.06  t1=2.806 t2=2.875  gap=+0.165s
+seg=23 lap=3 turn     s1= 7.75 s2=26.16  t1=2.881 t2=2.789  gap=+0.257s
+seg=24 lap=3 straight s1=22.80 s2= 8.60  t1=2.806 t2=2.877  gap=+0.186s
+seg=25 lap=3 straight s1=21.38 s2= 8.72  t1=2.813 t2=2.876  gap=+0.122s
+seg=26 lap=3 turn     s1= 7.34 s2=25.58  t1=2.883 t2=2.792  gap=+0.214s
+seg=27 lap=3 straight s1=22.83 s2= 8.93  t1=2.806 t2=2.875  gap=+0.144s
+seg=28 lap=3 turn     s1= 7.25 s2=26.75  t1=2.884 t2=2.786  gap=+0.242s
+seg=29 lap=3 turn     s1= 7.53 s2=26.07  t1=2.882 t2=2.790  gap=+0.335s
+seg=30 lap=3 turn     s1= 7.55 s2=25.13  t1=2.882 t2=2.794  gap=+0.422s
+
+Final: drone1 (LV10 speed) 84.679s  |  drone2 (LV12 turn) 84.257s  |  winner=lv12  |  margin 0.422s
+```
+
+Reading the trace: LV10 wins straights by ~0.10s, loses turns by ~0.13s. Lap-1 gap oscillates between -0.09s and +0.22s (variance + segment-type swings flipping the lead 3 times). Lap 3 segment scores drop ~30% from battery degradation, but the per-segment time spread widens because the *gap* between scores stays proportional even as both drop — exactly what Captain wanted: harder/longer-feeling races, no compression.
+
+**Not verified by Mercenary:**
+- UI flow at `/races/[raceId]` — race results page hasn't been re-checked in the browser. The schema of `raceLog` rows is unchanged (same fields, same types), and totals are still in seconds, so existing renderers should work without changes. Captain to spot-check next race cycle.
+- Live race cycle / `races/run` API — pure-function engine change; no DB or service changes.
+
+**Cleanup:** Deleted `scripts/_verify_race_formula.mjs` after capturing output. Throwaway only.
+
+---
+
+## 2026-04-29 - Race results tablet layout + log overflow cap; Leaderboard 1st-place card taller
+
+**Captain ask:** Three-part Batch 3. (1) Race engine: gap chart shows unrealistic 2+ minute wins, flag what's causing it but don't change the engine. (2) Race results layout: gap + track side-by-side at tablet (1024px+) and desktop; log table never extends past the bottom of adjacent containers, add a max-height + overflow-y. (3) Leaderboard: 1st-place card slightly taller for both users and drones sections (taller, not wider).
+
+Captain elected: items 2 + 3 only. Item 1 (engine) handled separately. Item 3: only padding-driven height bump, grid column widths untouched.
+
+**Item 1 reported, no code change:**
+- Score formula in `lib/game-engine/race-simulator.js#scoreSegment` produces `time = 100 / score` per segment, hyperbolic at low scores. Two LV1 drones with different stat builds can produce ~48s gap per segment (1,200s gap over a 25-segment race). LV20 vs LV20 produces realistic 5s gaps because both drones operate in the high-score (~45) regime where the curve is flat.
+- Compounders: weather/time-of-day multipliers (0.4-1.5x), battery degradation (up to 60% reduction on lap N of long tracks), no early-termination so loser keeps accumulating segment time after the winner has effectively finished.
+- Recommended fixes (NOT applied): clamp `t = clamp(100 / score, 1.0, 4.0)` per segment; add early-termination so loser's reported time projects from average pace once the winner finishes; consider linearising the time formula in a wider rebalance.
+
+**Files modified (2):**
+
+- MOD `app/races/[raceId]/page.module.css`:
+  - `.raceLayout .logCard`: added `min-height: 0` so the grid item can shrink below its content's intrinsic height (without this, the inner table forces the log column to extend past the gap+track row's bottom on desktop).
+  - `.logScroll`: added `max-height: 480px` so the scroll body is hard-capped on desktop. Internal sticky-header table scrolls past this point. The existing `flex: 1; overflow-y: auto; min-height: 0` chain stays.
+  - Tablet `@media (max-width: 1023px)`: rewrote `grid-template-areas` from 4 stacked rows to 3 rows so gap and track sit side-by-side now: `"drone1 drone2" / "gap track" / "log log"`. Removed the prior `overflow-y: visible` and `position: static` overrides on `.logScroll thead` so the scrolling sticky-header behavior carries through to tablet too. Tightened the tablet log scroll max-height to 420px (full-width row, below-the-fold).
+  - Mobile `@media (max-width: 768px)` left untouched (single-column stack of all 5 sections).
+- MOD `app/leaderboard/page.module.css`:
+  - `.podiumFirst`: padding changed from `var(--space-3)` (= base card padding) to `var(--space-5) var(--space-3)`. Horizontal padding identical to 2nd / 3rd cards so width stays driven solely by `.podium`'s `1fr 1.12fr 1fr` grid columns. Vertical padding bumped two steps so the 1st-place card reads ~16px taller than its neighbours. Applies to both `users` and `drones` tabs (the `Podium` component is shared, driven by a `tab` prop).
+
+**Verified:**
+- `grep -P "—|–"` on the 2 touched files: one pre-existing match in `app/races/[raceId]/page.module.css:1656` (CSS comment, in a Matchup-card section unrelated to this prompt's edits). Skipped per "match existing style, don't reformat unrelated lines."
+- No `npm run build`. No `npm run dev` browser run by Mercenary.
+
+**Captain to spot-check:**
+- Race results at 1440 / 1024 / 768 / 375:
+  - 1440: 3-col grid unchanged. Log card height bounded; deep logs scroll inside the card with sticky header.
+  - 1024 (tablet): gap chart and track info now sit side-by-side in row 2; log card spans full-width row 3 with a 420px scroll cap.
+  - 768 and below: unchanged single-column stack (drone1 / drone2 / gap / track / log).
+- Leaderboard at 1440 / 1024 / 375 on both Users and Drones tabs:
+  - 1st-place card reads visibly taller than 2nd / 3rd (extra ~16px top + 16px bottom).
+  - 1st-place card width unchanged (still 1.12x the side cards via the existing grid).
+
+---
+
 ## 2026-04-29 - Bind modal: rarity-desc sort + smaller cards. Recruit modal: bind-style title bar.
 
 **Captain ask:** Four polish items on the drone-management bind modals and the recruit-drone modal. (1) Bind modal items (skins + mods) sort by rarity descending (legendary -> common). (2) Recruit modal title bar: shrink the text and the above/below padding to match the bind modal's compact look. (3) Bind skin "prisms" should match the marketplace skin card prisms in shape. (4) Bind cards + their inner images: skins ~15% smaller, mods ~25% smaller.

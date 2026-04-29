@@ -957,8 +957,12 @@
   overflow: hidden;
 }
 
+/* Real images + ModPlaceholder (direct-child SVG) fill the bind slot.
+   SkinThumb's nested pentagon SVG (inside span.wrap) is left to the
+   SkinThumb stylesheet, which sizes it to ~55% so the prism doesn't
+   fill the entire bind card. */
 .bindCardImage img,
-.bindCardImage svg,
+.bindCardImage > svg,
 .bindCardImage span {
   width: 100%;
   height: 100%;

@@ -29,8 +29,14 @@ const IS_DEV = process.env.NODE_ENV === 'development';
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
-  if (!IS_DEV && BLOCKED_AUTH_PATHS.has(pathname)) {
-    return NextResponse.redirect(new URL('/', request.url));
+  if (BLOCKED_AUTH_PATHS.has(pathname)) {
+    // Prod: bounce these routes to the landing page (PLAY DEMO is the
+    // only entry). Dev: pass through so the magic-link form can render
+    // for unauthenticated users - the auth gate below would otherwise
+    // redirect them straight back to /, making the link feel dead.
+    return IS_DEV
+      ? NextResponse.next()
+      : NextResponse.redirect(new URL('/', request.url));
   }
 
   if (pathname.startsWith('/api/auth')) return NextResponse.next();

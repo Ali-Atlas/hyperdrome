@@ -493,16 +493,20 @@ export default function RaceDetailPage({ params }) {
             />
           </div>
 
-          {gaps.length > 1 && (
-            <Card className={styles.gapCard}>
-              <h2 className={styles.sectionHeading}>
-                Gap Over Race
-              </h2>
+          {/* Always render the gap card so the desktop grid keeps its
+              gap | track row balanced. Empty state shows a dimmed line
+              when the race log is too short to plot gaps (or missing
+              entirely on legacy rows). */}
+          <Card className={styles.gapCard}>
+            <h2 className={styles.sectionHeading}>Gap Over Race</h2>
+            {gaps.length > 1 ? (
               <div className={styles.sparklineWrap}>
                 <GapSparkline gaps={gaps} times={winnerCumTimes} />
               </div>
-            </Card>
-          )}
+            ) : (
+              <div className={styles.gapEmpty}>Gap data unavailable</div>
+            )}
+          </Card>
 
           <Card className={styles.trackCard}>
             <div className={styles.trackHeaderRow}>
@@ -854,21 +858,42 @@ function DroneCard({
               </div>
             )}
           </div>
-          {drone.appliedMod && (
-            <div className={styles.droneModRow}>
-              <ModPlaceholder rarity={drone.appliedMod.rarity} size={24} />
-              <div className={styles.droneModText}>
-                <span className={styles.droneModName}>
-                  {drone.appliedMod.name}
-                </span>
-                {drone.appliedMod.description && (
-                  <span className={styles.droneModEffect}>
-                    {drone.appliedMod.description}
+          {/* Mod row always renders so two drone cards keep matching
+              heights even when one drone races without a mod. The
+              empty state shows a dimmed placeholder + label. */}
+          <div className={cn(
+            styles.droneModRow,
+            !drone.appliedMod && styles.droneModRowEmpty,
+          )}>
+            {drone.appliedMod ? (
+              <>
+                <ModPlaceholder rarity={drone.appliedMod.rarity} size={24} />
+                <div className={styles.droneModText}>
+                  <span className={styles.droneModName}>
+                    {drone.appliedMod.name}
                   </span>
-                )}
-              </div>
-            </div>
-          )}
+                  {drone.appliedMod.description && (
+                    <span className={styles.droneModEffect}>
+                      {drone.appliedMod.description}
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <ModPlaceholder
+                  rarity="common"
+                  size={24}
+                  className={styles.droneModEmptyIcon}
+                />
+                <div className={styles.droneModText}>
+                  <span className={styles.droneModEmptyText}>
+                    No mod equipped
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </Card>
     </Link>

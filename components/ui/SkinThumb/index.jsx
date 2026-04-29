@@ -6,8 +6,12 @@ import styles from './SkinThumb.module.css';
 
 /**
  * Inline SVG fallback for skins that don't have a real image yet.
- * Rarity-tinted polygon. Was originally inlined in `app/marketplace/page.jsx`;
- * promoted here so it can be reused by `<SkinThumb>` and any direct caller.
+ * Folded-pentagon prism: open-envelope-pointing-down silhouette with
+ * 5 outer corners (top-left, top-right, mid-right, bottom apex,
+ * mid-left) plus a back-wall facet and two flap polygons that read
+ * as a folded surface. Same shape used as the marketplace-local
+ * skin placeholder; promoted here so marketplace, bind modal, and
+ * pack opening all share one source.
  *
  * @param {object} props
  * @param {'common'|'rare'|'epic'|'legendary'} [props.rarity]
@@ -21,36 +25,47 @@ export function SkinMini({ rarity = 'common' }) {
   };
   const color = colors[rarity] ?? colors.common;
   return (
-    <svg viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
-      <defs>
-        <linearGradient id={`skin-${rarity}`} x1="0" x2="1">
-          <stop offset="0" stopColor={color} stopOpacity="0.18" />
-          <stop offset="1" stopColor={color} stopOpacity="0.6" />
-        </linearGradient>
-      </defs>
+    <svg
+      viewBox="0 0 200 158"
+      xmlns="http://www.w3.org/2000/svg"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      {/* Back wall facet (between the two folds). */}
       <polygon
-        points="10,80 40,15 120,15 150,80 130,92 30,92"
-        fill={`url(#skin-${rarity})`}
+        points="14,14 186,14 100,148"
+        fill={color}
+        fillOpacity="0.22"
+      />
+      {/* Left flap. */}
+      <polygon
+        points="14,14 22,108 100,148"
+        fill={color}
+        fillOpacity="0.10"
+      />
+      {/* Right flap - mirror of the left. */}
+      <polygon
+        points="186,14 178,108 100,148"
+        fill={color}
+        fillOpacity="0.10"
+      />
+      {/* Outer pentagon: top edge slightly inset, viewBox a touch
+          taller so the silhouette reads narrower and taller. */}
+      <path
+        d="M 14,14 L 186,14 L 178,108 L 100,148 L 22,108 Z"
+        fill="none"
         stroke={color}
         strokeWidth="1.5"
+        strokeOpacity="0.7"
+        strokeLinejoin="round"
+      />
+      {/* V fold lines from the top corners to the apex. */}
+      <line
+        x1="14" y1="14" x2="100" y2="148"
+        stroke={color} strokeWidth="1.5" strokeOpacity="0.7"
       />
       <line
-        x1="40"
-        y1="15"
-        x2="30"
-        y2="92"
-        stroke={color}
-        strokeWidth="1"
-        opacity="0.5"
-      />
-      <line
-        x1="120"
-        y1="15"
-        x2="130"
-        y2="92"
-        stroke={color}
-        strokeWidth="1"
-        opacity="0.5"
+        x1="186" y1="14" x2="100" y2="148"
+        stroke={color} strokeWidth="1.5" strokeOpacity="0.7"
       />
     </svg>
   );

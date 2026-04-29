@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, ChevronDown, ChevronRight, X, Check, Hexagon } from 'lucide-react';
+import { Search, Plus, ChevronDown, ChevronRight, X, Check } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -22,7 +22,7 @@ import {
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
-import SkinThumb from '@/components/ui/SkinThumb';
+import SkinThumb, { SkinMini } from '@/components/ui/SkinThumb';
 import styles from './page.module.css';
 
 const PACK_DEFS = [
@@ -636,7 +636,10 @@ export default function MarketplacePage() {
       }
       const awarded = body.data?.awarded ?? [];
       setPackBuyModal(null);
-      setPackReveal({ awarded, packType: packId });
+      // kind:'skin' for now since only skin pack opens reach this path.
+      // When mod-capsule open lands, the mod-confirm callback will pass
+      // kind:'mod' and the reveal modal will switch shapes accordingly.
+      setPackReveal({ awarded, packType: packId, kind: 'skin' });
       setPackRevealStep(0);
       setPackOpened(false);
     } catch (err) {
@@ -2442,6 +2445,12 @@ function ListingCard({
     ? {
         '--legendary-bg': legendaryTheme.bg,
         '--legendary-glow-1': legendaryTheme.glow1,
+        // Body wash uses glow-2 (skin's bgTint, fallback to primary) so a
+        // skin can have a border color distinct from its body tint -
+        // Valiant: ice-blue border, white body wash. Was missing here so
+        // every legendary marketplace card fell through to the
+        // glow-1-only ::after rule and read near-black.
+        '--legendary-glow-2': legendaryTheme.glow2,
       }
     : undefined;
 
@@ -2500,7 +2509,11 @@ function ListingCard({
             className={styles.droneImg}
           />
         ) : isMod ? (
-          <ModPlaceholder rarity={rarity} size={92} />
+          <ModPlaceholder
+            rarity={rarity}
+            size={92}
+            className={styles.listingImageMod}
+          />
         ) : (
           <SkinSlot skin={skin} rarity={rarity} alt={skin?.name} />
         )}
@@ -3321,7 +3334,7 @@ function PackRevealModalBody({
   onReveal,
   onClose,
 }) {
-  const { awarded, packType } = packReveal;
+  const { awarded, packType, kind = 'skin' } = packReveal;
   const tier =
     packType === 'legendary' || packType === 'premium' ? packType : 'starter';
   const glowColor =
@@ -3371,11 +3384,25 @@ function PackRevealModalBody({
             >
               <div className={styles.possibleInner}>
                 {!isVisible ? (
-                  <Hexagon
-                    size={36}
-                    strokeWidth={1.5}
-                    className={styles.revealBackIcon}
-                    aria-hidden="true"
+                  // Placeholder: SkinMini diamond for skin packs,
+                  // ModPlaceholder hex chip for mod capsules. Both
+                  // rarity-tinted so the rarity reads pre-reveal.
+                  kind === 'mod' ? (
+                    <ModPlaceholder
+                      rarity={skin.rarity}
+                      size={72}
+                      className={styles.possibleSkinThumb}
+                    />
+                  ) : (
+                    <span className={styles.possibleSkinThumb}>
+                      <SkinMini rarity={skin.rarity} />
+                    </span>
+                  )
+                ) : kind === 'mod' ? (
+                  <ModPlaceholder
+                    rarity={skin.rarity}
+                    size={72}
+                    className={styles.possibleSkinThumb}
                   />
                 ) : isLegendary ? (
                   <span className={styles.possibleL} aria-hidden="true">L</span>
@@ -3405,35 +3432,27 @@ function PackRevealModalBody({
         })}
       </div>
 
-      <div className={styles.revealActions}>
-        {!packOpened ? (
-          <>
-            <button
-              type="button"
-              className={styles.modalSecondaryBtn}
-              onClick={onClose}
-            >
-              Save for Later
-            </button>
-            <button
-              type="button"
-              className={styles.purchaseCta}
-              style={{ '--cta-bg': ctaBg, '--cta-text': '#000' }}
-              onClick={onReveal}
-            >
-              Open Pack
-            </button>
-          </>
-        ) : (
+      {/* Bottom action row only on stage 1. The opened stage relies on
+          the top-right X to close - one affordance, no duplicate. */}
+      {!packOpened && (
+        <div className={styles.revealActions}>
           <button
             type="button"
             className={styles.modalSecondaryBtn}
             onClick={onClose}
           >
-            Close
+            Save for Later
           </button>
-        )}
-      </div>
+          <button
+            type="button"
+            className={styles.purchaseCta}
+            style={{ '--cta-bg': ctaBg, '--cta-text': '#000' }}
+            onClick={onReveal}
+          >
+            Open Pack
+          </button>
+        </div>
+      )}
     </div>
   );
 }
