@@ -651,7 +651,12 @@
    as the previews; legendary gets the gold gradient + inset glow + border
    pulse + diagonal glisten (latter applied via .cardLegendaryShimmer). */
 .listingCard.card_common {
-  background: var(--bg-elevated);
+  background: linear-gradient(
+      180deg,
+      rgba(158, 158, 158, 0.16) 0%,
+      rgba(158, 158, 158, 0.04) 100%
+    ),
+    var(--bg-elevated);
   border-color: rgba(158, 158, 158, 0.45);
 }
 
@@ -2587,6 +2592,12 @@
    (treated separately below). */
 .possibleCard_common {
   border: 1px solid rgba(158, 158, 158, 0.2);
+  background: linear-gradient(
+      180deg,
+      rgba(158, 158, 158, 0.16) 0%,
+      rgba(158, 158, 158, 0.04) 100%
+    ),
+    var(--bg-elevated);
 }
 
 .possibleCard_rare {

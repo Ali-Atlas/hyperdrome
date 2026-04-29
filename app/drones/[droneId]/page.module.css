@@ -909,6 +909,12 @@
    border. Mirrors the marketplace listing card treatment so the
    visual language stays consistent across surfaces. */
 .bindCard_common {
+  background: linear-gradient(
+      180deg,
+      rgba(158, 158, 158, 0.16) 0%,
+      rgba(158, 158, 158, 0.03) 100%
+    ),
+    var(--bg-card);
   border-color: rgba(158, 158, 158, 0.45);
 }
 

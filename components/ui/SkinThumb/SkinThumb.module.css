@@ -1,4 +1,9 @@
-.wrap {
+/* Doubled selector boosts specificity to (0,0,2,0) so external
+   className overrides (e.g. marketplace's .skinImg sets display:block,
+   which would otherwise win the source-order tie and knock out the
+   flex centering) can't unseat the flex layout. The prism stays
+   centered in every SkinThumb context. */
+.wrap.wrap {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6,12 +11,14 @@
   overflow: hidden;
 }
 
-/* Pentagon prism placeholder is sized to ~half the slot so it reads as a
-   compact motif rather than filling the frame. Real images (.img below)
-   keep their 100/100 fill + object-fit contain. */
+/* Pentagon prism placeholder. 71% sits comfortably inside the slot
+   while leaving a margin so the rarity-tinted card surface still
+   frames the motif. The SVG's viewBox + preserveAspectRatio handle
+   aspect-ratio centering inside the SVG element; the parent wrap
+   centers the SVG via flex. */
 .wrap > svg {
-  width: 55%;
-  height: 55%;
+  width: 71%;
+  height: 71%;
   display: block;
 }
 
