@@ -268,7 +268,6 @@ export default function MarketplacePage() {
   const [buyError, setBuyError] = useState(null);
   // Pack purchase confirmation modal: { kind: 'skin'|'capsule', pack }
   const [packBuyModal, setPackBuyModal] = useState(null);
-  const [packBuyError, setPackBuyError] = useState(null);
   const [packBuyCapsuleNote, setPackBuyCapsuleNote] = useState(false);
   const [listModal, setListModal] = useState(false);
   const [listingType, setListingType] = useState('drone');
@@ -604,25 +603,23 @@ export default function MarketplacePage() {
       return;
     }
     setPackBuyModal({ kind, pack });
-    setPackBuyError(null);
     setPackBuyCapsuleNote(false);
   };
 
   const closePackBuyModal = () => {
     if (packOpening) return;
     setPackBuyModal(null);
-    setPackBuyError(null);
     setPackBuyCapsuleNote(false);
   };
 
   // Skin pack confirm path. Hits the existing pack-open API; on success
-  // closes the buy modal and triggers the existing reveal modal flow. On
-  // failure, surfaces the error inline in the buy modal (no toast).
+  // closes the buy modal and triggers the reveal modal flow. On failure,
+  // surfaces the error as a toast (matching every other error path in
+  // the app) and leaves the buy modal open so the user can retry.
   const confirmSkinPackPurchase = async () => {
     if (!packBuyModal || packBuyModal.kind !== 'skin') return;
     const packId = packBuyModal.pack.id;
     setPackOpening(packId);
-    setPackBuyError(null);
     try {
       const res = await fetch('/api/marketplace/packs/open', {
         method: 'POST',
@@ -631,7 +628,7 @@ export default function MarketplacePage() {
       });
       const body = await res.json();
       if (!res.ok) {
-        setPackBuyError(body?.error || 'Pack purchase failed');
+        showToast(body?.error || 'Pack purchase failed', 'error');
         return;
       }
       const awarded = body.data?.awarded ?? [];
@@ -643,7 +640,7 @@ export default function MarketplacePage() {
       setPackRevealStep(0);
       setPackOpened(false);
     } catch (err) {
-      setPackBuyError(String(err));
+      showToast(String(err), 'error');
     } finally {
       setPackOpening(null);
     }
@@ -1117,7 +1114,6 @@ export default function MarketplacePage() {
             kind={packBuyModal.kind}
             pack={packBuyModal.pack}
             pending={packOpening !== null}
-            error={packBuyError}
             capsuleNote={packBuyCapsuleNote}
             onConfirm={
               packBuyModal.kind === 'skin'
@@ -3220,7 +3216,6 @@ function PackPurchaseModalBody({
   kind,
   pack,
   pending,
-  error,
   capsuleNote,
   onConfirm,
   onClose,
@@ -3306,7 +3301,6 @@ function PackPurchaseModalBody({
         )}
       </button>
 
-      {error && <div className={styles.purchaseError}>{error}</div>}
       {capsuleNote && (
         <div className={styles.purchasePackNote}>
           Capsule packs launching soon
