@@ -1,8 +1,9 @@
-import { and, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import {
-  calculateRacePoints,
   calculateNewElo,
+  calculateXPToNextLevel,
+  calculateTSB,
 } from '@/lib/game-engine/economy.js';
 import {
   getActiveDronesByBracket,
@@ -14,11 +15,24 @@ import {
   randomWeather,
   randomTimeOfDay,
 } from '@/lib/game-engine/race-simulator.js';
+import {
+  randomDroneName,
+  buildLevelDistributedStats,
+} from '@/lib/game-engine/drone-spawn.js';
 import { getRandomTrack } from '@/services/track.service.js';
 import { checkAndLevelUp } from '@/services/drone.service.js';
 import { ApiError } from '@/lib/api/response.js';
 
-const { drones, users, races, tracks, adminConfig, skins, mods } = schema;
+const {
+  drones,
+  users,
+  races,
+  tracks,
+  adminConfig,
+  skins,
+  mods,
+  droneOwnershipHistory,
+} = schema;
 
 /* -------------------------------------------------------------------------- */
 /* Config loader                                                              */
@@ -36,7 +50,7 @@ async function loadConfig() {
   return {
     raceIntervalSeconds:   num('race_interval_seconds', 120),
     pointsPerWinBase:      num('points_per_win_base', 3),
-    pointsPerLossBase:     num('points_per_loss_base', 2),
+    pointsPerLossBase:     num('points_per_loss_base', 1),
     xpPerWin:              num('xp_per_win', 10),
     xpPerLoss:             num('xp_per_loss', 4),
     botDensityMinimum:     num('bot_density_minimum', 4),
@@ -47,6 +61,49 @@ async function loadConfig() {
     slot2UnlockRaces:      num('slot_2_unlock_races', 500),
     slot3UnlockRaces:      num('slot_3_unlock_races', 2000),
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Payout calculation                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Tiered winner payout: base + level + difficulty + upset + dominance.
+ * Level cap 20 keeps levelBonus ≤ 10; difficulty 1-10 keeps difficultyBonus
+ * ≤ 5; upset is uncapped (Elo gap-driven). Dominance reads the actual race
+ * times to reward decisive finishes.
+ */
+function computeWinnerPayout({
+  winnerDrone,
+  track,
+  winnerElo,
+  loserElo,
+  winnerTime,
+  loserTime,
+  cfg,
+}) {
+  const base = cfg.pointsPerWinBase;
+  const levelBonus = Math.floor((winnerDrone.level ?? 0) / 2);
+  const difficultyBonus = Math.floor((track.difficulty ?? 0) / 2);
+  const upsetBonus = Math.max(0, Math.floor((loserElo - winnerElo) / 100));
+  let dominanceBonus = 0;
+  const minTime = Math.min(winnerTime, loserTime);
+  if (minTime > 0) {
+    const margin = (Math.abs(winnerTime - loserTime) / minTime) * 100;
+    if (margin > 40) dominanceBonus = 5;
+    else if (margin > 20) dominanceBonus = 2;
+  }
+  return base + levelBonus + difficultyBonus + upsetBonus + dominanceBonus;
+}
+
+/**
+ * Loser consolation: configured base + a level-scaled bonus so high-level
+ * losses still pay out enough to feel non-zero. Level cap 20 ⇒ bonus ≤ 5.
+ */
+function computeLoserPayout({ loserDrone, cfg }) {
+  const base = cfg.pointsPerLossBase;
+  const levelBonus = Math.floor((loserDrone.level ?? 0) / 4);
+  return base + levelBonus;
 }
 
 /**
@@ -303,12 +360,19 @@ async function executePendingRace(pending, cfg) {
   const loserEloBefore =
     loser.id === d1.id ? pending.drone1EloBefore : pending.drone2EloBefore;
 
-  const pointsAwarded = calculateRacePoints(
-    track.difficulty,
-    winnerEloBefore,
-    loserEloBefore,
-    { basePoints: cfg.pointsPerWinBase },
-  );
+  const winnerTime = winner.id === d1.id ? result.drone1Time : result.drone2Time;
+  const loserTime = loser.id === d1.id ? result.drone1Time : result.drone2Time;
+
+  const pointsAwarded = computeWinnerPayout({
+    winnerDrone: winner,
+    track,
+    winnerElo: winnerEloBefore,
+    loserElo: loserEloBefore,
+    winnerTime,
+    loserTime,
+    cfg,
+  });
+  const lossPayout = computeLoserPayout({ loserDrone: loser, cfg });
   const { newWinnerElo, newLoserElo } = calculateNewElo(
     winnerEloBefore,
     loserEloBefore,
@@ -368,11 +432,10 @@ async function executePendingRace(pending, cfg) {
       .where(eq(users.id, winner.userId));
   }
   if (loser.userId && !loser.isBot) {
-    // Consolation reward: every loss still pays a flat amount to the
-    // wallet + seasonPoints so player progression doesn't stall on a
-    // losing streak. Configurable via admin_config `points_per_loss_base`
-    // (default 2). Wins use calculateRacePoints (base + difficulty + upset).
-    const lossPayout = cfg.pointsPerLossBase;
+    // Consolation reward: every loss still pays the loser's wallet so
+    // progression doesn't stall on a losing streak. Tiered base + level
+    // bonus via computeLoserPayout (admin_config `points_per_loss_base`
+    // is the base; level scaling kicks in on top).
     await db
       .update(users)
       .set({
@@ -392,7 +455,143 @@ async function executePendingRace(pending, cfg) {
   if (winner.userId && !winner.isBot) {
     await rollSkinDropForWinner(winner.userId, cfg);
   }
+
+  // XP-milestone free drone spawns. Both owners are eligible — checked
+  // independently and idempotently (a no-op when the drone-count guard
+  // already blocks the spawn).
+  if (winner.userId && !winner.isBot) await maybeSpawnMilestoneDrone(winner.userId);
+  if (loser.userId && !loser.isBot) await maybeSpawnMilestoneDrone(loser.userId);
 }
+
+/* -------------------------------------------------------------------------- */
+/* XP-milestone drone spawns                                                  */
+/* -------------------------------------------------------------------------- */
+
+const MILESTONE_THRESHOLDS = [
+  { races: 10000, droneCap: 3 },
+  { races: 3000,  droneCap: 2 },
+];
+
+/**
+ * Free LV1 drone awarded when a player crosses 3,000 / 10,000 lifetime
+ * races AND has fewer drones than the milestone's droneCap. Bumps
+ * activeDroneSlots up to the cap on the same call so the new drone has
+ * somewhere to live. Both checks fire independently — a player joining
+ * past 10k with 1 drone gets two spawns over their next two races.
+ *
+ * Idempotent: re-runs after the count guard is satisfied are no-ops.
+ */
+async function maybeSpawnMilestoneDrone(userId) {
+  const [u] = await db
+    .select({
+      totalRaces: users.totalRaces,
+      activeDroneSlots: users.activeDroneSlots,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!u) return;
+
+  const owned = await db
+    .select({ id: drones.id })
+    .from(drones)
+    .where(eq(drones.userId, userId));
+  let droneCount = owned.length;
+
+  for (const { races: threshold, droneCap } of MILESTONE_THRESHOLDS) {
+    if (u.totalRaces < threshold) continue;
+    if (droneCount >= droneCap) continue;
+    await spawnFreeDrone(userId, { activeDroneSlots: droneCap });
+    droneCount += 1;
+  }
+}
+
+/**
+ * Provision one milestone drone for `userId`: LV1, distributed random
+ * stats within the level cap, active=true, plus an unbound common skin
+ * and an unbound common mod cloned from the vault. Bumps the player's
+ * activeDroneSlots if it's below `targetSlots`.
+ */
+async function spawnFreeDrone(userId, { activeDroneSlots: targetSlots }) {
+  const stats = buildLevelDistributedStats(1);
+  const [drone] = await db
+    .insert(drones)
+    .values({
+      userId,
+      name: randomDroneName(),
+      level: 1,
+      xp: 0,
+      xpToNextLevel: calculateXPToNextLevel(1),
+      totalStatBudget: calculateTSB(1),
+      ...stats,
+      active: true,
+      isBot: false,
+    })
+    .returning();
+
+  await db.insert(droneOwnershipHistory).values({
+    droneId: drone.id,
+    ownerUserId: userId,
+    transactionType: 'milestone',
+  });
+
+  await db
+    .update(users)
+    .set({ activeDroneSlots: sql`GREATEST(${users.activeDroneSlots}, ${targetSlots})` })
+    .where(eq(users.id, userId));
+
+  // Unbound common skin + common mod cloned from the vault into the
+  // player's inventory (no drone_skins / drone_mods row inserted).
+  await cloneVaultItemToUser(userId, 'skin', 'common');
+  await cloneVaultItemToUser(userId, 'mod', 'common');
+}
+
+/**
+ * Clone a random vault row of the given rarity (userId IS NULL) into a
+ * new row owned by `userId`. The vault row is left in place for future
+ * pulls. Returns the new row, or null when nothing of that rarity is
+ * stocked in the vault.
+ *
+ * @param {string} userId
+ * @param {'skin'|'mod'} kind
+ * @param {string} rarity
+ */
+async function cloneVaultItemToUser(userId, kind, rarity) {
+  const table = kind === 'skin' ? skins : mods;
+  const candidates = await db
+    .select()
+    .from(table)
+    .where(and(eq(table.rarity, rarity), isNull(table.userId)));
+  if (candidates.length === 0) return null;
+  const template = candidates[Math.floor(Math.random() * candidates.length)];
+  const payload =
+    kind === 'skin'
+      ? {
+          userId,
+          name: template.name,
+          rarity: template.rarity,
+          imageUrl: template.imageUrl,
+          description: template.description,
+        }
+      : {
+          userId,
+          name: template.name,
+          rarity: template.rarity,
+          description: template.description,
+          statBonusType: template.statBonusType,
+          statBonusValue: template.statBonusValue,
+          statPenaltyType: template.statPenaltyType,
+          statPenaltyValue: template.statPenaltyValue,
+          specialAbility: template.specialAbility,
+          imageUrl: template.imageUrl,
+        };
+  const [row] = await db.insert(table).values(payload).returning();
+  return row;
+}
+
+// Exported only for the NPC vendor route, which uses the same vault-clone
+// logic to stock the freshly purchased drone's collection.
+export { cloneVaultItemToUser };
 
 /* -------------------------------------------------------------------------- */
 /* Query helpers                                                              */

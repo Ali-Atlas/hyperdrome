@@ -336,11 +336,11 @@
 }
 
 /* ==========================================================================
- * Section 4 - Collect (legendary drone showcase, bg #121212)
+ * Section 5 - Collect (legendary drone showcase, bg #000)
  * ========================================================================== */
 
 .collectSection {
-  background: var(--bg-card);
+  background: var(--bg-primary);
   padding: var(--space-10) var(--space-8);
 }
 
@@ -421,12 +421,12 @@
 }
 
 /* ==========================================================================
- * Footer - studio credit + Guide / FAQ links, bg #000
+ * Footer - studio credit + Guide / FAQ links, bg #121212
  * Captain: 11px (not 9px). Two stacked lines: credit on top, links below.
  * ========================================================================== */
 
 .footer {
-  background: var(--bg-primary);
+  background: var(--bg-card);
   display: flex;
   flex-direction: column;
   align-items: center;

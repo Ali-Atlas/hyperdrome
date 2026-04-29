@@ -246,7 +246,11 @@ export default function MarketplacePage() {
     rarities: [],
     hasSkins: false,
     hasMods: false,
-    sort: 'priceHigh',
+    // 'curated' = preserve server order (image-backed, then by rarity, then
+    // newest). The sort comparator at filteredListings only handles
+    // priceLow/priceHigh, so any other value falls through and the server
+    // order survives - which is exactly what curated needs.
+    sort: 'curated',
   });
   const [search, setSearch] = useState('');
 
@@ -961,7 +965,7 @@ export default function MarketplacePage() {
                       rarities: [],
                       hasSkins: false,
                       hasMods: false,
-                      sort: 'priceHigh',
+                      sort: 'curated',
                     })
                   }
                 >

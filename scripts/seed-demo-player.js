@@ -1,6 +1,31 @@
-import { and, eq, ne } from 'drizzle-orm';
-import { db, schema } from '@/lib/db';
-import { canEquipSkin } from '@/lib/utils.js';
+/**
+ * Demo-account seeding helper used by both:
+ *   - scripts/seed-production.js (creates PILOT_D01..D10 in advance)
+ *   - app/api/auth/demo/route.js (fresh-create fallback when all 10 are claimed)
+ *
+ * Both paths produce visually identical accounts: 8 drones, equipped
+ * legendaries cloned per user, real `simulateRace`-driven race history.
+ *
+ * Plain JS, no Next.js imports - the engine functions
+ * (`simulateRace`, `calculateNewElo`, `calculateRacePoints`) are pure and
+ * the schema is loaded by relative path so the file works under both
+ * `node --env-file=.env.local` and inside the Next.js runtime.
+ */
+
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
+import { and, eq, isNull, sql } from 'drizzle-orm';
+import * as schema from '../lib/db/schema.js';
+import { canEquipSkin } from '../lib/utils.js';
+import {
+  simulateRace,
+  randomWeather,
+  randomTimeOfDay,
+} from '../lib/game-engine/race-simulator.js';
+import {
+  calculateNewElo,
+  calculateRacePoints,
+} from '../lib/game-engine/economy.js';
 
 const {
   users,
@@ -18,49 +43,66 @@ const {
 /* Constants                                                                  */
 /* -------------------------------------------------------------------------- */
 
+const STARTING_VOLTS = 110_000;
+const ACTIVE_DRONE_SLOTS = 3;
+const RACES_PER_DRONE = 10;
+const XP_PER_WIN = 10;
+const XP_PER_LOSS = 4;
+
 /**
- * Drone roster handed to a fresh demo pilot. Levels are spread across all
- * 4 tiers so the demo shows the full progression UI; ELO targets seed the
- * race history with a believable win/loss distribution.
+ * 8-drone roster every demo account gets. Levels span all 4 tiers so the
+ * dashboard, leaderboard, and race history have data at every bracket.
+ * Active = STRIKER, RUNNER, VIPER (3 of 8) - matches activeDroneSlots cap.
  */
 const DEMO_DRONES = [
-  { name: 'STRIKER', level: 18, active: true,  targetElo: 1150, equippedSkin: 'Kraken',       skinFallbackRarity: 'legendary' },
-  { name: 'PHANTOM', level: 12, active: true,  targetElo: 1050, equippedSkin: 'Diamond Hand', skinFallbackRarity: 'legendary' },
-  { name: 'VIPER',   level: 17, active: false, targetElo: 1080, equippedSkin: 'Frozen Abyss', skinFallbackRarity: 'epic' },
-  { name: 'SPARK',   level: 8,  active: true,  targetElo: 980,  equippedSkin: null },
-  { name: 'GHOST',   level: 15, active: false, targetElo: 1020, equippedSkin: null },
-  { name: 'BOLT',    level: 6,  active: false, targetElo: 1000, equippedSkin: null },
-  { name: 'ROOKIE',  level: 3,  active: false, targetElo: 950,  equippedSkin: null },
+  { name: 'STRIKER', level: 18, active: true,  equippedSkinPolicy: 'diamond' },
+  { name: 'RUNNER',  level: 3,  active: true,  equippedSkinPolicy: 'ember' },
+  { name: 'VIPER',   level: 17, active: true,  equippedSkinPolicy: 'tier4_rotation' },
+  { name: 'SCOUT',   level: 12, active: false },
+  { name: 'BOLT',    level: 7,  active: false },
+  { name: 'HAWK',    level: 16, active: false },
+  { name: 'PHANTOM', level: 5,  active: false },
+  { name: 'GHOST',   level: 14, active: false },
 ];
 
-const STAT_KEYS_RANDOMIZED = ['speed', 'turning', 'acceleration', 'durability'];
-
-/**
- * Unbound inventory skins. Each entry pairs a preferred name with a
- * rarity fallback so the demo still ends up with something pullable
- * even when the named template hasn't been seeded into this DB yet.
- */
-const UNBOUND_SKINS = [
-  { name: 'Apex Predator', fallbackRarity: 'legendary' },
-  { name: 'Ember', fallbackRarity: 'common' },
-  { name: 'Chrome Fury', fallbackRarity: 'rare' },
+/** demoIndex % 5 -> which tier-4 epic equips on VIPER. */
+const VIPER_SKIN_ROTATION = [
+  'Chrome Fury',
+  'Crystal Phantom',
+  'Dragon Scale',
+  'Obsidian Core',
+  'Frozen Abyss',
 ];
 
+/** demoIndex % 3 -> which legendary skin sits unbound in the player's vault. */
+const UNBOUND_LEGENDARY_ROTATION = ['Apex Predator', 'Kraken', 'Celestial'];
+
+/** demoIndex % 3 -> which legendary mod sits unbound in the player's vault. */
+const LEGENDARY_MOD_ROTATION = ['Phantom Drive', 'Quantum Sync', 'Storm Rider'];
+
+/* Stat-budget formulas mirror lib/db/seed.js + lib/game-engine/economy.js
+ * defaults so demo drones look exactly like organic drones at the same
+ * level. */
 const TSB_BASE = 9;
 const TSB_PER_LEVEL = 20;
 const STAT_CAP_BASE = 10;
 const STAT_CAP_PER_LEVEL = 4.5;
 
-const WEATHERS = ['clear', 'clouds', 'rain', 'heavy_rain', 'wind', 'haze', 'fog'];
-const TIMES_OF_DAY = ['dawn', 'day', 'dusk', 'night'];
-
-const MAX_RACES_PER_DRONE = 80;
-const MIN_RACES_PER_DRONE = 30;
-const RACE_INSERT_CHUNK = 50;
-const RACE_HISTORY_DAYS = 45;
+const STAT_KEYS_RANDOMIZED = ['speed', 'turning', 'acceleration', 'durability'];
+const ALL_STAT_KEYS = [
+  'speed',
+  'turning',
+  'acceleration',
+  'durability',
+  'nightVision',
+  'batteryCapacity',
+  'rainHandling',
+  'windResistance',
+  'consistency',
+];
 
 /* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
+/* RNG / utility                                                              */
 /* -------------------------------------------------------------------------- */
 
 const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
@@ -69,26 +111,19 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 function tsbForLevel(level) {
   return TSB_BASE + TSB_PER_LEVEL * level;
 }
-
 function statCapForLevel(level) {
   return Math.min(100, STAT_CAP_BASE + Math.floor(STAT_CAP_PER_LEVEL * level));
 }
 
 /**
- * Build a stat block for a demo drone. Randomizes 4 of the 9 stats inside
- * [5, statCap]; every other stat stays at 1. If the rolled total exceeds
- * the level's TSB, decrement randomly chosen above-floor stats until it
- * fits. Mirrors the bot-stat builder in `lib/db/seed.js` but biased toward
- * the 4 "headline" stats players see first.
+ * Bias 4 headline stats high, leave the other 5 at 1, trim to TSB.
+ * Matches the prior buildDemoStats so the look-and-feel of demo drones
+ * doesn't shift under the H2 rewrite.
  */
 function buildDemoStats(level) {
   const cap = statCapForLevel(level);
   const tsb = tsbForLevel(level);
-  const stats = {
-    speed: 1, turning: 1, acceleration: 1, durability: 1,
-    nightVision: 1, batteryCapacity: 1, rainHandling: 1,
-    windResistance: 1, consistency: 1,
-  };
+  const stats = Object.fromEntries(ALL_STAT_KEYS.map((k) => [k, 1]));
   for (const key of STAT_KEYS_RANDOMIZED) {
     stats[key] = randInt(5, cap);
   }
@@ -105,44 +140,91 @@ function buildDemoStats(level) {
   return { stats, tsb };
 }
 
-/**
- * Map a target ELO to a target win rate. Bots default to 1000 ELO, so
- * higher demo ELO = higher fraction of historical wins. Clamped to a
- * sensible band so the lowest-rated demo drone still has SOME wins to
- * surface in the recent-races feed.
- */
-function targetWinRate(targetElo) {
-  const raw = (targetElo - 850) / 400;
-  return Math.max(0.3, Math.min(0.85, raw));
-}
+/* -------------------------------------------------------------------------- */
+/* Template lookups (operate on userId-NULL vault rows only)                  */
+/* -------------------------------------------------------------------------- */
 
-/**
- * Find a skin row by name to use as a clone template. Falls back to any
- * row of the same rarity if the named template isn't seeded. Returns null
- * if nothing matches (caller should skip that bind).
- */
-async function findSkinTemplate(name, fallbackRarity) {
-  const [byName] = await db
+async function findVaultSkinByName(db, name) {
+  const [row] = await db
     .select()
     .from(skins)
-    .where(eq(skins.name, name))
+    .where(and(eq(skins.name, name), isNull(skins.userId)))
     .limit(1);
-  if (byName) return byName;
-  if (!fallbackRarity) return null;
-  const [byRarity] = await db
-    .select()
-    .from(skins)
-    .where(eq(skins.rarity, fallbackRarity))
-    .limit(1);
-  return byRarity ?? null;
+  return row ?? null;
 }
 
-/**
- * Insert a brand-new skin row owned by `userId`, copying the cosmetic
- * fields off `template` so the demo player gets their own private item
- * (cannot collide with another player's vault row).
- */
-async function cloneSkin(userId, template) {
+async function findVaultModByName(db, name) {
+  const [row] = await db
+    .select()
+    .from(mods)
+    .where(and(eq(mods.name, name), isNull(mods.userId)))
+    .limit(1);
+  return row ?? null;
+}
+
+/** Pick `n` distinct image-backed skin templates of the given rarity from
+ *  the vault, optionally excluding ids already used by this account. */
+async function pickVaultSkinTemplatesByRarity(db, rarity, n, excludeIds = new Set()) {
+  const all = await db
+    .select()
+    .from(skins)
+    .where(and(eq(skins.rarity, rarity), isNull(skins.userId)));
+  const imageBacked = all.filter(
+    (s) =>
+      s.imageUrl?.startsWith('/skins/') &&
+      s.imageUrl?.endsWith('.webp') &&
+      !excludeIds.has(s.id),
+  );
+  const seenNames = new Set();
+  const distinct = [];
+  const shuffled = [...imageBacked].sort(() => Math.random() - 0.5);
+  for (const s of shuffled) {
+    if (seenNames.has(s.name)) continue;
+    seenNames.add(s.name);
+    distinct.push(s);
+    if (distinct.length >= n) break;
+  }
+  return distinct;
+}
+
+/** Pick `n` placeholder skins (vault rows whose imageUrl isn't a real
+ *  /skins/...webp). These are the "no tier render — Not available in
+ *  demo on equip" entries Captain wants in every demo inventory. */
+async function pickPlaceholderSkinTemplates(db, n) {
+  const all = await db
+    .select()
+    .from(skins)
+    .where(isNull(skins.userId));
+  const placeholders = all.filter(
+    (s) =>
+      !(s.imageUrl?.startsWith('/skins/') && s.imageUrl?.endsWith('.webp')),
+  );
+  const shuffled = [...placeholders].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, n);
+}
+
+async function pickVaultModsByRarity(db, rarity, n) {
+  const all = await db
+    .select()
+    .from(mods)
+    .where(and(eq(mods.rarity, rarity), isNull(mods.userId)));
+  const seenNames = new Set();
+  const shuffled = [...all].sort(() => Math.random() - 0.5);
+  const distinct = [];
+  for (const m of shuffled) {
+    if (seenNames.has(m.name)) continue;
+    seenNames.add(m.name);
+    distinct.push(m);
+    if (distinct.length >= n) break;
+  }
+  return distinct;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Cloning - copy a vault template into a userId-owned row                    */
+/* -------------------------------------------------------------------------- */
+
+async function cloneSkin(db, userId, template) {
   if (!template) return null;
   const [row] = await db
     .insert(skins)
@@ -157,12 +239,7 @@ async function cloneSkin(userId, template) {
   return row;
 }
 
-/**
- * Insert a brand-new mod row owned by `userId`, copying every field that
- * defines the mod's behavior (so the demo player has a real, bindable
- * mod rather than a reference to the shared catalog row).
- */
-async function cloneMod(userId, template) {
+async function cloneMod(db, userId, template) {
   if (!template) return null;
   const [row] = await db
     .insert(mods)
@@ -182,137 +259,166 @@ async function cloneMod(userId, template) {
   return row;
 }
 
-/**
- * Pick `n` distinct mod templates of the given rarity. Distinct by name so
- * the demo doesn't end up with two clones of the same mod when one is
- * enough.
- */
-async function pickDistinctModTemplates(rarity, n) {
-  const all = await db
-    .select()
-    .from(mods)
-    .where(eq(mods.rarity, rarity));
-  const byName = new Map();
-  for (const m of all) {
-    if (!byName.has(m.name)) byName.set(m.name, m);
-  }
-  const unique = Array.from(byName.values());
-  const out = [];
-  const used = new Set();
-  while (out.length < n && unique.length > 0) {
-    const idx = Math.floor(Math.random() * unique.length);
-    if (used.has(idx)) {
-      if (used.size >= unique.length) break;
-      continue;
-    }
-    used.add(idx);
-    out.push(unique[idx]);
-  }
-  return out;
-}
-
 /* -------------------------------------------------------------------------- */
-/* Race history generator                                                     */
+/* Real-race history                                                          */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Build N completed-race rows for one demo drone, distributed across the
- * past `RACE_HISTORY_DAYS` and biased to roughly hit the drone's target
- * ELO via the rolled win rate. Returns the rows plus aggregate counts the
- * caller folds into the drone's wins/losses/totalRaces.
+ * Run RACES_PER_DRONE real `simulateRace` matches against bracket-eligible
+ * bots, write each race row, update both drones' aggregates after each
+ * race. Captain spec: race history must be indistinguishable from live
+ * gameplay - same engine, same ELO formula, same point payout.
  */
-function generateRaceRows({ demoDrone, bots, allTracks, count }) {
-  const winRate = targetWinRate(demoDrone.targetElo);
-  const rows = [];
+async function runRealRaces(db, demoDrone, allBots, allTracks) {
+  const eligibleTracks = allTracks.filter(
+    (t) => demoDrone.level >= t.levelMin && demoDrone.level <= t.levelMax,
+  );
+  const eligibleBots = allBots.filter(
+    (b) => Math.abs(b.level - demoDrone.level) <= 3,
+  );
+  if (eligibleTracks.length === 0 || eligibleBots.length === 0) {
+    return { wins: 0, losses: 0, points: 0, finalElo: demoDrone.eloRating };
+  }
+
+  // Mutable local view of the demo drone's evolving ELO. The DB row is
+  // written once at the end; intermediate races fold into this counter.
+  let droneElo = demoDrone.eloRating;
   let wins = 0;
   let losses = 0;
+  let points = 0;
 
-  for (let i = 0; i < count; i += 1) {
-    const eligibleTracks = allTracks.filter(
-      (t) => demoDrone.level >= t.levelMin && demoDrone.level <= t.levelMax,
-    );
-    const track = pick(eligibleTracks.length > 0 ? eligibleTracks : allTracks);
+  for (let i = 0; i < RACES_PER_DRONE; i += 1) {
+    const track = pick(eligibleTracks);
+    const bot = pick(eligibleBots);
+    const weather = randomWeather();
+    const timeOfDay = randomTimeOfDay();
 
-    const eligibleBots = bots.filter(
-      (b) => Math.abs(b.level - demoDrone.level) <= 3,
-    );
-    const bot = pick(eligibleBots.length > 0 ? eligibleBots : bots);
-    if (!bot) continue;
-
-    const demoWon = Math.random() < winRate;
-    if (demoWon) wins += 1;
-    else losses += 1;
-
+    // Randomise drone1/drone2 slot so the demo doesn't always sit in the
+    // same column on the race detail page.
     const demoFirst = Math.random() < 0.5;
-    const drone1Id = demoFirst ? demoDrone.id : bot.id;
-    const drone2Id = demoFirst ? bot.id : demoDrone.id;
-    const winnerDroneId = demoWon ? demoDrone.id : bot.id;
+    const demoView = { ...demoDrone, eloRating: droneElo };
+    const drone1 = demoFirst ? demoView : bot;
+    const drone2 = demoFirst ? bot : demoView;
 
-    const winnerTime = 28 + Math.random() * 12;
-    const loserTime = winnerTime + 0.5 + Math.random() * 4;
-    const drone1Won = drone1Id === winnerDroneId;
-    const drone1Time = drone1Won ? winnerTime : loserTime;
-    const drone2Time = drone1Won ? loserTime : winnerTime;
+    const result = simulateRace(drone1, drone2, track, weather, timeOfDay);
+    const demoWon = result.winnerId === demoDrone.id;
 
-    const eloSwing = 14 + Math.floor(Math.random() * 5);
-    const drone1IsDemo = drone1Id === demoDrone.id;
-    const demoEloChange = demoWon ? eloSwing : -eloSwing;
-    const botEloChange = -demoEloChange;
+    const winnerEloBefore = demoWon ? droneElo : bot.eloRating;
+    const loserEloBefore = demoWon ? bot.eloRating : droneElo;
+    const { newWinnerElo, newLoserElo } = calculateNewElo(
+      winnerEloBefore,
+      loserEloBefore,
+    );
+    const pointsAwarded = calculateRacePoints(
+      track.difficulty,
+      winnerEloBefore,
+      loserEloBefore,
+    );
 
-    const ageMs =
-      Math.random() * RACE_HISTORY_DAYS * 24 * 60 * 60 * 1000;
+    const drone1EloBefore = demoFirst ? droneElo : bot.eloRating;
+    const drone2EloBefore = demoFirst ? bot.eloRating : droneElo;
+    const drone1EloAfter =
+      result.winnerId === drone1.id ? newWinnerElo : newLoserElo;
+    const drone2EloAfter =
+      result.winnerId === drone2.id ? newWinnerElo : newLoserElo;
+
+    // Spread races across the past ~30 days so the dashboard timeline
+    // doesn't show 80 races stacked at 'just now'.
+    const ageMs = Math.random() * 30 * 24 * 60 * 60 * 1000;
     const createdAt = new Date(Date.now() - ageMs);
 
-    rows.push({
+    await db.insert(races).values({
       status: 'completed',
-      scheduledAt: createdAt,
       createdAt,
-      drone1Id,
-      drone2Id,
+      scheduledAt: createdAt,
+      drone1Id: drone1.id,
+      drone2Id: drone2.id,
       trackId: track.id,
-      winnerDroneId,
-      pointsAwarded: demoWon ? 3 : 0,
-      xpWinner: 10,
-      xpLoser: 4,
-      timeOfDay: pick(TIMES_OF_DAY),
-      weather: pick(WEATHERS),
-      drone1Time: drone1Time.toFixed(4),
-      drone2Time: drone2Time.toFixed(4),
-      drone1EloBefore: drone1IsDemo ? demoDrone.targetElo : (bot.eloRating ?? 1000),
-      drone2EloBefore: drone1IsDemo ? (bot.eloRating ?? 1000) : demoDrone.targetElo,
-      drone1EloChange: drone1IsDemo ? demoEloChange : botEloChange,
-      drone2EloChange: drone1IsDemo ? botEloChange : demoEloChange,
+      winnerDroneId: result.winnerId,
+      pointsAwarded,
+      xpWinner: XP_PER_WIN,
+      xpLoser: XP_PER_LOSS,
+      timeOfDay,
+      weather,
+      drone1Time: String(result.drone1Time),
+      drone2Time: String(result.drone2Time),
+      drone1EloBefore,
+      drone2EloBefore,
+      drone1EloChange: drone1EloAfter - drone1EloBefore,
+      drone2EloChange: drone2EloAfter - drone2EloBefore,
+      raceLog: result.raceLog,
     });
+
+    // Bot side-effects: ELO drift + win/loss counters so the bot pool
+    // looks alive across many demo accounts.
+    const botNewElo = demoWon ? newLoserElo : newWinnerElo;
+    await db
+      .update(drones)
+      .set({
+        eloRating: botNewElo,
+        totalRaces: sql`${drones.totalRaces} + 1`,
+        wins: demoWon ? drones.wins : sql`${drones.wins} + 1`,
+        losses: demoWon ? sql`${drones.losses} + 1` : drones.losses,
+      })
+      .where(eq(drones.id, bot.id));
+    bot.eloRating = botNewElo;
+
+    droneElo = demoWon ? newWinnerElo : newLoserElo;
+    if (demoWon) {
+      wins += 1;
+      points += pointsAwarded;
+    } else {
+      losses += 1;
+    }
   }
-  return { rows, wins, losses };
+
+  return { wins, losses, points, finalElo: droneElo };
 }
 
 /* -------------------------------------------------------------------------- */
-/* Main                                                                       */
+/* Equip helpers                                                              */
+/* -------------------------------------------------------------------------- */
+
+async function equipClonedSkin(db, drone, skinRow) {
+  await db.insert(droneSkins).values({
+    droneId: drone.id,
+    skinId: skinRow.id,
+    isEquipped: true,
+  });
+  await db
+    .update(drones)
+    .set({ appliedSkinId: skinRow.id })
+    .where(eq(drones.id, drone.id));
+}
+
+/* -------------------------------------------------------------------------- */
+/* Main per-account function                                                  */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Provision a fresh PILOT_* user with a pre-progressed account: 7 drones
- * across all tiers, equipped legendary + epic skins (cloned to private
- * rows so they can't collide with other players), an unbound inventory,
- * mods on a few drones, and a back-history of 30-80 completed races per
- * drone so the dashboard / leaderboard / drone pages all have data to
- * render.
+ * Fully provision one demo account. Idempotency caller's responsibility:
+ * skip if the user already has drones. Inputs:
+ *   - db: a Drizzle client (caller controls which DB)
+ *   - userId: id of the just-created PILOT_* row
+ *   - demoIndex: 0..9, drives the rotation of VIPER skin / unbound
+ *     legendary / legendary mod so consecutive demo accounts don't all
+ *     look identical.
  *
- * Best-effort: writes are sequenced so partial failures still leave a
- * usable account (Neon HTTP has no transactions). The route handler logs
- * any error and signs the user in regardless.
+ * Returns row counts for the orchestrator's report.
  *
- * @param {string} userId - id of the just-created PILOT_* user row
+ * @param {{ db: object, userId: string, demoIndex: number }} args
  */
-export async function seedDemoPlayer(userId) {
-  // 1. Set the volts balance.
+export async function seedDemoAccount({ db, userId, demoIndex }) {
+  const counts = { drones: 0, skins: 0, mods: 0, races: 0 };
+  const usedSkinIds = new Set();
+
+  // 1. Volts + slots.
   await db
     .update(users)
-    .set({ points: 110_000, activeDroneSlots: 3 })
+    .set({ points: STARTING_VOLTS, activeDroneSlots: ACTIVE_DRONE_SLOTS })
     .where(eq(users.id, userId));
 
-  // 2. Create the 7 drones.
+  // 2. 8 drones.
   const droneRows = DEMO_DRONES.map((d) => {
     const { stats, tsb } = buildDemoStats(d.level);
     return {
@@ -324,15 +430,16 @@ export async function seedDemoPlayer(userId) {
       totalStatBudget: tsb,
       ...stats,
       active: d.active,
-      eloRating: d.targetElo,
+      eloRating: 1000,
       imageUrl: '/drones/default.png',
       isBot: false,
     };
   });
   const insertedDrones = await db.insert(drones).values(droneRows).returning();
   const droneByName = Object.fromEntries(insertedDrones.map((d) => [d.name, d]));
+  counts.drones = insertedDrones.length;
 
-  // Audit: each new drone gets a creation row in ownership history.
+  // 3. Ownership audit rows.
   await db.insert(droneOwnershipHistory).values(
     insertedDrones.map((d) => ({
       droneId: d.id,
@@ -341,178 +448,195 @@ export async function seedDemoPlayer(userId) {
     })),
   );
 
-  // 3. Equip skins on STRIKER / PHANTOM / VIPER. Each is a fresh clone of
-  //    the named template so demos never share inventory rows.
-  for (const def of DEMO_DRONES) {
-    if (!def.equippedSkin) continue;
-    const drone = droneByName[def.name];
-    if (!drone) continue;
+  // 4a. STRIKER -> Diamond Hands (legendary, always equippable).
+  const dhTemplate = await findVaultSkinByName(db, 'Diamond Hands');
+  const dhClone = await cloneSkin(db, userId, dhTemplate);
+  if (dhClone) {
+    counts.skins += 1;
+    usedSkinIds.add(dhClone.id);
+    await equipClonedSkin(db, droneByName.STRIKER, dhClone);
+  }
 
-    let template = await findSkinTemplate(
-      def.equippedSkin,
-      def.skinFallbackRarity,
-    );
-    let cloned = await cloneSkin(userId, template);
-    if (!cloned) continue;
-
-    // Frozen Abyss has a tier-4 webp on disk but isn't yet registered in
-    // APPLIED_RENDERS, so canEquipSkin would refuse. Fall back to a
-    // template that IS renderable on the drone's tier (Captain-approved
-    // substitution for the demo).
-    if (!canEquipSkin(cloned, drone.level)) {
-      const fallback = await findSkinTemplate('Chrome Fury', 'rare');
-      const reclone = await cloneSkin(userId, fallback);
-      if (reclone && canEquipSkin(reclone, drone.level)) {
-        // Release the unrenderable clone so it doesn't sit in the
-        // demo's inventory looking broken.
-        await db.delete(skins).where(eq(skins.id, cloned.id));
-        cloned = reclone;
-      } else {
-        // Nothing to equip - leave the original clone in inventory so
-        // the demo at least owns the cosmetic, just unequipped.
-        await db.insert(droneSkins).values({
-          droneId: drone.id,
-          skinId: cloned.id,
-          isEquipped: false,
-        });
-        continue;
-      }
+  // 4b. RUNNER -> Ember (common with tier-1 render).
+  const emberTemplate = await findVaultSkinByName(db, 'Ember');
+  const emberClone = await cloneSkin(db, userId, emberTemplate);
+  if (emberClone) {
+    counts.skins += 1;
+    usedSkinIds.add(emberClone.id);
+    if (canEquipSkin(emberClone, droneByName.RUNNER.level)) {
+      await equipClonedSkin(db, droneByName.RUNNER, emberClone);
+    } else {
+      // Render not registered -> still bind so the player owns the cosmetic.
+      await db.insert(droneSkins).values({
+        droneId: droneByName.RUNNER.id,
+        skinId: emberClone.id,
+        isEquipped: false,
+      });
     }
-
-    await db.insert(droneSkins).values({
-      droneId: drone.id,
-      skinId: cloned.id,
-      isEquipped: true,
-    });
-    await db
-      .update(drones)
-      .set({ appliedSkinId: cloned.id })
-      .where(eq(drones.id, drone.id));
   }
 
-  // 4. Unbound skins (player binds them later from inventory).
-  for (const { name, fallbackRarity } of UNBOUND_SKINS) {
-    const template = await findSkinTemplate(name, fallbackRarity);
-    if (template) await cloneSkin(userId, template);
+  // 4c. VIPER -> rotated tier-4 epic.
+  const viperSkinName =
+    VIPER_SKIN_ROTATION[demoIndex % VIPER_SKIN_ROTATION.length];
+  const viperTemplate = await findVaultSkinByName(db, viperSkinName);
+  const viperClone = await cloneSkin(db, userId, viperTemplate);
+  if (viperClone) {
+    counts.skins += 1;
+    usedSkinIds.add(viperClone.id);
+    if (canEquipSkin(viperClone, droneByName.VIPER.level)) {
+      await equipClonedSkin(db, droneByName.VIPER, viperClone);
+    } else {
+      await db.insert(droneSkins).values({
+        droneId: droneByName.VIPER.id,
+        skinId: viperClone.id,
+        isEquipped: false,
+      });
+    }
   }
 
-  // 5. Bound-but-not-equipped collection skins: 2 commons + 1 rare,
-  //    each on a random non-VIPER demo drone (VIPER already has its
-  //    equipped slot filled).
-  const commonTemplate1 = await pickRandomTemplateByRarity('common');
-  const commonTemplate2 = await pickRandomTemplateByRarity('common', commonTemplate1?.id);
-  const rareTemplate = await pickRandomTemplateByRarity('rare');
-  const collectionDronePool = insertedDrones.filter((d) => d.name !== 'VIPER');
-  for (const template of [commonTemplate1, commonTemplate2, rareTemplate]) {
-    if (!template) continue;
-    const cloned = await cloneSkin(userId, template);
-    if (!cloned) continue;
-    const drone = pick(collectionDronePool);
-    await db.insert(droneSkins).values({
-      droneId: drone.id,
-      skinId: cloned.id,
-      isEquipped: false,
-    });
+  // 5. Unbound legendary skin (rotated).
+  const unboundLegendaryName =
+    UNBOUND_LEGENDARY_ROTATION[demoIndex % UNBOUND_LEGENDARY_ROTATION.length];
+  const unboundLegendaryTemplate = await findVaultSkinByName(
+    db,
+    unboundLegendaryName,
+  );
+  const unboundLegendaryClone = await cloneSkin(
+    db,
+    userId,
+    unboundLegendaryTemplate,
+  );
+  if (unboundLegendaryClone) {
+    counts.skins += 1;
+    usedSkinIds.add(unboundLegendaryClone.id);
   }
 
-  // 6. Mods.
-  const equippedCommonMods = await pickDistinctModTemplates('common', 2);
-  const equippedRareMods = await pickDistinctModTemplates('rare', 1);
-  const unboundCommonMods = await pickDistinctModTemplates('common', 2);
+  // 6. Unbound legendary mod (rotated).
+  const legendaryModName =
+    LEGENDARY_MOD_ROTATION[demoIndex % LEGENDARY_MOD_ROTATION.length];
+  const legendaryModTemplate = await findVaultModByName(db, legendaryModName);
+  if (await cloneMod(db, userId, legendaryModTemplate)) counts.mods += 1;
 
-  const modEquipPlan = [
-    { drone: droneByName.STRIKER, template: equippedCommonMods[0] },
-    { drone: droneByName.PHANTOM, template: equippedCommonMods[1] },
-    { drone: droneByName.SPARK, template: equippedRareMods[0] },
-  ];
-  for (const { drone, template } of modEquipPlan) {
-    if (!drone || !template) continue;
-    const cloned = await cloneMod(userId, template);
-    if (!cloned) continue;
-    await db.insert(droneMods).values({
-      droneId: drone.id,
-      modId: cloned.id,
-      isEquipped: true,
-    });
-    await db
-      .update(drones)
-      .set({ appliedModId: cloned.id })
-      .where(eq(drones.id, drone.id));
-  }
-  for (const template of unboundCommonMods) {
-    if (!template) continue;
-    await cloneMod(userId, template);
+  // 7. 2-3 unbound placeholder skins.
+  const placeholders = await pickPlaceholderSkinTemplates(db, randInt(2, 3));
+  for (const t of placeholders) {
+    const cloned = await cloneSkin(db, userId, t);
+    if (cloned) {
+      counts.skins += 1;
+      usedSkinIds.add(cloned.id);
+    }
   }
 
-  // 7. Race history. Pull bots + tracks once, then generate per-drone.
-  const bots = await db
+  // 8. 2-3 unbound mods (common/rare mix).
+  const unboundCommonMods = await pickVaultModsByRarity(db, 'common', randInt(1, 2));
+  const unboundRareMods = await pickVaultModsByRarity(db, 'rare', 1);
+  for (const t of [...unboundCommonMods, ...unboundRareMods]) {
+    if (await cloneMod(db, userId, t)) counts.mods += 1;
+  }
+
+  // 9. SCOUT collection: 1 bound-but-not-equipped skin (different from used).
+  const scoutTemplates = await pickVaultSkinTemplatesByRarity(
+    db,
+    'rare',
+    1,
+    usedSkinIds,
+  );
+  if (scoutTemplates.length > 0) {
+    const cloned = await cloneSkin(db, userId, scoutTemplates[0]);
+    if (cloned) {
+      counts.skins += 1;
+      usedSkinIds.add(cloned.id);
+      await db.insert(droneSkins).values({
+        droneId: droneByName.SCOUT.id,
+        skinId: cloned.id,
+        isEquipped: false,
+      });
+    }
+  }
+
+  // 10. BOLT collection: 1 bound-but-not-equipped mod.
+  const boltMods = await pickVaultModsByRarity(db, 'common', 1);
+  if (boltMods.length > 0) {
+    const cloned = await cloneMod(db, userId, boltMods[0]);
+    if (cloned) {
+      counts.mods += 1;
+      await db.insert(droneMods).values({
+        droneId: droneByName.BOLT.id,
+        modId: cloned.id,
+        isEquipped: false,
+      });
+    }
+  }
+
+  // 11. Real race history.
+  const allBots = await db
     .select()
     .from(drones)
     .where(eq(drones.isBot, true));
   const allTracks = await db.select().from(tracks);
-
-  if (bots.length === 0 || allTracks.length === 0) {
-    // Without bots or tracks we can't seed history. The demo still
-    // works but the recent-races feed will be empty. Captain's seed
-    // step is expected to have populated both already.
-    return;
+  if (allBots.length === 0 || allTracks.length === 0) {
+    return counts;
   }
 
   let userTotalRaces = 0;
   let userTotalWins = 0;
+  let userVoltsEarned = 0;
 
   for (const def of DEMO_DRONES) {
     const drone = droneByName[def.name];
-    if (!drone) continue;
-    const count = randInt(MIN_RACES_PER_DRONE, MAX_RACES_PER_DRONE);
-    const { rows, wins, losses } = generateRaceRows({
-      demoDrone: { ...drone, targetElo: def.targetElo },
-      bots,
-      allTracks,
-      count,
-    });
-
-    for (let i = 0; i < rows.length; i += RACE_INSERT_CHUNK) {
-      await db.insert(races).values(rows.slice(i, i + RACE_INSERT_CHUNK));
-    }
+    const result = await runRealRaces(db, drone, allBots, allTracks);
 
     await db
       .update(drones)
       .set({
-        wins,
-        losses,
-        totalRaces: rows.length,
+        wins: result.wins,
+        losses: result.losses,
+        totalRaces: result.wins + result.losses,
+        eloRating: result.finalElo,
       })
       .where(eq(drones.id, drone.id));
 
-    userTotalRaces += rows.length;
-    userTotalWins += wins;
+    userTotalRaces += result.wins + result.losses;
+    userTotalWins += result.wins;
+    userVoltsEarned += result.points;
+    counts.races += result.wins + result.losses;
   }
 
-  // 8. Roll drone-level aggregates up onto the user row so dashboard +
-  //    profile cards read consistent numbers.
+  // 12. Roll up onto the user row.
   await db
     .update(users)
     .set({
       totalRaces: userTotalRaces,
       totalWins: userTotalWins,
-      eloRating: 1000 + Math.round((userTotalWins - (userTotalRaces - userTotalWins)) / 2),
+      points: STARTING_VOLTS + userVoltsEarned,
+      eloRating:
+        1000 +
+        Math.round((userTotalWins - (userTotalRaces - userTotalWins)) / 2),
     })
     .where(eq(users.id, userId));
+
+  return counts;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Demo-route fallback wrapper                                                */
+/* -------------------------------------------------------------------------- */
+
 /**
- * Pick one image-backed skin template of the given rarity. Optional
- * `excludeId` lets the caller avoid cloning the same template twice in
- * a row (used when picking two distinct commons for the collection).
+ * Used by /api/auth/demo when all 10 pre-seeded accounts are claimed.
+ * Builds its own Drizzle client off DATABASE_URL (the live app DB) and
+ * picks a random `demoIndex` so the fresh account looks like one of the
+ * 10 archetypes.
+ *
+ * @param {string} userId
  */
-async function pickRandomTemplateByRarity(rarity, excludeId) {
-  const conditions = [eq(skins.rarity, rarity)];
-  if (excludeId) conditions.push(ne(skins.id, excludeId));
-  const all = await db
-    .select()
-    .from(skins)
-    .where(and(...conditions));
-  if (all.length === 0) return null;
-  return pick(all);
+export async function seedDemoPlayer(userId) {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL not set');
+  const localDb = drizzle(neon(url), { schema });
+  return seedDemoAccount({
+    db: localDb,
+    userId,
+    demoIndex: Math.floor(Math.random() * 10),
+  });
 }

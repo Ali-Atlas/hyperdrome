@@ -2,10 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Trophy } from 'lucide-react';
+import { Plus, Trophy } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Skeleton from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
+import Modal from '@/components/ui/Modal';
+import Button from '@/components/ui/Button';
+import VoltIcon from '@/components/ui/VoltIcon';
+import { useToast } from '@/components/ui/Toast';
+import { useSession } from '@/hooks/useSession';
 import {
   cn,
   getLevelColor,
@@ -14,6 +19,16 @@ import {
 } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import styles from './page.module.css';
+
+/** NPC vendor price + free-drone milestones. Mirror values in
+ *  app/api/drones/create/route.js (DRONE_PRICE=3500). The milestones are
+ *  display-only here; whatever system grants the free drones lives
+ *  elsewhere and the toast effect just reacts to the drone count + race
+ *  total crossing a threshold between page loads. */
+const DRONE_PRICE = 3500;
+const MILESTONE_FIRST = 3000;
+const MILESTONE_SECOND = 10000;
+const FREE_DRONE_CAP = 3;
 
 const TIERS = ['steel', 'orange', 'purple', 'gold'];
 const TIER_LABELS = {
@@ -41,10 +56,21 @@ function winRate(d) {
 }
 
 export default function DronesPage() {
+  const session = useSession();
+  const { showToast } = useToast();
   const [drones, setDrones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // 'all' | 'active' | 'inactive'
   const [sort, setSort] = useState('level');
+  const [vendorOpen, setVendorOpen] = useState(false);
+  const [vendorPending, setVendorPending] = useState(false);
+  const [vendorError, setVendorError] = useState(null);
+
+  async function refreshDrones() {
+    const res = await fetch('/api/drones');
+    const body = await res.json();
+    if (res.ok && body?.data) setDrones(body.data);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -66,6 +92,75 @@ export default function DronesPage() {
       cancelled = true;
     };
   }, []);
+
+  // Milestone toast: when a free drone shows up between page loads (drone
+  // count went up while totalRaces crossed a threshold), surface it. State
+  // is per-user in localStorage so the same browser doesn't re-fire on
+  // every reload, and a different user on the same browser has its own
+  // baseline.
+  useEffect(() => {
+    if (loading || drones.length === 0) return;
+    const userId = session.user?.id;
+    if (!userId) return;
+    const totalRaces = drones.reduce((s, d) => s + (d.totalRaces ?? 0), 0);
+    const droneCount = drones.length;
+    const key = `hyperdrome:drones:milestone:${userId}`;
+    let prev = null;
+    try {
+      prev = JSON.parse(localStorage.getItem(key) || 'null');
+    } catch {
+      prev = null;
+    }
+    if (prev) {
+      const crossedFirst =
+        prev.totalRaces < MILESTONE_FIRST && totalRaces >= MILESTONE_FIRST;
+      const crossedSecond =
+        prev.totalRaces < MILESTONE_SECOND && totalRaces >= MILESTONE_SECOND;
+      const droneAdded = droneCount > prev.droneCount;
+      if ((crossedFirst || crossedSecond) && droneAdded) {
+        showToast(
+          'Milestone reached! New drone added to your fleet.',
+          'success',
+        );
+      }
+    }
+    try {
+      localStorage.setItem(
+        key,
+        JSON.stringify({ totalRaces, droneCount }),
+      );
+    } catch {
+      /* localStorage may be disabled - skip silently */
+    }
+  }, [loading, drones, session.user?.id, showToast]);
+
+  async function handlePurchase() {
+    setVendorPending(true);
+    setVendorError(null);
+    try {
+      const res = await fetch('/api/drones/create', { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) {
+        setVendorError(body?.error?.message || 'Purchase failed.');
+        setVendorPending(false);
+        return;
+      }
+      await refreshDrones();
+      showToast('Drone added to your fleet.', 'success');
+      setVendorOpen(false);
+    } catch (err) {
+      console.error(err);
+      setVendorError('Purchase failed. Try again.');
+    } finally {
+      setVendorPending(false);
+    }
+  }
+
+  function closeVendor() {
+    if (vendorPending) return;
+    setVendorOpen(false);
+    setVendorError(null);
+  }
 
   const fleet = useMemo(() => computeFleetStats(drones), [drones]);
 
@@ -118,12 +213,153 @@ export default function DronesPage() {
                 {visibleDrones.map((drone) => (
                   <DroneCard key={drone.id} drone={drone} />
                 ))}
+                <VendorCard onClick={() => setVendorOpen(true)} />
               </div>
             )}
           </>
         )}
+
+        <VendorModal
+          isOpen={vendorOpen}
+          onClose={closeVendor}
+          onPurchase={handlePurchase}
+          pending={vendorPending}
+          error={vendorError}
+          userPoints={session.user?.points ?? 0}
+          totalRaces={drones.reduce(
+            (s, d) => s + (d.totalRaces ?? 0),
+            0,
+          )}
+          droneCount={drones.length}
+        />
       </div>
     </NavShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* NPC vendor card + modal                                                     */
+/* -------------------------------------------------------------------------- */
+
+function VendorCard({ onClick }) {
+  return (
+    <button
+      type="button"
+      className={styles.vendorCard}
+      onClick={onClick}
+      aria-label="Recruit new drone"
+    >
+      <Plus
+        size={48}
+        strokeWidth={1.5}
+        className={styles.vendorIcon}
+        aria-hidden="true"
+      />
+      <span className={styles.vendorTitle}>New Drone</span>
+      <span className={styles.vendorPrice}>
+        <VoltIcon size={14} />
+        {DRONE_PRICE.toLocaleString()}
+      </span>
+    </button>
+  );
+}
+
+function MilestoneRow({ label, current, target }) {
+  const progress = Math.min(100, (current / target) * 100);
+  return (
+    <div className={styles.milestone}>
+      <div className={styles.milestoneLabel}>{label}</div>
+      <div className={styles.milestoneCount}>
+        {current.toLocaleString()} / {target.toLocaleString()} races
+      </div>
+      <div className={styles.milestoneTrack} aria-hidden="true">
+        <div
+          className={styles.milestoneFill}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function VendorModal({
+  isOpen,
+  onClose,
+  onPurchase,
+  pending,
+  error,
+  userPoints,
+  totalRaces,
+  droneCount,
+}) {
+  const canAfford = userPoints >= DRONE_PRICE;
+  // Captain spec: show second milestone only when fleet is small AND the
+  // first milestone was already crossed.
+  const showSecond =
+    droneCount < FREE_DRONE_CAP && totalRaces >= MILESTONE_FIRST;
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Recruit New Drone" size="md">
+      <div className={styles.vendorModalBody}>
+        <img
+          src="/drones/tier-1.webp"
+          alt="Tier 1 starter drone"
+          className={styles.vendorModalImage}
+        />
+        <p className={styles.vendorModalDesc}>
+          LV 1 starter drone with randomized stats. Includes 1 random
+          common skin and 1 random common mod.
+        </p>
+        <div className={styles.vendorModalPriceRow}>
+          <VoltIcon size={20} />
+          <span className={styles.vendorModalPrice}>
+            {DRONE_PRICE.toLocaleString()}
+          </span>
+        </div>
+
+        <div className={styles.milestoneList}>
+          <MilestoneRow
+            label="Free drone at 3,000 races"
+            current={totalRaces}
+            target={MILESTONE_FIRST}
+          />
+          {showSecond && (
+            <MilestoneRow
+              label="Free drone at 10,000 races"
+              current={totalRaces}
+              target={MILESTONE_SECOND}
+            />
+          )}
+          <p className={styles.milestoneCap}>XP drones cap at 3</p>
+        </div>
+
+        {error && <p className={styles.vendorError}>{error}</p>}
+
+        <div className={styles.vendorActions}>
+          <Button
+            variant="ghost"
+            size="md"
+            onClick={onClose}
+            disabled={pending}
+          >
+            Cancel
+          </Button>
+          <span
+            title={!canAfford ? 'Not enough Volts' : undefined}
+            className={styles.vendorPurchaseWrap}
+          >
+            <Button
+              variant="primary"
+              size="md"
+              onClick={onPurchase}
+              loading={pending}
+              disabled={!canAfford || pending}
+            >
+              Purchase
+            </Button>
+          </span>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

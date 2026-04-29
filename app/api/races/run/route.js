@@ -52,7 +52,7 @@ async function handler(request) {
     return ok(summary);
   } catch (err) {
     console.error('[api/races/run] race cycle failed:', err);
-    return fail(err?.message || 'Race cycle failed', 500);
+    return fail('Race cycle failed', 500);
   }
 }
 

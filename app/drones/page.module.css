@@ -734,3 +734,201 @@
     justify-content: space-between;
   }
 }
+
+/* ==========================================================================
+ * NPC vendor card - sits as the final cell of the grid. Dashed border
+ * + faded bg so it reads as an empty slot rather than a real drone.
+ * Captain spec: 2px dashed var(--border-default), rgba(18,18,18,0.5) bg.
+ * ========================================================================== */
+
+.vendorCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background: rgba(18, 18, 18, 0.5);
+  border: 2px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  transition:
+    border-color var(--duration-normal) var(--ease-out),
+    background var(--duration-normal) var(--ease-out);
+}
+
+.vendorCard:hover,
+.vendorCard:focus-visible {
+  border-color: var(--accent-primary);
+  background: rgba(18, 18, 18, 0.7);
+  outline: none;
+}
+
+.vendorCard:hover .vendorIcon,
+.vendorCard:focus-visible .vendorIcon {
+  color: var(--accent-primary);
+}
+
+.vendorIcon {
+  color: var(--text-tertiary);
+  transition: color var(--duration-normal) var(--ease-out);
+}
+
+.vendorTitle {
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.vendorPrice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--accent-primary);
+  letter-spacing: 0.04em;
+}
+
+/* ==========================================================================
+ * Recruit-new-drone purchase modal
+ * ========================================================================== */
+
+.vendorModalBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-2) var(--space-1);
+}
+
+.vendorModalImage {
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.5));
+}
+
+.vendorModalDesc {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.5;
+  max-width: 380px;
+}
+
+.vendorModalPriceRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-primary);
+}
+
+.vendorModalPrice {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  letter-spacing: 0.04em;
+}
+
+/* ---- Milestone progress block ---- */
+
+.milestoneList {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.milestone {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  row-gap: 4px;
+  column-gap: var(--space-3);
+}
+
+.milestoneLabel {
+  grid-column: 1;
+  grid-row: 1;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.milestoneCount {
+  grid-column: 2;
+  grid-row: 1;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.milestoneTrack {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.milestoneFill {
+  height: 100%;
+  background: var(--accent-primary);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.milestoneCap {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+/* ---- Footer + actions ---- */
+
+.vendorError {
+  margin: 0;
+  width: 100%;
+  padding: var(--space-3);
+  background: rgba(207, 102, 121, 0.12);
+  border: 1px solid var(--accent-error);
+  border-radius: var(--radius-sm);
+  color: var(--accent-error);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.vendorActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+/* The Purchase button gets a wrapper so the native title tooltip ("Not
+   enough Volts") works while the button itself is disabled - disabled
+   buttons swallow pointer events on most browsers, hiding the tooltip. */
+.vendorPurchaseWrap {
+  display: inline-flex;
+}

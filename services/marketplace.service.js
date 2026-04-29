@@ -44,16 +44,6 @@ export async function createListing(userId, itemType, itemId, price) {
       400,
     );
   }
-  // Demo accounts hold cloned cosmetics; letting them list would put
-  // duplicate-named items on the public marketplace and confuse buyers.
-  const [seller] = await db
-    .select({ name: users.name })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  if (seller?.name?.startsWith('PILOT_')) {
-    throw new ApiError('Demo accounts cannot list items.', 400);
-  }
   if (itemType === 'drone') {
     const [drone] = await db
       .select()
@@ -332,26 +322,73 @@ export async function updateListingPrice(userId, listingId, newPrice) {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * Curated default order: image-backed items first, then by rarity rank
+ * (legendary > epic > rare > common), then newest first. The post-fetch
+ * JS sort needs the joined item rows to detect image backing + rarity, so
+ * for the curated path we fetch everything matching the filters and slice
+ * the page after sorting. Volume cap (CURATED_FETCH_CAP) bounds memory if
+ * the active pool ever runs into the thousands.
+ */
+const CURATED_FETCH_CAP = 500;
+const RARITY_RANK = { legendary: 3, epic: 2, rare: 1, common: 0 };
+
+/** Decide whether a listing's display image is a real /skins/...webp render
+ *  vs. a legacy placeholder URL. Mirrors the convention used in
+ *  `app/marketplace/page.jsx` (placeholder skins don't point to /skins/...).
+ */
+function isImageBacked(row) {
+  const url =
+    row.itemType === 'skin'
+      ? row.skin?.imageUrl
+      : row.itemType === 'mod'
+        ? row.mod?.imageUrl
+        : row.drone?.appliedSkin?.imageUrl;
+  return Boolean(url && url.startsWith('/skins/') && url.endsWith('.webp'));
+}
+
+function rarityForRow(row) {
+  if (row.itemType === 'skin') return row.skin?.rarity ?? 'common';
+  if (row.itemType === 'mod') return row.mod?.rarity ?? 'common';
+  return row.drone?.appliedSkin?.rarity ?? 'common';
+}
+
+/**
  * Paginated active listings with filters. Joins drone/skin/seller.
- * @param {object} filters
+ * @param {object} filters - itemType, minPrice, maxPrice, sort ('curated'|'priceHigh'|'priceLow', default 'curated')
  * @param {{ page: number, limit: number }} pagination
  */
 export async function getListings(filters = {}, pagination = { page: 1, limit: 20 }) {
   const { page, limit } = pagination;
   const offset = (page - 1) * limit;
+  const sort = filters.sort ?? 'curated';
 
   const conditions = [eq(marketplaceListings.status, 'active')];
   if (filters.itemType) conditions.push(eq(marketplaceListings.itemType, filters.itemType));
   if (filters.minPrice != null) conditions.push(gte(marketplaceListings.price, filters.minPrice));
   if (filters.maxPrice != null) conditions.push(lte(marketplaceListings.price, filters.maxPrice));
 
-  const rows = await db
+  // For non-curated sorts the original SQL paging applies; for curated we
+  // overfetch up to CURATED_FETCH_CAP and slice after the JS sort.
+  const baseQuery = db
     .select()
     .from(marketplaceListings)
-    .where(and(...conditions))
-    .orderBy(desc(marketplaceListings.createdAt))
-    .limit(limit)
-    .offset(offset);
+    .where(and(...conditions));
+
+  const rows =
+    sort === 'curated'
+      ? await baseQuery
+          .orderBy(desc(marketplaceListings.createdAt))
+          .limit(CURATED_FETCH_CAP)
+      : await baseQuery
+          .orderBy(
+            sort === 'priceLow'
+              ? marketplaceListings.price
+              : sort === 'priceHigh'
+                ? desc(marketplaceListings.price)
+                : desc(marketplaceListings.createdAt),
+          )
+          .limit(limit)
+          .offset(offset);
 
   if (rows.length === 0) return [];
 
@@ -429,13 +466,26 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
   const modMap = Object.fromEntries(modRows.map((m) => [m.id, m]));
   const sellerMap = Object.fromEntries(sellerRows.map((s) => [s.id, s]));
 
-  return rows.map((r) => ({
+  const enriched = rows.map((r) => ({
     ...r,
     drone: r.droneId ? droneMap[r.droneId] : null,
     skin: r.skinId ? skinMap[r.skinId] : null,
     mod: r.modId ? modMap[r.modId] : null,
     seller: sellerMap[r.sellerId] ?? null,
   }));
+
+  if (sort !== 'curated') return enriched;
+
+  enriched.sort((a, b) => {
+    const aImg = isImageBacked(a) ? 1 : 0;
+    const bImg = isImageBacked(b) ? 1 : 0;
+    if (aImg !== bImg) return bImg - aImg;
+    const aR = RARITY_RANK[rarityForRow(a)] ?? 0;
+    const bR = RARITY_RANK[rarityForRow(b)] ?? 0;
+    if (aR !== bR) return bR - aR;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+  return enriched.slice(offset, offset + limit);
 }
 
 /** Active listings owned by the user. */

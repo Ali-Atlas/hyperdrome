@@ -51,16 +51,13 @@ export default async function LandingPage() {
           muted
           loop
           playsInline
+          poster="/hero-poster.webp"
           className={styles.heroVideo}
           aria-hidden="true"
         >
           <source src="/hero-video.mp4" type="video/mp4" />
         </video>
         <div className={styles.heroOverlay} aria-hidden="true" />
-
-        <Link href="/login" className={styles.heroLogin}>
-          Login / Register
-        </Link>
 
         <div className={styles.heroContent}>
           <h1 className={styles.heroTitle}>HYPERDROME</h1>
@@ -140,8 +137,7 @@ export default async function LandingPage() {
           <p className={styles.economyBody}>
             Earn Volts by racing. Spend on stat upgrades, skins, mods,
             and packs. Trade on the{' '}
-            <span className={styles.accent}>player-driven marketplace</span>{' '}
-            with a 5% platform rake.
+            <span className={styles.accent}>player-driven marketplace</span>.
           </p>
         </div>
       </section>

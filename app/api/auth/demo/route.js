@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { and, eq, inArray, notLike } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { auth, signIn } from '@/lib/auth';
 import { seedDemoPlayer } from '@/scripts/seed-demo-player';
@@ -12,12 +13,7 @@ const { users } = schema;
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
-/**
- * In-memory IP bucket. Resets per process; on Vercel each instance keeps
- * its own counter, so the effective limit is "5 per IP per instance per
- * hour." Acceptable for a demo gate; not a hard security boundary.
- * @type {Map<string, { count: number, resetAt: number }>}
- */
+/** @type {Map<string, { count: number, resetAt: number }>} */
 const ipBuckets = new Map();
 
 function getClientIp(request) {
@@ -39,7 +35,22 @@ function checkRateLimit(ip) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Pilot name                                                                 */
+/* Pre-seeded pool                                                            */
+/* -------------------------------------------------------------------------- */
+
+/** Fixed pool of 10 pre-seeded demo emails. seed-production.js owns these. */
+const PRE_SEEDED_EMAILS = Array.from({ length: 10 }, (_, i) => {
+  const num = String(i + 1).padStart(2, '0');
+  return `pilot_d${num}@demo.hyperdrome.gg`;
+});
+
+/** Re-key a claimed pre-seed so the original email no longer matches. */
+function claimedEmailFor() {
+  return `claimed_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@demo.hyperdrome.gg`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Fresh-create                                                               */
 /* -------------------------------------------------------------------------- */
 
 const SUFFIX_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -58,9 +69,20 @@ function randomPilotName() {
 
 /**
  * POST /api/auth/demo
- * Provision a fresh PILOT_* account, seed it, and sign the caller in via
- * the server-only Credentials provider. The response carries a redirect
- * URL the client navigates to after the JWT cookie is set.
+ *
+ * Claim flow:
+ *   1. Try to claim one of PILOT_D01..D10 if any remain unclaimed. The claim
+ *      is an UPDATE that rewrites the email to `claimed_*` so a concurrent
+ *      claimer can't grab the same row. Sign in, redirect. Instant - no
+ *      seeding work, the account already has its drones, items, and races.
+ *   2. If all 10 are claimed, fall back to the original fresh-create flow:
+ *      mint a PILOT_<4chars> user, fire-and-forget `seedDemoPlayer` so the
+ *      dashboard fills in over the next ~30s.
+ *
+ * Both paths produce visually identical accounts (same 8-drone roster,
+ * cloned legendaries, real race history) - the difference is only that
+ * the pre-seeded path is instant and the fallback ramps up while the
+ * dashboard renders.
  */
 export async function POST(request) {
   const session = await auth();
@@ -76,6 +98,50 @@ export async function POST(request) {
     );
   }
 
+  // 1. Try to claim a pre-seeded account.
+  const claimable = await db
+    .select()
+    .from(users)
+    .where(
+      and(
+        inArray(users.email, PRE_SEEDED_EMAILS),
+        notLike(users.email, 'claimed_%'),
+      ),
+    )
+    .orderBy(users.email)
+    .limit(1);
+
+  if (claimable.length > 0) {
+    const target = claimable[0];
+    const newEmail = claimedEmailFor();
+    // Conditional UPDATE: only succeed if the email is still the original.
+    // Guards against two concurrent demo presses claiming the same row.
+    const claimed = await db
+      .update(users)
+      .set({ email: newEmail })
+      .where(and(eq(users.id, target.id), eq(users.email, target.email)))
+      .returning();
+
+    if (claimed.length > 0) {
+      try {
+        await signIn('credentials', {
+          userId: target.id,
+          demoSecret: process.env.NEXTAUTH_SECRET,
+          redirect: false,
+        });
+      } catch (err) {
+        console.error('[demo] signIn (claim path) failed:', err);
+        return NextResponse.json(
+          { error: 'Demo claimed but sign-in failed. Try refreshing.' },
+          { status: 500 },
+        );
+      }
+      return NextResponse.json({ redirectUrl: '/dashboard' });
+    }
+    // The conditional update lost the race - fall through to fresh-create.
+  }
+
+  // 2. Fallback: fresh-create.
   let user = null;
   for (let attempt = 0; attempt < 5 && !user; attempt += 1) {
     const pilotName = randomPilotName();
@@ -92,8 +158,6 @@ export async function POST(request) {
         .returning();
       user = created;
     } catch (err) {
-      // Unique-constraint collision on name/email/username - try a new
-      // suffix. The 5-attempt loop covers this with margin (36^4 keys).
       if (attempt === 4) {
         console.error('[demo] could not allocate pilot name:', err);
         return NextResponse.json(
@@ -118,10 +182,8 @@ export async function POST(request) {
     );
   }
 
-  // Fire-and-forget. The dashboard renders an empty/loading state and
-  // picks up volts, drones, and race history as the seed writes them.
-  // Captain accepted the tradeoff: 1-2s redirect beats holding the user
-  // on the landing page for the full ~30s seed.
+  // Fire-and-forget. Dashboard renders skeletons and picks up state as
+  // the seed writes it. ~30s end-to-end on Neon HTTP.
   seedDemoPlayer(user.id).catch((err) => {
     console.error('[demo] background seedDemoPlayer failed:', err);
   });
