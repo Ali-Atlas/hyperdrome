@@ -5,13 +5,15 @@ import { auth } from '@/lib/auth';
  * Next.js 16 routing proxy (formerly `middleware.js` in prior versions).
  *
  * Two responsibilities:
- *   1. Block /login, /register, /signup. Registration is disabled - PLAY
- *      DEMO is the only entry point. Any visit to those paths bounces to
- *      the landing page.
+ *   1. Block /login, /register, /signup IN PRODUCTION. Registration is
+ *      disabled in the demo build - PLAY DEMO is the only entry point.
+ *      In local dev (NODE_ENV === 'development') these routes pass
+ *      through normally so the maintainer can sign in against a local
+ *      DB.
  *   2. Gate protected app routes. Unauthenticated requests redirect to /.
- *      (Pre-Apr 2026 this redirected to /login; with login blocked, the
- *      landing page is now the canonical fallback so we avoid a redirect
- *      chain.)
+ *      (Pre-Apr 2026 this redirected to /login; with login blocked in
+ *      prod, the landing page is now the canonical fallback so we avoid
+ *      a redirect chain.)
  *
  * Exemptions handled inline:
  *   - /api/auth/*   → handled by NextAuth itself.
@@ -22,11 +24,12 @@ import { auth } from '@/lib/auth';
  * Everything listed in `config.matcher` runs this proxy.
  */
 const BLOCKED_AUTH_PATHS = new Set(['/login', '/register', '/signup']);
+const IS_DEV = process.env.NODE_ENV === 'development';
 
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
-  if (BLOCKED_AUTH_PATHS.has(pathname)) {
+  if (!IS_DEV && BLOCKED_AUTH_PATHS.has(pathname)) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 

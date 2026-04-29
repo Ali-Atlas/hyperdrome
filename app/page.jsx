@@ -59,6 +59,12 @@ export default async function LandingPage() {
         </video>
         <div className={styles.heroOverlay} aria-hidden="true" />
 
+        {process.env.NODE_ENV === 'development' && (
+          <Link href="/login" className={styles.heroLogin}>
+            Login / Register
+          </Link>
+        )}
+
         <div className={styles.heroContent}>
           <h1 className={styles.heroTitle}>HYPERDROME</h1>
           <p className={styles.heroTagline}>Build. Race. Trade. Collect.</p>

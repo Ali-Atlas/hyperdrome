@@ -1,13 +1,16 @@
 import { redirect } from 'next/navigation';
+import LoginForm from './LoginForm';
 
 /**
- * Registration is disabled - PLAY DEMO is the only way in. proxy.js also
- * blocks this route at the edge, but a server-side redirect here gives
- * defense in depth (e.g. if the matcher list ever drifts).
- *
- * The previous magic-link form lives in git history if it ever needs to
- * come back.
+ * Login is gated by NODE_ENV: production keeps PLAY DEMO as the only
+ * entry point and redirects /login to the landing page; local dev
+ * renders the magic-link form so the maintainer can sign in against a
+ * local DB. proxy.js mirrors this gate at the edge - this server-side
+ * redirect is defense in depth.
  */
 export default function LoginPage() {
-  redirect('/');
+  if (process.env.NODE_ENV !== 'development') {
+    redirect('/');
+  }
+  return <LoginForm />;
 }
