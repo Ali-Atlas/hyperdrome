@@ -105,14 +105,6 @@
   letter-spacing: 0.08em;
 }
 
-.activeControlError {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--accent-error);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
 /* Toggle never reads as faded - even when functionally disabled (drone
    in a pending race). The Toggle primitive's .disabled rule drops
    opacity to 0.5; this class composes onto the same wrapper element

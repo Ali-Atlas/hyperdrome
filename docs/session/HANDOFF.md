@@ -4,6 +4,25 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-29 - Drone management: active-toggle error becomes a toast
+
+**Captain ask:** Activating a 4th drone when the 3 cap is full rendered red text under the Active toggle. That layout shift broke the toggle UI. Surface the error as a Toast notification instead.
+
+**Files modified (2):**
+
+- MOD `app/drones/[droneId]/page.jsx`: removed the `toggleError` state and the auto-clear `useEffect` that wiped it after 3s. `toggleActive`'s !res.ok branch now calls `showToast(msg, 'error')` instead of `setToggleError(msg)`. The activate-side message now prefers the server's response (e.g. "You already have 3 active drones. Unlock more slots by completing more races.") and falls back to "Max active drones reached" only when the server returns no message. Caught exceptions also route through `showToast`. Inline `<span className={styles.activeControlError}>` element removed from the JSX.
+- MOD `app/drones/[droneId]/page.module.css`: removed `.activeControlError` rule (no remaining usage).
+
+**Verified:**
+- `grep` for `toggleError` / `activeControlError` across the two files returns zero.
+- `npx eslint` on the JSX file returns clean.
+- Em-dash sweep clean on the touched files.
+- No `npm run build`. No `npm run dev` browser run by Mercenary.
+
+**Captain to spot-check:** With 3 active drones, toggling a 4th one's Active switch produces a red error Toast (top of viewport) and the toggle returns to its prior state. The drone's Active control row no longer shifts to make room for the inline message.
+
+---
+
 ## 2026-04-29 - My Drones + Drone Management: Diamond Hands rename, vendor modal, None option, auto-equip, demo toast
 
 **Captain ask:** Seven-part Drone Manager fix. (1) Legendary card theme on `/drones`: Diamond Hands wasn't picking up its palette. (2) Vendor modal: tighten header/content spacing, match standard modal button sizes, add new explanatory copy below the milestone progress bars (bars stay), swap the black drop-shadow on the drone image for a teal glow. (3) Add "None" entry to skin and mod selector dropdowns so users can unequip. (4) Auto-equip on bind: replace whatever was previously equipped. (5) Skin bind on non-renderable items: card click shows "Not available in demo." toast instead of toggling selection or binding. (6) Stat upgrade audit (TSB enforcement), report only. (7) Legacy skin name audit, flag for follow-up. Captain elected to rename `diamond_hand` -> `diamond_hands` everywhere rather than dupe the entry.

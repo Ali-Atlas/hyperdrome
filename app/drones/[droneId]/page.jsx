@@ -274,10 +274,8 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
     }
   };
 
-  const [toggleError, setToggleError] = useState(null);
   const toggleActive = async (next) => {
     setTogglePending(true);
-    setToggleError(null);
     try {
       const res = await fetch(`/api/drones/${drone.id}/toggle`, {
         method: 'POST',
@@ -287,24 +285,18 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
       const body = await res.json();
       if (!res.ok) {
         const msg = next
-          ? 'Max active drones reached'
+          ? body?.error || 'Max active drones reached'
           : body?.error || 'Toggle failed';
-        setToggleError(msg);
+        showToast(msg, 'error');
       } else {
         await onReload();
       }
     } catch (err) {
-      setToggleError(String(err));
+      showToast(String(err), 'error');
     } finally {
       setTogglePending(false);
     }
   };
-
-  useEffect(() => {
-    if (!toggleError) return undefined;
-    const id = setTimeout(() => setToggleError(null), 3000);
-    return () => clearTimeout(id);
-  }, [toggleError]);
 
   const [unboundMods, setUnboundMods] = useState([]);
   const [unboundSkins, setUnboundSkins] = useState([]);
@@ -572,11 +564,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                         className={styles.activeToggle}
                       />
                     </span>
-                    {toggleError && !inPendingRace && (
-                      <span className={styles.activeControlError}>
-                        {toggleError}
-                      </span>
-                    )}
                   </div>
                 )}
               </div>
