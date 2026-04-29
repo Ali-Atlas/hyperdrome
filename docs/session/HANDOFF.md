@@ -4,6 +4,38 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-29 - Bind modal: rarity-desc sort + smaller cards. Recruit modal: bind-style title bar.
+
+**Captain ask:** Four polish items on the drone-management bind modals and the recruit-drone modal. (1) Bind modal items (skins + mods) sort by rarity descending (legendary -> common). (2) Recruit modal title bar: shrink the text and the above/below padding to match the bind modal's compact look. (3) Bind skin "prisms" should match the marketplace skin card prisms in shape. (4) Bind cards + their inner images: skins ~15% smaller, mods ~25% smaller.
+
+**Files modified (4):**
+
+- MOD `app/drones/[droneId]/page.jsx`:
+  - Module-level `RARITY_RANK = { legendary: 4, epic: 3, rare: 2, common: 1 }` lookup.
+  - `BindCollectibleModal` derives `sortedItems` via `useMemo` over `items` with the rank as the sort key. The grid iteration uses `sortedItems` instead of `items`.
+  - Each `<button>` in the grid gets a kind-specific size modifier: `bindCardSkinSize` for the skin variant, `bindCardModSize` for the mod variant. Sits alongside the existing rarity class.
+- MOD `app/drones/[droneId]/page.module.css`:
+  - `.bindCard` gains `width: 100%; margin: 0 auto` so the card sits centred in its grid cell. The existing 3-column grid is preserved.
+  - New `.bindCardSkinSize { width: 85% }` (skins ~15% smaller). New `.bindCardModSize { width: 75% }` (mods ~25% smaller). Image inside is `width: 100%`, so it scales with the card and the percentages translate directly.
+- MOD `app/drones/page.jsx`:
+  - Imported `X` from lucide-react.
+  - VendorModal switched to `chromeless` Modal mode and renders its own `.recruitModalHeader` + `.recruitModalTitle` + `.recruitModalClose` markup, mirroring the structural pattern the bind modal already uses. Close button gets `disabled={pending}` so a clicker can't dismiss mid-purchase.
+- MOD `app/drones/page.module.css`:
+  - New `.recruitModalHeader` / `.recruitModalTitle` / `.recruitModalClose` rules with values copied 1:1 from `.bindModalHeader` / `.bindModalTitle` / `.bindModalClose` (CSS Modules scope class names per file, so the values can't be shared without promoting to a UI primitive). text-sm body font, semibold, sentence-case, `--header-bar-bg` background, `min-height: 44px`, `padding: var(--space-3) var(--space-4)`.
+  - `.vendorModalBody` padding bumped from `0 var(--space-2) var(--space-1)` to `var(--space-4)` because chromeless mode skips Modal's default `.body` padding (var(--space-6)) - without this bump the body would have hugged the panel edges.
+
+**Prism shape (item 3) - investigation, no code change:** Both the marketplace listing card and the bind modal already render skins through the SAME path: `SkinSlot` (marketplace) and direct usage (bind) both delegate to `<SkinThumb>`, which renders either the real `/skins/*.webp` image (when present) or the shared `<SkinMini>` SVG fallback (hexagonal-prism shape). Same component, same shape. There is dead code for an unused `MarketplaceSkinPlaceholder` (folded-pentagon "envelope" shape) plus its CSS rules - presumably a previous intent that was rolled back when SkinSlot started delegating to SkinThumb. If Captain still perceives a shape difference between the two surfaces, the likely cause is data: marketplace listings tend to have real /skins/*.webp imageUrls (showing actual skin art), while some unbound skins in the bind modal may not (falling back to SkinMini). Flagged for Captain to confirm what they're seeing - if they want the folded-pentagon back as the universal placeholder, that's a separate one-file change to revive `MarketplaceSkinPlaceholder` and route it through `SkinThumb`'s fallback path.
+
+**Verified:** `npm run lint` - same 18 pre-existing problems, my edits added zero new ones. Em-dash sweep on the 4 files returns zero. No build, no tests per house rules. UI verification deferred to Captain spot-check.
+
+**Captain to spot-check:**
+- Bind skins modal: open from the drone detail page, confirm legendary listings appear first, then epic, rare, common. Cards visibly smaller than before.
+- Bind mods modal: same sort order, cards even smaller (mods at 75% width vs skins at 85%).
+- Recruit modal title: small body-font "Recruit New Drone" sentence-case header on a quiet `--header-bar-bg` strip, 44px tall, with a small X close button on the right. Should be visually flush with the bind modal's title bar.
+- If the bind modal skin "prism" still doesn't match the marketplace listing card visually after these changes, ping back with which surface looks "right" so I can route a single shared placeholder.
+
+---
+
 ## 2026-04-29 - Activate-toggle toast distinguishes cap-hit vs slot-not-unlocked + recruit modal polish
 
 **Captain ask:** Two-part change. (1) The toast that fires when activating a drone fails always read "complete more races to unlock slots" - wrong when the user is already at the 3-slot ceiling, where the real action is to deactivate one of their other drones. (2) Recruit modal polish: drop "for 3,500V" from the intro (price is shown in the buy section anyway), the "1/3" counter should render the two numbers at matching sizes with tight spacing around the slash, and the buy-section drone thumb should lose its teal glow.

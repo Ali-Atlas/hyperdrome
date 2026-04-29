@@ -1167,6 +1167,8 @@ function RaceProfileColumn({ label, items, tone }) {
  * is a permanent action - the skin / mod transfers with the drone for life.
  * ========================================================================== */
 
+const RARITY_RANK = { legendary: 4, epic: 3, rare: 2, common: 1 };
+
 function BindCollectibleModal({
   isOpen,
   onClose,
@@ -1180,6 +1182,17 @@ function BindCollectibleModal({
   const { showToast } = useToast();
   const [selected, setSelected] = useState(new Set());
   const [working, setWorking] = useState(false);
+
+  // Rarity desc: legendary > epic > rare > common. Stable for the list
+  // length we deal with here so plain sort is fine.
+  const sortedItems = useMemo(
+    () =>
+      [...(items ?? [])].sort(
+        (a, b) =>
+          (RARITY_RANK[b.rarity] ?? 0) - (RARITY_RANK[a.rarity] ?? 0),
+      ),
+    [items],
+  );
 
   useEffect(() => {
     if (!isOpen) setSelected(new Set());
@@ -1256,7 +1269,7 @@ function BindCollectibleModal({
           </div>
         ) : (
           <div className={styles.bindGrid}>
-            {items.map((item) => {
+            {sortedItems.map((item) => {
               const isSelected = selected.has(item.id);
               return (
                 <button
@@ -1264,6 +1277,9 @@ function BindCollectibleModal({
                   type="button"
                   className={cn(
                     styles.bindCard,
+                    kind === 'skin'
+                      ? styles.bindCardSkinSize
+                      : styles.bindCardModSize,
                     styles[`bindCard_${item.rarity}`],
                     isSelected && styles.bindCardSelected,
                   )}

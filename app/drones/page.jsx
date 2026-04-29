@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Trophy } from 'lucide-react';
+import { Plus, Trophy, X } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Skeleton from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
@@ -285,7 +285,19 @@ function VendorModal({
   const nextThreshold = freeEarned === 1 ? MILESTONE_FIRST : MILESTONE_SECOND;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Recruit New Drone" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} size="md" chromeless>
+      <div className={styles.recruitModalHeader}>
+        <h2 className={styles.recruitModalTitle}>Recruit New Drone</h2>
+        <button
+          type="button"
+          className={styles.recruitModalClose}
+          onClick={onClose}
+          aria-label="Close dialog"
+          disabled={pending}
+        >
+          <X size={18} />
+        </button>
+      </div>
       <div className={styles.vendorModalBody}>
         <p className={styles.vendorModalIntro}>
           You earn up to 3 free drones from racing. You can also buy one any

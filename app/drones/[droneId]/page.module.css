@@ -884,6 +884,20 @@
   cursor: pointer;
   font-family: var(--font-mono);
   text-align: center;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Kind-specific size scale. Skins read at 85% of the cell width (~15%
+   smaller); mods at 75% (~25% smaller). Image inside is width: 100% so
+   it scales with the card. Card stays centered in its grid cell via
+   `margin: 0 auto`. */
+.bindCardSkinSize {
+  width: 85%;
+}
+
+.bindCardModSize {
+  width: 75%;
 }
 
 .bindCard:disabled {
