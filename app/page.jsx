@@ -205,9 +205,10 @@ export default async function LandingPage() {
           Open packs. Chase legendaries.
         </h2>
         <p className={styles.packsBody}>
-          <span className={styles.accent}>3 skins per pack</span>. The{' '}
-          <span className={styles.accentGold}>legendary pack</span>{' '}
-          guarantees one legendary skin.
+          <span className={styles.accent}>3 skins per pack</span>. A{' '}
+          <span className={styles.accentGold}>legendary</span> drops in
+          nearly 50% of{' '}
+          <span className={styles.accentGold}>legendary packs</span>.
         </p>
         <ul className={styles.packsRow}>
           {PACKS.map((pack) => (
