@@ -245,18 +245,29 @@ export default function RaceDetailPage({ params }) {
   const { raceId } = use(params);
   const { user } = useSession();
   const viewerUserId = user?.id ?? null;
+  /* `currentRaceId` is the race the page is *displaying* and may diverge
+   * from the URL `raceId` after the user clicks a prev/next arrow. We
+   * intentionally do NOT route-change on arrow clicks - the page stays
+   * mounted, only the data swaps. The browser URL bar is kept in sync
+   * via `window.history.replaceState` inside `swapToRaceId` so a copied
+   * link still resolves to the displayed race. */
+  const [currentRaceId, setCurrentRaceId] = useState(raceId);
   const [race, setRace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   /* Chronological neighbors for the prev/next chevrons in the FINAL
    * header. Both null until the lookup completes; null also marks
-   * "no older / newer race exists" so the corresponding arrow hides.
+   * "no older / newer race exists" so the corresponding arrow disables.
    * Only fetched once the user is authenticated and the race has
    * resolved into the completed view. */
   const [adjacent, setAdjacent] = useState({
     prevRaceId: null,
     nextRaceId: null,
   });
+  /* Full pending-race list for the upcoming H2H strip arrows. Lifted
+   * up from RaceStrategyView so the parent owns the cycle index and
+   * can swap `race` synchronously without remounting the child. */
+  const [upcomingList, setUpcomingList] = useState([]);
 
   useEffect(() => {
     if (!viewerUserId || race?.status !== 'completed') {
@@ -266,7 +277,7 @@ export default function RaceDetailPage({ params }) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/races/${raceId}/adjacent`);
+        const res = await fetch(`/api/races/${currentRaceId}/adjacent`);
         const body = await res.json();
         if (cancelled || !res.ok || !body?.data) return;
         setAdjacent({
@@ -274,19 +285,19 @@ export default function RaceDetailPage({ params }) {
           nextRaceId: body.data.nextRaceId ?? null,
         });
       } catch {
-        /* keep nulls; arrows just don't render */
+        /* keep nulls; arrows just disable */
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [raceId, race?.status, viewerUserId]);
+  }, [currentRaceId, race?.status, viewerUserId]);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch(`/api/races/${raceId}`);
+        const res = await fetch(`/api/races/${currentRaceId}`);
         const body = await res.json();
         if (cancelled) return;
         if (!res.ok) {
@@ -304,7 +315,25 @@ export default function RaceDetailPage({ params }) {
     return () => {
       cancelled = true;
     };
-  }, [raceId]);
+  }, [currentRaceId]);
+
+  // Pull the user's full pending-race list once they're authenticated.
+  // The H2H-strip arrows cycle through this array by index without
+  // wraparound (boundary entries disable the corresponding arrow).
+  useEffect(() => {
+    if (!viewerUserId) return undefined;
+    let cancelled = false;
+    fetch('/api/races/upcoming')
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return;
+        if (body?.data?.races) setUpcomingList(body.data.races);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [viewerUserId]);
 
   // Poll while the race is PENDING so the page transitions automatically
   // to the results view once the cron executes it. 5s cadence is fast
@@ -315,7 +344,7 @@ export default function RaceDetailPage({ params }) {
     let cancelled = false;
     const tick = async () => {
       try {
-        const res = await fetch(`/api/races/${raceId}`);
+        const res = await fetch(`/api/races/${currentRaceId}`);
         const body = await res.json();
         if (cancelled || !res.ok || !body?.data) return;
         setRace(body.data);
@@ -328,7 +357,25 @@ export default function RaceDetailPage({ params }) {
       cancelled = true;
       clearInterval(id);
     };
-  }, [race?.status, raceId]);
+  }, [race?.status, currentRaceId]);
+
+  /* Arrow-click handler. Swaps the displayed race without a route
+   * change. Optimistically seeds `race` from the upcoming list (when
+   * present) so the pending-strategy view paints instantly; the
+   * `[currentRaceId]` fetch effect then overwrites with the
+   * h2h-enriched payload from /api/races/[id]. For completed races
+   * there's no pre-seeded payload, so the existing `race` stays
+   * visible during the brief refetch window (no skeleton flash since
+   * `loading` only flips on first mount). */
+  const swapToRaceId = (newId) => {
+    if (!newId || newId === currentRaceId) return;
+    const seed = upcomingList.find((r) => r.id === newId);
+    if (seed) setRace(seed);
+    setCurrentRaceId(newId);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `/races/${newId}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -361,7 +408,13 @@ export default function RaceDetailPage({ params }) {
   // below. Single canonical URL `/races/[id]` survives the lifecycle -
   // the page just swaps content as the race transitions.
   if (race.status === 'pending') {
-    return <RaceStrategyView race={race} />;
+    return (
+      <RaceStrategyView
+        race={race}
+        upcomingList={upcomingList}
+        onSwapToRace={swapToRaceId}
+      />
+    );
   }
 
   const winnerId = race.winnerDroneId;
@@ -443,30 +496,38 @@ export default function RaceDetailPage({ params }) {
             </span>
           </div>
           {isComplete ? (
-            /* Chronological prev/next nav across the user's COMPLETED
-               races, populated by /api/races/[raceId]/adjacent. Each
-               arrow hides entirely (instead of rendering disabled)
-               when the corresponding neighbor doesn't exist - matches
-               the H2HStrip arrows on the matchup view. */
+            /* Chronological prev/next across the user's COMPLETED races,
+               populated by /api/races/[raceId]/adjacent. Both arrows
+               always render; the boundary arrow gets a disabled style
+               (opacity + pointer-events:none) instead of disappearing
+               so the layout stays stable as the user cycles. Click
+               swaps the page content via state - no route change, no
+               remount. */
             <div className={styles.raceNavArrows}>
-              {adjacent.prevRaceId && (
-                <Link
-                  href={`/races/${adjacent.prevRaceId}`}
-                  className={styles.raceNavArrow}
-                  aria-label="Previous completed race"
-                >
-                  <ChevronLeft size={14} aria-hidden="true" />
-                </Link>
-              )}
-              {adjacent.nextRaceId && (
-                <Link
-                  href={`/races/${adjacent.nextRaceId}`}
-                  className={styles.raceNavArrow}
-                  aria-label="Next completed race"
-                >
-                  <ChevronRight size={14} aria-hidden="true" />
-                </Link>
-              )}
+              <button
+                type="button"
+                onClick={() => swapToRaceId(adjacent.prevRaceId)}
+                disabled={!adjacent.prevRaceId}
+                className={cn(
+                  styles.raceNavArrow,
+                  !adjacent.prevRaceId && styles.raceNavArrowDisabled,
+                )}
+                aria-label="Previous completed race"
+              >
+                <ChevronLeft size={14} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => swapToRaceId(adjacent.nextRaceId)}
+                disabled={!adjacent.nextRaceId}
+                className={cn(
+                  styles.raceNavArrow,
+                  !adjacent.nextRaceId && styles.raceNavArrowDisabled,
+                )}
+                aria-label="Next completed race"
+              >
+                <ChevronRight size={14} aria-hidden="true" />
+              </button>
             </div>
           ) : (
             <div className={`${styles.statusPill} ${styles.statusLive}`}>
@@ -582,7 +643,7 @@ export default function RaceDetailPage({ params }) {
               <h2 className={styles.sectionHeading}>Lead Tracker</h2>
               {winnerDrone?.name && (
                 <span className={styles.gapHeaderSub}>
-                  {winnerDrone.name}&apos;s advantage
+                  {winnerDrone.name}
                 </span>
               )}
             </div>
@@ -1205,15 +1266,11 @@ function DroneCard({
 /*           by ELO); header names the drone.                                */
 /* -------------------------------------------------------------------------- */
 
-function RaceStrategyView({ race }) {
+function RaceStrategyView({ race, upcomingList, onSwapToRace }) {
   const { user } = useSession();
   // Hydrate each drone with its `recentRaces` (for form dots) + applied skin.
   // The race endpoint doesn't return recentRaces; /api/drones/[id] does.
   const [details, setDetails] = useState({ drone1: null, drone2: null });
-  // The signed-in viewer's full upcoming-races list, used to power
-  // the prev/next strip above the H2H bar so a user can flip
-  // between their pending matchups without going back to /races.
-  const [upcomingList, setUpcomingList] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1239,21 +1296,6 @@ function RaceStrategyView({ race }) {
     };
   }, [race.drone1?.id, race.drone2?.id]);
 
-  useEffect(() => {
-    if (!user?.id) return undefined;
-    let cancelled = false;
-    fetch('/api/races/upcoming')
-      .then((r) => r.json())
-      .then((body) => {
-        if (cancelled) return;
-        if (body?.data?.races) setUpcomingList(body.data.races);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
-
   const drone1 = details.drone1 ?? race.drone1;
   const drone2 = details.drone2 ?? race.drone2;
 
@@ -1273,20 +1315,18 @@ function RaceStrategyView({ race }) {
   // of level, defeating the purpose.
   const radarMax = 100;
 
-  // Resolve prev/next race ids from the user's upcoming list. Wraps
-  // around so prev from the first race lands on the last and vice
-  // versa. Hidden when this race isn't in the user's upcoming list
-  // (viewing someone else's matchup) or when the user has only one.
+  // Cycle index across the viewer's upcoming list. No wraparound -
+  // boundary entries pass null and the corresponding arrow renders
+  // in a disabled state. The strip itself is always shown so the
+  // layout doesn't shift when the user is at the start/end of the
+  // list or viewing someone else's matchup.
   const upcomingIndex = upcomingList.findIndex((r) => r.id === race.id);
-  const showUpcomingNav = upcomingIndex >= 0 && upcomingList.length > 1;
-  const prevRaceId = showUpcomingNav
-    ? upcomingList[
-        (upcomingIndex - 1 + upcomingList.length) % upcomingList.length
-      ]?.id
-    : null;
-  const nextRaceId = showUpcomingNav
-    ? upcomingList[(upcomingIndex + 1) % upcomingList.length]?.id
-    : null;
+  const prevRaceId =
+    upcomingIndex > 0 ? upcomingList[upcomingIndex - 1]?.id ?? null : null;
+  const nextRaceId =
+    upcomingIndex >= 0 && upcomingIndex < upcomingList.length - 1
+      ? upcomingList[upcomingIndex + 1]?.id ?? null
+      : null;
 
   return (
     <NavShell>
@@ -1295,8 +1335,9 @@ function RaceStrategyView({ race }) {
           race={race}
           drone1={drone1}
           drone2={drone2}
-          prevRaceId={showUpcomingNav ? prevRaceId : null}
-          nextRaceId={showUpcomingNav ? nextRaceId : null}
+          prevRaceId={prevRaceId}
+          nextRaceId={nextRaceId}
+          onNavigate={onSwapToRace}
         />
         <div className={styles.matchupGrid}>
           <MatchupDroneCard
@@ -1367,7 +1408,7 @@ function StatusBar({ scheduledAt }) {
  *  lower in --text-secondary, and ties in --text-primary. Names at the
  *  ends mirror the ELO comparison since ELO is the canonical strength
  *  signal. */
-function H2HStrip({ race, drone1, drone2, prevRaceId, nextRaceId }) {
+function H2HStrip({ race, drone1, drone2, prevRaceId, nextRaceId, onNavigate }) {
   if (!drone1 || !drone2) return null;
 
   const elo1 = drone1.eloRating ?? 0;
@@ -1394,15 +1435,19 @@ function H2HStrip({ race, drone1, drone2, prevRaceId, nextRaceId }) {
 
   return (
     <div className={styles.h2hStrip}>
-      {prevRaceId && (
-        <Link
-          href={`/races/${prevRaceId}`}
-          className={cn(styles.h2hNavArrow, styles.h2hNavArrowPrev)}
-          aria-label="Previous upcoming matchup"
-        >
-          <ChevronLeft size={16} aria-hidden="true" />
-        </Link>
-      )}
+      <button
+        type="button"
+        onClick={() => onNavigate?.(prevRaceId)}
+        disabled={!prevRaceId}
+        className={cn(
+          styles.h2hNavArrow,
+          styles.h2hNavArrowPrev,
+          !prevRaceId && styles.h2hNavArrowDisabled,
+        )}
+        aria-label="Previous upcoming matchup"
+      >
+        <ChevronLeft size={16} aria-hidden="true" />
+      </button>
       <span className={cn(styles.h2hName, eloClass1)}>{drone1.name}</span>
       <span className={styles.h2hSep} aria-hidden="true" />
       {race.h2h && race.h2h.total > 0 && (
@@ -1437,15 +1482,19 @@ function H2HStrip({ race, drone1, drone2, prevRaceId, nextRaceId }) {
       </span>
       <span className={styles.h2hSep} aria-hidden="true" />
       <span className={cn(styles.h2hName, eloClass2)}>{drone2.name}</span>
-      {nextRaceId && (
-        <Link
-          href={`/races/${nextRaceId}`}
-          className={cn(styles.h2hNavArrow, styles.h2hNavArrowNext)}
-          aria-label="Next upcoming matchup"
-        >
-          <ChevronRight size={16} aria-hidden="true" />
-        </Link>
-      )}
+      <button
+        type="button"
+        onClick={() => onNavigate?.(nextRaceId)}
+        disabled={!nextRaceId}
+        className={cn(
+          styles.h2hNavArrow,
+          styles.h2hNavArrowNext,
+          !nextRaceId && styles.h2hNavArrowDisabled,
+        )}
+        aria-label="Next upcoming matchup"
+      >
+        <ChevronRight size={16} aria-hidden="true" />
+      </button>
     </div>
   );
 }

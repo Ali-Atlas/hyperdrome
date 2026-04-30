@@ -106,11 +106,14 @@
   justify-content: center;
   width: 24px;
   height: 24px;
+  padding: 0;
   background: transparent;
   border: 1px solid rgba(3, 218, 198, 0.4);
   border-radius: var(--radius-sm);
   color: var(--accent-primary);
   text-decoration: none;
+  font: inherit;
+  cursor: pointer;
   flex-shrink: 0;
   transition:
     background var(--duration-fast) var(--ease-out),
@@ -122,6 +125,20 @@
   background: rgba(3, 218, 198, 0.16);
   border-color: var(--accent-primary);
   color: var(--text-primary);
+}
+
+/* Boundary state - the arrow stays in the DOM (so the prev/next pair
+   doesn't reflow) but reads as inactive. pointer-events:none also
+   suppresses the hover treatment above, so the disabled arrow won't
+   flash teal on touch devices. */
+.raceNavArrowDisabled,
+.raceNavArrowDisabled:hover {
+  opacity: 0.3;
+  pointer-events: none;
+  cursor: default;
+  background: transparent;
+  border-color: rgba(3, 218, 198, 0.4);
+  color: var(--accent-primary);
 }
 
 /* ==========================================================================
@@ -372,17 +389,19 @@
   flex-direction: column;
 }
 
-/* Header bar for the Lead Tracker card. Stacks the title and the
-   "[winner]'s advantage" subline vertically while keeping the same
-   greyed bar treatment + border-bottom as the standalone
-   `.sectionHeading` used by other cards. The nested `.sectionHeading`
-   gets its own background / border / padding stripped so this wrapper
-   owns the bar chrome. */
+/* Header bar for the Lead Tracker card. Title (`Lead Tracker`) sits on
+   the left; the small "[winner]'s advantage" reference sits on the
+   right via `justify-content: space-between`. Same greyed bar
+   treatment + border-bottom as the standalone `.sectionHeading` used
+   by other cards. The nested `.sectionHeading` gets its own
+   background / border / padding stripped so this wrapper owns the bar
+   chrome. */
 .gapHeaderBar {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--header-bar-bg);
   border-bottom: 1px solid var(--border-default);
@@ -402,6 +421,7 @@
   font-size: var(--text-xs);
   color: var(--text-tertiary);
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 /* Empty-state placeholder shown when the race log doesn't have enough
@@ -968,11 +988,16 @@
 }
 
 .sparklineWrap {
-  /* Left padding 0 so the y-axis column sits flush. Small right padding
-     gives the final x-axis label (and the chart's right edge) breathing
-     room from the card border. Vertical padding stays for breathing room
-     above/below the figure. */
-  padding: var(--space-3) var(--space-2) var(--space-3) 0;
+  /* Left padding 0 so the y-axis column sits flush against the card.
+     Small right padding gives the final x-axis label (and the chart's
+     right edge) breathing room from the card border. Top padding
+     keeps the chart off the header bar. Bottom padding is var(--space-2)
+     - just enough lift off the card's bottom border that the x-axis
+     time labels read as "anchored at the bottom" without touching the
+     border. The inner `.sparklineFigure` is `flex: 1` so the chart
+     stretches and the x-axis row gets pushed flush against this
+     padding-bottom regardless of card height. */
+  padding: var(--space-3) var(--space-2) var(--space-2) 0;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1296,11 +1321,14 @@
   justify-content: center;
   width: 24px;
   height: 24px;
+  padding: 0;
   background: transparent;
   border: 1px solid rgba(3, 218, 198, 0.4);
   border-radius: var(--radius-sm);
   color: var(--accent-primary);
   text-decoration: none;
+  font: inherit;
+  cursor: pointer;
   flex-shrink: 0;
   transition:
     background var(--duration-fast) var(--ease-out),
@@ -1312,6 +1340,20 @@
   background: rgba(3, 218, 198, 0.16);
   border-color: var(--accent-primary);
   color: var(--text-primary);
+}
+
+/* Boundary state for the H2H strip arrows - matches the disabled
+   treatment on .raceNavArrow. Stays in the DOM so the strip width
+   doesn't shift as the user reaches the start/end of the upcoming
+   list. */
+.h2hNavArrowDisabled,
+.h2hNavArrowDisabled:hover {
+  opacity: 0.3;
+  pointer-events: none;
+  cursor: default;
+  background: transparent;
+  border-color: rgba(3, 218, 198, 0.4);
+  color: var(--accent-primary);
 }
 
 .h2hNavArrowPrev {
