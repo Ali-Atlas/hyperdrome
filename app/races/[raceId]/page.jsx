@@ -1315,18 +1315,22 @@ function RaceStrategyView({ race, upcomingList, onSwapToRace }) {
   // of level, defeating the purpose.
   const radarMax = 100;
 
-  // Cycle index across the viewer's upcoming list. No wraparound -
-  // boundary entries pass null and the corresponding arrow renders
-  // in a disabled state. The strip itself is always shown so the
-  // layout doesn't shift when the user is at the start/end of the
-  // list or viewing someone else's matchup.
+  // Cycle index across the viewer's upcoming list, with wraparound -
+  // prev from the first race lands on the last and next from the
+  // last lands on the first. Both arrows stay enabled as long as
+  // the user has 2+ upcoming races; they only disable (null) when
+  // the user is viewing someone else's matchup or has at most one
+  // pending race, which leaves nothing to cycle through.
   const upcomingIndex = upcomingList.findIndex((r) => r.id === race.id);
-  const prevRaceId =
-    upcomingIndex > 0 ? upcomingList[upcomingIndex - 1]?.id ?? null : null;
-  const nextRaceId =
-    upcomingIndex >= 0 && upcomingIndex < upcomingList.length - 1
-      ? upcomingList[upcomingIndex + 1]?.id ?? null
-      : null;
+  const canCycle = upcomingIndex >= 0 && upcomingList.length > 1;
+  const prevRaceId = canCycle
+    ? upcomingList[
+        (upcomingIndex - 1 + upcomingList.length) % upcomingList.length
+      ]?.id ?? null
+    : null;
+  const nextRaceId = canCycle
+    ? upcomingList[(upcomingIndex + 1) % upcomingList.length]?.id ?? null
+    : null;
 
   return (
     <NavShell>
