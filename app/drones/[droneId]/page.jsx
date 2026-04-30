@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
   ChevronDown,
@@ -31,7 +32,7 @@ import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
-import { cn, getLevelColor, canEquipSkin } from '@/lib/utils';
+import { cn, getLevelColor, canEquipSkin, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
@@ -160,13 +161,7 @@ export default function DroneDetailPage({ params }) {
   }
 
   if (error || !drone) {
-    return (
-      <NavShell>
-        <div className={styles.page}>
-          <p className={styles.error}>{error || 'Drone not found'}</p>
-        </div>
-      </NavShell>
-    );
+    redirect('/drones');
   }
 
   const isOwner = Boolean(user?.id && drone.userId === user.id);
@@ -672,6 +667,9 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                         styles.modSelector,
                         drone.appliedSkin?.rarity &&
                           styles[`modSelector_${drone.appliedSkin.rarity}`],
+                        !isOwner &&
+                          !drone.appliedSkin &&
+                          styles.modSelectorBare,
                       )}
                       onClick={() => setShowSwapSkinList((v) => !v)}
                       disabled={
@@ -682,16 +680,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       }
                       aria-expanded={showSwapSkinList}
                     >
-                      {drone.appliedSkin ? (
-                        <SkinThumb
-                          skin={drone.appliedSkin}
-                          rarity={drone.appliedSkin.rarity}
-                          alt={drone.appliedSkin.name}
-                          className={styles.skinSwatch}
-                        />
-                      ) : (
-                        <span className={styles.skinSwatch} aria-hidden="true" />
-                      )}
+                      <SkinThumb
+                        skin={drone.appliedSkin}
+                        rarity={drone.appliedSkin?.rarity ?? 'common'}
+                        alt={drone.appliedSkin?.name ?? ''}
+                        className={styles.skinSwatch}
+                      />
                       <div className={styles.modCurrentText}>
                         <span className={styles.modName}>
                           {drone.appliedSkin?.name ?? 'None'}
@@ -815,6 +809,9 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                         styles.modSelector,
                         drone.appliedMod?.rarity &&
                           styles[`modSelector_${drone.appliedMod.rarity}`],
+                        !isOwner &&
+                          !drone.appliedMod &&
+                          styles.modSelectorBare,
                       )}
                       onClick={() => setShowSwapList((v) => !v)}
                       disabled={
@@ -1276,6 +1273,17 @@ function BindCollectibleModal({
           <div className={styles.bindGrid}>
             {sortedItems.map((item) => {
               const isSelected = selected.has(item.id);
+              const legendaryTheme =
+                kind === 'skin' && item.rarity === 'legendary'
+                  ? getLegendaryTheme(item.name)
+                  : null;
+              const legendaryStyle = legendaryTheme
+                ? {
+                    '--legendary-bg': legendaryTheme.bg,
+                    '--legendary-glow-1': legendaryTheme.glow1,
+                    '--legendary-glow-2': legendaryTheme.glow2,
+                  }
+                : undefined;
               return (
                 <button
                   key={item.id}
@@ -1286,8 +1294,10 @@ function BindCollectibleModal({
                       ? styles.bindCardSkinSize
                       : styles.bindCardModSize,
                     styles[`bindCard_${item.rarity}`],
+                    legendaryTheme && styles.bindCardLegendarySkin,
                     isSelected && styles.bindCardSelected,
                   )}
+                  style={legendaryStyle}
                   onClick={() => toggle(item.id)}
                   disabled={working || pending}
                   aria-pressed={isSelected}

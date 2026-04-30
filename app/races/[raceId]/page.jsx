@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import {
   Sun,
@@ -138,15 +138,27 @@ function shortId(id) {
   return id ? `#${id.slice(-8).toUpperCase()}` : '#-';
 }
 
-/** Count how many times the lead switched between the two drones. */
+/**
+ * Count how many times the *overall* race leader switched - i.e. the
+ * cumulative time gap crosses zero. Per-segment wins that don't flip the
+ * cumulative gap don't count: if A leads by 0.3s and B wins the next
+ * segment by 0.1s, A is still ahead by 0.2s, no lead change.
+ *
+ * Tied segments (cumDiff === 0) are skipped rather than treated as their
+ * own state, so an A → tied → A run isn't double-counted.
+ */
 function countLeadChanges(log) {
   if (!log || log.length === 0) return 0;
   let changes = 0;
-  let prev = null;
+  let cumDiff = 0;
+  let prevSign = 0;
   for (const seg of log) {
-    const lead = seg.drone1Time <= seg.drone2Time ? 1 : 2;
-    if (prev !== null && prev !== lead) changes += 1;
-    prev = lead;
+    cumDiff += Number(seg.drone1Time) - Number(seg.drone2Time);
+    const sign = cumDiff > 0 ? 1 : cumDiff < 0 ? -1 : 0;
+    if (sign !== 0) {
+      if (prevSign !== 0 && sign !== prevSign) changes += 1;
+      prevSign = sign;
+    }
   }
   return changes;
 }
@@ -184,34 +196,31 @@ function computeWinnerGaps(log, winnerIsDrone1) {
   return gaps;
 }
 
-/** Cumulative winner-clock time at the end of each segment, in seconds. */
-function computeWinnerCumTimes(log, winnerIsDrone1) {
-  if (!log || log.length === 0) return [];
-  const out = [];
-  let cum = 0;
-  for (const seg of log) {
-    cum += Number(winnerIsDrone1 ? seg.drone1Time : seg.drone2Time);
-    out.push(cum);
-  }
-  return out;
-}
-
-/** Single-sentence auto commentary derived from the race log. */
+/**
+ * Single-sentence auto commentary derived from the race log. Lead-change
+ * counting and "seized the lead at" detection both run off the cumulative
+ * winner gap (positive = winner ahead) so the commentary stays consistent
+ * with the LEAD CHANGED badge count.
+ */
 function generateCommentary(log, winnerIsDrone1, winnerName) {
   if (!log || log.length === 0 || !winnerName) return null;
-  const leads = log.map((seg) => {
-    const d1 = seg.drone1Time <= seg.drone2Time;
-    return winnerIsDrone1 ? d1 : !d1;
-  });
-  const changes = leads.reduce(
-    (acc, lead, i) => (i > 0 && lead !== leads[i - 1] ? acc + 1 : acc),
-    0,
-  );
-  const ledFromStart = leads[0];
+  const gaps = computeWinnerGaps(log, winnerIsDrone1);
+  let changes = 0;
+  let prevSign = 0;
+  for (const g of gaps) {
+    const sign = g > 0 ? 1 : g < 0 ? -1 : 0;
+    if (sign !== 0) {
+      if (prevSign !== 0 && sign !== prevSign) changes += 1;
+      prevSign = sign;
+    }
+  }
+  const ledFromStart = gaps[0] > 0;
+  // Last segment where the winner was cumulatively trailing (gap < 0).
+  // The next segment is where they took the lead for good.
   let permanentLeadAt = -1;
-  for (let i = leads.length - 1; i >= 0; i -= 1) {
-    if (!leads[i]) {
-      permanentLeadAt = i + 1; // next segment is where the final lead begins
+  for (let i = gaps.length - 1; i >= 0; i -= 1) {
+    if (gaps[i] < 0) {
+      permanentLeadAt = i + 1;
       break;
     }
   }
@@ -337,7 +346,6 @@ export default function RaceDetailPage({ params }) {
   const winnerIsDrone1 = winnerId === race.drone1Id;
   const leadChanges = countLeadChanges(race.raceLog);
   const gaps = computeWinnerGaps(race.raceLog, winnerIsDrone1);
-  const winnerCumTimes = computeWinnerCumTimes(race.raceLog, winnerIsDrone1);
   const maxGap = gaps.length > 0 ? Math.max(...gaps.map(Math.abs)) : null;
   const commentary = generateCommentary(
     race.raceLog,
@@ -468,6 +476,7 @@ export default function RaceDetailPage({ params }) {
         )}
 
         <div className={styles.raceLayout}>
+          <div className={styles.raceLeft}>
           <div className={styles.drone1Slot}>
             <DroneCard
               drone={race.drone1}
@@ -501,7 +510,7 @@ export default function RaceDetailPage({ params }) {
             <h2 className={styles.sectionHeading}>Gap Over Race</h2>
             {gaps.length > 1 ? (
               <div className={styles.sparklineWrap}>
-                <GapSparkline gaps={gaps} times={winnerCumTimes} />
+                <GapSparkline gaps={gaps} />
               </div>
             ) : (
               <div className={styles.gapEmpty}>Gap data unavailable</div>
@@ -572,6 +581,7 @@ export default function RaceDetailPage({ params }) {
               </span>
             </div>
           </Card>
+          </div>
 
           <Card className={styles.logCard}>
             <h2 className={styles.sectionHeading}>Race Log</h2>
@@ -659,74 +669,185 @@ export default function RaceDetailPage({ params }) {
 /* Sub-components                                                             */
 /* -------------------------------------------------------------------------- */
 
-function GapSparkline({ gaps, times }) {
+/** Format a signed gap value with explicit sign for non-zero values
+ *  and 2-decimal precision with trailing zeros trimmed.
+ *  +0.50 → "+0.5s", -0.345 → "-0.35s", 0.001 → "0s". */
+function formatGapSeconds(s) {
+  if (Math.abs(s) < 0.005) return '0s';
+  const rounded = Number(s.toFixed(2));
+  const sign = rounded > 0 ? '+' : '';
+  return `${sign}${rounded}s`;
+}
+
+/**
+ * Signed gap chart. Positive (winner ahead) renders as a teal area
+ * gradient above the zero line; negative (winner behind) as a red
+ * gradient below. The zero line itself is positioned dynamically by
+ * the data range, not at the visual center, so a race the winner led
+ * end-to-end has the zero line near the bottom and a constant lead
+ * sits high above it. Smooth curves via Catmull-Rom → cubic-Bezier.
+ *
+ * @param {{ gaps: number[] }} props - signed cumulative gap per
+ *   segment from the winner's perspective: positive = winner ahead,
+ *   negative = winner behind. See `computeWinnerGaps`.
+ */
+function GapSparkline({ gaps }) {
+  // useId is called unconditionally so the rules-of-hooks early-return
+  // guard below is safe. Colons are stripped because they break
+  // url(#...) references in some specs.
+  const rawId = useId();
+  const idSafe = rawId.replace(/:/g, '');
+  const gradPosId = `gap-pos-${idSafe}`;
+  const gradNegId = `gap-neg-${idSafe}`;
   if (!gaps || gaps.length < 2) return null;
+
   const W = 300;
-  const H = 80;
-  const padTop = 6;
-  const padBottom = 2;
+  const H = 100;
+  const padTop = 8;
+  const padBottom = 8;
   const usableH = H - padTop - padBottom;
-  const maxAbs = Math.max(...gaps.map((g) => Math.abs(g)), 0.001);
 
-  // If segment times are provided, position vertices proportional to
-  // cumulative race time so x matches the timeline below. Otherwise fall
-  // back to even segment-index spacing.
-  const totalTime =
-    times && times.length > 0 ? times[times.length - 1] : null;
-  const useTime = Number.isFinite(totalTime) && totalTime > 0;
+  // Anchor the y-range so it always includes 0 (the lead-change line)
+  // and add 8% breathing room top and bottom so the curve doesn't kiss
+  // the edges. yMin / yMax are the unpadded extremes used for axis
+  // labels; gapToY uses the padded range for screen-y mapping.
+  const dataMin = Math.min(...gaps);
+  const dataMax = Math.max(...gaps);
+  const yMin = Math.min(0, dataMin);
+  const yMax = Math.max(0, dataMax);
+  const range = yMax - yMin || 1;
+  const pad = range * 0.08;
+  const yMinPadded = yMin - pad;
+  const yMaxPadded = yMax + pad;
+  const rangePadded = yMaxPadded - yMinPadded;
+  const gapToY = (g) =>
+    padTop + ((yMaxPadded - g) / rangePadded) * usableH;
 
-  // Gap line baselines on the X-axis (bottom edge); larger absolute gaps
-  // grow upward. Sign is dropped so the chart reads as "how far apart
-  // were they" rather than "who was ahead" - lead-change detail lives
-  // in the race log table.
-  const points = gaps.map((g, i) => {
-    const x = useTime ? (times[i] / totalTime) * W : (i / (gaps.length - 1)) * W;
-    const y = (H - padBottom) - (Math.abs(g) / maxAbs) * usableH;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const baselineY = H - padBottom;
+  // Even segment-index spacing across the chart; segment count is the
+  // x dimension (not race time).
+  const xs = gaps.map((_, i) => (i / (gaps.length - 1)) * W);
+  const ys = gaps.map(gapToY);
+  const baselineY = gapToY(0);
+
+  // Catmull-Rom (tension 0.5) → cubic-Bezier conversion. Edge points
+  // reuse themselves as the missing neighbor so the curve doesn't jerk
+  // at the start/end. Visually this produces smooth chart curves
+  // without significant overshoot at typical race-data scales.
+  let linePath = `M${xs[0].toFixed(2)},${ys[0].toFixed(2)}`;
+  for (let i = 0; i < xs.length - 1; i += 1) {
+    const p0x = xs[Math.max(0, i - 1)];
+    const p0y = ys[Math.max(0, i - 1)];
+    const p1x = xs[i];
+    const p1y = ys[i];
+    const p2x = xs[i + 1];
+    const p2y = ys[i + 1];
+    const p3x = xs[Math.min(xs.length - 1, i + 2)];
+    const p3y = ys[Math.min(ys.length - 1, i + 2)];
+    const cp1x = p1x + (p2x - p0x) / 6;
+    const cp1y = p1y + (p2y - p0y) / 6;
+    const cp2x = p2x - (p3x - p1x) / 6;
+    const cp2y = p2y - (p3y - p1y) / 6;
+    linePath += ` C${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2x.toFixed(2)},${p2y.toFixed(2)}`;
+  }
+
+  // Two area polygons - one closed to the chart bottom (for the
+  // positive fill) and one closed to the chart top (for the negative
+  // fill). Each is filled with a gradient anchored at the zero line so
+  // the off-side region fades to fully transparent. No clip-paths
+  // needed; the gradient transparency does the masking.
+  const firstX = xs[0].toFixed(2);
+  const lastX = xs[xs.length - 1].toFixed(2);
+  const posAreaPath = `${linePath} L${lastX},${(H - padBottom).toFixed(2)} L${firstX},${(H - padBottom).toFixed(2)} Z`;
+  const negAreaPath = `${linePath} L${lastX},${padTop.toFixed(2)} L${firstX},${padTop.toFixed(2)} Z`;
+
+  // Y-axis labels: render the positive extreme only when the data
+  // actually goes positive, and the negative extreme only when it goes
+  // negative. The 0 label always renders at the dynamic zero-line
+  // position. All three are absolutely positioned by their gap-to-y
+  // mapping so the labels stay aligned with the chart's vertical
+  // proportions instead of being evenly spaced by the flex container.
+  const yLabelPct = (y) => `${(y / H) * 100}%`;
 
   return (
-    <>
-      <div className={styles.sparklineChart}>
-        <div className={styles.sparklineYAxis} aria-hidden="true">
-          <span>{maxAbs.toFixed(1)}s</span>
-          <span>{(maxAbs / 2).toFixed(1)}s</span>
-          <span>0s</span>
-        </div>
-        <svg
-          className={styles.sparkline}
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
-          aria-hidden="true"
+    <div className={styles.sparklineChart}>
+      <div className={styles.sparklineYAxis} aria-hidden="true">
+        {yMax > 0 && (
+          <span
+            className={styles.sparklineYAxisLabel}
+            style={{ top: yLabelPct(gapToY(yMax)) }}
+          >
+            {formatGapSeconds(yMax)}
+          </span>
+        )}
+        <span
+          className={styles.sparklineYAxisLabel}
+          style={{ top: yLabelPct(baselineY) }}
         >
-          <line
+          0s
+        </span>
+        {yMin < 0 && (
+          <span
+            className={styles.sparklineYAxisLabel}
+            style={{ top: yLabelPct(gapToY(yMin)) }}
+          >
+            {formatGapSeconds(yMin)}
+          </span>
+        )}
+      </div>
+      <svg
+        className={styles.sparkline}
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient
+            id={gradPosId}
+            x1="0"
+            y1={padTop}
+            x2="0"
+            y2={baselineY}
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop
+              offset="0%"
+              style={{ stopColor: 'var(--accent-primary)', stopOpacity: 0.55 }}
+            />
+            <stop
+              offset="100%"
+              style={{ stopColor: 'var(--accent-primary)', stopOpacity: 0 }}
+            />
+          </linearGradient>
+          <linearGradient
+            id={gradNegId}
             x1="0"
             y1={baselineY}
-            x2={W}
-            y2={baselineY}
-            className={styles.sparklineAxis}
-          />
-          <polyline
-            points={points.join(' ')}
-            className={styles.sparklineLine}
-          />
-        </svg>
-      </div>
-      {useTime && (
-        <div className={styles.timeline} aria-hidden="true">
-          {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (
-            <span
-              key={i}
-              className={styles.timelineTick}
-              style={{ left: `${f * 100}%` }}
-            >
-              {(f * totalTime).toFixed(1)}s
-            </span>
-          ))}
-        </div>
-      )}
-    </>
+            x2="0"
+            y2={H - padBottom}
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop
+              offset="0%"
+              style={{ stopColor: 'var(--accent-error)', stopOpacity: 0 }}
+            />
+            <stop
+              offset="100%"
+              style={{ stopColor: 'var(--accent-error)', stopOpacity: 0.55 }}
+            />
+          </linearGradient>
+        </defs>
+        <path d={posAreaPath} fill={`url(#${gradPosId})`} />
+        <path d={negAreaPath} fill={`url(#${gradNegId})`} />
+        <line
+          x1="0"
+          y1={baselineY}
+          x2={W}
+          y2={baselineY}
+          className={styles.sparklineZero}
+        />
+        <path d={linePath} className={styles.sparklineLine} />
+      </svg>
+    </div>
   );
 }
 

@@ -38,20 +38,20 @@ export function SkinMini({ rarity = 'common' }) {
       />
       {/* Left flap. */}
       <polygon
-        points="14,14 22,108 100,148"
+        points="14,14 18,108 100,148"
         fill={color}
         fillOpacity="0.10"
       />
       {/* Right flap - mirror of the left. */}
       <polygon
-        points="186,14 178,108 100,148"
+        points="186,14 182,108 100,148"
         fill={color}
         fillOpacity="0.10"
       />
-      {/* Outer pentagon: top edge slightly inset, viewBox a touch
-          taller so the silhouette reads narrower and taller. */}
+      {/* Outer pentagon: top edge slightly inset; mid corners pulled
+          ~5% outward at y=108 so the bottom flares a touch wider. */}
       <path
-        d="M 14,14 L 186,14 L 178,108 L 100,148 L 22,108 Z"
+        d="M 14,14 L 186,14 L 182,108 L 100,148 L 18,108 Z"
         fill="none"
         stroke={color}
         strokeWidth="1.5"

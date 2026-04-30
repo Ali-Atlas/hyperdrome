@@ -527,8 +527,7 @@
 }
 
 .cardMod .listingImage {
-  /* Height comes from base .listingImage (200px); only padding differs
-     per item type to dial the visual breathing around the chip. */
+  aspect-ratio: 16 / 10;
   padding: 22px var(--space-2) 4px;
 }
 
@@ -555,8 +554,10 @@
 .card_level_orange .listingImage,
 .card_level_purple .listingImage,
 .card_level_gold .listingImage {
-  /* Height comes from base .listingImage (200px); only padding differs
-     per drone tier to dial the visual breathing around the render. */
+  /* 4/3 (1.333) gives ~6px more image-area height at the typical 165px
+     column width than 7/5 (1.4), nudging total drone card height up by
+     ~5px per Captain's spec without crowding the rest of the layout. */
+  aspect-ratio: 4 / 3;
   padding: 26px var(--space-2) 10px;
 }
 
@@ -583,8 +584,11 @@
 .card_rare:not(.cardMod) .listingImage,
 .card_epic:not(.cardMod) .listingImage,
 .card_legendary:not(.cardMod) .listingImage {
-  /* Height comes from base .listingImage (200px); only padding differs
-     per skin rarity to dial the visual breathing around the prism. */
+  /* Square image so the skin card's overall height matches the drone
+     cards' visual footprint on the drones page (drone aspect 3/2 +
+     denser body content; skin aspect 1/1 + lighter body lands at the
+     same total card height). */
+  aspect-ratio: 1 / 1;
   padding: 24px var(--space-2) 6px;
 }
 
@@ -810,6 +814,14 @@
   border-radius: var(--radius-lg);
   box-shadow: none;
   overflow: hidden;
+  /* Defensive rounded clipping: `overflow: hidden` + `border-radius`
+     alone can drop the rounded clip on transformed/animated descendants
+     in some browsers, so the rotating ::before peeks past the card's
+     curve at one corner. clip-path enforces the rounded shape directly
+     and is independent of overflow + border-radius behavior. Mirrors
+     app/drones/page.module.css so the marketplace legendary drone card
+     gets the same animated shine on the border. */
+  clip-path: inset(0 round var(--radius-lg));
   animation: none;
 }
 
@@ -857,10 +869,23 @@
 }
 
 .skinRarity_legendary.skinRarity_legendary .listingImage img {
-  /* Captain Apr 2026: 90% cap removed — legendary drone listings should
-     match the regular tier-4 drone image footprint exactly, no special
-     sizing. Bob animation kept; it only animates transform: translateY
-     and doesn't affect layout. */
+  /* Cap legendary drone renders so the rendered artwork lands at the
+     same on-screen footprint as the tier-4 silhouette. Legendary skin
+     assets are cropped tighter than the silhouette images, so they
+     need a smaller cap to read as the same physical drone size. */
+  max-height: 85%;
+  max-width: 85%;
+  animation: legendaryDroneBob 4s ease-in-out infinite;
+}
+
+/* Parallel rule for legendary skin listings rendering the SkinMini
+   prism placeholder (no real webp). SkinThumb wraps the prism SVG in
+   a span.wrap, so the SVG sits at .listingImage > span > svg - the
+   img-only rule above doesn't reach it. Animating the wrap span
+   transforms the prism as a whole so a legendary skin without a
+   bound image still gets the constant bob that legendary drone
+   listings show. */
+.skinRarity_legendary.skinRarity_legendary .listingImage > span {
   animation: legendaryDroneBob 4s ease-in-out infinite;
 }
 
@@ -882,7 +907,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .skinRarity_legendary.skinRarity_legendary::before,
-  .skinRarity_legendary.skinRarity_legendary .listingImage img {
+  .skinRarity_legendary.skinRarity_legendary .listingImage img,
+  .skinRarity_legendary.skinRarity_legendary .listingImage > span {
     animation: none;
   }
 }
@@ -940,14 +966,7 @@
 
 .listingImage {
   width: 100%;
-  /* Fixed pixel height so every listing card has the same image footprint
-     regardless of the image's natural aspect ratio or the item type
-     (drone/skin/mod). The image inside scales via object-fit: contain on
-     .droneImg / .skinImg, so a wide drone render and a square skin both
-     letter-box within the same 200px box. flex-shrink: 0 protects the
-     height from being squeezed by the column-flex parent. */
-  height: 200px;
-  flex-shrink: 0;
+  aspect-ratio: 16 / 10;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1453,10 +1472,11 @@
 }
 
 /* Hero (Legendary) - the premium offering commands the page. Dominates
-   via height + gold treatment, not bigger graphics. min-height enforces
-   the ~2-3x size vs starter even when "What's Inside" is collapsed. */
+   via height + gold treatment, not bigger graphics. min-height pins the
+   container to its final settled height (hero row + PossibleGroup grid)
+   so the card doesn't grow when the preview cards finish painting. */
 .packCardHero {
-  min-height: 360px;
+  min-height: 600px;
   padding: 48px 40px 36px;
   gap: 28px;
 }
@@ -2301,11 +2321,17 @@
 .packCard_premium {
   border: 1px solid rgba(187, 134, 252, 0.2);
   overflow: visible;
+  /* Pin to the natural settled height (packTopRow + 16px gap +
+     PossibleGroup) so the container doesn't grow when the 6-up preview
+     cards finalize. Same value works for Premium + Starter since they
+     share the same internal layout (only color differs). */
+  min-height: 460px;
 }
 
 .packCard_starter {
   border: 1px solid rgba(3, 218, 198, 0.2);
   overflow: visible;
+  min-height: 460px;
 }
 
 /* Row is explicitly tall enough to contain the bigger pack inside the
@@ -2565,6 +2591,17 @@
      above the info block. */
   .packCard_legendary .packImgWrap {
     transform: none;
+  }
+  /* Mobile container floors. With packTopRow stacked to 1 column the
+     image sits on top of the info, so the card's natural height grows
+     significantly. These floors match the settled heights so the
+     containers don't shift while the 6-up preview cards finalize. */
+  .packCard_premium,
+  .packCard_starter {
+    min-height: 600px;
+  }
+  .packCardHero {
+    min-height: 800px;
   }
 }
 
@@ -2893,192 +2930,6 @@
   }
 }
 
-/* Pack reveal modal - cinematic. Cards fly in from 3D space, staggered. */
-.revealWrap {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  position: relative;
-  padding: var(--space-3) 0 var(--space-2);
-}
-
-.revealGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  /* Row defaults to `auto` height (content-driven). Cards read at their
-     improved natural size (`.revealGrid .possibleCard { min-height: 240px }`
-     below); leftover vertical space inside the flex container sits
-     between the card row and the action buttons - intentional gap. */
-  gap: var(--space-3);
-  perspective: 1200px;
-  /* Stage 2/3 grid claims the panel's vertical space the same way Stage
-     1's .purchaseHero does (`flex: 1 1 auto`), so the reveal cards read
-     full-size inside the modal instead of pinned to the top. */
-  flex: 1 1 auto;
-  align-items: stretch;
-  padding: var(--space-2) 0;
-}
-
-/* Reveal-grid cards override the small .possibleCard preview sizing.
-   The packs-section preview uses .possibleCard for compact 6-card rows;
-   inside the reveal modal we want each card at full scale so the prism
-   or mod chip fills the body. Padding, gap, min-height and the inner
-   prism wrap all bump up. */
-.revealGrid .possibleCard {
-  padding: var(--space-4);
-  gap: var(--space-3);
-  min-height: 240px;
-  justify-content: space-between;
-}
-
-.revealGrid .possibleSkinThumb {
-  width: 75%;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.revealGrid .possibleName,
-.revealGrid .possibleRarity {
-  font-size: var(--text-sm);
-}
-
-.revealGrid .possibleL {
-  font-size: var(--text-6xl);
-}
-
-.revealCard {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: var(--bg-card);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  opacity: 0;
-  transform-origin: 50% 100%;
-  transform:
-    translate3d(0, 80px, -200px)
-    rotateX(35deg)
-    rotateY(-10deg)
-    scale(0.7);
-  transition:
-    opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.revealVisible {
-  opacity: 1;
-  transform: translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1);
-}
-
-/* Legendary reveal gets a burst of light + sustained shimmer. */
-.revealVisible.card_legendary {
-  animation: revealBurst 1.1s var(--ease-out);
-}
-@keyframes revealBurst {
-  0%   { box-shadow: 0 0 0 rgba(255, 215, 0, 0);   filter: brightness(1); }
-  30%  { box-shadow: 0 0 80px rgba(255, 215, 0, 0.85); filter: brightness(1.35); }
-  100% { box-shadow: 0 0 28px rgba(255, 215, 0, 0.35); filter: brightness(1); }
-}
-
-/* Epic drops get a softer purple pulse. */
-.revealVisible.card_epic {
-  animation: revealPulseEpic 900ms var(--ease-out);
-}
-@keyframes revealPulseEpic {
-  0%   { box-shadow: 0 0 0 rgba(187, 134, 252, 0); }
-  40%  { box-shadow: 0 0 40px rgba(187, 134, 252, 0.55); }
-  100% { box-shadow: 0 0 16px rgba(187, 134, 252, 0.2); }
-}
-
-.revealImage {
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.revealImage svg {
-  width: 100%;
-  height: 100%;
-}
-
-.revealName {
-  font-family: var(--font-heading);
-  font-size: var(--text-sm);
-  font-weight: var(--font-bold);
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  text-align: center;
-}
-
-/* Stage-2 action row matches Stage 1's CTA footprint exactly: same
-   horizontal band (centered, max-width 400px) so the buttons sit in the
-   same screen position users saw on Confirm Purchase. Two equal cells
-   for Save for Later + Open Pack; the children are .modalSecondaryBtn
-   and .purchaseCta which already share dimensions and font, so each
-   half-width button reads as a matched pair. */
-.revealActions {
-  align-self: center;
-  width: 100%;
-  max-width: 400px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
-}
-
-.revealActions > .purchaseCta,
-.revealActions > .modalSecondaryBtn {
-  max-width: none;
-  width: 100%;
-}
-
-.preRevealStage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4) 0 var(--space-2);
-}
-
-.preRevealImg {
-  width: 200px;
-  height: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 12px 28px rgba(255, 255, 255, 0.08));
-  animation: preRevealFloat 3s ease-in-out infinite;
-}
-
-.preRevealHint {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  text-align: center;
-  margin: 0;
-}
-
-@keyframes preRevealFloat {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .preRevealImg {
-    animation: none;
-  }
-}
 
 @media (max-width: 900px) {
   .packCard {
@@ -3093,12 +2944,6 @@
   .packBtn {
     width: 100%;
     min-width: 0;
-  }
-}
-
-@media (max-width: 640px) {
-  .revealGrid {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -3510,6 +3355,48 @@
   animation: purchaseModalIn 400ms var(--ease-out);
 }
 
+/* Pack flow modal. Same Modal primitive, separate className so the
+   listing purchase modal keeps its dimensions. Shell never unmounts;
+   only its inner content swaps across confirm/ready/opened stages.
+   No border - clean black drop shadow does the elevation work, so the
+   panel reads as floating above the page behind it. */
+.flowModal {
+  width: 92vw !important;
+  max-width: 880px !important;
+  min-height: 580px;
+  max-height: 90vh;
+  background:
+    radial-gradient(
+      ellipse at top,
+      rgba(255, 255, 255, 0.04) 0%,
+      transparent 55%
+    ),
+    linear-gradient(
+      180deg,
+      var(--bg-secondary) 0%,
+      var(--bg-primary) 100%
+    ) !important;
+  border: none !important;
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 32px 90px rgba(0, 0, 0, 0.78),
+    0 12px 32px rgba(0, 0, 0, 0.55);
+  animation: purchaseModalIn 400ms var(--ease-out);
+  overflow: hidden;
+}
+
+@media (max-width: 480px) {
+  .flowModal {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-height: 100vh !important;
+    border-radius: 0;
+    border: none;
+  }
+}
+
 /* List Item modal: fixed-size panel so the modal doesn't change shape
    between item categories or when a category has zero items. Empty-state
    copy fills the picker grid space without the modal collapsing.
@@ -3551,6 +3438,457 @@
 .purchaseStageSuccess {
   align-items: center;
   justify-content: center;
+}
+
+/* ==========================================================================
+ * Pack flow stage layout (composes onto .purchaseStage)
+ *
+ * The flow body uses .purchaseStage's column layout for header/title/divider/
+ * price/CTA. .flowStage extends it with the shared content slot (.flowSlot)
+ * that holds the pack hero in stages 1+2 and the 3-card reveal in stage 3.
+ * The slot's height is fixed across all stages so the modal box doesn't jump
+ * dimensions when the content swaps.
+ * ========================================================================== */
+
+.flowStage {
+  /* min-height pinned to stage 1's natural total (slot + title + price
+     block + button + paddings + gaps). With this floor, stages 2 and 3
+     can drop the price block and the modal stays the exact same height -
+     .flowSlot's `flex: 1 1 auto` absorbs the freed space without
+     resizing the panel. */
+  min-height: 620px;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-6) var(--space-5);
+}
+
+/* Wrapper around the single-action <Button> so the row keeps the same
+   vertical footprint regardless of the button's intrinsic content width.
+   The Button uses size="md" + the .flowActionBtn override below so the
+   action reads as a confident primary CTA - wider and taller than the
+   default size="md" - matched in width to the .flowPriceBlock above. */
+.flowActionRow {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Doubled-class specificity so this beats the Button primitive's own
+   .button.md size rule regardless of CSS-Module ordering. min-width
+   pegs the button to roughly the price block's width; padding bumps
+   vertical breathing room. */
+.flowActionBtn.flowActionBtn {
+  min-width: 240px;
+  min-height: 48px;
+  padding: 14px 28px;
+  font-size: var(--text-sm);
+  letter-spacing: 0.07em;
+}
+
+.flowSlot {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 340px;
+  padding: var(--space-3) 0;
+  overflow: hidden;
+}
+
+/* Stages 1+2: pack hero with a subtle "alive" treatment - a rarity-color
+   breathing aura behind the floating pack image. Same DOM box and
+   dimensions as stage 3. */
+.flowPack {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Soft rarity-color radial that breathes 4s in/out behind the pack.
+   Subtle on purpose - reads as ambient energy, not a glow halo. */
+.flowAura {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--glow-color, #03DAC6) 22%, transparent) 0%,
+    color-mix(in srgb, var(--glow-color, #03DAC6) 8%, transparent) 35%,
+    transparent 70%
+  );
+  filter: blur(28px);
+  pointer-events: none;
+  z-index: 0;
+  transform: translate(-50%, -50%) scale(0.92);
+  animation: flowPackBreathe 4s ease-in-out infinite;
+}
+
+@keyframes flowPackBreathe {
+  0%, 100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+/* Stage 3: pack rumbles 3s with escalating sparks, then explodes; burst
+   + fog peak as the pack vanishes; cards fade in 3.2-3.8s. */
+.flowReveal {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* Pack image during stage 3. PURE HORIZONTAL shake - Y stays anchored at
+   -50% so there's no scale or vertical movement during the rumble. The
+   pack's rendered size is identical to stages 1+2 (same `width: 80%` of
+   slot, no extra max-width cap), so it does NOT shrink when the user
+   transitions ready → opened. At 1000ms the explosion takes over: scale
+   up + brightness flash + opacity to 0. */
+.flowExplodingPack {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 80%;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  animation:
+    flowRumble 1000ms ease-in,
+    flowExplode 600ms cubic-bezier(0.16, 1, 0.3, 1) 1000ms forwards;
+}
+
+@keyframes flowRumble {
+  /* Pure horizontal translate (Y stays at -50%). Amplitude ramps from
+     ±0.5px → ±5px over 1s. No scale, no Y component - the pack stays
+     the EXACT same size and only shakes side-to-side. */
+  0%   { transform: translate(calc(-50% + 0px),    -50%); }
+  10%  { transform: translate(calc(-50% - 0.5px),  -50%); }
+  20%  { transform: translate(calc(-50% + 0.8px),  -50%); }
+  30%  { transform: translate(calc(-50% - 1.2px),  -50%); }
+  40%  { transform: translate(calc(-50% + 1.7px),  -50%); }
+  50%  { transform: translate(calc(-50% - 2.3px),  -50%); }
+  60%  { transform: translate(calc(-50% + 3px),    -50%); }
+  70%  { transform: translate(calc(-50% - 3.7px),  -50%); }
+  80%  { transform: translate(calc(-50% + 4.4px),  -50%); }
+  90%  { transform: translate(calc(-50% - 4.8px),  -50%); }
+  100% { transform: translate(calc(-50% + 5px),    -50%); }
+}
+
+@keyframes flowExplode {
+  0%   {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    filter: brightness(1.5);
+  }
+  25%  {
+    transform: translate(-50%, -50%) scale(1.35);
+    opacity: 0.85;
+    filter: brightness(2.8);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.6);
+    opacity: 0;
+    filter: brightness(1);
+  }
+}
+
+/* Bright neon ball of electricity. Sits dead-center on the pack at z-index 3
+   (above the pack at z-index 2). Starts as a tiny invisible point and grows
+   to a ~200px glowing sphere over the 1s rumble, then bursts outward with
+   the explosion. Pure radial gradient: white-hot core → rarity color → fade.
+   `mix-blend-mode: screen` adds it to whatever's below for a true neon-glow
+   feel rather than a flat coloured circle. Color piped via `--glow-color`. */
+.flowOrb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.95) 0%,
+    color-mix(in srgb, var(--glow-color, #03DAC6) 80%, white) 18%,
+    var(--glow-color, #03DAC6) 38%,
+    color-mix(in srgb, var(--glow-color, #03DAC6) 35%, transparent) 65%,
+    transparent 92%
+  );
+  filter: blur(8px) brightness(1.8) saturate(1.5);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.05);
+  animation:
+    flowOrbGrow 1000ms ease-in forwards,
+    flowOrbExplode 600ms ease-out 1000ms forwards;
+}
+
+@keyframes flowOrbGrow {
+  /* Tiny invisible spark → bright neon ball. Growing through the rumble
+     so the user feels energy building inside the pack. */
+  0%   { opacity: 0;    transform: translate(-50%, -50%) scale(0.05); filter: blur(4px) brightness(1.5) saturate(1.4); }
+  30%  { opacity: 0.45; transform: translate(-50%, -50%) scale(0.28); filter: blur(6px) brightness(1.7) saturate(1.5); }
+  60%  { opacity: 0.8;  transform: translate(-50%, -50%) scale(0.55); filter: blur(8px) brightness(2)   saturate(1.6); }
+  100% { opacity: 1;    transform: translate(-50%, -50%) scale(1);    filter: blur(10px) brightness(2.4) saturate(1.7); }
+}
+
+@keyframes flowOrbExplode {
+  /* The orb bursts outward, brightness peaking, then fades as it expands
+     past the modal. Combined with .flowBurst + .flowFog this reads as
+     "ball of electricity blowing apart into light and mist". */
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(1);   filter: blur(10px) brightness(2.4) saturate(1.7); }
+  30%  { opacity: 1; transform: translate(-50%, -50%) scale(2.5); filter: blur(20px) brightness(3.1) saturate(1.5); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(4.6); filter: blur(32px) brightness(1) saturate(1); }
+}
+
+.flowCards {
+  position: relative;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 720px;
+}
+
+/* Override the small 6-up .possibleCard footprint when sitting inside the
+   reveal grid. Captain spec: same card style as the legendary pack
+   container's preview cards, sized so they don't read as tiny. The 3-up
+   layout naturally gives more width per card; we bump the inner image
+   wrap and label sizes accordingly. */
+.flowCards .possibleCard {
+  padding: var(--space-3);
+  gap: var(--space-2);
+  min-height: 240px;
+  justify-content: space-between;
+}
+
+.flowCards .possibleSkinThumb {
+  width: 75%;
+  height: 65%;
+}
+
+.flowCards .possibleName,
+.flowCards .possibleRarity {
+  font-size: var(--text-sm);
+}
+
+.flowCards .possibleL {
+  font-size: var(--text-6xl);
+}
+
+/* Card entry animation. Each card fades + scales in. Stagger comes from
+   inline `animationDelay = 1300 + i*140ms` so cards appear right after
+   the explosion peaks (rumble 0-1s, explode 1-1.6s, cards 1.3-1.9s).
+   Resting state (rarity gradient + border + ambient pulse) comes from
+   .possibleCard_<rarity> so the end-state matches a static preview card. */
+.flowCard {
+  opacity: 0;
+  transform: scale(0.7) translateY(24px);
+  animation: flowCardIn 600ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes flowCardIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) translateY(24px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.04) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Rarity-tinted radial pulse synchronized to the explosion (delay 1000ms,
+   matching the rumble's end). White-hot core + rarity-color mid + transparent
+   edge so the burst reads as light, not a flat disc. Brightness boost
+   during peak keeps it shiny. Color piped via `--glow-color`. */
+.flowBurst {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 320px;
+  height: 320px;
+  margin: -160px 0 0 -160px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.98) 0%,
+    color-mix(in srgb, var(--glow-color, #FFD700) 85%, white) 10%,
+    var(--glow-color, #FFD700) 28%,
+    color-mix(in srgb, var(--glow-color, #FFD700) 30%, transparent) 55%,
+    transparent 82%
+  );
+  filter: blur(6px);
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0;
+  animation: flowBurst 1100ms cubic-bezier(0.16, 1, 0.3, 1) 1000ms forwards;
+}
+
+@keyframes flowBurst {
+  0%   { opacity: 0;   transform: scale(0.3); filter: blur(2px) brightness(2.4); }
+  15%  { opacity: 1;   transform: scale(1.1); filter: blur(2px) brightness(2.8); }
+  35%  { opacity: 1;   transform: scale(1.85); filter: blur(8px) brightness(1.9); }
+  70%  { opacity: 0.45; transform: scale(3.3); filter: blur(14px) brightness(1.2); }
+  100% { opacity: 0;   transform: scale(4.8); filter: blur(20px) brightness(1); }
+}
+
+/* Shiny white mist that blows outward as the burst peaks. High peak
+   opacity reads as ENERGY blowing out, not ambient haze. */
+.flowFog {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 70% 60% at center,
+      rgba(255, 255, 255, 0.6) 0%,
+      rgba(255, 255, 255, 0.28) 22%,
+      rgba(255, 255, 255, 0.08) 45%,
+      transparent 75%
+    );
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  animation: flowFog 1300ms ease-out 1000ms forwards;
+}
+
+@keyframes flowFog {
+  0%   { opacity: 0;   transform: scale(0.6); }
+  20%  { opacity: 1;   transform: scale(1.1); }
+  60%  { opacity: 0.4; transform: scale(1.55); }
+  100% { opacity: 0;   transform: scale(1.95); }
+}
+
+/* Stage 1 price block. Subtle rule-line top + bottom, "PRICE" label
+   above the volt+amount in mono caps - clean stat treatment, not "text
+   dumped on the page". */
+.flowPriceBlock {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 28px;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.flowPriceLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.flowPriceValue {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Skip everything: rumble, orb, explosion, burst, fog. The user just
+     sees the cards in their final position when stage 3 mounts. */
+  .flowAura,
+  .flowExplodingPack,
+  .flowOrb,
+  .flowBurst,
+  .flowFog {
+    animation: none;
+  }
+  .flowExplodingPack,
+  .flowOrb,
+  .flowBurst,
+  .flowFog {
+    display: none;
+  }
+  .flowCard {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .flowStage {
+    min-height: 540px;
+    padding: var(--space-5) var(--space-4) var(--space-4);
+  }
+  .flowAura {
+    width: 280px;
+    height: 280px;
+  }
+  .flowExplodingPack {
+    /* Match stages 1+2 mobile sizing - same `width: 80%` of slot, no cap. */
+    width: 80%;
+  }
+  .flowOrb {
+    width: 160px;
+    height: 160px;
+  }
+  .flowBurst {
+    width: 240px;
+    height: 240px;
+    margin: -120px 0 0 -120px;
+  }
+  .flowPriceBlock {
+    padding: 8px 22px;
+  }
+  .flowPriceValue {
+    font-size: var(--text-xl);
+  }
+  .flowActionBtn.flowActionBtn {
+    min-width: 200px;
+    padding: 12px 22px;
+  }
+  .flowSlot {
+    min-height: 280px;
+  }
+  .flowCards {
+    gap: 8px;
+  }
+  .flowCards .possibleCard {
+    min-height: 180px;
+    padding: var(--space-2);
+  }
+  .flowCards .possibleName,
+  .flowCards .possibleRarity {
+    font-size: 10px;
+  }
+  .flowCards .possibleL {
+    font-size: var(--text-3xl);
+  }
 }
 
 .purchaseCloseBtn {
@@ -3663,19 +4001,6 @@
   height: auto;
   object-fit: contain;
   pointer-events: none;
-}
-
-/* Quiet "launching soon" caption shown under the Confirm Purchase CTA on
-   capsule pack confirms. Distinct from .purchaseError (which uses
-   --accent-error) - this is informational, not a failure. */
-.purchasePackNote {
-  margin-top: var(--space-2);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-align: center;
 }
 
 .purchaseGlowPulse {
@@ -3859,172 +4184,6 @@
   gap: 6px;
 }
 
-/* Ghost-outline counterpart to .purchaseCta for secondary modal actions
-   (Save for Later, Close, etc). Same dimensions and font as .purchaseCta
-   so paired buttons in the same modal read as a matched set. */
-.modalSecondaryBtn {
-  align-self: center;
-  width: 100%;
-  max-width: 400px;
-  min-height: 52px;
-  padding: 0 var(--space-4);
-  background: transparent;
-  color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  font-family: var(--font-heading);
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition:
-    border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.modalSecondaryBtn:hover:not(:disabled) {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
-}
-
-.modalSecondaryBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Hexagon icon shown inside face-down placeholder cards in the pack reveal
-   "Ready to Open" stage. Tinted to match the rarity-tinted card back. */
-.revealBackIcon {
-  color: var(--text-tertiary);
-  opacity: 0.55;
-}
-
-/* Per-rarity reveal burst on pack-opened cards. Each variant composes
-   with the infinite border-pulse already on .possibleCard_<rarity>:
-   the static animation runs in parallel with a one-shot burst that
-   flashes a brighter halo + filter brightness on appear, then settles
-   into the card's resting box-shadow. The .possibleCard_<rarity> base
-   class supplies the resting box-shadow / border, so the animation
-   end-state is implicit (not 'forwards') and the breath continues. */
-.possibleCard_common.revealVisible {
-  animation: possibleRevealBurstCommon 700ms var(--ease-out);
-}
-
-.possibleCard_rare.revealVisible {
-  animation:
-    rarePulse 3s ease-in-out infinite,
-    possibleRevealBurstRare 850ms var(--ease-out);
-}
-
-.possibleCard_epic.revealVisible {
-  animation:
-    epicPulse 2.5s ease-in-out infinite,
-    possibleRevealBurstEpic 950ms var(--ease-out);
-}
-
-.possibleCard_legendary.revealVisible {
-  animation:
-    legendaryBorderPulse 4s ease-in-out infinite,
-    possibleRevealBurstLegendary 1150ms var(--ease-out);
-}
-
-@keyframes possibleRevealBurstCommon {
-  0%   {
-    box-shadow: 0 0 0 rgba(158, 158, 158, 0);
-    filter: brightness(1);
-    transform: scale(0.95);
-  }
-  30%  {
-    box-shadow: 0 0 32px rgba(158, 158, 158, 0.55);
-    filter: brightness(1.18);
-    transform: scale(1.025);
-  }
-  100% {
-    box-shadow: 0 0 0 rgba(158, 158, 158, 0);
-    filter: brightness(1);
-    transform: scale(1);
-  }
-}
-
-@keyframes possibleRevealBurstRare {
-  0%   {
-    box-shadow: 0 0 0 rgba(74, 158, 255, 0);
-    filter: brightness(1);
-    transform: scale(0.94);
-  }
-  25%  {
-    box-shadow:
-      0 0 56px rgba(74, 158, 255, 0.75),
-      inset 0 0 30px rgba(74, 158, 255, 0.22);
-    filter: brightness(1.3);
-    transform: scale(1.04);
-  }
-  100% {
-    box-shadow: 0 0 0 rgba(74, 158, 255, 0);
-    filter: brightness(1);
-    transform: scale(1);
-  }
-}
-
-@keyframes possibleRevealBurstEpic {
-  0%   {
-    box-shadow: 0 0 0 rgba(187, 134, 252, 0);
-    filter: brightness(1);
-    transform: scale(0.93);
-  }
-  25%  {
-    box-shadow:
-      0 0 70px rgba(187, 134, 252, 0.85),
-      inset 0 0 40px rgba(187, 134, 252, 0.28);
-    filter: brightness(1.38);
-    transform: scale(1.05);
-  }
-  100% {
-    box-shadow: 0 0 0 rgba(187, 134, 252, 0);
-    filter: brightness(1);
-    transform: scale(1);
-  }
-}
-
-@keyframes possibleRevealBurstLegendary {
-  0%   {
-    box-shadow: 0 0 0 rgba(255, 215, 0, 0);
-    filter: brightness(1);
-    transform: scale(0.91);
-  }
-  20%  {
-    box-shadow:
-      0 0 110px rgba(255, 215, 0, 0.95),
-      inset 0 0 60px rgba(255, 215, 0, 0.4);
-    filter: brightness(1.55) saturate(1.2);
-    transform: scale(1.06);
-  }
-  100% {
-    box-shadow: 0 0 0 rgba(255, 215, 0, 0);
-    filter: brightness(1);
-    transform: scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .possibleCard_common.revealVisible,
-  .possibleCard_rare.revealVisible,
-  .possibleCard_epic.revealVisible,
-  .possibleCard_legendary.revealVisible {
-    animation: none;
-  }
-}
-
-/* Stage-1 placeholder cards still allocate space for the rarity label,
-   but keep it invisible so the cards don't telegraph what's inside. */
-.revealHiddenLabel {
-  visibility: hidden;
-}
 
 .purchaseCta:hover:not(:disabled) {
   filter: brightness(1.1);
@@ -4489,8 +4648,8 @@
 }
 
 /* Doubled selector outranks Button's variant/size classes so paired
-   buttons share dimensions identical to the .purchaseCta / .modalSecondaryBtn
-   pair used by other modals. */
+   buttons share dimensions identical to the .purchaseCta footprint used
+   by the cinematic modal. */
 .listFormActionBtn.listFormActionBtn {
   width: 100%;
   min-height: 52px;
@@ -5096,8 +5255,8 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
   width: 90vw;
-  max-width: 600px;
-  min-height: 480px;
+  max-width: 700px;
+  min-height: 500px;
   overflow: hidden;
 }
 
@@ -5108,7 +5267,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-6) var(--space-5) var(--space-5);
-  min-height: 480px;
+  min-height: 500px;
 }
 
 .voltsHero {
@@ -5137,6 +5296,10 @@
   gap: var(--space-3);
   flex-wrap: wrap;
   justify-content: center;
+  /* Auto-flex spacer above the content cluster: pushes title + price +
+     hint + buttons down as a group so the chest's glow halo gets
+     breathing room above, and the price/hint sit close to the CTAs. */
+  margin-top: auto;
 }
 
 .voltsAmount {
@@ -5172,10 +5335,6 @@
   gap: var(--space-3);
   width: 100%;
   max-width: 380px;
-  /* Push the action row to the bottom of the modal stage so the chest
-     hero gets more breathing room above and the buttons anchor visually
-     to the modal floor (matches the other cinematic modals). */
-  margin-top: auto;
 }
 
 .voltsActions > * {

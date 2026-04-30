@@ -378,11 +378,7 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  padding: 6px 8px;
-  /* Min height fits two lines (name + mod description) without crowding,
-     applied to both the mod and skin equipped rows so they match heights
-     even when the skin row has only a name line. */
-  min-height: 44px;
+  padding: 8px 10px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
@@ -394,9 +390,32 @@
     background var(--duration-fast) var(--ease-out);
 }
 
+/* The equipped indicator is the trigger that opens the select dropdown.
+   The description was rendering as a second line below the name and
+   pushed the trigger taller than a single dropdown-option row, which
+   made the "just showing what's equipped" state look bigger than it
+   does as a selection dropdown. Hide the description on the trigger
+   so the equipped row matches a dropdown option in height. The
+   dropdown options themselves don't show descriptions either - this
+   keeps the two views visually identical. */
+.modSelector .modDescription {
+  display: none;
+}
+
 .modSelector:disabled {
   cursor: default;
   opacity: 1;
+}
+
+/* Public viewer with nothing equipped: no chip frame at all. The
+   "None" label + the prism / hex shape stand on their own, matching
+   the surrounding card surface so the empty state reads as absent
+   rather than as a clickable affordance. */
+.modSelector.modSelectorBare {
+  background: transparent;
+  border-color: transparent;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* Per-rarity trigger background. Matches the dropdown row tints exactly
@@ -966,6 +985,70 @@
   border-color: rgba(255, 215, 0, 0.55);
 }
 
+/* Legendary skin override: matches the my-drones legendary card. Per-skin
+   palette flows in via `--legendary-bg`, `--legendary-glow-1`, and
+   `--legendary-glow-2` (set inline by getLegendaryTheme). Doubled-class
+   specificity wins over `.bindCard_legendary` source-order. Same technique
+   notes as `app/drones/page.module.css` `.skinRarity_legendary`. */
+.bindCardLegendarySkin.bindCardLegendarySkin {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  clip-path: inset(0 round var(--radius-sm));
+}
+
+.bindCardLegendarySkin.bindCardLegendarySkin::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  height: 200%;
+  transform-origin: center;
+  transform: translate(-50%, -50%) rotate(0deg);
+  background: conic-gradient(
+    from 0deg,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 0%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 75%,
+    color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 12%, #ffffff) 87%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 99%,
+    var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 100%
+  );
+  animation: bindLegendaryRotate 10s linear infinite;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.bindCardLegendarySkin.bindCardLegendarySkin::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 12%, transparent) 0%,
+      color-mix(in srgb, var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 4%, transparent) 100%
+    ),
+    var(--legendary-bg, #0A0A0A);
+  border-radius: calc(var(--radius-sm) - 1px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+@keyframes bindLegendaryRotate {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bindCardLegendarySkin.bindCardLegendarySkin::before {
+    animation: none;
+  }
+}
+
 /* Selected state: only the corner checkmark badge changes; rarity
    background + border stay intact so the card identity is preserved. */
 .bindCardSelected {
@@ -981,16 +1064,26 @@
   overflow: hidden;
 }
 
-/* Real images + ModPlaceholder (direct-child SVG) fill the bind slot.
-   SkinThumb's nested pentagon SVG (inside span.wrap) is left to the
-   SkinThumb stylesheet, which sizes it to ~55% so the prism doesn't
-   fill the entire bind card. */
+/* Real images + ModPlaceholder (direct-child SVG) fill the bind slot. */
 .bindCardImage img,
-.bindCardImage > svg,
-.bindCardImage span {
+.bindCardImage > svg {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* SkinThumb wrap span - mirror the marketplace `.skinImg` sizing
+   (width: auto; height: 100%; max-width: 100%) so the wrap shares
+   the same sizing context across surfaces. The wrap's flex centering
+   is set by SkinThumb's own `.wrap.wrap` rule (specificity 0,2,0),
+   which wins over this single-class rule. Without matching the
+   marketplace's `width: auto`, the wrap previously stretched to a
+   square 100%×100% and the prism rendered at a different
+   proportional footprint than in the marketplace listing cards. */
+.bindCardImage span {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
 }
 
 .bindCardName {
@@ -1079,6 +1172,7 @@
   flex-direction: column;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
+  flex: 1;
 }
 
 .statHeader {
@@ -1194,9 +1288,9 @@
 .perfSummaryCard {
   background: var(--bg-card);
   border: 1px solid var(--border-default);
-  flex: 1;
   display: flex;
   flex-direction: column;
+  flex: 0.53;
 }
 
 .raceProfileGrid {

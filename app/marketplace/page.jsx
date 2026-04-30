@@ -22,7 +22,7 @@ import {
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
-import SkinThumb, { SkinMini } from '@/components/ui/SkinThumb';
+import SkinThumb from '@/components/ui/SkinThumb';
 import styles from './page.module.css';
 
 const PACK_DEFS = [
@@ -226,12 +226,17 @@ export default function MarketplacePage() {
   const { user } = useSession();
   const { showToast } = useToast();
 
+  const router = useRouter();
   const [tab, setTab] = useState('drones'); // 'drones' | 'mods' | 'skins' | 'packs' | 'points'
   const [view, setView] = useState('all'); // 'all' | 'mine'
-  const [packOpening, setPackOpening] = useState(null); // pack id currently being opened
-  const [packReveal, setPackReveal] = useState(null); // { awarded, packType }
-  const [packRevealStep, setPackRevealStep] = useState(0);
-  const [packOpened, setPackOpened] = useState(false);
+  // Unified pack flow state. ONE modal, THREE stages, all driven by this
+  // single object. Shape: { stage, kind, pack, awarded, pending }.
+  //   stage    - 'confirm' | 'ready' | 'opened'
+  //   kind     - 'skin' | 'capsule'
+  //   pack     - the pack def ({ id, name, price, ... })
+  //   awarded  - null until the open API returns; then the 3-item array
+  //   pending  - true during the open API call (Confirm → Ready transition)
+  const [packFlow, setPackFlow] = useState(null);
   const [listings, setListings] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [salesPage, setSalesPage] = useState(1);
@@ -266,9 +271,6 @@ export default function MarketplacePage() {
   const [buyPending, setBuyPending] = useState(false);
   const [buySuccess, setBuySuccess] = useState(null);
   const [buyError, setBuyError] = useState(null);
-  // Pack purchase confirmation modal: { kind: 'skin'|'capsule', pack }
-  const [packBuyModal, setPackBuyModal] = useState(null);
-  const [packBuyCapsuleNote, setPackBuyCapsuleNote] = useState(false);
   const [listModal, setListModal] = useState(false);
   const [listingType, setListingType] = useState('drone');
   const [listingItemId, setListingItemId] = useState('');
@@ -594,92 +596,74 @@ export default function MarketplacePage() {
 
   const userPoints = user?.points ?? 0;
 
-  // Click on a "Buy Pack" CTA - opens the cinematic confirmation modal.
-  // Skin packs and capsule packs share the modal layout; the kind drives
-  // image src + Confirm action + the message shown after Confirm.
-  const openPackBuyModal = (kind, pack) => {
+  // Pack flow handlers. ONE modal stays mounted from open → confirm →
+  // ready → opened → close; only the inner content re-renders. State
+  // transitions all flow through setPackFlow on the single packFlow object.
+
+  const openPackFlow = (kind, pack) => {
     if (!user) {
       showToast('Sign in to buy packs.', 'error');
       return;
     }
-    setPackBuyModal({ kind, pack });
-    setPackBuyCapsuleNote(false);
+    setPackFlow({
+      stage: 'confirm',
+      kind,
+      pack,
+      awarded: null,
+      pending: false,
+    });
   };
 
-  const closePackBuyModal = () => {
-    if (packOpening) return;
-    setPackBuyModal(null);
-    setPackBuyCapsuleNote(false);
+  const closePackFlow = () => {
+    if (packFlow?.pending) return;
+    setPackFlow(null);
   };
 
-  // Skin pack confirm path. Hits the existing pack-open API; on success
-  // closes the buy modal and triggers the reveal modal flow. On failure,
-  // surfaces the error as a toast (matching every other error path in
-  // the app) and leaves the buy modal open so the user can retry.
+  // Confirm Purchase (skin path). Hits the pack-open API; on success
+  // transitions stage confirm → ready and stores the awarded items. On
+  // failure, surfaces a toast and returns to confirm so the user can retry.
   const confirmSkinPackPurchase = async () => {
-    if (!packBuyModal || packBuyModal.kind !== 'skin') return;
-    const packId = packBuyModal.pack.id;
-    setPackOpening(packId);
+    if (!packFlow || packFlow.kind !== 'skin') return;
+    setPackFlow((f) => (f ? { ...f, pending: true } : f));
     try {
       const res = await fetch('/api/marketplace/packs/open', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packType: packId }),
+        body: JSON.stringify({ packType: packFlow.pack.id }),
       });
       const body = await res.json();
       if (!res.ok) {
         showToast(body?.error || 'Pack purchase failed', 'error');
+        setPackFlow((f) => (f ? { ...f, pending: false } : f));
         return;
       }
       const awarded = body.data?.awarded ?? [];
-      setPackBuyModal(null);
-      // kind:'skin' for now since only skin pack opens reach this path.
-      // When mod-capsule open lands, the mod-confirm callback will pass
-      // kind:'mod' and the reveal modal will switch shapes accordingly.
-      setPackReveal({ awarded, packType: packId, kind: 'skin' });
-      setPackRevealStep(0);
-      setPackOpened(false);
+      setPackFlow((f) =>
+        f ? { ...f, stage: 'ready', awarded, pending: false } : f,
+      );
     } catch (err) {
       showToast(String(err), 'error');
-    } finally {
-      setPackOpening(null);
+      setPackFlow((f) => (f ? { ...f, pending: false } : f));
     }
   };
 
-  // Capsule pack confirm path - no backend wired yet. Shows a quiet
-  // inline note under the CTA.
+  // Confirm Purchase (capsule path) - no backend wired yet. Demo-gating
+  // pattern: surface a toast and bounce out of the flow.
   const confirmCapsulePackPurchase = () => {
-    setPackBuyCapsuleNote(true);
+    showToast('Not available in demo.', 'info');
+    setPackFlow(null);
   };
 
-  const handleRevealPack = () => {
-    if (!packReveal) return;
-    setPackOpened(true);
-    // Stagger reveals 500ms apart.
-    packReveal.awarded.forEach((_, i) => {
-      setTimeout(
-        () => setPackRevealStep((s) => Math.max(s, i + 1)),
-        (i + 1) * 500,
-      );
-    });
+  // Stage 2 → 3. Animation timing lives in CSS keyframes; React just
+  // flips the stage and the .flowSlot child swap drives the visuals.
+  const handleOpenPack = () => {
+    setPackFlow((f) => (f && f.stage === 'ready' ? { ...f, stage: 'opened' } : f));
   };
 
-  const closePackReveal = () => {
-    setPackReveal(null);
-    setPackRevealStep(0);
-    setPackOpened(false);
-  };
-
-  // Unified close for the pack-flow modal. The flow has three stages
-  // (confirm purchase / ready to open / opened) all rendered inside ONE
-  // <Modal>; closing must hit the right stage's reset path so React's
-  // batched state lands the modal in a clean closed state. Reveal takes
-  // priority over buy because the transition from stage 1 -> 2 sets
-  // packReveal before packBuyModal is fully cleared on the same tick.
-  const closePackFlow = () => {
-    if (packOpening) return;
-    if (packReveal) closePackReveal();
-    else if (packBuyModal) closePackBuyModal();
+  // Stage 3 only. Closes the modal and routes the user to /drones.
+  const handleEquip = () => {
+    setPackFlow(null);
+    router.push('/drones');
   };
 
   return (
@@ -996,14 +980,14 @@ export default function MarketplacePage() {
             ) : tab === 'packs' ? (
               <PacksShowcase
                 userPoints={userPoints}
-                openingId={packOpening}
+                openingId={packFlow?.pending ? packFlow.pack.id : null}
                 onOpen={(packId) =>
-                  openPackBuyModal(
+                  openPackFlow(
                     'skin',
                     PACK_DEFS.find((p) => p.id === packId),
                   )
                 }
-                onOpenCapsule={(pack) => openPackBuyModal('capsule', pack)}
+                onOpenCapsule={(pack) => openPackFlow('capsule', pack)}
               />
             ) : loading ? (
               <div className={styles.grid}>
@@ -1278,40 +1262,30 @@ export default function MarketplacePage() {
         </div>
       </Modal>
 
-      {/* ---- Pack flow modal: confirm purchase / ready to open / opened.
-              ONE Modal shell stays mounted across all three stages so the
-              outer panel never unmounts/remounts. Inner body branches on
-              which state is set; React batches the stage 1 -> 2 transition
-              so isOpen stays true through the swap. ---- */}
+      {/* ---- Pack flow modal: confirm purchase → ready to open → opened.
+              ONE Modal shell stays mounted across all three stages. The
+              modal never unmounts/remounts. Only <PackFlowModalBody>
+              re-renders, switching its inner content slot on packFlow.stage. */}
       <Modal
-        isOpen={!!(packBuyModal || packReveal)}
+        isOpen={!!packFlow}
         onClose={closePackFlow}
         chromeless
-        className={styles.purchaseModal}
+        className={styles.flowModal}
         overlayClassName={styles.purchaseOverlay}
       >
-        {packBuyModal ? (
-          <PackPurchaseModalBody
-            kind={packBuyModal.kind}
-            pack={packBuyModal.pack}
-            pending={packOpening !== null}
-            capsuleNote={packBuyCapsuleNote}
+        {packFlow && (
+          <PackFlowModalBody
+            flow={packFlow}
             onConfirm={
-              packBuyModal.kind === 'skin'
+              packFlow.kind === 'skin'
                 ? confirmSkinPackPurchase
                 : confirmCapsulePackPurchase
             }
-            onClose={closePackBuyModal}
+            onOpen={handleOpenPack}
+            onEquip={handleEquip}
+            onClose={closePackFlow}
           />
-        ) : packReveal ? (
-          <PackRevealModalBody
-            packReveal={packReveal}
-            packOpened={packOpened}
-            packRevealStep={packRevealStep}
-            onReveal={handleRevealPack}
-            onClose={closePackReveal}
-          />
-        ) : null}
+        )}
       </Modal>
     </NavShell>
   );
@@ -2224,6 +2198,22 @@ function CapsuleHero({ pack, onOpen }) {
               )}
             >
               {pack.description}
+            </p>
+            {/* Parallel tagline to the legendary skin pack so the price +
+                Buy Pack button sit at the same vertical position across the
+                two legendary heroes. Same .legendaryTagline classes; just
+                names the three legendary mods instead of skins. */}
+            <p
+              className={cn(
+                styles.packCardDescription,
+                styles.legendaryDescription,
+                styles.legendaryTagline,
+              )}
+            >
+              The only way to pull{' '}
+              <span className={styles.legendarySkinName}>Phantom Drive</span>,{' '}
+              <span className={styles.legendarySkinName}>Quantum Sync</span>, or{' '}
+              <span className={styles.legendarySkinName}>Storm Rider</span>.
             </p>
             <OddsText packId={pack.id} odds={CAPSULE_PACK_ODDS[pack.id]} />
             <span className={styles.packPriceLarge}>
@@ -3208,51 +3198,73 @@ function PurchaseModalBody({
 }
 
 /* -------------------------------------------------------------------------- */
-/* Pack purchase confirmation modal body                                       */
-/*                                                                             */
-/* Shared by skin packs (kind='skin') and capsule packs (kind='capsule').      */
-/* Skin path hits the existing pack-open API on Confirm; capsule path is a     */
-/* display-only flow that surfaces a quiet "launching soon" line under the     */
-/* CTA. Reuses the listing purchase modal's hero/title/divider/price/CTA       */
-/* classes so the two confirmation styles read as the same family.             */
+/* Pack flow modal body - ONE component, THREE stages.                          */
+/*                                                                              */
+/* Modal shell never unmounts. Sections (slot, title, price, action) occupy     */
+/* the EXACT same space across all 3 stages - the price block is always         */
+/* rendered with `visibility` toggled, never removed from layout, so nothing    */
+/* shifts when the user moves confirm → ready → opened.                         */
+/*                                                                              */
+/*   confirm → pack hero (aura + float) + price + Unlock Pack                   */
+/*   ready   → pack hero in same slot + Open Pack (price block invisible)       */
+/*   opened  → same pack image rumbles 3s then explodes (burst + sparks +       */
+/*             fog), 3 cards fade in 3.2-3.8s + Equip                           */
+/*                                                                              */
+/* Action buttons use the standard <Button variant="primary" size="sm">         */
+/* primitive so dimensions match every other modal CTA in the app (bind,        */
+/* recruit, listing purchase). Pending state on confirm flips Button's          */
+/* loading prop for the spinner.                                                */
 /* -------------------------------------------------------------------------- */
 
-function PackPurchaseModalBody({
-  kind,
-  pack,
-  pending,
-  capsuleNote,
-  onConfirm,
-  onClose,
-}) {
+function PackFlowModalBody({ flow, onConfirm, onOpen, onEquip, onClose }) {
+  const { stage, kind, pack, awarded, pending } = flow;
   const tier = pack.id.includes('legendary')
     ? 'legendary'
     : pack.id.includes('premium')
       ? 'premium'
       : 'starter';
-  const imgSrc =
-    kind === 'skin'
-      ? `/skin_packs/${pack.id}_pack.webp`
-      : `/capsules/${pack.id.replace('capsule-', 'capsule_')}.webp`;
+  // glowColor still drives the rarity-tinted aura, sparks, burst, and fog
+  // via `--glow-color` set on the stage element. The action button is plain
+  // teal `<Button variant="primary">` to match every other modal button.
   const glowColor =
     tier === 'legendary'
       ? '#FFD700'
       : tier === 'premium'
         ? '#BB86FC'
         : '#03DAC6';
-  // CTA themed per pack tier - starter teal, premium purple, legendary
-  // gold. All three take black text. Threaded into .purchaseCta via the
-  // --cta-bg / --cta-text custom properties.
-  const ctaBg =
-    tier === 'legendary'
-      ? 'var(--rarity-legendary)'
-      : tier === 'premium'
-        ? 'var(--accent-secondary)'
-        : 'var(--accent-primary)';
+  const imgSrc =
+    kind === 'skin'
+      ? `/skin_packs/${pack.id}_pack.webp`
+      : `/capsules/${pack.id.replace('capsule-', 'capsule_')}.webp`;
+
+  const title =
+    stage === 'confirm'
+      ? pack.name
+      : stage === 'ready'
+        ? 'Ready to Open'
+        : 'Pack Opened';
+
+  let buttonLabel;
+  let buttonAction;
+  if (stage === 'confirm') {
+    buttonLabel = 'Unlock Pack';
+    buttonAction = onConfirm;
+  } else if (stage === 'ready') {
+    buttonLabel = 'Open Pack';
+    buttonAction = onOpen;
+  } else {
+    buttonLabel = 'Equip';
+    buttonAction = onEquip;
+  }
+
   const showClose = !pending;
+  const showPrice = stage === 'confirm';
 
   return (
-    <div className={styles.purchaseStage} style={{ '--glow-color': glowColor }}>
+    <div
+      className={cn(styles.purchaseStage, styles.flowStage)}
+      style={{ '--glow-color': glowColor }}
+    >
       {showClose && (
         <button
           type="button"
@@ -3264,194 +3276,126 @@ function PackPurchaseModalBody({
         </button>
       )}
 
-      <div className={styles.purchaseHero}>
-        <span className={styles.purchaseHeroShadow} aria-hidden="true" />
-        <div className={styles.purchaseHeroFloat}>
-          <img
-            src={imgSrc}
-            alt=""
-            className={styles.purchaseHeroPack}
-          />
-        </div>
+      {/* Shared content slot. Same DOM box across all 3 stages. */}
+      <div className={styles.flowSlot}>
+        {stage !== 'opened' ? (
+          <div className={styles.flowPack}>
+            <span className={styles.flowAura} aria-hidden="true" />
+            <span className={styles.purchaseHeroShadow} aria-hidden="true" />
+            <div className={styles.purchaseHeroFloat}>
+              <img src={imgSrc} alt="" className={styles.purchaseHeroPack} />
+            </div>
+          </div>
+        ) : (
+          <div className={styles.flowReveal}>
+            {/* Paint stack: pack (z2) under the orb (z3) which grows from
+                the pack's center, then burst (z4) + fog (z5) overlay at
+                explosion, cards (z6) on top once they fade in. */}
+            <img
+              src={imgSrc}
+              alt=""
+              className={styles.flowExplodingPack}
+              aria-hidden="true"
+            />
+            <span className={styles.flowOrb} aria-hidden="true" />
+            <span className={styles.flowBurst} aria-hidden="true" />
+            <span className={styles.flowFog} aria-hidden="true" />
+            <div className={styles.flowCards}>
+              {(awarded ?? []).map((item, i) => (
+                <FlowRevealCard
+                  key={item.id ?? i}
+                  item={item}
+                  kind={kind}
+                  index={i}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className={styles.purchaseTitleRow}>
         <h3
           className={cn(styles.purchaseName, styles[`packCardName_${tier}`])}
         >
-          {pack.name}
+          {title}
         </h3>
       </div>
 
-      <hr className={styles.purchaseDivider} aria-hidden="true" />
-
-      <div className={styles.purchasePriceRow}>
-        <VoltIcon size={24} />
-        <span className={styles.purchasePrice}>
-          {pack.price.toLocaleString()}
-        </span>
+      {/* Price block: ALWAYS rendered, even on ready/opened. visibility is
+          toggled instead of conditional render so the section keeps its
+          space and nothing in the modal shifts between stages. */}
+      <div
+        className={styles.flowPriceBlock}
+        style={{ visibility: showPrice ? 'visible' : 'hidden' }}
+        aria-hidden={showPrice ? undefined : 'true'}
+      >
+        <span className={styles.flowPriceLabel}>Price</span>
+        <div className={styles.flowPriceValue}>
+          <VoltIcon size={26} />
+          <span>{pack.price.toLocaleString()}</span>
+        </div>
       </div>
 
-      <button
-        type="button"
-        className={styles.purchaseCta}
-        style={{ '--cta-bg': ctaBg, '--cta-text': '#000' }}
-        onClick={onConfirm}
-        disabled={pending}
-      >
-        {pending ? (
-          <span className={styles.purchaseProcessing}>Processing...</span>
-        ) : (
-          'Confirm Purchase'
-        )}
-      </button>
-
-      {capsuleNote && (
-        <div className={styles.purchasePackNote}>
-          Capsule packs launching soon
-        </div>
-      )}
+      <div className={styles.flowActionRow}>
+        <Button
+          variant="primary"
+          size="md"
+          className={styles.flowActionBtn}
+          onClick={buttonAction}
+          disabled={pending && stage === 'confirm'}
+          loading={pending && stage === 'confirm'}
+        >
+          {buttonLabel}
+        </Button>
+      </div>
     </div>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Pack reveal modal body (Ready to Open + Opened)                             */
-/*                                                                             */
-/* Two stages share one shell so the user perceives a single "pack" modal      */
-/* that flips its cards. Stage 1 shows 3 face-down placeholder cards using     */
-/* the same .possibleCard / .possibleCard_<rarity> styling as the pack         */
-/* preview grid in the packs section, so the rarity-tinted backs match the     */
-/* user's expectation from the previews. Stage 2 reveals the awarded skins    */
-/* in those same slots, styled identically to PossibleCard.                    */
-/* -------------------------------------------------------------------------- */
-
-function PackRevealModalBody({
-  packReveal,
-  packOpened,
-  packRevealStep,
-  onReveal,
-  onClose,
-}) {
-  const { awarded, packType, kind = 'skin' } = packReveal;
-  const tier =
-    packType === 'legendary' || packType === 'premium' ? packType : 'starter';
-  const glowColor =
-    tier === 'legendary'
-      ? '#FFD700'
-      : tier === 'premium'
-        ? '#BB86FC'
-        : '#03DAC6';
-  const ctaBg =
-    tier === 'legendary'
-      ? 'var(--rarity-legendary)'
-      : tier === 'premium'
-        ? 'var(--accent-secondary)'
-        : 'var(--accent-primary)';
-
+/* Single revealed card inside the stage-3 grid. Same .possibleCard +
+   .possibleCard_<rarity> classes as the "What You Could Pull" preview grid
+   on the packs screen, so the rarity surface (gradient + border + ambient
+   pulses) matches everywhere else in the app. The 3-up grid sizing and
+   stagger delay come from .flowCards / .flowCard. */
+function FlowRevealCard({ item, kind, index }) {
+  const isLegendary = item.rarity === 'legendary';
   return (
-    <div className={styles.purchaseStage} style={{ '--glow-color': glowColor }}>
-      <button
-        type="button"
-        className={styles.purchaseCloseBtn}
-        onClick={onClose}
-        aria-label="Close"
-      >
-        <X size={18} />
-      </button>
-
-      <div className={styles.purchaseTitleRow}>
-        <h3
-          className={cn(styles.purchaseName, styles[`packCardName_${tier}`])}
-        >
-          {packOpened ? 'Pack Opened' : 'Ready to Open'}
-        </h3>
-      </div>
-
-      <div className={styles.revealGrid}>
-        {awarded.map((skin, i) => {
-          const isLegendary = skin.rarity === 'legendary';
-          const isVisible = packOpened && i < packRevealStep;
-          return (
-            <div
-              key={skin.id}
-              className={cn(
-                styles.possibleCard,
-                styles[`possibleCard_${skin.rarity}`],
-                isVisible && styles.revealVisible,
-              )}
-            >
-              <div className={styles.possibleInner}>
-                {!isVisible ? (
-                  // Placeholder: SkinMini diamond for skin packs,
-                  // ModPlaceholder hex chip for mod capsules. Both
-                  // rarity-tinted so the rarity reads pre-reveal.
-                  kind === 'mod' ? (
-                    <ModPlaceholder
-                      rarity={skin.rarity}
-                      size={72}
-                      className={styles.possibleSkinThumb}
-                    />
-                  ) : (
-                    <span className={styles.possibleSkinThumb}>
-                      <SkinMini rarity={skin.rarity} />
-                    </span>
-                  )
-                ) : kind === 'mod' ? (
-                  <ModPlaceholder
-                    rarity={skin.rarity}
-                    size={72}
-                    className={styles.possibleSkinThumb}
-                  />
-                ) : isLegendary ? (
-                  <span className={styles.possibleL} aria-hidden="true">L</span>
-                ) : (
-                  <SkinThumb
-                    skin={skin}
-                    rarity={skin.rarity}
-                    alt={skin.name}
-                    className={styles.possibleSkinThumb}
-                  />
-                )}
-              </div>
-              <span className={styles.possibleName}>
-                {isVisible ? skin.name : ' '}
-              </span>
-              <span
-                className={cn(
-                  styles.possibleRarity,
-                  styles[`rarity_${skin.rarity}`],
-                  !isVisible && styles.revealHiddenLabel,
-                )}
-              >
-                {RARITY_LABELS[skin.rarity]}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Bottom action row only on stage 1. The opened stage relies on
-          the top-right X to close - one affordance, no duplicate. */}
-      {!packOpened && (
-        <div className={styles.revealActions}>
-          <button
-            type="button"
-            className={styles.modalSecondaryBtn}
-            onClick={onClose}
-          >
-            Save for Later
-          </button>
-          <button
-            type="button"
-            className={styles.purchaseCta}
-            style={{ '--cta-bg': ctaBg, '--cta-text': '#000' }}
-            onClick={onReveal}
-          >
-            Open Pack
-          </button>
-        </div>
+    <div
+      className={cn(
+        styles.possibleCard,
+        styles[`possibleCard_${item.rarity}`],
+        styles.flowCard,
       )}
+      style={{ animationDelay: `${1300 + index * 140}ms` }}
+    >
+      <div className={styles.possibleInner}>
+        {kind === 'capsule' ? (
+          <ModPlaceholder
+            rarity={item.rarity}
+            size={72}
+            className={styles.possibleSkinThumb}
+          />
+        ) : isLegendary ? (
+          <span className={styles.possibleL} aria-hidden="true">L</span>
+        ) : (
+          <SkinThumb
+            skin={item}
+            rarity={item.rarity}
+            alt={item.name}
+            className={styles.possibleSkinThumb}
+          />
+        )}
+      </div>
+      <span className={styles.possibleName}>{item.name}</span>
+      <span
+        className={cn(
+          styles.possibleRarity,
+          styles[`rarity_${item.rarity}`],
+        )}
+      >
+        {RARITY_LABELS[item.rarity]}
+      </span>
     </div>
   );
 }

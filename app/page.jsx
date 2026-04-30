@@ -7,11 +7,11 @@ import HeroActions from './HeroActions';
 import styles from './page.module.css';
 
 export const metadata = {
-  title: 'Hyperdrome - Competitive Idle Drone Racing',
+  title: 'Hyperdrome | Drone Racing Strategy Game',
   description:
     'Drone racing strategy game. Level your drones, grow your fleet, strategize your mods, collect your skins.',
   openGraph: {
-    title: 'Hyperdrome - Competitive Idle Drone Racing',
+    title: 'Hyperdrome | Drone Racing Strategy Game',
     description:
       'Drone racing strategy game. Level your drones, grow your fleet, strategize your mods, collect your skins.',
     type: 'website',

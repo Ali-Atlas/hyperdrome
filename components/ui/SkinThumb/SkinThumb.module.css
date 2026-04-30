@@ -11,14 +11,13 @@
   overflow: hidden;
 }
 
-/* Pentagon prism placeholder. 71% sits comfortably inside the slot
-   while leaving a margin so the rarity-tinted card surface still
-   frames the motif. The SVG's viewBox + preserveAspectRatio handle
-   aspect-ratio centering inside the SVG element; the parent wrap
-   centers the SVG via flex. */
+/* Pentagon prism placeholder. 72% leaves a clean breathing margin so
+   the rarity-tinted card surface frames the motif. The SVG's viewBox
+   + preserveAspectRatio handle aspect-ratio centering inside the SVG
+   element; the parent wrap centers the SVG via flex. */
 .wrap > svg {
-  width: 71%;
-  height: 71%;
+  width: 72%;
+  height: 72%;
   display: block;
 }
 

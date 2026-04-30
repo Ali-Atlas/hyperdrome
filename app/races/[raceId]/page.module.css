@@ -256,17 +256,44 @@
 }
 
 /* ==========================================================================
- * Layout grid - drone1 | drone2 | log on top row, track full-width below
+ * Layout - 2-column outer (left side / log) on desktop.
+ *
+ * The log card is ABSOLUTELY POSITIONED inside `.raceLayout`. This is
+ * deliberate and load-bearing: every CSS-spec-compliant attempt at
+ * "let raceLeft determine the row height, scroll the log's overflow"
+ * (single-row grid, min-height: 0 + overflow: hidden, flex column with
+ * align-items: stretch, etc.) was found to be inconsistent in Chrome -
+ * the grid algorithm sometimes still grows the row to accommodate the
+ * log card's intrinsic content height, leaving an empty band beneath
+ * raceLeft's content.
+ *
+ * Absolute positioning takes the log card out of the row-sizing flow
+ * entirely (per CSS Grid spec, abs items don't participate in track
+ * sizing). The grid still allocates column 2's width via the explicit
+ * `grid-template-columns`, and the log card visually occupies that
+ * column via `top:0; right:0; bottom:0; width: <calc>`. raceLeft
+ * alone determines `.raceLayout`'s height, the log card fills it
+ * top-to-bottom, and any extra rows scroll inside `.logScroll`.
+ *
+ * Tablet (<=1023px) reverts the log card to static positioning so it
+ * stacks below raceLeft normally.
  * ========================================================================== */
 
 .raceLayout {
+  position: relative;
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.6fr);
+  align-items: start;
+}
+
+.raceLeft {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-areas:
-    "drone1 drone2 log"
-    "gap    track  log";
-  align-items: stretch;
+    "drone1 drone2"
+    "gap    track";
 }
 
 .drone1Slot {
@@ -277,24 +304,27 @@
   grid-area: drone2;
 }
 
-.raceLayout .gapCard {
+.raceLeft .gapCard {
   grid-area: gap;
 }
 
-.raceLayout .trackCard {
+.raceLeft .trackCard {
   grid-area: track;
 }
 
+/* Width math: grid-template-columns is `1fr 0.6fr`, so column 2 width
+   is (100% - gap) * (0.6 / 1.6) = (100% - var(--space-4)) * 0.375.
+   This MUST stay in sync with the grid-template-columns above. */
 .raceLayout .logCard {
-  grid-area: log;
-  align-self: stretch;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: calc((100% - var(--space-4)) * 0.375);
   display: flex;
   flex-direction: column;
-  /* min-height: 0 lets the grid item shrink below its content's intrinsic
-     height so the inner .logScroll's max-height + overflow-y can take
-     effect. Without this, the grid item grows to fit the table and
-     the log column extends past the gap+track row's bottom. */
   min-height: 0;
+  overflow: hidden;
 }
 
 .gapCard {
@@ -327,31 +357,9 @@
   overflow-y: auto;
   min-height: 0;
   /* Fills .logCard fully (flex: 1) and scrolls on overflow (overflow-y).
-     Removed the prior 480px cap that left dead space below the table on
-     short logs - the parent .logCard's stretched height is now the
-     bound, and adjacent column heights are matched by the grid's
-     align-items: stretch. */
-
-  /* Thin dark grey scrollbar - minimal and subtle. WebKit + Firefox. */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
-}
-
-.logScroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.logScroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.logScroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 3px;
-}
-
-.logScroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+     The parent .logCard's stretched height (capped by overflow: hidden +
+     min-height: 0 on the grid item) is the bound. Scrollbar styling
+     inherits the global modal-style rules from app/globals.css. */
 }
 
 /* DataTable ships with `min-width: 600px` on its inner <table> for
@@ -885,6 +893,15 @@
   z-index: 1;
 }
 
+/* DataTable's stock .th declares border-bottom, but with
+   border-collapse: collapse + a sticky thead the collapsed border can
+   render inconsistently as the user scrolls. A box-shadow draws the
+   1px line as part of the th's own paint, which rides along with the
+   sticky positioning at every scroll offset. */
+.logScroll thead th {
+  box-shadow: inset 0 -1px 0 var(--border-default);
+}
+
 .sparklineWrap {
   padding: var(--space-3) var(--space-4);
   flex: 1;
@@ -903,17 +920,26 @@
 }
 
 .sparklineYAxis {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  width: 36px;
-  padding: 2px 0;
+  position: relative;
+  width: 44px;
   font-family: var(--font-mono);
   font-size: 9px;
   color: var(--text-tertiary);
   letter-spacing: 0.04em;
-  text-align: right;
   flex-shrink: 0;
+}
+
+/* Each label is absolutely positioned by its data-driven `top` so the
+   labels stay aligned with the curve's vertical proportions instead
+   of being evenly spaced. translateY(-50%) centers the label on its
+   anchor y. */
+.sparklineYAxisLabel {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  text-align: right;
+  line-height: 1;
 }
 
 .sparkline {
@@ -925,47 +951,26 @@
   overflow: visible;
 }
 
-.timeline {
-  position: relative;
-  height: 14px;
-  margin-left: 44px;
-  padding-top: 2px;
-}
-
-.timelineTick {
-  position: absolute;
-  top: 2px;
-  transform: translateX(-50%);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text-tertiary);
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.timelineTick:first-child {
-  transform: translateX(0);
-}
-
-.timelineTick:last-child {
-  transform: translateX(-100%);
-}
-
-.sparklineAxis {
+/* Dashed zero baseline drawn across the chart at the dynamic
+   y-position of gap = 0. Subtle by design - the colored fills carry
+   the "above vs below zero" reading; this just gives the eye an
+   anchor to read crossings against. */
+.sparklineZero {
   stroke: var(--text-tertiary);
   stroke-width: 1;
-  opacity: 0.45;
+  stroke-dasharray: 2 3;
   vector-effect: non-scaling-stroke;
+  opacity: 0.55;
 }
 
 .sparklineLine {
   fill: none;
   stroke: var(--accent-primary);
-  stroke-width: 2;
+  stroke-width: 1;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 .logMono {
@@ -998,39 +1003,37 @@
 }
 
 @media (max-width: 1023px) {
+  /* Tablet: outer grid collapses to a single column. The log card
+     reverts to static positioning so it stacks below raceLeft in the
+     normal flow (the desktop absolute-positioning trick is desktop-
+     only). */
   .raceLayout {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-      "drone1 drone2"
-      "gap    track"
-      "log    log";
-    /* Tablet: stretch row items so the gap card matches the height of
-       the track card next to it, instead of each shrinking to its own
-       content. Fixes the "gap chart container needs to stretch to fill
-       the vertical space below it" complaint. */
-    align-items: stretch;
+    grid-template-columns: 1fr;
   }
-  .raceLayout .gapCard,
-  .raceLayout .trackCard {
+  .raceLayout .logCard {
+    position: static;
+    width: auto;
+  }
+  .raceLeft .gapCard,
+  .raceLeft .trackCard {
     align-self: stretch;
   }
-  /* Tablet: log row is full-width below the fold. Cap kept here so a
-     deep log doesn't blow out the page since on tablet the log card no
-     longer shares row-height with the drone columns above. */
+  /* Log no longer shares row-height with the drone columns above on
+     tablet, so cap it explicitly to keep a deep log from blowing out
+     the page height. */
   .logScroll {
     max-height: 420px;
   }
 }
 
 @media (max-width: 768px) {
-  .raceLayout {
+  .raceLeft {
     grid-template-columns: 1fr;
     grid-template-areas:
       "drone1"
       "drone2"
       "gap"
-      "track"
-      "log";
+      "track";
   }
   .topStrip {
     flex-direction: column;

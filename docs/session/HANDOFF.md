@@ -4,7 +4,431 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
-## 2026-04-29 - Vault stock + demo capacity scale-up (10 → 50 demos, 100 cap)
+## 2026-04-30 - Pack modal fixes round 4: bigger button, no pack-shrink, neon orb (no off-center sparks)
+
+**Captain ask:** Three concrete fixes:
+1. Button wider + more padding, ~width of the price block's bottom rule, taller via padding. Same dimensions across all 3 stages (Unlock Pack / Open Pack / Equip).
+2. Pack must stay the EXACT same size during rumble - it was shrinking on stage transition, and the rumble must not scale it.
+3. Revert to the previous 1.5-2s animation timing. Drop the radial conic-gradient sparks - they were rendering offset to the top-left because of a double-centering bug. Replace with a bright neon ball of electricity in the rarity color, growing from the pack's center, z-indexed OVER the pack. Then it explodes into the existing burst + fog → cards.
+
+**Files changed (2):**
+
+### `app/marketplace/page.jsx`
+
+- `<Button>` - bumped from `size="sm"` to `size="md"` and added `className={styles.flowActionBtn}` override.
+- Stage-3 slot - replaced `<span.flowSparks>` with `<span.flowOrb>`, reordered the paint stack so the orb sits AFTER the pack image in DOM order (z-index 3 over pack at 2), then burst (4) + fog (5) + cards (6).
+- `FlowRevealCard` animation-delay base reverted: `3200 + i*140ms` → `1300 + i*140ms`.
+
+### `app/marketplace/page.module.css`
+
+Button:
+- New `.flowActionBtn.flowActionBtn` rule (doubled-class specificity to outrank Button's `.button.md`): `min-width: 240px`, `min-height: 48px`, `padding: 14px 28px`, `font-size: var(--text-sm)`, `letter-spacing: 0.07em`. Width matches the natural width of `.flowPriceBlock` so the button visually pegs to the line above. Mobile (`max-width: 600px`): `min-width: 200px`, `padding: 12px 22px`.
+
+Pack sizing (no shrink):
+- Removed `max-width: 320px` from `.flowExplodingPack`. Stage 3 now uses just `width: 80%` of `.flowReveal` - identical to stages 1+2's `.purchaseHeroPack { width: 100%; max-width: 80% }` of the same slot. Same rendered pixel size in all 3 stages.
+- Mobile `.flowExplodingPack` cap (`max-width: 240px`) also removed; uses `width: 80%` to match stages 1+2 mobile sizing.
+
+Animation timing reverted:
+- `flowRumble` back to 1000ms with amplitude ±0.5px → ±5px. Pure horizontal translate (Y locked at -50%); no scale. Pack stays the EXACT same size throughout the rumble.
+- `flowExplode` back to 600ms duration with `1000ms` delay.
+- `.flowBurst` and `.flowFog` delays reverted to 1000ms.
+- `.flowCard` delay reverted to `1300 + i*140ms` so cards land 1.3-1.9s.
+
+Neon orb (replaces conic-gradient sparks):
+- `.flowOrb` - 200×200 absolutely positioned at slot center. Centered cleanly via `transform: translate(-50%, -50%)` only (no margin offset, fixing the prior double-centering bug that pushed `.flowSparks` to the top-left of the modal).
+- Background: 5-stop radial gradient - white-hot core (95% white) → 80% glow-color/white mix → solid `--glow-color` → faded transparent edge. `mix-blend-mode: screen` adds it to whatever's below for a true neon-glow feel.
+- `filter: blur + brightness(1.8) + saturate(1.5)` peaks at brightness 2.4 + saturate 1.7 by the end of the rumble.
+- Animation chain: `flowOrbGrow 1000ms ease-in forwards, flowOrbExplode 600ms ease-out 1000ms forwards`.
+  - `flowOrbGrow`: scale 0.05 → 0.28 → 0.55 → 1, opacity 0 → 0.45 → 0.8 → 1, brightness 1.5 → 2.4. Reads as energy building inside the pack.
+  - `flowOrbExplode`: scale 1 → 2.5 → 4.6, brightness 2.4 → 3.1 → 1, blur 10 → 32px, opacity 1 → 0. The ball blows outward and dissolves into the burst + fog.
+- Z-index 3 (over pack at 2). Mobile size 160×160.
+
+Reduced motion:
+- `prefers-reduced-motion` block updated: `.flowOrb` replaces `.flowSparks` in the `display: none` + `animation: none` lists.
+
+**Animation timeline (stage 3 entry):**
+- 0-1000ms: pack rumbles horizontally (size unchanged); neon orb grows from invisible point to 200px ball over the pack center, brightness ramping.
+- 1000-1600ms: explosion. Pack scales out + fades. Orb bursts outward. Burst peak at ~1.15s, fog peak at ~1.25s.
+- 1300-1900ms: 3 cards stagger fade + scale in (140ms apart).
+- ~2.0s: complete.
+
+**Section stability (Captain's hard rule from round 3):** Still in place. Slot, title row, price block, action row all keep their layout box across all 3 stages via the `visibility: hidden` price-block toggle. Nothing shifts.
+
+**Modal border (round 3):** Still removed; black drop-shadow elevation only.
+
+---
+
+## 2026-04-30 - Pack modal fixes: standard Button, no border, locked sections, 3s rumble + electric explosion
+
+**Captain ask:** Polish round 3 on the pack modal. Standard `<Button>` primitive sized to match every other modal CTA. Remove the grey modal border, replace with a black drop-shadow elevation. Sections must NEVER shift between stages - even when the price disappears in stage 2, the section keeps its space. Pack rumble = pure horizontal shake (no scale), 3 seconds escalating, with electric arcs radiating in the rarity color, growing more intense. At 3s: full burst + light + electricity. Cards stagger 3.2-3.8s. Total ~4s. Reduced motion: skip everything. Captain said skip lint.
+
+**Files changed (2):**
+
+### `app/marketplace/page.jsx`
+
+- `PackFlowModalBody`:
+  - Replaced the custom `<button className={styles.purchaseCta}>` with `<Button variant="primary" size="sm">` from `@/components/ui/Button`. Same primitive used by bind, recruit, listing-purchase modals → identical font/padding/min-height/radius across the app.
+  - Wrapped the `<Button>` in a new `<div.flowActionRow>` so the action's row footprint is constant regardless of label width.
+  - `pending` now flips Button's `loading` prop (built-in spinner) on stage `confirm` only. Dropped the manual "Processing..." label and the `--cta-bg` / `--cta-text` per-tier theming - the standard primary teal matches every other modal CTA.
+  - Price block is **always rendered**. `style={{ visibility: showPrice ? 'visible' : 'hidden' }}` toggles visibility instead of conditional unmount, so the section keeps its layout box. Title row, price block, and button never change Y position across stages.
+  - Slot's stage-3 branch now also renders `<span.flowSparks>` (electric arcs) under the rumbling pack.
+  - Comment header rewritten to call out the new sectioning + Button-primitive contract.
+- `FlowRevealCard` animation-delay base: `1300 + i*140ms` → `3200 + i*140ms` (after the 3s rumble + 200ms into the explosion peak).
+- Dropped the unused `ctaBg` constant; `glowColor` retained as it still pipes into `--glow-color` for the aura/sparks/burst/fog rarity tint.
+
+### `app/marketplace/page.module.css`
+
+Modal shell:
+- `.flowModal { border: none !important }`. Box-shadow simplified to `0 32px 90px rgba(0,0,0,0.78), 0 12px 32px rgba(0,0,0,0.55)` - clean black drop shadow only, no inner highlight, no halo. Modal reads as floating above the page behind it.
+
+Action row:
+- Removed `.flowStage > .purchaseCta { max-width: 500px; min-width: 220px }` (no longer applies - primitive controls dimensions).
+- New `.flowActionRow { display: flex; justify-content: center; width: 100% }` wrapper.
+
+Pack rumble (purely horizontal, escalating):
+- `.flowExplodingPack` animation chain: `flowRumble 3000ms cubic-bezier(0.42,0,0.85,1), flowExplode 700ms cubic-bezier(0.16,1,0.3,1) 3000ms forwards`.
+- `flowRumble` keyframes: 17 steps from 0% to 100%, **Y stays anchored at -50%**, X amplitude ramps ±0.4px → ±11px. No scale, no Y component.
+- `flowExplode` keyframes: scale 1 → 1.4 → 2.8, opacity 1 → 0.85 → 0, brightness 1.6 → 3 → 1. Pack vanishes in a flash.
+
+Electric arcs (new `.flowSparks` element):
+- `repeating-conic-gradient(var(--glow-color) 0deg 1.2deg, transparent 1.2deg 22.5deg)` draws 16 thin radial spikes around 360°.
+- `mask: radial-gradient(circle, transparent 28%, black 38%, black 75%, transparent 100%)` cuts a hole in the center so spikes appear to start outside the pack outline and shoot outward, fading at the far edge.
+- `mix-blend-mode: screen` brightens the panel below without flat-tinting it.
+- Animation chain: `flowSparksRamp 3000ms ease-in forwards, flowSparksExplode 700ms ease-out 3000ms forwards`.
+  - `flowSparksRamp`: opacity 0 → 1, scale 0.7 → 1.05, rotate 0° → 180° (more visible + more rotation as the rumble intensifies).
+  - `flowSparksExplode`: scale 1.05 → 2.8, rotate continues to 295°, brightness peaks at 2.2× then drops, opacity fades to 0. Sparks scatter outward as the pack bursts.
+
+Burst + fog (delayed to match the 3s rumble end):
+- `.flowBurst { animation-delay: 3000ms }`. Beefier: 320×320 (was 280), brighter white-hot core (95% → 98% white opacity at the dead center, 85% glow-color mix at 10%), brightness flash up to 2.8 in keyframes, scales out to 4.8.
+- `.flowFog { animation-delay: 3000ms }`. Slightly higher peak white opacity (0.55 → 0.6 at center).
+- Z-index stack: sparks 1, pack 2, burst 3, fog 4, cards 5. Sparks under the pack so they look like they radiate from behind. Burst + fog overlay during the explosion. Cards always on top once they fade in.
+
+Reduced motion:
+- `.flowAura`, `.flowExplodingPack`, `.flowSparks`, `.flowBurst`, `.flowFog` all get `animation: none`.
+- All five except `.flowAura` also get `display: none` so the user just sees the cards in their final position (with `.flowCard` opacity:1, transform:none) when stage 3 mounts. Instant content swap, no rumble, no explosion.
+
+Mobile (`max-width: 600px`):
+- Removed the now-unused `.flowStage > .purchaseCta { max-width: 360px }` override (Button primitive controls dimensions).
+- New `.flowSparks { width/height: 260px; margin: -130 -130 }` and `.flowBurst { width/height: 240px; margin: -120 -120 }` so the effects fit the smaller slot.
+
+**Animation timeline (stage 3 entry):**
+- 0-3000ms: pack rumbles horizontally, escalating ±0.4px → ±11px. Sparks ramp opacity 0 → 1, scale 0.7 → 1.05, rotate 0° → 180°. The longer it goes, the more intense it reads.
+- 3000ms: pack explodes (scale + brightness 3× flash + opacity 0). Sparks scatter outward. Burst peak at 3120ms. Fog peak at 3300ms.
+- 3200ms: card 1 starts fading in. 3340ms: card 2. 3480ms: card 3.
+- ~4080ms: last card settles. Total ~4s from click to all cards visible.
+
+**Section stability (Captain's hard rule):** Slot, title row, price block, action row all keep their layout box across all 3 stages. Confirmed by walking the column-flex math: with `min-height: 620px`, gap 16px × 3, padding 24/24/20, title 40, price 56, button 32, the slot computes to a constant ~440px in every stage. Title Y, button Y, modal height all unchanged confirm → ready → opened.
+
+---
+
+## 2026-04-30 - Legendary capsule: tagline parity with legendary skin hero
+
+**Captain ask:** The legendary capsule (mods) hero had less content above its Buy Pack button than the legendary skin hero, so the price + button + hint sat higher in the capsule card than in the skin card. Match the vertical positions across the two heroes without touching the skin side.
+
+**Root cause:** `LegendaryHero` (skins) renders an extra tagline `<p>` after the description: "The only way to pull <Mach Zero>, <Overdrive>, or <Apex Prime>." `CapsuleHero` (mods) had no equivalent paragraph, so its right-column stack ended one element shorter and pushed the price/button up.
+
+**File changed (1):** `app/marketplace/page.jsx`
+
+`CapsuleHero`: added the parallel tagline `<p>` directly below the description, before `<OddsText>`. Same classes as the skin tagline (`.packCardDescription`, `.legendaryDescription`, `.legendaryTagline`) and the same `.legendarySkinName` accent on the three legendary mod names: Phantom Drive, Quantum Sync, Storm Rider (sourced from `lib/db/seed-mods.js`).
+
+Now both legendary heroes have an identical right-column element stack: pillRowSpacer → name → description → tagline → odds → price → button → hint. Y positions match for the price, button, and hint between the legendary skin pack and the legendary capsule pack.
+
+**Skin side:** Untouched. Captain explicitly asked to keep it exact.
+
+---
+
+## 2026-04-30 - Pack containers: pin Premium + Starter min-heights across breakpoints
+
+**Captain ask:** Same as the legendary fix the other day, but now for ALL three pack containers (Starter / Premium / Legendary) on the packs page, across web / tablet / mobile. The container should be at its settled height from initial paint so it doesn't grow when the "What You Could Pull" preview cards finalize.
+
+**File changed (1):** `app/marketplace/page.module.css`
+
+- `.packCard_premium { min-height: 460px }` (and matching block on `.packCard_starter`). Premium and Starter share the same internal layout (only the tone color differs), so one floor works for both.
+- Mobile (`@media (max-width: 767px)`): `.packCard_premium, .packCard_starter { min-height: 600px }` and `.packCardHero { min-height: 800px }`. At this breakpoint `.packTopRow` collapses to a single column so the image stacks on top of the info block; the card's natural height grows significantly. Floors match the settled heights so containers don't shift while preview cards paint.
+- Tablet (≥768 / ≤1023px) is unchanged: `.packTopRow` rebalances to 50fr/50fr but stays side-by-side, so the desktop floors hold.
+- These floors apply to skin packs AND capsule packs since both use the same `.packCard_<tone>` / `.packCardHero` classes.
+
+**Current floor values (Captain to spot-check):**
+
+| Container | ≥1024 | ≤1023 | ≤767 |
+|-----------|-------|-------|------|
+| Legendary (`.packCardHero`) | 600px | 600px | 800px |
+| Premium (`.packCard_premium`) | 460px | 460px | 600px |
+| Starter (`.packCard_starter`) | 460px | 460px | 600px |
+
+Numbers were picked from the layout math (paddings + topRow content stack + 16px gap + PossibleGroup label + 6-up grid). Easy to bump if a breakpoint reveals more empty bottom padding or a residual jump.
+
+---
+
+## 2026-04-30 - Pack modal polish: alive pack, rumble-then-explode, narrower CTA, "Unlock Pack"
+
+**Captain ask:** Polish the pack flow modal. Hard rule: shell dimensions never change between states. Stage 1 button too wide and wording too transactional ("Confirm Purchase" → something premium like "Unlock Pack"). Pack should feel alive. On Open Pack, pack rumbles ~1s then explodes (intense burst + shiny fog). Cards reveal as fog settles. Total 1.5-2s. Same button dimensions across all 3 stages. Captain said skip lint.
+
+**Files changed (2):**
+
+### `app/marketplace/page.jsx`
+
+- Stage 1 button label: `'Confirm Purchase'` → `'Unlock Pack'`. (Pending state still shows `'Processing...'`.)
+- Stage 1 price block restructured: replaced `<hr.purchaseDivider> + <div.purchasePriceRow>` with `<div.flowPriceBlock>` containing a small "PRICE" mono-caps label + a styled volt+value row (`<div.flowPriceValue>`). Cleaner stat treatment.
+- Stage 3 (`opened`) slot now also renders the pack image with a new `.flowExplodingPack` class so the pack rumbles and explodes inside the same anchor it occupied in stages 1+2. Burst + fog + cards layered above it with synced delays.
+- Stages 1+2 pack hero now includes a `<span.flowAura>` element behind the pack for the breathing rarity-color aura.
+- `FlowRevealCard` animation-delay base: `500 + i*140ms` → `1300 + i*140ms`, so cards appear after the rumble (0-1s) + explosion (1-1.6s).
+
+### `app/marketplace/page.module.css`
+
+Shell stability:
+- `.flowStage { min-height: 580 → 620px }`. Pinned to stage 1's natural total height; stages 2+3 drop the price block and `.flowSlot { flex: 1 1 auto }` absorbs the freed space without resizing the modal.
+- Mobile (`max-width: 600px`): `.flowStage { min-height: 480 → 540px }` so it stays stable across stages on tablet.
+
+Button:
+- `.flowStage > .purchaseCta { max-width: 500px; min-width: 220px }`. ~60% of modal width, centered. Scoped so the listing purchase modal's CTA keeps its 400px cap. Mobile caps at 360px.
+- All 3 stages render the same `<button.purchaseCta>` so width/height/padding/font/radius are identical by construction.
+
+Stage 1+2 alive pack:
+- `.flowAura` - 360×360 rarity-color radial behind the pack, blurred 28px, breathing 4s in/out via `flowPackBreathe` keyframes (opacity 0.55 ↔ 0.95, scale 0.92 ↔ 1.08). Subtle ambient energy, not a glow halo.
+
+Stage 3 rumble + explode:
+- `.flowExplodingPack` - the pack image, anchored at slot center via `top/left: 50%; transform: translate(-50%, -50%)`. Two chained animations:
+  - `flowRumble 1000ms ease-in` - 11 keyframes ramping ±0.5px → ±5px so the user reads it as escalating, not a static shake. Translate is composed on top of the centering anchor via `calc(-50% ± Npx)`.
+  - `flowExplode 600ms cubic-bezier(0.16, 1, 0.3, 1) 1000ms forwards` - scale 1 → 2.6, brightness 1.4 → 2.6 → 1, opacity 1 → 0. Pack appears to burst into light.
+
+Burst + fog (intensified):
+- `.flowBurst` now has a white-hot core in its radial gradient (`rgba(255,255,255,0.95)` 0% → `var(--glow-color)` 30%) with `brightness(2.4)` peak via the keyframes' `filter`. Bigger size (220×220 → 280×280). Delayed `1000ms` so it peaks during the explosion. Scales to 4.6× (was 4×).
+- `.flowFog` peak opacity 0.18 → 0.55 in the radial gradient (denser, shinier). Now also has its own scale animation (0.6 → 1.8) so the mist visually blows outward instead of just appearing in place. Delayed `1000ms`.
+- `.flowCards { z-index: 4 }`, burst/fog at `z-index: 3`, exploding pack at `z-index: 2`. Cards always render above the effects.
+
+Price block:
+- `.flowPriceBlock` - vertical column, `padding: 10px 28px`, thin 1px borders top + bottom (no full-width divider). Centered. The "PRICE" label sits in `--font-mono` 10px caps with `letter-spacing: 0.18em`; the volt+amount pair below in `--text-2xl` mono bold.
+
+Reduced motion:
+- Updated `prefers-reduced-motion` block: `.flowAura`, `.flowExplodingPack`, `.flowBurst`, `.flowFog` all get `animation: none`; the latter 3 are also `display: none` (no exploding pack, no burst, no fog). `.flowCard` skips its scale-in. The user sees cards immediately when transitioning to stage 3.
+
+**Animation timeline (stage 3 entry):**
+- 0-1000ms: pack rumbles in place.
+- 1000-1600ms: pack explodes (scale + brightness flash + opacity to 0). Burst peaks at ~1.15s. Fog peaks at ~1.25s.
+- 1300-1820ms: 3 cards fade + scale in (140ms stagger).
+- Total: ~1.8s. Within 1.5-2s spec.
+
+---
+
+## 2026-04-30 - Legendary pack hero: pin container height to its settled size
+
+**Captain ask:** Legendary pack hero on the packs screen starts shorter than its final size and grows when the "What You Could Pull" preview cards finish painting. Pin the container's height so it's at its final size from first paint.
+
+**File changed (1):**
+
+- `app/marketplace/page.module.css` - `.packCardHero { min-height: 360px → 600px }`. Comment updated to describe what the new floor covers.
+
+**Why 600px:** The settled height is ~618px (84px padding + 310px hero row locked by `.heroCardStack` 220×310 + 28px gap + ~196px PossibleGroup section); 600px is a round number within a single-pixel of that, so the container is at its final size from initial paint with no empty padding at the bottom.
+
+**Mobile:** Unaffected. `min-height` is a floor; mobile stacks taller naturally and grows past 600px on its own.
+
+---
+
+## 2026-04-30 - Pack flow modal rewrite: ONE shell, THREE stages, premium reveal
+
+**Captain ask:** Complete rewrite of the pack purchase + opening flow. ONE Modal that never unmounts; only inner content re-renders across confirm → ready → opened. Bigger, more premium, with a rarity-color burst + fog mist when the pack opens. Single button per stage (CONFIRM PURCHASE / OPEN PACK / EQUIP) sharing the existing `.purchaseCta` styling. EQUIP routes to `/drones`. Captain said skip lint.
+
+**Files changed (2):**
+
+### `app/marketplace/page.jsx`
+
+State consolidation: removed `packOpening`, `packReveal`, `packRevealStep`, `packOpened`, `packBuyModal` and replaced with a single `packFlow` object — `{ stage: 'confirm' | 'ready' | 'opened', kind, pack, awarded, pending }`. The Modal is mounted while `packFlow != null`; only the body re-renders when stage changes.
+
+Handlers:
+- `openPackFlow(kind, pack)` — sets stage 'confirm'.
+- `confirmSkinPackPurchase()` — flips `pending: true`, hits `/api/marketplace/packs/open`, on success transitions to stage 'ready' with `awarded` populated, on failure resets pending and toasts.
+- `confirmCapsulePackPurchase()` — toast 'Not available in demo' + close (unchanged behaviour).
+- `handleOpenPack()` — flips stage 'ready' → 'opened'. Animation timing lives entirely in CSS.
+- `handleEquip()` — closes the modal and `router.push('/drones')`.
+- `closePackFlow()` — gated by `pending`.
+
+Body components:
+- Removed `PackPurchaseModalBody` and `PackRevealModalBody`.
+- Added `PackFlowModalBody` — switches its inner slot on `flow.stage`. Stages 1+2 render the pack hero (existing `.purchaseHeroFloat` / `.purchaseHeroPack` treatment); stage 3 swaps the slot for `<span.flowBurst>` + `<span.flowFog>` + a 3-card `<div.flowCards>` grid. Single button at the bottom (`.purchaseCta`) with per-stage label/handler.
+- Added `FlowRevealCard` — same `.possibleCard` + `.possibleCard_<rarity>` classes as the "What You Could Pull" preview grid on the packs screen, so rarity surface (gradient + border + ambient pulses) is consistent everywhere. Stagger via inline `animationDelay = 500 + i * 140ms`.
+
+Other:
+- `PacksShowcase` `openingId` now derives from `packFlow?.pending ? packFlow.pack.id : null` so per-card "Buying..." disabled state still works.
+- Removed unused `SkinMini` import (only the old PackRevealModalBody used it).
+- Modal `className` switched to `styles.flowModal` for the bigger pack panel; the listing purchase modal keeps `styles.purchaseModal`.
+
+### `app/marketplace/page.module.css`
+
+New rules:
+- `.flowModal` — `max-width: 880px`, `min-height: 580px`, `max-height: 90vh`. Premium texture: radial-gradient highlight at top + linear-gradient bg-secondary→bg-primary. Layered box-shadow (inset highlight + outer black drop-shadow + soft white halo). Mobile (`max-width: 480px`) collapses to fullscreen.
+- `.flowStage` — composes onto `.purchaseStage`, bumps `min-height: 580px`.
+- `.flowSlot` — fixed-height shared content box for all 3 stages (`min-height: 360px`) so the modal doesn't jump dimensions when the slot's children swap.
+- `.flowPack` / `.flowReveal` — direct children of the slot for stages 1+2 vs 3.
+- `.flowCards` — 3-column grid, `max-width: 720px`, sits at `z-index: 3` above the burst/fog overlays.
+- `.flowCards .possibleCard` overrides — bumps padding/gap/min-height (240px) so the rarity preview cards render comfortably at 3-up scale.
+- `.flowCard` — fade + scale-in entry (`flowCardIn` keyframes) with stagger via inline `animationDelay`.
+- `.flowBurst` — radial pulse driven by `--glow-color` (rarity tint piped from `.flowStage`'s inline style). 1.1s outward expansion.
+- `.flowFog` — soft white mist that peaks at 20% then dissipates. 1.3s.
+- `prefers-reduced-motion`: hides burst + fog and removes card animation, so the swap is instant.
+- Mobile `max-width: 600px` shrinks card min-height to 180px.
+
+Removed dead rules:
+- `.revealWrap`, `.revealGrid`, `.revealGrid .possibleCard` (and inner overrides), `.revealCard`, `.revealVisible`, `.revealVisible.card_legendary`, `.revealVisible.card_epic`, `.revealImage`, `.revealName`, `.revealActions`, `.preRevealStage`, `.preRevealImg`, `.preRevealHint`, `.modalSecondaryBtn` (+ hover/disabled), `.revealBackIcon`, `.possibleCard_<rarity>.revealVisible` (4 rules), `.revealHiddenLabel`, `.revealGrid` mobile collapse, `@keyframes revealBurst`, `revealPulseEpic`, `preRevealFloat`, `possibleRevealBurstCommon/Rare/Epic/Legendary`, and the `prefers-reduced-motion` block targeting them.
+- One unrelated comment that referenced `.modalSecondaryBtn` updated to drop the dead reference.
+
+**Animation:**
+- Stage 3 entry: burst expands 0.3 → 4× scale (1.1s, ease-out cubic), fog peaks then dissipates (1.3s), three cards fade + scale up with 140ms stagger starting at 500ms (so the slowest finishes ~1.4s in). Total wall-clock ~1.5s.
+- Glow color: starter teal (`#03DAC6`), premium purple (`#BB86FC`), legendary gold (`#FFD700`). Threaded via `--glow-color` on `.flowStage`.
+- Reduced-motion users skip the burst + fog and see cards already in place.
+
+**Behavior summary:**
+1. Click "Buy Pack" on the packs screen → modal opens at `confirm`. Pack hero in slot, price below, CONFIRM PURCHASE button.
+2. Click CONFIRM PURCHASE → API call (`pending: true` disables the button + hides X). On success, slot keeps the same pack image, button swaps to OPEN PACK, divider/price hide.
+3. Click OPEN PACK → slot animates: rarity-color burst outward, fog settles, 3 cards fade in staggered. Title swaps to "Pack Opened". Button swaps to EQUIP.
+4. Click EQUIP → modal closes, router pushes `/drones`.
+
+The same Modal is mounted from step 1 through step 4. No remount.
+
+---
+
+## 2026-04-30 - Lead change counter: cumulative-gap zero-crossings, not per-segment flips
+
+**Captain ask:** "Lead traded N times" copy + the `LEAD CHANGED N×` badge in the race detail header were inflated because they counted per-segment winners, not actual leader switches. A lead change should mean the cumulative time gap crosses zero - i.e. the overall race leader actually swaps. Example: A leads by 0.3s cumulative; B wins the next segment by 0.1s; A is still ahead by 0.2s; that is NOT a lead change.
+
+**Where it lived:** Engine doesn't compute this - it's UI-side derivation in `app/races/[raceId]/page.jsx`. Two functions had the wrong logic:
+- `countLeadChanges(log)` (feeds the `LEAD CHANGED N×` badge at line ~421).
+- `generateCommentary(log, winnerIsDrone1, winnerName)` had its own inline `changes` reduce over a per-segment `leads` array, feeding "Lead traded N times - {winner} prevailed." and "{winner} seized the lead at segment X and never let go.".
+
+**Files changed (1):**
+
+- `app/races/[raceId]/page.jsx`
+  - `countLeadChanges`: walks the cumulative `drone1Time - drone2Time` gap, tracks the sign, and increments only on sign flips (positive ↔ negative). Tied segments (sign === 0) are skipped rather than treated as their own state, so an `A → tied → A` run isn't double-counted.
+  - `generateCommentary`: drops the per-segment `leads` array. Calls the existing `computeWinnerGaps(log, winnerIsDrone1)` (already in the file at the bottom; function-hoisted so the upward call works), iterates the cumulative-gap signs for the `changes` count using the same logic as `countLeadChanges`, and reworks `ledFromStart` (now `gaps[0] > 0`) and `permanentLeadAt` (last segment with `gaps[i] < 0`, then +1) so the "seized the lead at segment X" caption uses the cumulative-gap flip point, staying consistent with the badge.
+
+**Behavior delta:** On a race where one drone wins ~12 of 36 segments individually but the cumulative gap never flips, the badge used to say `LEAD CHANGED 22×` and the commentary "Lead traded 22 times". Now the badge is hidden (count is 0) and the commentary picks the appropriate "led from start to finish" / "closed strong" branch.
+
+---
+
+## 2026-04-30 - seed:dev = prod seed at the dev URL (parity rewrite)
+
+**Captain ask:** `npm run seed:dev` should run the prod seed script verbatim, just pointed at `DATABASE_URL` instead of `PROD_DATABASE_URL`. Prod script is perfect; don't touch it.
+
+**Compass diagnosis:** Two divergences in the old `seed-dev.js` that violated the parity goal: (1) it always truncated before seeding (no `--fresh` flag respected), (2) it skipped the YES confirmation gate. It also duplicated prod's `FRESH_TRUNCATE_TABLES` list and ran its own local `truncate()` function instead of inheriting prod's `truncateForFresh()`. One mechanical wrinkle: both `PROD_DATABASE_URL` and `DATABASE_URL` live in `.env.local`, so even with `ALLOW_LOCAL_SEED=1` set, prod's `??` resolver picks `PROD_DATABASE_URL` first - the dev wrapper has to actively `delete process.env.PROD_DATABASE_URL` before importing prod, otherwise `seed:dev` would silently hit production.
+
+**Files modified (1):**
+
+### `scripts/seed-dev.js`
+- Rewritten as a 40-line minimal wrapper (was 74). Now sets `ALLOW_LOCAL_SEED=1`, deletes `PROD_DATABASE_URL` from `process.env`, validates `DATABASE_URL` is set, dynamic-imports `runSeed` from `seed-production.js`, parses `--fresh` from `process.argv`, and calls `runSeed({ fresh })` - no `skipConfirm`, so the YES gate fires (parity with prod).
+- Dropped: the duplicate `TRUNCATE_TABLES` array, the local `truncate()` function, the always-truncate-before-seed step, the `skipConfirm: true` argument.
+- Header docstring rewritten to spell out the URL-resolver mechanic so future me / Captain can see why both `ALLOW_LOCAL_SEED=1` AND the `delete` are required (not just one).
+
+**`scripts/seed-production.js` not touched.** `package.json` not touched.
+
+**Behavior changes Captain should know about:**
+1. `npm run seed:dev` no longer auto-truncates. Use `npm run seed:dev -- --fresh` for the old "wipe-then-seed" behavior. This is the parity that was asked for.
+2. The YES confirmation gate now fires on `seed:dev` too. Its prompt copy is hardcoded to `"About to seed PRODUCTION database. Type YES to continue:"` - misleading on the dev path, but Captain said prod is perfect so the string was left alone. If Captain wants the prompt to identify which DB it's hitting, that's a separate ~3-line tweak to `seed-production.js#confirmProd()`.
+
+**Verification:**
+- `npx eslint scripts/seed-dev.js` - not run (per ATLAS rule 11; Captain verifies).
+- Static read-through: env mutations happen before the dynamic import, so prod's module-level `RESOLVED_URL` resolver runs against the patched env. `process.argv` is unchanged from `node scripts/seed-dev.js [--fresh]`, so prod's auto-run guard (`isDirectInvocation`) correctly stays FALSE (we're invoking `runSeed` ourselves) and our explicit call passes the `fresh` flag through to `truncateForFresh()`.
+
+**Not verified by Mercenary:**
+- Live run against the dev DB. Strongly recommend `npm run seed:dev` first (additive, idempotent) and confirm the YES gate fires + the resolver hits the local URL before trying `-- --fresh`.
+
+---
+
+## 2026-04-30 - Volts modal: size match + glow/content/button spacing rework
+
+**Captain ask:** Volts purchase modal should match the size of the other marketplace modals. Also: more distance between the chest's glow halo and the content below it, and tighter spacing between the price/hint cluster and the action buttons.
+
+**Compass diagnosis:** `.voltsModal` was undersized vs. its siblings (`max-width: 600px / min-height: 480px` against `.purchaseModal`'s `700px / 500px` and `.listModal`'s `700px / 600px`). Spacing-wise, `.voltsActions` had `margin-top: auto` pushing the CTA pair to the modal floor, which simultaneously created a large empty band ABOVE the buttons (where Captain wanted tightness) and a too-tight band BELOW the chest's glow halo (where Captain wanted breathing room). Inverting the auto-flex spacer onto `.voltsTitleRow` flips both bands at once.
+
+**Files modified (1, well inside the 4-file cap):**
+
+### `app/marketplace/page.module.css`
+- **`.voltsModal`**: `max-width: 600px → 700px`, `min-height: 480px → 500px` to match `.purchaseModal`. The Volts modal is the natural sibling of the cinematic drone/mod/skin purchase modal (same chest hero, same close button, same secondary+primary CTA pair) so they should share a footprint.
+- **`.voltsStage`**: `min-height: 480px → 500px` to mirror the shell.
+- **`.voltsTitleRow`**: added `margin-top: auto` with a comment explaining it acts as the auto-flex spacer for the whole content cluster (title + price + hint + buttons). Pushes that group toward the modal floor as a single unit so the chest glow gets the breathing room above.
+- **`.voltsActions`**: removed the `margin-top: auto` (and its now-stale comment). With the spacer relocated to `.voltsTitleRow`, the buttons sit at the existing `voltsStage gap: var(--space-3)` below the hint - tight, matching Captain's ask.
+
+**Verification:**
+- Visually inspected the post-edit CSS block (lines 5081-5170 of `page.module.css`). Modal dims match `.purchaseModal`. Auto-spacer moved cleanly. Mobile media query (`@media (max-width: 480px)`) still overrides `min-height: 100vh` so the new desktop dims are scoped correctly.
+- **Not run:** `npm run dev` / browser visual check. Captain verifies.
+
+**Not verified by Mercenary:**
+- Live render against the actual chest art at all three tiers (teal / purple / gold) and the BEST VALUE variant. The auto-flex spacer behavior is purely a flexbox consequence and doesn't depend on tier, but Captain should pop one of each open to confirm the new vertical rhythm reads right at 1440 / 1024 / 375.
+
+---
+
+## 2026-04-30 - Capsule pack confirm: toast instead of "launching soon" caption
+
+**Captain ask:** When the user confirms a capsule pack purchase, drop the inline "Capsule packs launching soon" caption and instead surface the standard "Not available in demo" toast that other unwired demo features use.
+
+**Pattern matched:** `app/drones/[droneId]/page.jsx:1213` - `showToast('Not available in demo.', 'info')` from the bind modal's placeholder-skin guard.
+
+**Files changed (2):**
+
+- `app/marketplace/page.jsx`
+  - Removed `packBuyCapsuleNote` state + the two setter calls in `openPackBuyModal` / `closePackBuyModal`.
+  - `confirmCapsulePackPurchase` now fires `showToast('Not available in demo.', 'info')` and closes the buy modal via `setPackBuyModal(null)`. Comment updated to call out the demo-gating pattern.
+  - Removed `capsuleNote` from the `<PackPurchaseModalBody>` prop list and from the function signature; deleted the conditional `.purchasePackNote` block.
+  - Updated the modal body's header comment to describe the new toast-and-close behavior.
+
+- `app/marketplace/page.module.css`
+  - Deleted the now-unused `.purchasePackNote` rule + comment.
+
+**Behavior:** Click Confirm Purchase on any of the three capsule tiers (Starter / Premium / Legendary) → toast fires, modal closes. Skin pack flow unchanged.
+
+---
+
+## 2026-04-30 - Obsidian Core tier-4 transparency fix (asset replacement)
+
+**Captain ask:** Drone backgrounds rendering opaque on the leaderboard podium. Should be transparent everywhere.
+
+**Root cause (Compass):** `public/skins/epic/obsidian_core_tier4.webp` was the lone outlier across all drone/skin assets - exported `srgb` (no alpha channel) instead of `srgba`. Repo-wide channel scan confirmed every other asset (8 legendaries, 4 tier silhouettes, 5 tier-4 applied renders, all common/rare/epic catalog swatches) is `srgba` with `00000000` corners. The dark backdrop was baked into the obsidian_core file itself, not coming from any CSS layer. Surfaces affected: leaderboard podium + everywhere else `DroneImage` resolves Obsidian Core on a tier-4 drone (drone detail hero, dashboard spotlight, marketplace, profile, race competitor strips, drones index).
+
+**Files modified (1):**
+
+### `public/skins/epic/obsidian_core_tier4.webp`
+- Replaced with a transparent re-export from Captain's source PNG (`~/Desktop/dronemanager/media/skins/epic/obsidian_core_tier4_transparent.png`, 2760x1504 srgba).
+- Pipeline: `convert -filter Lanczos -resize 1200x654` then `cwebp -q 80 -alpha_q 100 -m 6 -mt -metadata none`.
+- Output profile matches the other tier-4 epics: 1200x654, srgba, corners `00000000`, 104,036 bytes (sits between crystal_phantom 88KB and dragon_scale 119KB). Visible content bbox 1116x607+57+15.
+- File path/name unchanged so `getDroneImage` keeps resolving the same URL. No code, CSS, or seed changes needed.
+
+**Verification:**
+- Channel + corner sampling on all four tier-4 epics post-swap: identical srgba + 00000000 profile. Repo-wide scan for `srgb`/`rgb`/`gray` channel webps now returns no hits in `public/skins/**` or `public/drones/**`.
+- **Not run:** `npm run dev` / browser visual check. Captain verifies.
+
+**Not verified by Mercenary:**
+- Live browser render of the leaderboard podium with a tier-4 VIPER wearing Obsidian Core. The asset profile matches the working renders, so no surprise expected, but Captain should hard-refresh (asset cache) and confirm.
+
+---
+
+## 2026-04-30 - Bind modal: legendary skin cards match my-drones treatment
+
+**Captain ask:** Legendary skin cards in the Bind Skin modal on `/drones/[droneId]` should use the same per-skin background and border as legendary drones on `/drones`. Common/rare/epic and all mod cards stay as they were.
+
+**Workflow update (Captain directive):** Mercenary no longer runs verification. Captain handles all dev/lint/build/browser checks. ATLAS.md `Verification` section + Rule 11 updated; global `~/.claude/CLAUDE.md` Mercenary role updated separately by Captain/linter.
+
+**Files changed (3):**
+
+- `ATLAS.md`
+  - `Verification` section: Mercenary does not run verify commands. Captain verifies. Available commands listed for Captain's reference.
+  - Rule 11: rewritten — "Captain verifies, not Mercenary."
+
+- `app/drones/[droneId]/page.jsx`
+  - Added `getLegendaryTheme` to the `@/lib/utils` import.
+  - In `BindCollectibleModal`'s `sortedItems.map`, compute `legendaryTheme = getLegendaryTheme(item.name)` only when `kind === 'skin' && item.rarity === 'legendary'`. Build `legendaryStyle` setting `--legendary-bg`, `--legendary-glow-1`, `--legendary-glow-2`. Pass `style={legendaryStyle}` to the `<button>` and add `legendaryTheme && styles.bindCardLegendarySkin` to the `cn()` className list.
+
+- `app/drones/[droneId]/page.module.css`
+  - New `.bindCardLegendarySkin.bindCardLegendarySkin` rule (doubled-class specificity to override `.bindCard_legendary` source-order). Resets to `position: relative; isolation: isolate; background: transparent; border: none; clip-path: inset(0 round var(--radius-sm))`.
+  - `::before` rotating conic gradient driven by `--legendary-glow-1`, mirroring `app/drones/page.module.css` `.skinRarity_legendary::before`.
+  - `::after` body wash (12% → 4%) using `--legendary-glow-2` over `--legendary-bg`. `inset: 2px` + `border-radius: calc(var(--radius-sm) - 1px)`.
+  - Local `@keyframes bindLegendaryRotate` (CSS Modules scopes keyframes per file, so the `legendaryRotate` in `app/drones/page.module.css` is not reachable from here).
+  - `prefers-reduced-motion: reduce` disables the rotation.
+
+**Notes:**
+- Skipped the `legendaryDroneBob` image animation. Bind cards are small and `.bindCardImage { overflow: hidden }` would clip the bob mid-swing. Captain asked for "background and border" specifically; happy to add the bob if desired in a follow-up.
+- Mods with legendary rarity keep the existing static gold gradient (`getLegendaryTheme` is a skin-only palette helper).
+- Selected state's corner check badge is unaffected — it sits on the rotating border surface naturally via implicit z-index above the `::after` (z-index: -1).
+
+**Verification:** None run by Mercenary per the new workflow rule. Captain to spot-check at 1440 / 1024 / 375.
 
 **Captain ask:** Scale vault stock + demo capacity ahead of a reseed.
 1. `VAULT_COPY_PLAN` totals: common ≥ 400, rare ≥ 200, epic ≥ 100, legendary ≥ 40.
@@ -2644,3 +3068,346 @@ seg lap type      sA      sB      tA      tB    cumGap   leader
 - Low-battery drones can lead through lap 1 then get overtaken by lap 2/3 — the gap chart now shows that crossover.
 
 **Verification script:** `scripts/_verify_race_formula.mjs` — used to capture the data above, deleted after this commit.
+
+## 2026-04-30 - Metadata copy, mobile hero sizing, silent error/not-found redirects
+
+Six fixes per Captain spec.
+
+**Files modified:**
+- `app/layout.jsx` - root metadata title/description/og/twitter all rewritten to "Hyperdrome | Drone Racing Strategy Game" + new descriptor copy. "Idle" removed from all metadata fields.
+- `app/page.jsx` - landing-page metadata title/og.title swapped from "Competitive Idle Drone Racing" to "Hyperdrome | Drone Racing Strategy Game".
+- `app/page.module.css` - `.heroVideo` gets `object-position: center`. Mobile (max-width: 768px): heroTitle dropped from `--text-5xl` to `--text-4xl` with tighter 0.06em letter-spacing so HYPERDROME no longer clips at narrow viewports; heroTagline dropped to `--text-base` with `white-space: nowrap` so BUILD. RACE. TRADE. COLLECT. stays on one line.
+- `app/drones/[droneId]/page.jsx` - import `redirect` from next/navigation. Replaced the `error || !drone` render block with `redirect('/drones')`. No error UI rendered anymore.
+- `app/not-found.jsx` - rewritten to a server component that calls `redirect('/')`. UI/imports/metadata stripped.
+- `app/error.jsx` and `app/global-error.jsx` - both rewritten as client components: `useEffect(() => router.replace('/'), [])` then `return null`. No error screens.
+
+**Verification:** Skipped per Captain feedback (skip lint, no dev/build/lint runs).
+
+## 2026-04-30 - Drone detail: right-stack rebalance + skin/mod selector polish
+
+**Files modified:**
+- `app/drones/[droneId]/page.module.css`
+  - `.rightPanel` gets `flex: 1` so the Stat Editor card grows to fill the right column.
+  - `.perfSummaryCard` drops `flex: 1` so Performance Summary collapses to its intrinsic height.
+  - `.modSelector` drops the 44px min-height and switches padding from `6px 8px` to `8px 10px` so the equipped indicator matches the dropdown row sizing in the same component (no longer oversized in the drone container).
+  - New `.modSelectorBare` class: transparent bg, transparent border, 0 horizontal padding. Applied to the public-viewer empty state.
+- `app/drones/[droneId]/page.jsx`
+  - Skin trigger now always renders `SkinThumb` with `rarity={drone.appliedSkin?.rarity ?? 'common'}`. With no skin payload, SkinThumb falls back to its prism `<SkinMini>` so the None state shows the same prism shape as the populated state. Empty `<span>` fallback removed.
+  - Both skin and mod trigger buttons add `styles.modSelectorBare` when `!isOwner && !drone.appliedSkin/Mod`. Public viewers looking at a drone with no skin/mod see the prism/hex symbol + "None" text without a chip frame.
+
+---
+
+## 2026-04-30 - Race detail: cap log card height + match modal scrollbar
+
+**Captain ask:** On the desktop race detail page, the Race Log column was extending past the bottom of the gap+track row, breaking the layout flow. Cap it to the combined height of the left columns and give it the same scrollbar styling as modals.
+
+**Root cause:** `.raceLayout .logCard` had `min-height: 0` but no `overflow` constraint. Per the CSS Grid spec, a spanning grid item's auto minimum size only collapses to 0 when `min-height: 0` AND `overflow != visible` are both set. Without that, the inner DataTable's intrinsic height leaked into row-track sizing and grew the spanned rows beyond drone+gap on the left.
+
+`.logScroll` also shipped its own thin 6px transparent scrollbar override that diverged from the 8px global scrollbar inherited by modals (defined in `app/globals.css`).
+
+**Files modified (1):**
+- `app/races/[raceId]/page.module.css`
+  - `.raceLayout .logCard`: added `overflow: hidden`. Combined with the existing `min-height: 0`, this forces the grid item's auto min-size to 0, so the row tracks are sized only by drone1/drone2/gap/track. The log card stretches to fit that height; the inner `.logScroll` still scrolls because it has its own `overflow-y: auto`.
+  - `.logScroll`: removed the local scrollbar overrides (`scrollbar-width: thin`, `scrollbar-color`, and the four `::-webkit-scrollbar*` rules). It now inherits the global modal-style scrollbar (8px, `--bg-secondary` track, `--border-subtle` thumb, `--accent-primary` on hover).
+
+**Workflow note:** Verification skipped per Captain. Same handoff pass also formalized that rule in `~/.claude/CLAUDE.md` (Mercenary role + Local/Remote Mode steps) and project `ATLAS.md` (Verification section + Rule 11): Mercenary writes clean code + HANDOFF entry and stops; Captain runs the app.
+
+## 2026-04-30 - Marketplace drone cards: revert height extension, re-cap legendary img, restore shine
+
+**File modified:**
+- `app/marketplace/page.module.css`
+  - Reverted `.listingImage` from the fixed `height: 200px; flex-shrink: 0` (introduced in 6acc48a) back to `aspect-ratio: 16 / 10`. `.cardMod .listingImage`, `.card_level_* .listingImage`, and `.card_*:not(.cardMod) .listingImage` get their per-type aspect ratios back (4/3 mod, 4/3 drone, 1/1 skin). Drone cards return to yesterday's height.
+  - `.skinRarity_legendary.skinRarity_legendary .listingImage img` re-introduces a `max-height: 90%; max-width: 90%` cap so legendary-skinned drone art reads at the same visual footprint as tier-4 silhouettes.
+  - `.skinRarity_legendary.skinRarity_legendary` adds `clip-path: inset(0 round var(--radius-lg))`, mirroring `app/drones/page.module.css` so the rotating conic-gradient shine traces the rounded corners cleanly. Marketplace legendary drone cards now show the same animated border shine as the My Drones legendary cards.
+
+---
+
+## 2026-04-30 - Auth: invalidate JWT when its userId points to a deleted user
+
+**Captain ask:** After re-seeding the DB and clicking Play Demo, the demo route silently redirected Captain to /drones with a stale session, then any subsequent API call (e.g. buying a marketplace pack) returned `404 User not found`. Make the auth layer notice that the JWT's user is gone and behave accordingly.
+
+**Root cause:** Two-step failure with a single root.
+1. `lib/auth/index.js` jwt callback ran the per-request user lookup but silently kept a stale `token.userId` when the row didn't exist. Every auth-required API route (`services/pack.service.openPack`, drone create, race run, marketplace listing buy, etc.) then ran with a phantom userId and hit its own 404 paths.
+2. `app/api/auth/demo/route.js:104-107` trusted `session.user.name?.startsWith('PILOT_')` for its early return. The stale JWT still had a valid signature (NEXTAUTH_SECRET didn't change) and a PILOT_* name claim, so the demo route short-circuited to /drones without ever issuing a fresh sign-in. Browser cookie was never overwritten with a live userId.
+
+**Files modified (1):**
+- `lib/auth/index.js`
+  - In the `jwt` callback's `if (token.userId)` branch, when the user lookup returns 0 rows, clear `userId`, `username`, `points`, `totalRaces`, `name`, `email` on the token. The `session` callback's `if (token?.userId)` guard then skips the user-spread, `withApiHandler` reads `session.user.id` as undefined and returns 401, and the demo route's `name?.startsWith('PILOT_')` check evaluates false so it falls through to claim/create. `signIn` overwrites the JWT cookie with a fresh, valid userId.
+  - Single-point fix; no per-route hardening needed.
+
+**Behavior trace post-fix:** stale-cookie + Play-Demo press → auth() runs jwt callback → lookup of dead userId returns no rows → token user-fields cleared → session reads as unauthenticated → demo route falls through → claim succeeds → signIn issues new JWT → browser cookie replaced → redirect to /drones with a live userId → pack purchase works.
+
+**Verification:** Skipped per Captain.
+
+## 2026-04-30 - Marketplace listing-card aspect ratios + legendary cap tightened
+
+Captain wanted shorter cards per section: drones slightly shorter, skins slightly shorter, mods shorter, legendary drone image to render at the same visual footprint as the tier-4 silhouette.
+
+**File modified:**
+- `app/marketplace/page.module.css`
+  - `.card_level_* .listingImage`: aspect-ratio `4/3` → `3/2`. Drone cards drop a step in height.
+  - `.card_*:not(.cardMod) .listingImage`: aspect-ratio `1/1` → `5/4`. Skin cards drop a step.
+  - `.cardMod .listingImage`: aspect-ratio `4/3` → `16/10`. Mod cards drop a bigger step.
+  - `.skinRarity_legendary.skinRarity_legendary .listingImage img`: `max-height/max-width` `90%` → `85%`. Legendary skin renders shrink so the on-screen drone artwork matches the tier-4 silhouette (legendary asset PNGs are tighter-cropped than the tier silhouettes, so a smaller cap is needed for visual parity).
+  - Per-section uniformity preserved: each section still shares one aspect ratio and `grid-auto-rows: 1fr` keeps cards equal within a section.
+
+## 2026-04-30 - Drone detail: tighten skin/mod equipped trigger padding
+
+Captain's earlier ask was to make the equipped skin/mod trigger match the dropdown-row styling. First pass (8px → 8px padding) didn't actually move the trigger height because it equalled the dropdown rows' padding but the trigger still carried two lines (mod name + description). Second pass: drop the trigger's vertical padding to 4px so the row reads as compact as the dropdown options.
+
+**File modified:**
+- `app/drones/[droneId]/page.module.css`
+  - `.modSelector` padding `8px 10px` → `4px 10px`. Top/bottom whitespace around the equipped name/description halves so the trigger reads at the tight visual weight of the select dropdown rows.
+  - `.perfSummaryCard` gains `flex: 0.4` so it claims a slice of the right column instead of collapsing to its content height. With `.rightPanel { flex: 1 }`, the stat editor gets ~71% of the leftover space and Performance Summary gets ~29%.
+
+## 2026-04-30 - Drone detail: keep dropdown styling, hide description on equipped trigger
+
+Captain wanted the "just showing what's equipped" view (the collapsed `.modSelector` trigger) to read at the same height as the dropdown option rows, without changing the dropdown options themselves. Reducing trigger padding to 4px went the wrong way (made the trigger smaller than dropdown rows AND modified the interactive trigger styling). The actual culprit was the second-line `.modDescription` rendering only on the trigger, which pushed the row 13px taller than an option row.
+
+**File modified:**
+- `app/drones/[droneId]/page.module.css`
+  - `.modSelector` padding reverted from `4px 10px` back to `8px 10px` to match `.modSwapItem` exactly.
+  - New rule `.modSelector .modDescription { display: none }` hides the description line on the trigger only. The trigger is now single-line + 8px padding = same vertical footprint as a dropdown option row. Description still renders nowhere (dropdown rows never showed it), so no information is lost vs. the dropdown view.
+
+---
+
+## 2026-04-30 - Race detail: restructure desktop grid so log column is bounded
+
+**Captain ask:** The earlier `overflow: hidden` + `min-height: 0` fix didn't hold. The race log column was still extending past the bottom of the left side and pushing the page tall, with a visible empty band between the drone row and the gap+track row. Cap the log to the height of the left side. Period.
+
+**Why the previous fix didn't work:** Per the CSS Grid spec, `min-height: 0` + `overflow: hidden` should collapse a grid item's contribution to row sizing. Browsers don't honor this consistently for items that span multiple auto rows (Chrome still factored the spanning log card's intrinsic table height into row 1's track sizing, leaving empty space below the drone cards as they stretched). The structural fix is to stop spanning.
+
+**Files modified (2):**
+- `app/races/[raceId]/page.jsx`
+  - Wrapped `drone1Slot`, `drone2Slot`, `gapCard`, and `trackCard` in a new `<div className={styles.raceLeft}>`. The `logCard` is now a sibling of `raceLeft` inside `raceLayout` rather than a third grid item spanning two rows.
+- `app/races/[raceId]/page.module.css`
+  - `.raceLayout` is now a 2-column outer grid (`minmax(0, 1fr) minmax(0, 0.6fr)`, `align-items: stretch`) - left side and log. Same column ratio as before (~62.5 / 37.5) but only one row, so the spec's auto-min-size = 0 rule is honored reliably.
+  - New `.raceLeft` rule: a 2x2 inner grid carrying the existing `drone1 drone2 / gap track` template.
+  - `.logCard` keeps `min-height: 0; overflow: hidden; display: flex; flex-direction: column`. Its height is now bounded by `raceLeft` via `align-items: stretch` on the outer grid; inner `.logScroll` (`flex: 1; overflow-y: auto`) scrolls excess rows.
+  - Selector relocations: `.raceLayout .gapCard` → `.raceLeft .gapCard`, same for `.trackCard`.
+  - Tablet `(max-width: 1023px)`: outer collapses to a single column (log slides full-width below), inner `raceLeft` keeps its 2x2. `.logScroll` keeps the explicit `max-height: 420px` cap since it no longer shares row-height with the drones.
+  - Mobile `(max-width: 768px)`: `.raceLeft` collapses to a single column with the existing stack order (drone1 / drone2 / gap / track). The other mobile rules (topStrip, headlineBanner, droneName, headlineWinner, droneMeta) unchanged.
+
+**Verification:** Skipped per Captain.
+
+## 2026-04-30 - Drone detail: Performance Summary +20px nudge
+
+**File modified:**
+- `app/drones/[droneId]/page.module.css`
+  - `.perfSummaryCard` flex `0.4` → `0.5`. Performance Summary claims a slightly larger share of the right column, roughly +20px on a typical desktop viewport.
+
+---
+
+## 2026-04-30 - Race detail: gap chart area fill + thinner line + finer ticks + log header border
+
+**Captain ask:** Three changes to the Gap Over Race chart (thinner stroke, area-curve fill in accent color, finer x-axis tick precision with trailing zeros trimmed) plus a stable border-bottom under the sticky race-log header.
+
+**Files modified (2):**
+- `app/races/[raceId]/page.jsx`
+  - Refactored `GapSparkline`: split per-vertex computation into separate `xs` / `ys` arrays so the polyline points and the area polygon endpoints both reference the same x positions.
+  - Added `<polygon className={styles.sparklineArea}>` rendered before the polyline. Closes the curve down to the baseline at the first and last x positions so the fill traces the same horizontal range as the line.
+  - New module-local `formatTimelineSeconds(seconds)` helper - rounds to 3 decimals via `Number(seconds.toFixed(3))` so trailing zeros and a dangling decimal point drop naturally. Used to render the timeline ticks below the chart. Examples: 10.0 → "10s", 10.5 → "10.5s", 10.555 → "10.555s", 10.500 → "10.5s".
+- `app/races/[raceId]/page.module.css`
+  - `.sparklineLine` `stroke-width` 2 → 1.
+  - New `.sparklineArea`: `fill: var(--accent-primary); fill-opacity: 0.18; stroke: none`. Sits below the line so the polyline still defines the visible boundary on top.
+  - New `.logScroll thead th` rule: `box-shadow: inset 0 -1px 0 var(--border-default)`. DataTable's stock `.th` already declares `border-bottom`, but with `border-collapse: collapse` + `position: sticky` on the thead the collapsed border can render inconsistently while scrolling. The box-shadow is part of the th's own paint and rides along with sticky positioning at every scroll offset, giving a stable 1px line under the header.
+
+**Scrollbar verification (no code change, just confirmed):** with the restructured outer grid, `.logCard` height equals `raceLeft` height via `align-items: stretch`. `.logCard` is a flex column with `min-height: 0; overflow: hidden`; inside, a fixed-height `.sectionHeading` plus `.logScroll` (`flex: 1; overflow-y: auto; min-height: 0`). When the table content exceeds the available space, `.logScroll` shows the inherited modal-style vertical scrollbar.
+
+**Verification:** Skipped per Captain.
+
+---
+
+## 2026-04-30 - Gap Over Race: vertical gradient fill on the area
+
+**Captain ask:** The flat 18% accent fill under the gap curve looked weak. Make it a vertical gradient so the chart reads as a polished area chart.
+
+**Files modified (2):**
+- `app/races/[raceId]/page.jsx`
+  - Added `useId` to the React import.
+  - In `GapSparkline`, generate a stable per-instance gradient ID at the top of the function (called unconditionally so the rules-of-hooks early-return guard still holds; colons stripped because they break `url(#...)` references in older specs).
+  - Inside the SVG, added a `<defs>` block with a `<linearGradient>` using `gradientUnits="userSpaceOnUse"` anchored at `padTop` (top of plot area) and `baselineY` (x-axis) so the gradient direction matches the area's vertical extent regardless of the curve shape. Three stops at 0% / 55% / 100% with `var(--accent-primary)` and stop-opacities 0.45 / 0.14 / 0 - full-bodied near the line, soft midway, fully transparent at the baseline.
+  - Polygon sets `fill={`url(#${gradId})`}` inline. Per-instance ID via `React.useId` so multiple sparklines on one page (none today, cheap insurance) won't collide.
+- `app/races/[raceId]/page.module.css`
+  - `.sparklineArea` drops the flat `fill: var(--accent-primary); fill-opacity: 0.18` rules. Setting `fill` in CSS would beat the inline `url(#...)` reference (CSS wins over presentation attributes), so the rule keeps only `stroke: none` and a comment explaining the fill lives inline.
+
+**Visual:** crisp 1px accent line on top, vertical gradient fill underneath fading from 45% accent at the line to 0% at the baseline. Reads as the polished Stripe / Robinhood area-chart look against the dark card background.
+
+**Verification:** Skipped per Captain.
+
+---
+
+## 2026-04-30 - Gap chart redesign: signed two-color area, smooth curves, dynamic zero
+
+**Captain ask:** Replace the absolute-magnitude "how far apart" sparkline with a signed gap chart from the winner's POV. Positive (winner ahead) renders teal above the zero line, negative (winner behind) renders red below. Zero line positioned dynamically by the data range, not at the visual center. Smooth Bezier curves, not jagged. Y-axis labels in seconds with explicit signs, dashed zero line, no x-axis labels.
+
+**Files modified (2):**
+- `app/races/[raceId]/page.jsx`
+  - Removed `computeWinnerCumTimes` helper, the `winnerCumTimes` calculation in the result-view body, and the `times={winnerCumTimes}` prop pass to `<GapSparkline>`. The chart is now segment-indexed, not time-indexed, so the cumulative-time array is no longer used.
+  - Removed `formatTimelineSeconds` helper. Replaced with a `formatGapSeconds(s)` helper that renders signed gap values: prepends `+` for positive, `-` is preserved by `Number()`, returns `"0s"` when |s| < 0.005, up to 2 decimals with trailing zeros trimmed. Examples: `+0.5 → "+0.5s"`, `-0.345 → "-0.35s"`, `0.001 → "0s"`.
+  - Rewrote `GapSparkline` (now takes only `gaps`):
+    - Y-range anchored to always include 0, then padded by 8% top and bottom so the curve doesn't kiss the chart edges. yMin / yMax (unpadded) drive the axis labels; yMinPadded / yMaxPadded drive the screen-y mapping. When all gaps are positive the zero line sits low, all negative sits high, mixed sits proportional to the data - dynamic.
+    - Catmull-Rom (tension 0.5) → cubic-Bezier conversion produces smooth curves between data points without significant overshoot at race-data scales. Edge points reuse themselves as missing neighbors.
+    - Two area polygons rendered in the SVG: positive area closes the smooth curve down to the chart bottom (`H - padBottom`), negative area closes up to the chart top (`padTop`). Each is filled with a `<linearGradient>` anchored at the zero line so the off-side region fades to fully transparent. **No clip-paths** - the gradient transparency does the masking, which keeps the SVG flat. Positive gradient: 0.55 accent at the line → 0 at baseline. Negative gradient: 0 at baseline → 0.55 error at the bottom.
+    - Per-instance gradient IDs via React.`useId` (called unconditionally before the early-return; colons stripped because they break `url(#...)` references in some specs).
+    - Single thin accent-color polyline drawn last, on top of the fills, traces the actual smooth curve (1px stroke, opacity 0.95).
+    - Dashed zero baseline drawn between the two fills and the line (`stroke-dasharray: 2 3`, `var(--text-tertiary)`, opacity 0.55).
+    - Y-axis labels: render `+max` only when the data goes positive, `-|min|` only when it goes negative, always render `0s`. Each absolutely-positioned at its data-y mapped to the container as a percentage so labels track the curve's actual vertical proportions.
+- `app/races/[raceId]/page.module.css`
+  - `.sparklineYAxis` switched from a flex column with `justify-content: space-between` to `position: relative` so children can be absolutely positioned by their data-y.
+  - New `.sparklineYAxisLabel`: `position: absolute; right: 0; transform: translateY(-50%);` so each label centers on its anchor y.
+  - New `.sparklineZero`: dashed `var(--text-tertiary)` 1px line at 0.55 opacity. Subtle by design.
+  - Removed `.sparklineAxis` (no bottom-edge baseline anymore - the dashed zero line replaces it).
+  - Removed `.sparklineArea` (replaced by the two inline-filled `<path>` elements with their own gradient `url(#...)` refs).
+  - Removed `.timeline` and `.timelineTick` (no x-axis labels anymore).
+  - `.sparklineLine` opacity 0.9 → 0.95 so the line reads cleanly above the gradient fills.
+  - SVG viewBox H bumped 80 → 100 to give the area chart slightly more vertical real estate; usable plot area = `H - padTop - padBottom = 100 - 8 - 8 = 84`.
+
+**Verification:** Skipped per Captain.
+
+---
+
+## 2026-04-30 - Race detail: log card absolutely positioned to guarantee height cap
+
+**Captain ask:** The log column was overgrowing raceLeft again on desktop, leaving an empty band between the drone row and the gap+track row. Cap the log column at raceLeft's height. No more spec-citing - just make it work.
+
+**Why the prior CSS-spec approach was unreliable:** Per CSS Grid spec, `min-height: 0` + `overflow: hidden` on a grid item should collapse its contribution to row sizing to 0. Chrome was inconsistent here, especially for items that are themselves flex containers with `flex: 1` scrolling children. The grid algorithm sometimes still factored the inner DataTable's intrinsic height into row sizing.
+
+**Fix - take the log card out of grid track sizing entirely:**
+- `app/races/[raceId]/page.module.css`
+  - `.raceLayout` adds `position: relative` and changes `align-items: stretch` to `align-items: start` (since the log no longer needs sibling-stretch, raceLeft's natural top-anchored layout is fine).
+  - `.raceLayout .logCard` switches to **`position: absolute`** with `top: 0; right: 0; bottom: 0; width: calc((100% - var(--space-4)) * 0.375)`. Per CSS Grid spec, absolutely-positioned grid items don't participate in the track-sizing algorithm at all. So raceLeft is the sole determinant of `.raceLayout`'s height; the log card visually fills column 2 of the grid (its width matches the `1fr 0.6fr` template's column 2 width) and stretches top-to-bottom of raceLayout's padding box. Inner `.logScroll` (`flex: 1; overflow-y: auto`) scrolls the table when it's taller than that height.
+  - Tablet `(max-width: 1023px)` reverts the log card to `position: static; width: auto` so it stacks below raceLeft in normal flow (the abs trick is desktop-only).
+  - Width math comment notes the calc must stay in sync with `grid-template-columns` if either changes.
+
+**Files modified (1):** `app/races/[raceId]/page.module.css`.
+
+**Verification:** Skipped per Captain.
+
+---
+
+## 2026-04-30 - Marketplace skins: bigger prism, legendary bob, taller cards
+
+**Captain ask:** In the marketplace skins section, legendary skins were missing the bob animation that legendary drone listings have (existing rule targets `img` only and prism placeholders are SVGs). The pentagon prism placeholder needed to be ~25% larger. Skin cards needed to be as tall as drone cards on the drones page.
+
+**Files modified (2):**
+- `components/ui/SkinThumb/SkinThumb.module.css`
+  - `.wrap > svg` size 71% → 89% (71 × 1.25 = 88.75, rounded). Affects every consumer of `SkinThumb` / `SkinMini` (marketplace listings, bind modal, pack-open results, drone-detail equipped trigger). Comment updated.
+- `app/marketplace/page.module.css`
+  - Skin listing image `aspect-ratio` 5/4 → 1/1. Square image area lands at +25% height per unit width, bringing the total skin card height up to roughly the drone cards' footprint (drone aspect 3/2 + denser body content; skin aspect 1/1 + lighter body lands at parity).
+  - New rule `.skinRarity_legendary.skinRarity_legendary .listingImage > span { animation: legendaryDroneBob ... }`. SkinThumb wraps the prism SVG in a span.wrap, so legendary listings that fall back to the prism (no real webp) couldn't reach the existing `img`-only animation. Animating the wrap span transforms the prism as a whole - same bob the legendary drone listings get on their `<img>`.
+  - `prefers-reduced-motion` guard updated to include the new `.listingImage > span` selector so users who opt out of motion don't see the bob.
+
+**Verification:** Skipped per Captain.
+
+---
+
+## 2026-04-30 - Marketplace: prism scale-back + drone card height bump
+
+**Captain ask:** The 89% prism (from the prior bump) read too big in the marketplace skins cards. Pull it back 15%. Also nudge the drones-section drone cards 5-10px taller.
+
+**Files modified (2):**
+- `components/ui/SkinThumb/SkinThumb.module.css`
+  - `.wrap > svg` size 89% → 76% (89 × 0.85 = 75.65, rounded). Net change vs. the original 71% baseline is +5pp - prism still reads slightly larger than the pre-bump state, but no longer crowds the rarity-tinted card frame. Comment updated.
+- `app/marketplace/page.module.css`
+  - Drone listingImage aspect-ratio 3/2 → 7/5 (1.5 → 1.4). At the typical 165px column width, image-area height shifts from ~110px to ~118px, so total drone card height nudges ~8px taller. Body padding and aspect on skin / mod cards unchanged.
+
+**Verification:** Skipped per Captain.
+
+## 2026-04-30 - Race simulator: clustered segment generation
+
+`buildSegments` was a flat Fisher-Yates shuffle of all straights + turns, producing alternating runs like `[S,T,S,T,T,S,T,S,S,T]`. Per-segment scoring is type-driven (speed-spec dominates straights, turn-spec dominates turns), so a frequent S/T flip-flop kept cumulative gap close to zero — neither drone could build a real lead long enough for the other to claw back. Per-race lead changes hovered at 0–2 (see prior 2026-04-29 entry's traces).
+
+**File modified:**
+- `lib/game-engine/race-simulator.js`
+  - New `splitIntoStretches(n)`: splits a count into stretches of 2–4 segments. Each pick is constrained so the leftover is either 0 or ≥ 2 (no stranded size-1 tails). For `n < 2` (rare edge case) returns a single short stretch.
+  - `buildSegments(track)`: now generates straight stretches and turn stretches separately, shuffles each list, then alternates types starting from a random side. If one type runs out before the other (imbalanced track), remaining stretches of the surviving type are appended in order.
+  - Per-segment scoring weights, variance, battery degradation, weather modifiers, and time conversion left untouched.
+
+**Verification (Captain-requested):** LV10 speed-spec vs LV10 turn-spec on Circuit Alpha (4 straights / 5 turns / 3 laps / medium / diff 4), clear day, 5 races.
+
+| race | winner   | drone1Time (SPD) | drone2Time (TRN) | gap     | leadChanges |
+|------|----------|------------------|------------------|---------|-------------|
+| 1    | LV10_TRN | 74.373           | 74.097           | +0.276s | 6           |
+| 2    | LV10_TRN | 74.335           | 74.099           | +0.236s | 6           |
+| 3    | LV10_TRN | 74.329           | 74.103           | +0.227s | 6           |
+| 4    | LV10_TRN | 74.391           | 74.059           | +0.331s | 4           |
+| 5    | LV10_TRN | 74.392           | 74.107           | +0.285s | 5           |
+
+Total lead changes across 5 races: **27**. Average **5.4 per race** (vs 0–2 before this change, per the 2026-04-29 trace logged earlier in this file).
+
+**Sample trace, race 1 (cumulative gap, leader):**
+
+```
+seg lap type      sA      sB      tA      tB    cumGap   leader
+  1 1   turn      28.23   50.96   2.779   2.665    0.114s →LV10_TRN
+  2 1   turn      26.81   51.64   2.786   2.662    0.238s →LV10_TRN     ← turn stretch (×2)
+  3 1   straight  48.53   25.44   2.677   2.793    0.122s →LV10_TRN
+  4 1   straight  50.53   26.97   2.667   2.785    0.004s →LV10_TRN
+  5 1   straight  52.38   26.33   2.658   2.788   -0.126s ←LV10_SPD     ← FLIP, straight stretch (×4)
+  6 1   straight  50.53   25.86   2.667   2.791   -0.249s ←LV10_SPD
+  7 1   turn      28.25   53.16   2.779   2.654   -0.124s ←LV10_SPD
+  8 1   turn      28.80   49.47   2.776   2.673   -0.021s ←LV10_SPD
+  9 1   turn      26.26   49.96   2.789   2.670    0.097s →LV10_TRN     ← FLIP, turn stretch (×3)
+ 10 2   turn      24.93   44.39   2.795   2.698    0.195s →LV10_TRN
+ 11 2   turn      25.13   43.51   2.794   2.702    0.287s →LV10_TRN
+ 12 2   turn      23.67   42.69   2.802   2.707    0.382s →LV10_TRN     ← turn stretch (×3)
+ 13 2   straight  42.87   24.15   2.706   2.799    0.288s →LV10_TRN
+ 14 2   straight  44.21   24.09   2.699   2.800    0.188s →LV10_TRN
+ 15 2   straight  42.45   23.43   2.708   2.803    0.093s →LV10_TRN
+ 16 2   straight  44.94   24.20   2.695   2.799   -0.011s ←LV10_SPD     ← FLIP, straight stretch (×4)
+ 17 2   turn      23.81   45.37   2.801   2.693    0.097s →LV10_TRN     ← FLIP
+ 18 2   turn      22.99   43.84   2.805   2.701    0.201s →LV10_TRN
+ 19 3   straight  37.75   20.48   2.731   2.818    0.115s →LV10_TRN
+ 20 3   straight  39.66   19.11   2.722   2.825    0.012s →LV10_TRN
+ 21 3   straight  38.89   19.09   2.726   2.825   -0.087s ←LV10_SPD     ← FLIP
+ 22 3   straight  39.26   20.36   2.724   2.818   -0.182s ←LV10_SPD     ← straight stretch (×4)
+ 23 3   turn      20.22   39.08   2.819   2.725   -0.087s ←LV10_SPD
+ 24 3   turn      21.24   37.62   2.814   2.732   -0.005s ←LV10_SPD
+ 25 3   turn      19.97   38.88   2.820   2.726    0.089s →LV10_TRN     ← FLIP
+ 26 3   turn      20.29   39.99   2.819   2.720    0.188s →LV10_TRN
+ 27 3   turn      20.81   38.60   2.816   2.727    0.277s →LV10_TRN
+```
+
+Each lap reads as a sequence of clustered same-type stretches: gap accumulates monotonically within a stretch, then reverses when the type flips. Lap 3's tail (segs 23–27) is a longer turn run because the imbalanced track left two turn stretches adjacent after straights ran out — same gameplay shape, just an extended swing.
+
+Verify script `scripts/_verify_clustered_segments.mjs` was used to capture the data above and deleted after.
+
+## 2026-04-30 - Marketplace: drone cards +5px taller
+
+**File modified:**
+- `app/marketplace/page.module.css`
+  - `.card_level_* .listingImage` aspect-ratio `7/5` → `4/3` (1.4 → 1.333). At the typical 165px column width, image-area height shifts from ~118px to ~124px, so total drone card height nudges ~5–6px taller. Skin / mod aspect ratios untouched.
+
+---
+
+## 2026-04-30 - Skin prism: 72% scale + flared bottom corners
+
+**Captain ask:** The 76% prism was still too large. Pull it 5% smaller AND reshape the SVG so the bottom-left and bottom-right mid-corners flare outward ~5% (slightly wider bottom).
+
+**Files modified (2):**
+- `components/ui/SkinThumb/SkinThumb.module.css`
+  - `.wrap > svg` size 76% → 72% (76 × 0.95 = 72.2, rounded). Comment updated.
+- `components/ui/SkinThumb/index.jsx`
+  - Mid-corner SVG vertices `(22, 108)` and `(178, 108)` → `(18, 108)` and `(182, 108)`. The viewBox center is at x=100, so each mid-corner's distance from center moves 78 → 82 (~+5%). Updated in all three places: left flap polygon, right flap polygon, outer pentagon path. Top corners and bottom apex unchanged, so the silhouette gets a slightly wider hourglass-mid without changing the top width or the bottom apex position.
+  - Outer-pentagon path comment updated to call out the flared mid-corners.
+
+**Verification:** Skipped per Captain.
+
+**Note for Captain on the legendary-skin bob:** The `legendaryDroneBob` rule on `.skinRarity_legendary.skinRarity_legendary .listingImage > span` is in place from the earlier marketplace-skins pass. It applies the constant bob (no hover required) to legendary skin listings whether the inner content is a real webp `<img>` or the prism `<svg>` (the wrap span carries the animation, so both children move with it). If it's not visible after a hard refresh, ping back and I'll dig into the cascade.
+
+---
+
+## 2026-04-30 - Bind modal prism: align wrap sizing with marketplace
+
+**Captain ask:** Marketplace skin prism sizing and shape are good - the bind modal cards in drone detail need to match.
+
+**Root cause:** SkinThumb's prism SVG sizes at 72% × 72% of its parent (the wrap span). The wrap's actual rendered dimensions were driven by different per-consumer rules:
+- Marketplace listing cards apply `.skinImg { width: auto; height: 100%; max-width: 100% }` to the wrap. The wrap fills the listing image's height and shrinks to its content's natural width; the prism renders at a stable proportional footprint inside that.
+- Bind modal cards applied `.bindCardImage span { width: 100%; height: 100% }` (combined with the img/svg rule) to the wrap, stretching it to a full 100%×100% square. Same SkinThumb 72% applied to a different wrap shape, so the prism rendered at a different proportional footprint.
+
+**Files modified (1):**
+- `app/drones/[droneId]/page.module.css`
+  - Split the previous combined rule. `.bindCardImage img, .bindCardImage > svg` keep `width: 100%; height: 100%; object-fit: contain` (real images + ModPlaceholder fill the bind slot). New `.bindCardImage span` rule mirrors marketplace `.skinImg` exactly: `width: auto; height: 100%; max-width: 100%`. SkinThumb's own `.wrap.wrap` rule (specificity 0,2,0) still owns the flex centering and wins against this single-class rule, so the prism stays centered.
+
+**Verification:** Skipped per Captain.

@@ -3,24 +3,26 @@ import { SessionProvider } from '@/hooks/useSession';
 import { ToastProvider } from '@/components/ui/Toast';
 
 export const metadata = {
-  title: 'Hyperdrome - Drone Racing Strategy Game',
+  title: 'Hyperdrome | Drone Racing Strategy Game',
   description:
-    'Build your fleet, equip legendary skins and mods, race every 3 minutes, trade on a player-driven marketplace. By Dendrite Games.',
+    'Level drones, equip skins and mods, race every 3 minutes via ELO matchmaking, trade on a player-driven marketplace.',
   metadataBase: new URL('https://hyperdrome.vercel.app'),
   icons: {
     icon: '/favicon.svg',
   },
   openGraph: {
-    title: 'Hyperdrome - Drone Racing Strategy Game',
-    description: 'Build. Race. Trade. Collect.',
+    title: 'Hyperdrome | Drone Racing Strategy Game',
+    description:
+      'Level drones, equip skins and mods, race every 3 minutes via ELO matchmaking, trade on a player-driven marketplace.',
     url: 'https://hyperdrome.vercel.app',
     siteName: 'Hyperdrome',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Hyperdrome',
-    description: 'Drone racing strategy game by Dendrite Games',
+    title: 'Hyperdrome | Drone Racing Strategy Game',
+    description:
+      'Level drones, equip skins and mods, race every 3 minutes via ELO matchmaking, trade on a player-driven marketplace.',
   },
   robots: {
     index: true,
