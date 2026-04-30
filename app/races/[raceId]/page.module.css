@@ -1183,6 +1183,28 @@
     flex-direction: column;
     align-items: flex-start;
   }
+  /* Match the drone-manager hero image footprint at this viewport
+     (`app/drones/[droneId]/page.module.css`: max-width 320px frame,
+     4/3 aspect, image fills 100%). The race-result card was rendering
+     the drone image larger than the drone manager because its frame
+     had no max-width and the image's max-width sat at 260px on a
+     wider frame; capping the frame to 320px / 4-3 + letting the image
+     fill it pulls the visual size back below the drone-manager image
+     at the same viewport. The `min-height: 200px` floor is dropped on
+     mobile so the card hugs its content. */
+  .droneImageFrame {
+    max-width: 320px;
+    aspect-ratio: 4 / 3;
+    min-height: 0;
+    padding: var(--space-3);
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .droneImg {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+  }
   .droneName {
     font-size: var(--text-lg);
   }

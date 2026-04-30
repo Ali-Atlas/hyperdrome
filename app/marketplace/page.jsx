@@ -285,6 +285,26 @@ export default function MarketplacePage() {
   const router = useRouter();
   const [tab, setTab] = useState('drones'); // 'drones' | 'mods' | 'skins' | 'packs' | 'points'
   const [view, setView] = useState('all'); // 'all' | 'mine'
+  /* Custom mobile section dropdown (<=440px) - replaces the native
+   * <select> so the option list, radio circles, and popover chrome
+   * can be styled to match the rest of the marketplace. Closed by
+   * default; click-outside + option-click both close it. */
+  const [tabsOpen, setTabsOpen] = useState(false);
+  const tabsDropdownRef = useRef(null);
+  useEffect(() => {
+    if (!tabsOpen) return undefined;
+    const onDocPointer = (e) => {
+      if (!tabsDropdownRef.current?.contains(e.target)) {
+        setTabsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocPointer);
+    document.addEventListener('touchstart', onDocPointer);
+    return () => {
+      document.removeEventListener('mousedown', onDocPointer);
+      document.removeEventListener('touchstart', onDocPointer);
+    };
+  }, [tabsOpen]);
   // Unified pack flow state. ONE modal, THREE stages, all driven by this
   // single object. Shape: { stage, kind, pack, awarded, pending }.
   //   stage    - 'confirm' | 'ready' | 'opened'
@@ -787,23 +807,72 @@ export default function MarketplacePage() {
                 Three direct flex children so mobile CSS can grid-reflow
                 them to (tabs full-width row) / (list-item + balance row)
                 without restructuring the DOM per breakpoint.
-                A native <select> is rendered alongside the pill bar and
-                swapped in via CSS at <=440px so the smallest viewports
-                trade horizontal space for a tappable dropdown without
-                shipping a separate component or popover. */}
+                A custom dropdown is rendered alongside the pill bar
+                and swapped in via CSS at <=440px so the smallest
+                viewports trade horizontal space for a tappable popover
+                with marketplace-styled option rows + radio circles
+                (the prior native <select> couldn't be styled this way
+                across mobile browsers). */}
         <div className={styles.topRow}>
-          <select
-            className={styles.tabsSelect}
-            value={tab}
-            onChange={(e) => setTab(e.target.value)}
-            aria-label="Marketplace section"
-          >
-            <option value="drones">Drones</option>
-            <option value="mods">Mods</option>
-            <option value="skins">Skins</option>
-            <option value="packs">Packs</option>
-            <option value="points">Volts</option>
-          </select>
+          <div ref={tabsDropdownRef} className={styles.tabsDropdown}>
+            <button
+              type="button"
+              className={styles.tabsDropdownTrigger}
+              onClick={() => setTabsOpen((o) => !o)}
+              aria-expanded={tabsOpen}
+              aria-haspopup="listbox"
+              aria-label="Marketplace section"
+            >
+              {tab === 'drones'
+                ? 'Drones'
+                : tab === 'mods'
+                  ? 'Mods'
+                  : tab === 'skins'
+                    ? 'Skins'
+                    : tab === 'packs'
+                      ? 'Packs'
+                      : 'Volts'}
+              <ChevronDown size={12} aria-hidden="true" />
+            </button>
+            {tabsOpen && (
+              <div className={styles.tabsDropdownMenu} role="listbox">
+                {[
+                  ['drones', 'Drones'],
+                  ['mods', 'Mods'],
+                  ['skins', 'Skins'],
+                  ['packs', 'Packs'],
+                  ['points', 'Volts'],
+                ].map(([value, label]) => {
+                  const selected = tab === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      className={cn(
+                        styles.tabsDropdownOption,
+                        selected && styles.tabsDropdownOptionActive,
+                      )}
+                      onClick={() => {
+                        setTab(value);
+                        setTabsOpen(false);
+                      }}
+                    >
+                      <span
+                        className={cn(
+                          styles.tabsDropdownRadio,
+                          selected && styles.tabsDropdownRadioActive,
+                        )}
+                        aria-hidden="true"
+                      />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <div className={styles.tabs} role="tablist">
             <button
               type="button"
@@ -3441,7 +3510,7 @@ function PackFlowModalBody({ flow, onConfirm, onOpen, onEquip, onClose }) {
     buttonLabel = 'Open Pack';
     buttonAction = onOpen;
   } else {
-    buttonLabel = 'Equip';
+    buttonLabel = 'Go to Drones';
     buttonAction = onEquip;
   }
 

@@ -35,8 +35,14 @@
    at every other size so desktop / tablet / small-mobile keep the pills.
    Pill-matched styling (bg, border, mono caps, accent text) lives in the
    <=440px media block below. */
-.tabsSelect {
+/* Custom mobile section dropdown (<=440px). Hidden above that
+   breakpoint; the >440px layout uses the .tabs pill bar instead.
+   Replaces the prior native <select> so the option list + radio
+   circles can be styled to match the rest of the marketplace -
+   native select popups can't be styled across mobile browsers. */
+.tabsDropdown {
   display: none;
+  position: relative;
 }
 
 .tabs {
@@ -5915,33 +5921,115 @@
   .topRow > .tabs {
     display: none;
   }
-  .topRow > .tabsSelect {
+
+  /* Custom dropdown takes the .tabs grid slot at this breakpoint. */
+  .topRow > .tabsDropdown {
     display: inline-block;
     grid-area: tabs;
     justify-self: start;
-    /* Pill-matched chrome: same surface, border, radius and mono-caps
-       type that .tabs uses, so the dropdown reads as a sibling control
-       even though it's a native <select> opening the system picker. */
+  }
+
+  /* Trigger button - mirrors the .tab pill's chrome so the swap
+     between desktop (pills) and mobile (dropdown) reads as the same
+     family of control. font-size 10px matches `.tab` exactly per
+     Captain spec; the chevron icon hangs off the right. */
+  .tabsDropdownTrigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     background: var(--bg-card);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     color: var(--accent-primary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: var(--font-semibold);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    padding: 5px 26px 5px 10px;
-    cursor: pointer;
-    /* min-height matches the pill bar's resting height so the row's
-       cross-axis center alignment doesn't visibly nudge when the
-       dropdown swaps in. */
+    padding: 5px 8px 5px 10px;
     min-height: 28px;
     line-height: 1;
+    cursor: pointer;
+    transition:
+      border-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
   }
-  .topRow > .tabsSelect:focus-visible {
+  .tabsDropdownTrigger:hover,
+  .tabsDropdownTrigger:focus-visible {
+    border-color: var(--accent-primary);
+  }
+  .tabsDropdownTrigger:focus-visible {
     outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
+  }
+
+  /* Popover menu - sits absolute below the trigger. Width is
+     content-driven (min 140px) so it doesn't stretch full-screen. */
+  .tabsDropdownMenu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Each option row. font-size matches the trigger pill (10px) so the
+     selected label reads identically when collapsed back into the
+     trigger. No native-select grey row chrome - just transparent rows
+     with a hover bg. */
+  .tabsDropdownOption {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out);
+  }
+  .tabsDropdownOption:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .tabsDropdownOptionActive {
+    color: var(--accent-primary);
+  }
+
+  /* Radio circle on each option. Empty (border only) for unselected,
+     filled accent + glow for selected. Matches the app's accent
+     primary so the menu reads as on-brand. */
+  .tabsDropdownRadio {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1px solid var(--border-default);
+    flex-shrink: 0;
+    transition:
+      background var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      box-shadow var(--duration-fast) var(--ease-out);
+  }
+  .tabsDropdownRadioActive {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 6px rgba(3, 218, 198, 0.55);
   }
 
   /* Pack image shrinks with the viewport at <=440px - no fixed lock.

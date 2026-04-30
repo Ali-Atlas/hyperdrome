@@ -788,8 +788,13 @@
     display: none;
   }
   .podiumCard {
-    flex: 0 0 75vw;
-    max-width: 320px;
+    /* Compact carousel cards. 55vw + 180px max keeps each card
+       visibly bounded on a phone (about half the screen width) so
+       the carousel reads as a stack of distinct tiles, not edge-to-
+       edge slabs. The 12.5vw container padding still guarantees the
+       first/last cards can center-snap. */
+    flex: 0 0 55vw;
+    max-width: 180px;
     scroll-snap-align: center;
   }
   .podiumFirst {
