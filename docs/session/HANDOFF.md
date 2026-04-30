@@ -4,6 +4,28 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-30 - Vercel build fix: wrap /races useSearchParams in Suspense
+
+**Captain ask:** Vercel build failing - locate and fix.
+
+**Root cause:** the `?mine=1` deep-link feature on `/races` added `useSearchParams()` to the page client component. Next.js 16 bails out of static prerender for any client component that calls `useSearchParams()` unless it's wrapped in a `<Suspense>` boundary (https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout). Local `npm run build` reproduced the same `Error occurred prerendering page "/races"` Vercel was hitting.
+
+**Files modified (1):**
+
+### `app/races/page.jsx`
+- Added `Suspense` to the React import alongside the existing hooks.
+- Renamed the existing default-export `RacesPage` (the body that calls `useSearchParams()`) to a non-exported `RacesPageInner`.
+- Added a new default export `RacesPage` at the end of the file that wraps `<RacesPageInner />` in `<Suspense fallback={null}>`. `null` fallback is fine - the inner page already renders DataTable skeleton rows while data fetches, and resolving the search params is effectively synchronous so the fallback rarely flashes.
+
+**Verification:**
+- Re-ran `npm run build` after the fix. Output: `✓ Generating static pages using 15 workers (37/37) in 399ms`. `/races` listed under static (`○`) routes alongside the other 36 routes. No errors.
+- Captain's request to build was the explicit override of the "Mercenary doesn't run verification" rule.
+
+**Not verified by Mercenary:**
+- Vercel deploy itself - the local build green-light should translate but Captain to confirm the deploy lands.
+
+---
+
 ## 2026-04-30 - Footer: hide the dot before "My Races" at <=480px
 
 **Captain ask:** In the sticky footer countdown bar, remove the middle-dot separator that sits to the left of "My Races" on small mobile only. The OTHER separator (between Next Round and Mod Lock) stays.

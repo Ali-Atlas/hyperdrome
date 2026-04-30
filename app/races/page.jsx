@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Sun,
@@ -84,7 +84,11 @@ function parseBracket(b) {
   return [lo, hi];
 }
 
-export default function RacesPage() {
+/* The inner component reads the URL via useSearchParams so it must sit
+   inside a <Suspense> boundary - Next.js 16 bails out of static prerender
+   otherwise (https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout).
+   The Suspense wrapper is the default export below. */
+function RacesPageInner() {
   const router = useRouter();
   const { user } = useSession();
   const [data, setData] = useState({ items: [], total: 0 });
@@ -517,4 +521,16 @@ function getVisiblePages(current, total) {
   if (current < total - 2) pages.push('...');
   pages.push(total);
   return pages;
+}
+
+/* Default export: Suspense boundary required around the inner component
+   because it calls useSearchParams. fallback=null is fine - the inner
+   page already has its own loading UX (DataTable skeleton rows) once it
+   mounts, and resolving search params is effectively synchronous. */
+export default function RacesPage() {
+  return (
+    <Suspense fallback={null}>
+      <RacesPageInner />
+    </Suspense>
+  );
 }

@@ -2598,10 +2598,13 @@
   .packCard_legendary .packTopRow {
     grid-template-columns: 1fr;
   }
+  /* Pack foil renders ~50% larger than the prior 280px cap so the pack
+     dominates the stacked card the way it does on desktop, instead of
+     reading as a small thumbnail above a wall of text. */
   .packPackImg_starter,
   .packPackImg_premium,
   .packPackImg_legendary {
-    max-width: 280px;
+    max-width: 420px;
     min-height: auto;
     margin: 0 auto;
   }
@@ -2616,16 +2619,53 @@
   .heroCardWrap {
     display: none;
   }
-  /* Mobile container floors. With packTopRow stacked to 1 column the
-     image sits on top of the info, so the card's natural height grows
-     significantly. These floors match the settled heights so the
-     containers don't shift while the 6-up preview cards finalize. */
+  /* Mobile container: drop the desktop min-height floors entirely so
+     the cards size to their actual content. The original 600/800
+     floors were meant to prevent layout-shift while preview cards
+     loaded; with the cards now at known sizes from first paint,
+     keeping the floors only creates dead space below the preview
+     row when natural content lands shy of the floor. */
   .packCard_premium,
-  .packCard_starter {
-    min-height: 600px;
-  }
+  .packCard_starter,
   .packCardHero {
-    min-height: 800px;
+    min-height: 0;
+  }
+
+  /* Center pack content at <=768px. Text reads center-aligned, info
+     column children center-stack, and the desktop translateY-15
+     anchor on .packTopRight is dropped (it was pulling the whole
+     info stack 15px below where it should sit when image is above
+     it instead of beside it). */
+  .packCard {
+    text-align: center;
+    align-items: center;
+  }
+  .packTopRight {
+    align-items: center;
+    align-self: center;
+    transform: none;
+  }
+  .packCtaRow {
+    justify-content: center;
+  }
+  .pillRow {
+    justify-content: center;
+  }
+  /* "Earn volts by racing or buy from the marketplace" hint: matched to
+     the `.packPriceSuffix` "(3 skins included)" caption's exact metrics
+     (mono 9px semibold, 0.04em tracking, no uppercase) so the two
+     captions read as the same typographic family. Default
+     `.heroHintBelow { align-self: flex-start }` was left-anchoring it;
+     override here so it sits below the centered CTA. */
+  .heroHint {
+    font-size: 9px;
+    font-weight: var(--font-semibold);
+    letter-spacing: 0.04em;
+    text-transform: none;
+  }
+  .heroHintBelow {
+    align-self: center;
+    text-align: center;
   }
 }
 
@@ -2900,23 +2940,22 @@
   }
 }
 
-/* Stack Premium and Starter from tablet down so each pack keeps enough
-   width to show its preview grid meaningfully. Desktop keeps them
-   side-by-side. */
-@media (max-width: 1024px) {
+/* Stack Premium and Starter from 1440px down so each pack keeps enough
+   width to comfortably hold its Buy Pack button + 6-up preview grid
+   without the button overflowing the card. Above 1440px the side-by-side
+   layout has enough room for both. */
+@media (max-width: 1440px) {
   .packsRow {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 900px) {
-  .possibleGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
   /* Tighten the preview tiles at this breakpoint - the layout starts
      to crowd around here, so shrink each tile's chrome (padding +
-     gap) and bump the inner artwork a touch so it still reads at the
-     smaller footprint. */
+     gap) and the labels so 6 tiles still fit comfortably across the
+     stacked card width down to 640px. The 6→3 column flip happens
+     at 640px (block below). */
   .possibleCard {
     padding: 4px 3px 4px;
     gap: 3px;
@@ -2926,6 +2965,14 @@
   }
   .possibleRarity {
     font-size: 8px;
+  }
+}
+
+/* 6 tiles still fit at 640px+; below that, drop to 3 columns (2 rows
+   of 3) so each tile keeps a tappable footprint. */
+@media (max-width: 640px) {
+  .possibleGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -2952,19 +2999,17 @@
   .heroHint {
     text-align: center;
   }
-  .possibleGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
   .ticker {
     font-size: 10px;
     gap: var(--space-3);
   }
+  /* Buy Pack button keeps its desktop 240px width here. No `width: 100%`
+     override - flex column stretching is avoided by the explicit width
+     itself. Only at <=480px (block further down) does the button go
+     full-width. Center the row so the now-narrower CTA sits centered
+     under the centered info stack at <=768px. */
   .packCtaRow {
-    justify-content: stretch;
-  }
-  .packBtn {
-    width: 100%;
-    min-width: 0;
+    justify-content: center;
   }
 }
 
@@ -2979,10 +3024,9 @@
   .packSilhouettes {
     justify-content: center;
   }
-  .packBtn {
-    width: 100%;
-    min-width: 0;
-  }
+  /* Button keeps desktop 240px sizing - the prior `width: 100%`
+     override that lived here pre-1440px-stack made the CTA stretch
+     across the now-full-width card, which is what Captain flagged. */
 }
 
 /* ==========================================================================
@@ -3432,6 +3476,22 @@
     min-height: 100vh !important;
     border-radius: 0;
     border: none;
+  }
+
+  /* Tighten the pack-flow stage so the pack image and the title /
+     price / CTA block below it don't get pushed apart on narrow
+     viewports. Drops the 620px desktop floor (no longer needed since
+     the modal is already full-screen here), shrinks the slot's
+     min-height, removes its internal padding, and pulls the gap
+     between rows down from var(--space-4) to var(--space-2). */
+  .flowStage {
+    min-height: 0;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-3) var(--space-4);
+  }
+  .flowSlot {
+    min-height: 220px;
+    padding: 0;
   }
 }
 
@@ -3926,6 +3986,81 @@
   }
   .flowCards .possibleL {
     font-size: var(--text-3xl);
+  }
+}
+
+/* Small-mobile (<=480px): shrink everything in the pack flow modal EXCEPT
+   the pack image. The pack stays at width 80% of the slot (the existing
+   <=600px override) so it remains the visual focus; everything around it
+   - title, price block, button, paddings - tightens to give the pack
+   visual breathing room on a tiny screen. */
+@media (max-width: 480px) {
+  .flowStage {
+    min-height: 480px;
+    padding: var(--space-3) var(--space-3) var(--space-3);
+    gap: var(--space-2);
+  }
+  /* Title (PACK NAME / READY TO OPEN / PACK OPENED) - was --text-2xl. */
+  .flowStage .purchaseName {
+    font-size: var(--text-base);
+  }
+  .flowPriceBlock {
+    padding: 6px 16px;
+    gap: 1px;
+  }
+  .flowPriceLabel {
+    font-size: 9px;
+    letter-spacing: 0.14em;
+  }
+  .flowPriceValue {
+    font-size: var(--text-base);
+    gap: 6px;
+  }
+  .flowActionBtn.flowActionBtn {
+    min-width: 160px;
+    min-height: 40px;
+    padding: 10px 18px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+  .flowSlot {
+    min-height: 240px;
+    padding: var(--space-2) 0;
+  }
+  /* Tighten the explosion/orb/burst footprints to match the smaller slot
+     so they don't visually overshoot the pack on tiny viewports. The pack
+     image itself (.flowExplodingPack) keeps its 80% width from the
+     <=600px rule above - this is just the supporting effects. */
+  .flowAura {
+    width: 220px;
+    height: 220px;
+  }
+  .flowOrb {
+    width: 130px;
+    height: 130px;
+  }
+  .flowBurst {
+    width: 200px;
+    height: 200px;
+    margin: -100px 0 0 -100px;
+  }
+  .flowCards {
+    gap: 6px;
+  }
+  .flowCards .possibleCard {
+    min-height: 150px;
+    padding: 6px;
+  }
+  .flowCards .possibleName,
+  .flowCards .possibleRarity {
+    font-size: 9px;
+  }
+  /* Close X button tighter so it doesn't visually crowd the title. */
+  .purchaseCloseBtn {
+    width: 28px;
+    height: 28px;
+    top: var(--space-2);
+    right: var(--space-2);
   }
 }
 
@@ -5455,9 +5590,7 @@
   .topRow {
     display: grid;
     grid-template-columns: auto 1fr;
-    grid-template-areas:
-      "tabs    btn"
-      "balance balance";
+    grid-template-areas: "tabs btn";
     gap: var(--space-2);
     align-items: center;
   }
@@ -5466,25 +5599,30 @@
     justify-self: start;
   }
   .topRow > .listItemBtn.listItemBtn {
+    /* Mobile only places the button in its grid cell - all other
+       styling (align-self: stretch, padding, font, radius, gap) carries
+       through from the desktop `.listItemBtn.listItemBtn` rule
+       unchanged so the button reads identical at every size. */
     grid-area: btn;
     justify-self: end;
-    align-self: center;
-    /* Padding/font intentionally not overridden here - the desktop
-       defaults from `.listItemBtn.listItemBtn` (padding 0 var(--space-4),
-       font-size 10px, leading Plus icon) carry through unchanged so
-       the CTA reads identical at every size. */
   }
+  /* Balance hidden at <=768px. The volts display lives in the global
+     NavShell footer at this size; no need to repeat it on the
+     marketplace shell where horizontal space is already tight. */
   .topRow > .balance {
-    grid-area: balance;
-    justify-self: end;
-    margin-left: 0;
+    display: none;
   }
 
-  /* Pill (tab) text shrinks slightly so all five tabs fit comfortably
-     across the row even on the narrowest mobile viewports. */
+  /* Pill (tab) text shrinks and horizontal padding tightens so all five
+     tabs fit at narrow viewports. Vertical padding stays at the desktop
+     `3px` value: the .listItemBtn next to .tabs uses `align-self: stretch`
+     to match the tabs-pill height, so growing the pill vertically here
+     would drag the button taller too and break the "button looks
+     identical at every viewport" rule. Keep this in lockstep with
+     `.tab` desktop padding above (currently `3px 12px`). */
   .tabs .tab {
     font-size: 10px;
-    padding: 6px 10px;
+    padding: 3px 10px;
   }
 
   /* Filter toggle text shrinks - the 11px default reads too prominent
@@ -5688,5 +5826,29 @@
   .topRow > .tabsSelect:focus-visible {
     outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
+  }
+
+  /* Pack foil locked at a fixed pixel width below 440px - it stops
+     scaling down with the viewport so the pack stays prominent on the
+     narrowest phones. The card's `overflow: hidden` clips any excess
+     cleanly when the viewport gets tighter than the locked width. */
+  .packPackImg_starter,
+  .packPackImg_premium,
+  .packPackImg_legendary {
+    width: 360px;
+    max-width: 360px;
+  }
+}
+
+/* Buy Pack button only goes full-width at the smallest viewports.
+   Above 480px it keeps its 240px desktop sizing so the CTA sits as a
+   compact pill on tablet / small-mobile / stacked-pack-row layouts.
+   At <=480px the column is too narrow for 240px to read well, so it
+   stretches to fill. */
+@media (max-width: 480px) {
+  .packBtn {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
   }
 }

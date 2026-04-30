@@ -56,10 +56,7 @@ const PACK_DEFS = [
     contents: '3 Skins - 1 Rare guaranteed, 2 wild slots',
     description:
       'Guaranteed rare plus two wild slots that can land any rarity.',
-    pills: [
-      { label: 'Most Popular', tone: 'accent' },
-      { label: 'Save 30% vs Singles', tone: 'muted' },
-    ],
+    pills: [{ label: 'Most Popular', tone: 'accent' }],
     slots: [
       { variant: 'rare' },
       { variant: 'rainbow', mystery: true },
@@ -250,10 +247,7 @@ const CAPSULE_PACK_DEFS = [
     variant: 'purple',
     description:
       'Guaranteed rare mod plus two wild slots leaning rare or epic.',
-    pills: [
-      { label: 'Most Popular', tone: 'accent' },
-      { label: 'Save 30% vs Singles', tone: 'muted' },
-    ],
+    pills: [{ label: 'Most Popular', tone: 'accent' }],
     buttonVariant: 'primary',
   },
   {
