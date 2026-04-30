@@ -835,6 +835,11 @@
   border-bottom: 1px solid var(--border-default);
   min-height: 44px;
   box-sizing: border-box;
+  /* min-width: 0 + gap let the title ellipsis instead of pushing the
+     close button (and any horizontal modal scroll) out past the
+     panel edge on narrow phones with long drone names. */
+  min-width: 0;
+  gap: var(--space-2);
 }
 
 .bindModalTitle {
@@ -845,6 +850,11 @@
   color: var(--header-bar-text);
   line-height: 1.2;
   letter-spacing: 0.01em;
+  /* Long drone names ellipsis instead of expanding the header row. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bindModalClose {
@@ -870,6 +880,14 @@
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-4);
+  /* Defensive clip: nothing inside the bind modal should ever overflow
+     horizontally on narrow phones (long names, link wrapping, the
+     scrollbar gutter on the inner grid). overflow-x: hidden + min-width:
+     0 stops any rogue child from pushing the page wider than viewport
+     and giving mobile users an empty horizontal-scroll area to swipe
+     into. */
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 /* Tooltip-style permanence notice: faint red wash + thin red border,
@@ -901,11 +919,17 @@
   gap: var(--space-3);
   max-height: 50vh;
   overflow-y: auto;
+  /* `overflow-y: auto` only sets the y-axis; `overflow-x` defaults to
+     `visible` which lets a child accidentally push the grid wider on
+     narrow phones (and gives the page a horizontal-scroll bleed).
+     Pin x to hidden defensively. */
+  overflow-x: hidden;
   /* Reserve a stable gutter for the scrollbar so it sits on the right
      edge of the container instead of overlapping the rightmost card.
      `both-edges` keeps the grid centered when no scrollbar is shown. */
   scrollbar-gutter: stable;
   padding-right: var(--space-2);
+  min-width: 0;
 }
 
 .bindCard {
