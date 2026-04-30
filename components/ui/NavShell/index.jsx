@@ -22,48 +22,6 @@ import { useSession } from '@/hooks/useSession';
 import VoltIcon from '@/components/ui/VoltIcon';
 import styles from './NavShell.module.css';
 
-/* sessionStorage key carrying the user's last audio preference. Used
- * to attempt a resume after a hard reload (the singleton below survives
- * client-side navigations on its own; sessionStorage covers the
- * page-reload case where the JS module is freshly evaluated). Browsers
- * may still gate the resume behind their autoplay policy if no fresh
- * user gesture is available; in that case the toggle simply renders
- * muted and the user re-enables manually. */
-const AUDIO_PREF_KEY = 'hyperdrome.audio.playing';
-
-/* Module-scoped audio singleton. NavShell is rendered per-page (each
- * route's page component wraps its content in <NavShell>), so a
- * navigation unmounts NavShell and remounts a fresh instance. A useRef
- * inside the component is reset on remount, which means an <audio>
- * JSX element + ref recreates the element and resets currentTime to 0
- * on every navigation - the audible "music restarts" symptom.
- *
- * Holding the HTMLAudioElement in module scope (created once via
- * `new Audio()`, never inserted into the React tree) decouples its
- * lifetime from the component tree. NavShell remounts pick up the
- * existing element with its currentTime preserved; play()/pause()
- * are no-ops if the element is already in the requested state. The
- * `audio.paused` field is the source of truth for the icon state;
- * NavShell's React state just mirrors it via play/pause events.
- *
- * Module-level mutable state (let) is OK here because there's only
- * ever one NavShell mounted at a time and the singleton represents
- * a true browser-level resource (the <audio> element + its playback
- * state). It survives until the JS module unloads, i.e. a hard
- * reload; sessionStorage above covers that case. */
-let sharedAudio = null;
-let sharedAutoplayAttempted = false;
-
-function getOrCreateSharedAudio() {
-  if (typeof window === 'undefined') return null;
-  if (!sharedAudio) {
-    sharedAudio = new Audio('/audio/hero-bg.mp3');
-    sharedAudio.loop = true;
-    sharedAudio.preload = 'none';
-  }
-  return sharedAudio;
-}
-
 const NAV_LINKS = [
   { href: '/dashboard',   label: 'Dashboard',   Icon: LayoutDashboard },
   { href: '/drones',      label: 'My Drones',   Icon: Cpu },
@@ -86,85 +44,6 @@ export default function NavShell({ children }) {
   const [open, setOpen] = useState(false);
   const { user, signOut } = useSession();
   const onSignOut = () => signOut({ redirectTo: '/' });
-
-  /* Persistent in-app audio. The HTMLAudioElement is held in module
-   * scope (see getOrCreateSharedAudio above) so it survives
-   * NavShell remounts on client-side navigations. React state here
-   * is just a mirror of audio.paused, kept in sync via play/pause
-   * event listeners attached on every mount. */
-  const [audioPlaying, setAudioPlaying] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    const a = getOrCreateSharedAudio();
-    return a ? !a.paused : false;
-  });
-
-  useEffect(() => {
-    const audio = getOrCreateSharedAudio();
-    if (!audio) return undefined;
-    // Sync mirror state with the shared element's actual paused/playing
-    // value on mount, then keep it in sync via events. Covers the
-    // remount case where audio kept playing but the new component's
-    // initial state read could race with a play() in flight.
-    setAudioPlaying(!audio.paused);
-    const onPlay = () => setAudioPlaying(true);
-    const onPause = () => setAudioPlaying(false);
-    audio.addEventListener('play', onPlay);
-    audio.addEventListener('pause', onPause);
-    return () => {
-      audio.removeEventListener('play', onPlay);
-      audio.removeEventListener('pause', onPause);
-    };
-  }, []);
-
-  useEffect(() => {
-    // First-time autoplay attempt after a hard reload, gated by the
-    // module-scoped flag so it only fires once per page load even
-    // across multiple NavShell mounts. Skipped if the audio element
-    // is already playing (handles the navigation case).
-    if (typeof window === 'undefined' || sharedAutoplayAttempted) return;
-    sharedAutoplayAttempted = true;
-    const audio = getOrCreateSharedAudio();
-    if (!audio || !audio.paused) return;
-    const wasPlaying =
-      window.sessionStorage.getItem(AUDIO_PREF_KEY) === 'true';
-    if (!wasPlaying) return;
-    audio.play().catch(() => {
-      /* Browser autoplay policy blocked the resume; the toggle stays
-       * muted and the user re-enables on their next click. Drop the
-       * stale flag so a future reload doesn't keep retrying. */
-      window.sessionStorage.setItem(AUDIO_PREF_KEY, 'false');
-    });
-  }, []);
-
-  const toggleAudio = () => {
-    const audio = getOrCreateSharedAudio();
-    if (!audio) return;
-    if (audio.paused) {
-      audio
-        .play()
-        .then(() => {
-          window.sessionStorage.setItem(AUDIO_PREF_KEY, 'true');
-        })
-        .catch(() => {});
-    } else {
-      audio.pause();
-      window.sessionStorage.setItem(AUDIO_PREF_KEY, 'false');
-    }
-  };
-
-  const renderAudioToggle = () => (
-    <button
-      type="button"
-      onClick={toggleAudio}
-      className={cn(styles.audioToggle, styles.audioToggleFooter)}
-      aria-label={
-        audioPlaying ? 'Mute background audio' : 'Play background audio'
-      }
-      aria-pressed={audioPlaying}
-    >
-      {audioPlaying ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
-    </button>
-  );
 
   // NextAuth's session.user.points is stale until the JWT refreshes, which
   // doesn't happen after a purchase. We listen on a global `volts:update`
@@ -299,54 +178,7 @@ export default function NavShell({ children }) {
       <main className={styles.main}>{children}</main>
 
       {user && <CountdownBar />}
-      {user && renderAudioToggle()}
     </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Inline speaker icons. Mirror the landing-page HeroAudio toggle so both    */
-/* corner controls read identically. No icon-library import - keeps NavShell */
-/* a tiny island.                                                            */
-/* -------------------------------------------------------------------------- */
-
-function SpeakerOnIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-    </svg>
-  );
-}
-
-function SpeakerOffIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <line x1="22" y1="9" x2="16" y2="15" />
-      <line x1="16" y1="9" x2="22" y2="15" />
-    </svg>
   );
 }
 
@@ -357,13 +189,22 @@ function SpeakerOffIcon() {
 /* -------------------------------------------------------------------------- */
 
 /* The Mod Lock timer counts down to when matchups lock for execution.
-   Server side, that's `scheduled_at = createdAt + PENDING_WINDOW_SECONDS`
-   on each PENDING race. Equivalently from the client's perspective, the
-   strategy window closes `PENDING_WINDOW_SECONDS` BEFORE the next race
-   cycle fires - so we derive it from the same `nextRaceAt` the
-   Next-Round timer uses. Keep this constant in lockstep with
-   `services/race.service.js#PENDING_WINDOW_SECONDS`. */
-const MOD_LOCK_LEAD_MS = 120 * 1000;
+ * Server-side that target is `scheduled_at = createdAt + PENDING_WINDOW_SECONDS`
+ * on each PENDING race (PENDING_WINDOW_SECONDS = 120s in
+ * `services/race.service.js`). Matchups are created at the start of a
+ * cron cycle, and the next cron cycle (the `batchAt` value the
+ * Next-Round timer uses) fires CRON_CYCLE_SECONDS later. So:
+ *
+ *   scheduled_at = batchAt - CRON_CYCLE_SECONDS + PENDING_WINDOW_SECONDS
+ *                = batchAt - (CRON_CYCLE_SECONDS - PENDING_WINDOW_SECONDS)
+ *                = batchAt - MOD_LOCK_LEAD_MS
+ *
+ * With the current 180s cron cadence and 120s strategy window the lead
+ * is 60s, so the timer reads ~120s at the start of a cycle (the full
+ * strategy window) and counts down to 0 when mods lock. Update this
+ * constant if either the cron cadence (vercel.json's every-3-minute
+ * schedule) or `PENDING_WINDOW_SECONDS` changes. */
+const MOD_LOCK_LEAD_MS = 60 * 1000;
 
 function CountdownBar() {
   const [batchAt, setBatchAt] = useState(null);
@@ -453,6 +294,15 @@ function CountdownBar() {
               </>
             )}
           </span>
+          <span
+            className={`${styles.countdownSep} ${styles.countdownSepMyRaces}`}
+            aria-hidden="true"
+          >
+            ·
+          </span>
+          <Link href="/races?mine=1" className={styles.countdownMyRaces}>
+            My Races
+          </Link>
         </>
       )}
     </div>

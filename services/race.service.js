@@ -606,9 +606,13 @@ export async function getRaces(filters = {}, pagination = {}) {
   const { page = 1, limit = 20 } = pagination;
   const offset = (page - 1) * limit;
 
-  // Always exclude PENDING races from the public list - they have no
-  // winner / times / log so they'd render as broken rows.
-  const conditions = [eq(races.status, 'completed')];
+  // Default status is 'completed' (the historical behavior - exclude
+  // PENDING races since they have no winner/times/log and would render
+  // as broken rows on most consumers). Callers can opt into other
+  // statuses (e.g. 'pending' for the dashboard's Live Race Feed) by
+  // passing `filters.status` explicitly.
+  const requestedStatus = filters.status || 'completed';
+  const conditions = [eq(races.status, requestedStatus)];
   if (filters.trackId) conditions.push(eq(races.trackId, filters.trackId));
   if (filters.weather) conditions.push(eq(races.weather, filters.weather));
   if (filters.timeOfDay) conditions.push(eq(races.timeOfDay, filters.timeOfDay));
@@ -634,12 +638,21 @@ export async function getRaces(filters = {}, pagination = {}) {
 
   const whereClause = and(...conditions);
 
+  // Pending races sort by scheduledAt ASC (soonest first) so the live
+  // feed reads as a queue counting down toward execution. Completed
+  // races sort by createdAt DESC (newest first) so the most recent
+  // results stay at the top.
+  const orderClause =
+    requestedStatus === 'pending'
+      ? races.scheduledAt
+      : desc(races.createdAt);
+
   const rows = await db
     .select({ race: races, track: tracks })
     .from(races)
     .leftJoin(tracks, eq(races.trackId, tracks.id))
     .where(whereClause)
-    .orderBy(desc(races.createdAt))
+    .orderBy(orderClause)
     .limit(limit)
     .offset(offset);
 

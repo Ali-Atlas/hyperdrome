@@ -22,7 +22,6 @@ import btnStyles from '@/components/ui/Button/Button.module.css';
 import { cn, getLevelColor } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import EmptyState from '@/components/ui/EmptyState';
-import RacingStatusPill from '@/components/ui/RacingStatusPill';
 import Skeleton from '@/components/ui/Skeleton';
 import StatRadar from '@/components/ui/StatRadar';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
@@ -91,6 +90,21 @@ const SPOTLIGHT_STATS = [
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
+/** Compact relative-time string for the recent-results table. Returns
+ *  `<60s`, `Nm`, `Nh`, `Nd` to keep the column narrow on mobile. The
+ *  recent-results list is paged from the API at limit=20 so values
+ *  rarely exceed a few hours, but the day fallback is there so a
+ *  freshly-onboarded user with old race history reads correctly. */
+function formatTimeAgo(iso) {
+  if (!iso) return '-';
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return 'now';
+  if (ms < 60_000) return `${Math.floor(ms / 1000)}s`;
+  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m`;
+  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h`;
+  return `${Math.floor(ms / 86_400_000)}d`;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Page                                                                       */
 /* -------------------------------------------------------------------------- */
@@ -100,31 +114,54 @@ export default function DashboardPage() {
   const [myDrones, setMyDrones] = useState([]);
   const [spotlightIndex, setSpotlightIndex] = useState(0);
   const [liveFeed, setLiveFeed] = useState([]);
-  const [nextRaceAt, setNextRaceAt] = useState(null);
-  const [racingPaused, setRacingPaused] = useState(false);
+  const [recentRaces, setRecentRaces] = useState([]);
   const [myStats, setMyStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [upcomingRaces, setUpcomingRaces] = useState([]);
 
   const fetchAll = useCallback(async () => {
     try {
-      const [dronesRes, racesRes, nextRes, meRes] = await Promise.all([
+      // The user-scoped recent-races request is conditional - skipped
+      // when no session yet so we don't blast a `user_id=undefined`
+      // query at the API. The races route supports `user_id`
+      // server-side, which is the correct path for "Your Recent
+      // Results" (replaces the prior client-side filter from the
+      // global top-20 list, which would silently empty under load).
+      // The user-scoped recent-results request is conditional - skipped
+      // when no session yet so we don't blast a `user_id=undefined`
+      // query at the API. status=completed locks it to finished races
+      // so we never show pending rows in the results table.
+      const myRacesPromise = user?.id
+        ? fetch(
+            `/api/races?user_id=${user.id}&status=completed&limit=20`,
+          )
+            .then((r) => r.json())
+            .catch(() => null)
+        : Promise.resolve(null);
+      const [dronesRes, racesRes, meRes, myRacesRes] = await Promise.all([
         fetch('/api/drones').then((r) => r.json()).catch(() => null),
-        fetch('/api/races?limit=20').then((r) => r.json()).catch(() => null),
-        fetch('/api/races/next').then((r) => r.json()).catch(() => null),
+        // Live Race Feed shows global pending races (the current race
+        // queue waiting on the cron tick) so the surface actually
+        // reads as "live". Up to 100 rows, scrolled inside a fixed
+        // height container in the UI.
+        fetch('/api/races?status=pending&limit=100')
+          .then((r) => r.json())
+          .catch(() => null),
         fetch('/api/leaderboard/me').then((r) => r.json()).catch(() => null),
+        myRacesPromise,
       ]);
       if (dronesRes?.data) setMyDrones(dronesRes.data);
-      if (racesRes?.data?.items) setLiveFeed(racesRes.data.items.slice(0, 10));
-      if (nextRes?.data) {
-        setRacingPaused(Boolean(nextRes.data.paused));
-        setNextRaceAt(nextRes.data.nextRaceAt ?? null);
-      }
+      if (racesRes?.data?.items) setLiveFeed(racesRes.data.items);
       if (meRes?.data) setMyStats(meRes.data);
+      if (myRacesRes?.data?.items) {
+        setRecentRaces(myRacesRes.data.items);
+      } else if (!user?.id) {
+        setRecentRaces([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   // Upcoming PENDING races for the current user. Polled separately on a
   // tighter 15s cadence than fetchAll so the countdown stays accurate.
@@ -155,16 +192,6 @@ export default function DashboardPage() {
     const id = setInterval(fetchUpcoming, 15_000);
     return () => clearInterval(id);
   }, [fetchUpcoming]);
-
-  const recentRaces = useMemo(() => {
-    if (!myDrones.length) return [];
-    const myDroneIds = new Set(myDrones.map((d) => d.id));
-    return liveFeed
-      .filter(
-        (r) => myDroneIds.has(r.drone1Id) || myDroneIds.has(r.drone2Id),
-      )
-      .slice(0, 10);
-  }, [liveFeed, myDrones]);
 
   /* Map: userDroneId -> upcoming race. Built from the cached
      /api/races/upcoming list so cycling drones in the spotlight is
@@ -366,18 +393,20 @@ export default function DashboardPage() {
               {loading ? (
                 <Skeleton variant="text" count={6} />
               ) : liveFeed.length === 0 ? (
-                <p className={styles.empty}>No recent races.</p>
+                <p className={styles.empty}>No upcoming races.</p>
               ) : (
                 liveFeed.map((r) => {
-                  const winner =
-                    r.winnerDroneId === r.drone1Id ? r.drone1 : r.drone2;
-                  const loser =
-                    r.winnerDroneId === r.drone1Id ? r.drone2 : r.drone1;
-                  const ts = new Date(r.createdAt).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                  });
+                  // Pending races have no winner yet - render the
+                  // matchup as `drone1 vs drone2` with the scheduled
+                  // execution time on the left so the row reads as a
+                  // queue counting down toward firing.
+                  const ts = r.scheduledAt
+                    ? new Date(r.scheduledAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                      })
+                    : '--:--';
                   return (
                     <Link
                       key={r.id}
@@ -387,11 +416,11 @@ export default function DashboardPage() {
                       <span className={styles.feedTime}>{ts}</span>
                       <span className={styles.feedSep}>|</span>
                       <span className={styles.feedDrone}>
-                        {winner?.name ?? '-'}
+                        {r.drone1?.name ?? '-'}
                       </span>
-                      <span className={styles.feedWord}>beat</span>
+                      <span className={styles.feedWord}>vs</span>
                       <span className={styles.feedDrone}>
-                        {loser?.name ?? '-'}
+                        {r.drone2?.name ?? '-'}
                       </span>
                       <span className={styles.feedWord}>on</span>
                       <span className={styles.feedTrack}>
@@ -402,6 +431,9 @@ export default function DashboardPage() {
                 })
               )}
             </div>
+            <Link href="/races" className={styles.feedSeeAll}>
+              See All Races →
+            </Link>
             </div>
           </Card>
 
@@ -422,7 +454,8 @@ export default function DashboardPage() {
                   <span>Opponent</span>
                   <span>Track</span>
                   <span>Result</span>
-                  <span className={styles.alignRight}>Volts Earned</span>
+                  <span className={styles.alignRight}>Volts</span>
+                  <span className={styles.alignRight}>Time</span>
                 </div>
                 {recentRaces.map((r) => {
                   const myDroneIds = new Set(myDrones.map((d) => d.id));
@@ -450,6 +483,11 @@ export default function DashboardPage() {
                       >
                         {won ? `+${r.pointsAwarded}` : '-'}
                       </span>
+                      <span
+                        className={`${styles.mono} ${styles.alignRight} ${styles.resultsTimeAgo}`}
+                      >
+                        {formatTimeAgo(r.createdAt)}
+                      </span>
                     </Link>
                   );
                 })}
@@ -458,18 +496,7 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          {/* ---- Row 2 col 2: Countdown ---- */}
-          <Card className={cn(styles.countdownCard, styles.areaCountdown)}>
-            <h2 className={styles.sectionHeading}>Next Race Countdown</h2>
-            <div className={styles.cardBody}>
-              <NextRaceCountdown
-                targetDate={nextRaceAt}
-                paused={racingPaused}
-              />
-            </div>
-          </Card>
-
-          {/* ---- Row 3 col 2: Quick Stats ---- */}
+          {/* ---- Row 2 col 2: Quick Stats ---- */}
           <Card className={cn(styles.quickStatsCard, styles.areaQuickStats)}>
             <h2 className={styles.sectionHeading}>Quick Stats</h2>
             <div className={styles.cardBody}>
@@ -522,59 +549,6 @@ function QuickStat({ label, value }) {
   );
 }
 
-function NextRaceCountdown({ targetDate, paused }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (paused || !targetDate) return undefined;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [paused, targetDate]);
-
-  const remaining = targetDate
-    ? Math.max(0, new Date(targetDate).getTime() - now)
-    : 0;
-  const total = Math.floor(remaining / 1000);
-  const days = Math.floor(total / 86400);
-  const hours = Math.floor((total % 86400) / 3600);
-  const mins = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-  const pad = (n) => String(n).padStart(2, '0');
-
-  return (
-    <>
-      <div
-        className={cn(
-          styles.countdownClock,
-          paused && styles.countdownClockPaused,
-        )}
-      >
-        <div className={styles.countdownGroup}>
-          <span className={styles.countdownUnit}>{pad(days)}</span>
-          <span className={styles.countdownLabel}>DD</span>
-        </div>
-        <span className={styles.countdownColon}>:</span>
-        <div className={styles.countdownGroup}>
-          <span className={styles.countdownUnit}>{pad(hours)}</span>
-          <span className={styles.countdownLabel}>HH</span>
-        </div>
-        <span className={styles.countdownColon}>:</span>
-        <div className={styles.countdownGroup}>
-          <span className={styles.countdownUnit}>{pad(mins)}</span>
-          <span className={styles.countdownLabel}>MM</span>
-        </div>
-        <span className={styles.countdownColon}>:</span>
-        <div className={styles.countdownGroup}>
-          <span className={styles.countdownUnit}>{pad(secs)}</span>
-          <span className={styles.countdownLabel}>SS</span>
-        </div>
-      </div>
-      <div className={styles.countdownTagline}>
-        {paused ? <RacingStatusPill paused /> : 'Until Next Race'}
-      </div>
-    </>
-  );
-}
-
 /* -------------------------------------------------------------------------- */
 /* NEXT RACE PANEL - sits in the dashboard grid alongside the spotlight       */
 /* (replaces the prior standalone "Next Race" card above the grid). Tracks    */
@@ -591,10 +565,10 @@ function NextRacePanel({ spotlightDrone, race, totalCount }) {
     <Card className={cn(styles.nextRacePanel, styles.areaNextRace)}>
       <div className={styles.sectionHeadingRow}>
         <h2 className={styles.sectionHeading}>Next Race</h2>
-        {race?.scheduledAt && (
-          <LocksInCountdown
-            targetDate={race.scheduledAt}
-            className={styles.locksInCountdown}
+        {race && (
+          <RaceQueuedBadge
+            scheduledAt={race.scheduledAt}
+            status={race.status}
           />
         )}
       </div>
@@ -688,38 +662,26 @@ function NextRaceMatchup({ race, totalCount }) {
 }
 
 
-/** Compact MM:SS countdown for the "LOCKS IN" timer in the section heading.
- *  When the schedule has elapsed (countdown hits zero) the label flips to
- *  RACE QUEUED. The component is only mounted by NextRacePanel when there's
- *  a PENDING race with a scheduledAt, so reaching `remaining <= 0` always
- *  means "matchup is locked, waiting on the next cron tick" - no `status`
- *  guard needed. */
-function LocksInCountdown({ targetDate, className }) {
-  const compute = () => {
-    if (!targetDate) return 0;
-    return Math.max(0, new Date(targetDate).getTime() - Date.now());
-  };
-  const [remaining, setRemaining] = useState(compute);
+/** Status badge that only appears when the race's scheduled time has
+ *  passed and it's still pending - waiting on the next cron tick to
+ *  execute. The countdown itself was removed from the next-race card:
+ *  the global footer (NavShell `CountdownBar`) is the single source of
+ *  truth for both "Next Round" and "Mod Lock" timers, so duplicating
+ *  one of them in the card was redundant. The badge tick (1s) is
+ *  cheap and lets the badge appear right when scheduledAt elapses. */
+function RaceQueuedBadge({ scheduledAt, status }) {
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    setRemaining(compute());
-    const id = setInterval(() => setRemaining(compute()), 1000);
+    const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetDate]);
+  }, []);
 
-  if (remaining <= 0) {
-    return (
-      <span className={cn(styles.locksIn, styles.locksInExpired, className)}>
-        RACE QUEUED
-      </span>
-    );
-  }
-  const total = Math.floor(remaining / 1000);
-  const mins = Math.floor(total / 60);
-  const secs = String(total % 60).padStart(2, '0');
+  if (!scheduledAt || status !== 'pending') return null;
+  const elapsed = new Date(scheduledAt).getTime() <= now;
+  if (!elapsed) return null;
   return (
-    <span className={cn(styles.locksIn, className)}>
-      LOCKS IN {mins}:{secs}
+    <span className={cn(styles.locksIn, styles.locksInExpired)}>
+      RACE QUEUED
     </span>
   );
 }

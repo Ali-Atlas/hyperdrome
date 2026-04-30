@@ -11,12 +11,20 @@
 
 .topRow {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: var(--space-4);
   flex-wrap: wrap;
 }
 
+/* Pushes balance to the far right on desktop without needing
+   justify-content: space-between (which would mis-align with 3 direct
+   flex children). Mobile grid override below resets this. */
+.topRow > .balance {
+  margin-left: auto;
+}
+
+/* Legacy wrapper class kept for safety - no element uses it now after the
+   topRow refactor. */
 .topLeft {
   display: inline-flex;
   align-items: center;
@@ -5358,5 +5366,180 @@
   }
   .voltsStage {
     min-height: 100vh;
+  }
+}
+
+/* ==========================================================================
+ * Mobile fixes for the marketplace shell. Strictly scoped under 768px.
+ *
+ * 1. Reduce side padding: pull the .page out of NavShell .main's 24px
+ *    horizontal padding via negative inline margin, then re-add a small
+ *    inner gutter so content has breathing room from the screen edge.
+ *    Net: ~12px more usable width per side vs default.
+ * 2. Safety overflow-x: hidden on .page so any stray wide child can't
+ *    cause a horizontal scrollbar on mobile. The fix above also tightens
+ *    .searchWrap min-width so the sub-toolbar can wrap cleanly.
+ * 3. Filter aside collapses to a tap-to-expand dropdown.
+ * 4. Top row reflows to: tabs row / (List Item left + balance right) row.
+ *
+ * Desktop (>=769px) uses none of this — the CSS above defines the
+ * unchanged desktop / tablet layout.
+ * ========================================================================== */
+@media (max-width: 768px) {
+  .page {
+    margin-inline: -16px;
+    padding-inline: 6px;
+    overflow-x: hidden;
+  }
+
+  /* Top-row reflow: 2-row grid. Row 1 = tabs full-width. Row 2 = list-item
+     button (left) + balance (right). Cancels desktop's `margin-left: auto`
+     on .balance because grid placement now handles alignment. */
+  .topRow {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "tabs    tabs"
+      "btn     balance";
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .topRow > .tabs {
+    grid-area: tabs;
+    justify-self: stretch;
+  }
+  .topRow > .listItemBtn.listItemBtn {
+    grid-area: btn;
+    justify-self: start;
+    align-self: center;
+  }
+  .topRow > .balance {
+    grid-area: balance;
+    justify-self: end;
+    margin-left: 0;
+  }
+
+  /* Sub-toolbar: keep view-toggle + search wrappable; tighten search
+     min-width so it can sit alongside the toggle on narrow screens
+     without forcing a horizontal scroll. */
+  .searchWrap {
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 100%;
+  }
+
+  /* Filter aside becomes a collapse panel. The toggle button shows by
+     default; .filtersCollapsed hides the body. */
+  .filtersToggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: var(--font-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  .filtersToggle:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+  }
+  .filtersToggleIcon {
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+  .filtersToggleIconOpen {
+    transform: rotate(180deg);
+  }
+  .filters {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .filtersCollapsed .filtersInner {
+    display: none;
+  }
+}
+
+/* Desktop (>=769px) explicitly hides the mobile filter toggle so it
+   never renders alongside the always-visible filter rail. */
+@media (min-width: 769px) {
+  .filtersToggle {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+ * Smallest-mobile (<=480px): single-column compact cards + drop the
+ * Recent Sales tape so the listing grid runs longer before the user hits
+ * the bottom of the page. Strictly scoped to <=480px so tablet (>481px)
+ * keeps the existing multi-column grid + sales tape.
+ * ========================================================================== */
+@media (max-width: 480px) {
+  /* Neutralize the 481-768px pull-out (margin-inline: -16px;
+     padding-inline: 6px from the @media (max-width: 768px) block above).
+     NavShell .main now collapses to 4px side padding at <=480px, so the
+     marketplace doesn't need to escape its parent's padding any more -
+     leaving the negative margin in would push .page LEFT of the
+     viewport (4px parent + -16px self = -12px, then +6px own padding =
+     -6px from screen edge). Reset both so .page sits flush inside the
+     NavShell main's tight 4px gutter. */
+  .page {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  /* Single column. !important defeats the inline `grid-template-columns:
+     repeat(N, 1fr)` that JS writes per page-size measurement. Reverting
+     grid-auto-rows to `auto` lets each card collapse to its own content
+     height instead of being stretched to match the tallest sibling, so
+     the vertical scroll stays tight. */
+  .grid {
+    grid-template-columns: 1fr !important;
+    grid-auto-rows: auto;
+    gap: var(--space-3);
+  }
+
+  /* Compact card frame: drop the desktop floor so cards size to content. */
+  .listingCard {
+    min-height: 0;
+  }
+
+  /* Less vertical hero space + tighter side padding. The 28px top still
+     clears the 20px YOUR LISTING ribbon. Drone (.card_level_*) and mod
+     variants get their own padding overrides since their desktop values
+     differ from the default listing image. */
+  .listingImage {
+    padding: 28px var(--space-2) 6px;
+  }
+  .card_level_steel .listingImage,
+  .card_level_orange .listingImage,
+  .card_level_purple .listingImage,
+  .card_level_gold .listingImage {
+    padding: 22px var(--space-2) 8px;
+  }
+  .cardMod .listingImage {
+    padding: 20px var(--space-2) 4px;
+  }
+
+  /* Body padding tightens 10px/14px -> 8px/10px; title shrinks 12 -> 11. */
+  .listingBody {
+    padding: 8px 10px;
+  }
+  .listingName {
+    font-size: 11px;
+  }
+
+  /* Drop the Recent Sales tape entirely on smallest mobile so the
+     listing scroll runs longer. Tablet (>481px) still shows it. */
+  .tapeSection {
+    display: none;
   }
 }

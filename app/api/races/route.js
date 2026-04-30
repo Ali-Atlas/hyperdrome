@@ -15,6 +15,7 @@ export const GET = withApiHandler(
       timeOfDay: url.searchParams.get('time_of_day') || undefined,
       droneId: url.searchParams.get('drone_id') || undefined,
       userId: url.searchParams.get('user_id') || undefined,
+      status: url.searchParams.get('status') || undefined,
     };
     const [items, total] = await Promise.all([
       getRaces(filters, pagination),

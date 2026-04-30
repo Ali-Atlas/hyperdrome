@@ -1011,6 +1011,14 @@
   opacity: 0.95;
 }
 
+/* Modifier applied to the second copy of the line path (clipped below
+   the zero line) so the bottom half of the curve strokes in the error
+   color, matching the red gradient fill underneath. Declared after
+   `.sparklineLine` so the stroke override wins the cascade. */
+.sparklineLineNeg {
+  stroke: var(--accent-error);
+}
+
 .logMono {
   font-family: var(--font-mono);
   color: var(--text-primary);
@@ -1139,7 +1147,7 @@
   justify-content: center;
   gap: var(--space-3);
   flex-wrap: wrap;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
@@ -1147,7 +1155,7 @@
 
 .h2hName {
   font-family: var(--font-heading);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   text-transform: uppercase;
@@ -1175,7 +1183,7 @@
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-bold);
   letter-spacing: 0.03em;
 }
@@ -1202,6 +1210,59 @@
   height: 14px;
   background: var(--border-default);
   flex-shrink: 0;
+}
+
+/* Prev/next arrows sit inside the H2H strip itself, pinned to the
+   row's left and right edges. The strip is `justify-content: center`
+   with a flex gap; `margin-right: auto` on the prev button (the
+   first child) pushes the rest of the row to the right edge of the
+   prev button, and `margin-left: auto` on the next button (the last
+   child) does the mirror on the right side. The drone name + stat
+   cells stay visually centered between the two chevrons. Rendered
+   only when the viewer has 2+ upcoming races AND the race shown is
+   one of them. */
+.h2hNavArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 1px solid rgba(3, 218, 198, 0.4);
+  border-radius: var(--radius-sm);
+  color: var(--accent-primary);
+  text-decoration: none;
+  flex-shrink: 0;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.h2hNavArrow:hover {
+  background: rgba(3, 218, 198, 0.16);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.h2hNavArrowPrev {
+  margin-right: auto;
+}
+
+.h2hNavArrowNext {
+  margin-left: auto;
+}
+
+/* Narrow viewports: collapse the H2H strip to drone names + nav
+   arrows only. The H2H / ELO / WIN RATE cells and their separators
+   hide so the row reads as `[← arrow]  DRONE 1 vs DRONE 2  [→ arrow]`
+   on mobile - too much info to fit at 550px, and the matchup cards
+   below already carry the same numbers per drone. */
+@media (max-width: 550px) {
+  .h2hStrip .h2hCell,
+  .h2hStrip .h2hSep {
+    display: none;
+  }
 }
 
 /* ---- 3. Drone matchup cards ---- */
@@ -1986,22 +2047,30 @@
 }
 
 .raceTrackImage {
+  /* Anchor for absolutely-positioned children below. The image (or
+     TrackPlaceholder fallback) used to sit in normal flow, and even with
+     `flex: 1; min-height: 0` the browser kept its intrinsic dimensions
+     in the flex item's natural-size calculation - which inflated the
+     bottom-grid row and left huge empty space at the bottom of the
+     race-edge sibling. Pulling the children out of flow forces this
+     container's basis to actually be 0, so the race-edge body becomes
+     the true row-height determinant and `flex: 1` correctly shrinks
+     this area to whatever leftover the card has after header + info. */
+  position: relative;
   width: 100%;
-  /* Flex-grow so the image area absorbs any extra height the card
-     inherits from the taller race-edge sibling on the right. The
-     inner <img> stays proportional via object-fit: contain, so the
-     visual aspect of the track art is preserved while the container
-     fills - no empty band at the bottom of the card. */
   flex: 1;
   min-height: 0;
   overflow: hidden;
   background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.raceTrackImg {
+/* Both the real <img> and the TrackPlaceholder fallback are absolute-
+   positioned to fill the parent without contributing to its flex
+   natural size. */
+.raceTrackImg,
+.raceTrackImage > div {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -2202,6 +2271,13 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* Extra breathing room above the Win Probability section so the bare
+   percentage doesn't crowd the last Gaps row. Stacks on top of the
+   body's flex gap, giving ~14px total separation. */
+.raceEdgeSection:last-child {
+  margin-top: 6px;
 }
 
 .raceEdgeSectionLabel {

@@ -21,7 +21,7 @@
   grid-template-rows: auto auto minmax(0, 1fr);
   grid-template-areas:
     "spotlight  spotlight  nextrace"
-    "countdown  quickStats feed"
+    "quickStats quickStats feed"
     "results    results    feed";
   gap: var(--space-4);
   align-items: stretch;
@@ -40,9 +40,6 @@
 }
 .areaResults {
   grid-area: results;
-}
-.areaCountdown {
-  grid-area: countdown;
 }
 .areaQuickStats {
   grid-area: quickStats;
@@ -474,7 +471,9 @@
 .feedList {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  /* Small gap between rows so each race reads as a distinct entry on
+     top of the existing zebra striping. */
+  gap: var(--space-1);
   flex: 1;
   min-height: 0;
   max-height: 400px;
@@ -495,8 +494,14 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
-  margin: 2px var(--space-3);
-  padding: 6px var(--space-3);
+  /* Vertical breathing per row: padding bumped from 6px to var(--space-2)
+     so each entry reads as its own block, not a tightly-stacked text row.
+     Old 2px top/bottom margin dropped - the parent .feedList now owns
+     inter-row spacing via its `gap`. Horizontal margin keeps the rows
+     inset from the card edges so the hover/zebra background reads as a
+     pill, not a full-bleed band. */
+  margin: 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -545,80 +550,30 @@
   min-width: 0;
 }
 
-/* ==========================================================================
- * Countdown card
- * ========================================================================== */
-
-.countdownCard {
-  display: flex;
-  flex-direction: column;
-  border-color: #3F3F3F;
-}
-
-.countdownClock {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 2px;
+/* "See All Races →" link sitting under the scrollable feed list as
+   a secondary CTA. Mono + accent-primary so it reads as a peer of
+   other dashboard accent links (matchup CTA, view-full-matchup),
+   subtle border on top so the link looks like a footer of the
+   feed card without competing with the row content above. */
+.feedSeeAll {
+  display: block;
+  padding: 8px var(--space-3);
+  margin: 0 var(--space-3);
+  border-top: 1px solid #3F3F3F;
   font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: var(--font-bold);
-  color: var(--text-primary);
-  letter-spacing: 0.04em;
-}
-
-.countdownClockPaused .countdownUnit {
-  color: #5A5A5A;
-}
-
-.countdownGroup {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.countdownUnit {
-  font-size: var(--text-3xl);
-  color: var(--text-primary);
-  line-height: 1;
-}
-
-.countdownLabel {
-  font-size: 10px;
-  color: var(--text-tertiary);
+  color: var(--accent-primary);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: var(--font-medium);
+  text-decoration: none;
+  text-align: right;
+  flex-shrink: 0;
+  transition: filter var(--duration-fast) var(--ease-out);
 }
 
-.countdownColon {
-  font-size: var(--text-3xl);
-  color: var(--text-tertiary);
-  line-height: 1;
-  padding: 0 2px;
-}
-
-.countdownTagline {
-  position: relative;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding-top: var(--space-3);
-  margin-top: var(--space-3);
-}
-
-.countdownTagline::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40px;
-  height: 1px;
-  background: #3F3F3F;
+.feedSeeAll:hover {
+  filter: brightness(1.2);
 }
 
 /* ==========================================================================
@@ -704,6 +659,7 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  max-height: 400px;
   overflow-y: auto;
   margin: calc(-1 * var(--space-3));
 }
@@ -729,11 +685,18 @@
 .resultsHeader,
 .resultsRow {
   display: grid;
-  grid-template-columns: 1.2fr 1.5fr 80px 110px;
+  grid-template-columns: 1.2fr 1.5fr 70px 90px 60px;
   gap: var(--space-3);
   padding: 7px var(--space-4);
   align-items: center;
   font-size: 11px;
+}
+
+/* Subtle mono "Nm" / "Nh" relative-time column - same secondary
+   color as the rest of the body text so it doesn't fight the
+   WIN / LOSS or the volts cell for attention. */
+.resultsTimeAgo {
+  color: var(--text-tertiary);
 }
 
 .resultsHeader {
@@ -802,25 +765,24 @@
  * Breakpoints
  * ========================================================================== */
 
-/* Tablet: spotlight full width; countdown | quickStats on row 2;
-   results | feed on row 3. */
+/* Tablet: spotlight full width; quickStats | feed on row 2;
+   results spans both cols on row 3. */
 @media (min-width: 769px) and (max-width: 1200px) {
   .grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
       "spotlight  spotlight"
-      "countdown  quickStats"
-      "results    feed";
+      "quickStats feed"
+      "results    results";
   }
 }
 
-/* Mobile: single column, countdown + quickStats before results + feed. */
+/* Mobile: single column, quickStats above results above feed. */
 @media (max-width: 768px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "spotlight"
-      "countdown"
       "quickStats"
       "results"
       "feed";
@@ -833,9 +795,6 @@
   }
   .sectionHeading {
     font-size: var(--text-xs);
-  }
-  .countdownClock {
-    font-size: var(--text-2xl);
   }
 
   .spotlightMain {
@@ -869,9 +828,19 @@
 
   .resultsHeader,
   .resultsRow {
-    grid-template-columns: 1fr 1fr 60px 80px;
+    grid-template-columns: 1fr 1fr 50px 64px 44px;
     font-size: 10px;
     padding: 5px 8px;
+  }
+
+  /* Cap the scrollable feed/results lists so the dashboard doesn't
+     grow past the mobile viewport. The lists keep their internal
+     scroll, just inside a tighter window. */
+  .feedList {
+    max-height: 250px;
+  }
+  .resultsTable {
+    max-height: 250px;
   }
 }
 
@@ -885,9 +854,6 @@
   }
   .quickItem {
     padding: var(--space-2);
-  }
-  .countdownClock {
-    font-size: var(--text-2xl);
   }
 }
 
@@ -1193,10 +1159,6 @@
 }
 
 @media (max-width: 768px) {
-  .matchupRow {
-    grid-template-columns: 1fr;
-    gap: var(--space-3);
-  }
   .matchupImageFrame {
     max-width: 100px;
   }
@@ -1215,5 +1177,39 @@
   }
   .conditionPills {
     margin-left: 0;
+  }
+}
+
+/* Active Drone Spotlight: compact stack at <=675px. Stat bars are
+   dropped, and spotlightBody collapses to a single column so the
+   spotlightRight (now containing only the Manage button) lands below
+   the image + KPI grid. The image and KPI grid already carry
+   `align-self: center` on desktop and the name/level block inherits
+   the parent's flex-start, so name + level stay left-aligned and
+   image + metadata + button line up centered with no extra alignment
+   overrides needed. */
+@media (max-width: 675px) {
+  .spotlightBody {
+    grid-template-columns: 1fr;
+  }
+  .spotlightStats {
+    display: none;
+  }
+  .spotlightRight {
+    align-items: center;
+  }
+  .manageBtn {
+    width: auto;
+    min-width: 220px;
+  }
+}
+
+/* Smallest mobile: stack the next-race matchup vertically. Above 480px
+   the two drones stay side-by-side - 480px is the floor where the
+   columns get too cramped to read. */
+@media (max-width: 480px) {
+  .matchupRow {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
   }
 }

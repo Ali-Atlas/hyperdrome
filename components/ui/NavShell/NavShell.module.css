@@ -145,6 +145,7 @@
   background: rgba(3, 218, 198, 0.08);
 }
 
+
 /* ---- Mobile top bar ---- */
 
 .mobileBar {
@@ -175,62 +176,6 @@
 
 .menuBtn:hover {
   color: var(--accent-primary);
-}
-
-/* Persistent audio toggle. Same subtle dark-pill styling as the
-   landing-page corner control so the in-app and pre-login surfaces
-   read consistently. */
-.audioToggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-full);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition:
-    color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out);
-}
-
-.audioToggle:hover {
-  color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.25);
-  background: rgba(0, 0, 0, 0.6);
-}
-
-.audioToggle:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
-}
-
-.audioToggle svg {
-  display: block;
-}
-
-/* Fixed bottom-left position so the audio control sits at the very
-   left of the in-app footer, vertically centered in the 34px
-   .countdownBar strip. z-index 10 floats it above the bar's z-index 9
-   so it's never clipped. On desktop the sidebar takes the leftmost
-   240px so the toggle's left offset jumps to clear it - matches the
-   countdown bar's own desktop offset below. */
-.audioToggleFooter {
-  position: fixed;
-  left: var(--space-3);
-  bottom: 3px;
-  z-index: 10;
-}
-
-@media (min-width: 1024px) {
-  .audioToggleFooter {
-    left: calc(240px + var(--space-3));
-  }
 }
 
 .mobileLogo {
@@ -313,6 +258,16 @@
   padding: var(--space-6);
   /* Bottom space so the fixed countdown bar never covers content. */
   padding-bottom: 56px;
+}
+
+/* Smallest mobile: collapse side padding so pages run nearly edge-to-edge.
+   Top stays at var(--space-6), bottom stays at 56px (countdown clearance).
+   Global - reaches every page that lives inside NavShell. */
+@media (max-width: 480px) {
+  .main {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
 }
 
 /* ---- Countdown bar (fixed bottom strip) ---- */
@@ -414,6 +369,37 @@
   color: var(--text-tertiary);
 }
 
+/* Hide just the separator that sits before "My Races" on smallest
+   mobile - the other countdownSep (between Next Round and Mod Lock)
+   stays. */
+@media (max-width: 480px) {
+  .countdownSepMyRaces {
+    display: none;
+  }
+}
+
+/* "My Races" shortcut sitting at the right edge of the countdown bar.
+   Doubled selector locks specificity at (0,0,2,0) so generic anchor
+   color: inherit / parent-bar color rules can't dim it. Subtle teal
+   text-shadow makes the link read as a "bright" accent peer to the
+   timers next to it without being garish. */
+.countdownMyRaces.countdownMyRaces {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  color: var(--accent-primary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  text-shadow: 0 0 6px rgba(3, 218, 198, 0.45);
+  transition: filter var(--duration-fast) var(--ease-out);
+}
+
+.countdownMyRaces.countdownMyRaces:hover {
+  filter: brightness(1.2);
+}
+
 .countdownPaused {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -433,6 +419,17 @@
 @keyframes countdownPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
+}
+
+/* Small-mobile collapse: drop the "Next Round in" / "Mod Lock in"
+   labels so the bar fits on a 375px-wide phone without horizontal
+   squeeze. The countdown values, the separator, and the My Races
+   shortcut on the right all stay. The "MOD LOCKED" state text isn't
+   a `.countdownLabel`, so it survives the hide. */
+@media (max-width: 480px) {
+  .countdownLabel {
+    display: none;
+  }
 }
 
 /* ---- Breakpoints ---- */

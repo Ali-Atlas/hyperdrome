@@ -26,6 +26,7 @@ import {
   calculateNewElo,
   calculateRacePoints,
 } from '../lib/game-engine/economy.js';
+import { generateUniqueDroneName } from '../lib/game-engine/drone-names.js';
 
 const {
   users,
@@ -52,17 +53,24 @@ const XP_PER_LOSS = 4;
 /**
  * 8-drone roster every demo account gets. Levels span all 4 tiers so the
  * dashboard, leaderboard, and race history have data at every bracket.
- * Active = STRIKER, RUNNER, VIPER (3 of 8) - matches activeDroneSlots cap.
+ * Active = first 3 (3 of 8) - matches activeDroneSlots cap.
+ *
+ * `archetype` is an internal slot label only - it drives the per-slot skin
+ * policy below (Diamond Hands on the LV18, Ember on the LV3, rotated
+ * tier-4 epic on the LV17, plus the SCOUT / BOLT collection inserts) and
+ * never reaches the user. The DB-visible drone name is generated per row
+ * via `generateUniqueDroneName`, so two demo accounts never share a drone
+ * name in race results.
  */
 const DEMO_DRONES = [
-  { name: 'STRIKER', level: 18, active: true,  equippedSkinPolicy: 'diamond' },
-  { name: 'RUNNER',  level: 3,  active: true,  equippedSkinPolicy: 'ember' },
-  { name: 'VIPER',   level: 17, active: true,  equippedSkinPolicy: 'tier4_rotation' },
-  { name: 'SCOUT',   level: 12, active: false },
-  { name: 'BOLT',    level: 7,  active: false },
-  { name: 'HAWK',    level: 16, active: false },
-  { name: 'PHANTOM', level: 5,  active: false },
-  { name: 'GHOST',   level: 14, active: false },
+  { archetype: 'STRIKER', level: 18, active: true,  equippedSkinPolicy: 'diamond' },
+  { archetype: 'RUNNER',  level: 3,  active: true,  equippedSkinPolicy: 'ember' },
+  { archetype: 'VIPER',   level: 17, active: true,  equippedSkinPolicy: 'tier4_rotation' },
+  { archetype: 'SCOUT',   level: 12, active: false },
+  { archetype: 'BOLT',    level: 7,  active: false },
+  { archetype: 'HAWK',    level: 16, active: false },
+  { archetype: 'PHANTOM', level: 5,  active: false },
+  { archetype: 'GHOST',   level: 14, active: false },
 ];
 
 /** demoIndex % 5 -> which tier-4 epic equips on VIPER. */
@@ -450,12 +458,21 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
     .set({ points: STARTING_VOLTS, activeDroneSlots: ACTIVE_DRONE_SLOTS })
     .where(eq(users.id, userId));
 
-  // 2. 8 drones.
-  const droneRows = DEMO_DRONES.map((d) => {
+  // 2. 8 drones. Names generated per-row via generateUniqueDroneName so
+  // each demo account's drones never collide with another account's. The
+  // generator queries the DB on each attempt, so the loop is sequential
+  // (not .map + Promise.all) - parallel calls would all see the same
+  // pre-insert state and could pick the same candidate. After insert we
+  // map the inserted rows back to their archetype label by index, since
+  // .returning() preserves input order; downstream skin/mod equip steps
+  // use that map to find each archetype's drone (STRIKER, RUNNER, etc.).
+  const droneRows = [];
+  for (const d of DEMO_DRONES) {
     const { stats, tsb } = buildDemoStats(d.level);
-    return {
+    const name = await generateUniqueDroneName(db, drones);
+    droneRows.push({
       userId,
-      name: d.name,
+      name,
       level: d.level,
       xp: 0,
       xpToNextLevel: 300 * d.level * d.level,
@@ -465,10 +482,12 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
       eloRating: 1000,
       imageUrl: '/drones/default.png',
       isBot: false,
-    };
-  });
+    });
+  }
   const insertedDrones = await db.insert(drones).values(droneRows).returning();
-  const droneByName = Object.fromEntries(insertedDrones.map((d) => [d.name, d]));
+  const droneByArchetype = Object.fromEntries(
+    insertedDrones.map((d, i) => [DEMO_DRONES[i].archetype, d]),
+  );
   counts.drones = insertedDrones.length;
 
   // 3. Ownership audit rows.
@@ -486,7 +505,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   if (dhClone) {
     counts.skins += 1;
     usedSkinIds.add(dhClone.id);
-    await equipClonedSkin(db, droneByName.STRIKER, dhClone);
+    await equipClonedSkin(db, droneByArchetype.STRIKER, dhClone);
   }
 
   // 4b. RUNNER -> Ember (common with tier-1 render).
@@ -495,12 +514,12 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   if (emberClone) {
     counts.skins += 1;
     usedSkinIds.add(emberClone.id);
-    if (canEquipSkin(emberClone, droneByName.RUNNER.level)) {
-      await equipClonedSkin(db, droneByName.RUNNER, emberClone);
+    if (canEquipSkin(emberClone, droneByArchetype.RUNNER.level)) {
+      await equipClonedSkin(db, droneByArchetype.RUNNER, emberClone);
     } else {
       // Render not registered -> still bind so the player owns the cosmetic.
       await db.insert(droneSkins).values({
-        droneId: droneByName.RUNNER.id,
+        droneId: droneByArchetype.RUNNER.id,
         skinId: emberClone.id,
         isEquipped: false,
       });
@@ -515,11 +534,11 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   if (viperClone) {
     counts.skins += 1;
     usedSkinIds.add(viperClone.id);
-    if (canEquipSkin(viperClone, droneByName.VIPER.level)) {
-      await equipClonedSkin(db, droneByName.VIPER, viperClone);
+    if (canEquipSkin(viperClone, droneByArchetype.VIPER.level)) {
+      await equipClonedSkin(db, droneByArchetype.VIPER, viperClone);
     } else {
       await db.insert(droneSkins).values({
-        droneId: droneByName.VIPER.id,
+        droneId: droneByArchetype.VIPER.id,
         skinId: viperClone.id,
         isEquipped: false,
       });
@@ -579,7 +598,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
       counts.skins += 1;
       usedSkinIds.add(cloned.id);
       await db.insert(droneSkins).values({
-        droneId: droneByName.SCOUT.id,
+        droneId: droneByArchetype.SCOUT.id,
         skinId: cloned.id,
         isEquipped: false,
       });
@@ -593,7 +612,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
     if (cloned) {
       counts.mods += 1;
       await db.insert(droneMods).values({
-        droneId: droneByName.BOLT.id,
+        droneId: droneByArchetype.BOLT.id,
         modId: cloned.id,
         isEquipped: false,
       });
@@ -614,7 +633,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   let userTotalWins = 0;
 
   for (const def of DEMO_DRONES) {
-    const drone = droneByName[def.name];
+    const drone = droneByArchetype[def.archetype];
     const result = await runRealRaces(db, drone, allBots, allTracks);
 
     await db

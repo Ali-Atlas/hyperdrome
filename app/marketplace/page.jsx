@@ -299,6 +299,9 @@ export default function MarketplacePage() {
   //   awarded  - null until the open API returns; then the 3-item array
   //   pending  - true during the open API call (Confirm → Ready transition)
   const [packFlow, setPackFlow] = useState(null);
+  // Mobile filter aside is collapsed by default. Desktop CSS hides the
+  // toggle button and forces the inner to render regardless of this flag.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // Local override for the user's volts balance. NextAuth's session.user.points
   // is stale until the JWT refreshes; we shadow it with the post-purchase
   // balance returned by every buy route (pack open, capsule open, listing
@@ -786,66 +789,66 @@ export default function MarketplacePage() {
   return (
     <NavShell>
       <div className={styles.page}>
-        {/* ---- Top row: tabs + list-item (left), balance (right) ---- */}
+        {/* ---- Top row: tabs + list-item (left), balance (right).
+                Three direct flex children so mobile CSS can grid-reflow
+                them to (tabs full-width row) / (list-item + balance row)
+                without restructuring the DOM per breakpoint. */}
         <div className={styles.topRow}>
-          <div className={styles.topLeft}>
-            <div className={styles.tabs} role="tablist">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'drones'}
-                className={cn(styles.tab, tab === 'drones' && styles.tabActive)}
-                onClick={() => setTab('drones')}
-              >
-                Drones
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'mods'}
-                className={cn(styles.tab, tab === 'mods' && styles.tabActive)}
-                onClick={() => setTab('mods')}
-              >
-                Mods
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'skins'}
-                className={cn(styles.tab, tab === 'skins' && styles.tabActive)}
-                onClick={() => setTab('skins')}
-              >
-                Skins
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'packs'}
-                className={cn(styles.tab, tab === 'packs' && styles.tabActive)}
-                onClick={() => setTab('packs')}
-              >
-                Packs
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={tab === 'points'}
-                className={cn(styles.tab, tab === 'points' && styles.tabActive)}
-                onClick={() => setTab('points')}
-              >
-                Volts
-              </button>
-            </div>
-            <Button
-              variant="primary"
-              size="sm"
-              className={styles.listItemBtn}
-              onClick={() => setListModal(true)}
+          <div className={styles.tabs} role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'drones'}
+              className={cn(styles.tab, tab === 'drones' && styles.tabActive)}
+              onClick={() => setTab('drones')}
             >
-              <Plus size={10} aria-hidden="true" /> List Item
-            </Button>
+              Drones
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'mods'}
+              className={cn(styles.tab, tab === 'mods' && styles.tabActive)}
+              onClick={() => setTab('mods')}
+            >
+              Mods
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'skins'}
+              className={cn(styles.tab, tab === 'skins' && styles.tabActive)}
+              onClick={() => setTab('skins')}
+            >
+              Skins
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'packs'}
+              className={cn(styles.tab, tab === 'packs' && styles.tabActive)}
+              onClick={() => setTab('packs')}
+            >
+              Packs
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'points'}
+              className={cn(styles.tab, tab === 'points' && styles.tabActive)}
+              onClick={() => setTab('points')}
+            >
+              Volts
+            </button>
           </div>
-
+          <Button
+            variant="primary"
+            size="sm"
+            className={styles.listItemBtn}
+            onClick={() => setListModal(true)}
+          >
+            <Plus size={10} aria-hidden="true" /> List Item
+          </Button>
           <div className={styles.balance}>
             <span className={styles.balanceLabel}>Your Balance</span>
             <span className={styles.balanceDot} aria-hidden="true">
@@ -916,8 +919,36 @@ export default function MarketplacePage() {
           )}
         >
           {tab !== 'packs' && tab !== 'points' && (
-          <aside className={styles.filters}>
-            <div className={styles.filtersInner}>
+          <aside
+            className={cn(
+              styles.filters,
+              !filtersOpen && styles.filtersCollapsed,
+            )}
+          >
+            {/* Mobile-only collapse trigger. Desktop CSS hides it via
+                display: none and forces .filtersInner to render regardless
+                of the .filtersCollapsed class. */}
+            <button
+              type="button"
+              className={styles.filtersToggle}
+              onClick={() => setFiltersOpen((o) => !o)}
+              aria-expanded={filtersOpen}
+              aria-controls="marketplace-filters-body"
+            >
+              <span>Filters</span>
+              <ChevronDown
+                size={14}
+                aria-hidden="true"
+                className={cn(
+                  styles.filtersToggleIcon,
+                  filtersOpen && styles.filtersToggleIconOpen,
+                )}
+              />
+            </button>
+            <div
+              id="marketplace-filters-body"
+              className={styles.filtersInner}
+            >
               <div className={styles.filterBody}>
                 <div className={styles.filterGroup}>
                   <label className={styles.filterLabel}>Price (volts)</label>

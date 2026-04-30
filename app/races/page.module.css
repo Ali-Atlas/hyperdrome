@@ -5,10 +5,9 @@
 }
 
 /* Upcoming-races banner shown at the top of the races list page when
-   the user has any PENDING races. Compact, teal-tinted. The banner is
-   now a flex row containing: the live dot, "You have N upcoming
-   races" text, optional numbered chip tabs (when N > 1), and a
-   "VIEW MATCHUP" link that targets the chip-selected race. */
+   the user has any PENDING races. Compact, teal-tinted. Layout: live
+   dot · summary text · numbered chips (when 2+ races) · VIEW MATCHUP
+   link. Numbered chips pick which upcoming race the link targets. */
 .upcomingBanner {
   display: flex;
   align-items: center;
@@ -37,10 +36,8 @@
 
 /* Numbered tabs for picking which upcoming matchup the VIEW MATCHUP
    link targets. Rendered only when the user has 2+ upcoming races.
-   Each chip is a button (not a link); the link below uses the
-   selected index to compute its href. Active chip flips to solid
-   accent-primary so the user can see at a glance which race they're
-   about to view. */
+   Active chip flips to solid accent-primary so the user can see at
+   a glance which race they're about to view. */
 .upcomingNumberChips {
   display: inline-flex;
   align-items: center;
@@ -95,6 +92,20 @@
   filter: brightness(1.2);
 }
 
+/* Small-mobile collapse: drop the "You have N upcoming races" text so
+   the banner doesn't overflow / wrap on narrow phones. The dot stays
+   on the left, the number chips (when there are 2+ races) sit next to
+   it, and `margin-left: auto` on the CTA pins VIEW MATCHUP to the
+   right edge in both the chip and no-chip cases. */
+@media (max-width: 480px) {
+  .upcomingBannerText {
+    display: none;
+  }
+  .upcomingBannerCta {
+    margin-left: auto;
+  }
+}
+
 /* ---- Top info strip: total races (left) + live indicator + mini clock (right) ---- */
 
 .topStrip {
@@ -140,77 +151,15 @@
   gap: var(--space-2);
 }
 
-.liveGroup {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.liveBox {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 4px 10px;
-  background: rgba(3, 218, 198, 0.08);
-  border-radius: var(--radius-sm);
-}
-
-.liveDot {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--accent-primary);
-  box-shadow: 0 0 6px var(--accent-primary);
-  animation: pulse 1.5s infinite;
-}
-
-.liveLabel {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--accent-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: var(--font-bold);
-}
-
-.liveBoxPaused {
-  background: transparent;
-}
-
-.liveBoxPaused .liveLabel {
-  color: var(--accent-warning);
-}
-
-.liveDotPaused {
-  background: var(--accent-warning);
-  box-shadow: none;
-  animation: none;
-}
-
-.miniCountdown {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  font-family: var(--font-mono);
-}
-
-.miniCountdownLabel {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.miniCountdownTime {
-  font-size: var(--text-sm);
-  font-weight: var(--font-bold);
-  color: var(--accent-primary);
-  letter-spacing: 0.04em;
-}
-
-.miniColon {
-  opacity: 0.6;
-  margin: 0 1px;
+/* Small-mobile split: push the "Your Races" toggle to the right edge so
+   "Total Races: N" sits on the left and the toggle stands alone on the
+   right of the strip. Above 480px the two stay grouped on the left as
+   a compact cluster. */
+@media (max-width: 480px) {
+  .totalRacesGroup {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 /* ---- Borderless filter bar container (filters float free) ---- */
@@ -392,8 +341,5 @@
   .topStrip {
     flex-direction: column;
     align-items: flex-start;
-  }
-  .liveGroup {
-    align-self: flex-start;
   }
 }

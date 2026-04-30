@@ -14,6 +14,8 @@ import {
   Moon,
   Trophy,
   Bot,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
@@ -718,6 +720,8 @@ function GapSparkline({ gaps, segmentTimes }) {
   const idSafe = rawId.replace(/:/g, '');
   const gradPosId = `gap-pos-${idSafe}`;
   const gradNegId = `gap-neg-${idSafe}`;
+  const clipPosId = `gap-clip-pos-${idSafe}`;
+  const clipNegId = `gap-clip-neg-${idSafe}`;
   if (!gaps || gaps.length < 2) return null;
 
   const W = 300;
@@ -892,6 +896,15 @@ function GapSparkline({ gaps, segmentTimes }) {
               style={{ stopColor: 'var(--accent-error)', stopOpacity: 0.55 }}
             />
           </linearGradient>
+          {/* Clip rectangles split the curve at the zero line so each
+              half of the line takes the matching fill's stroke color
+              (accent above zero, error below). */}
+          <clipPath id={clipPosId}>
+            <rect x="0" y="0" width={W} height={baselineY} />
+          </clipPath>
+          <clipPath id={clipNegId}>
+            <rect x="0" y={baselineY} width={W} height={H - baselineY} />
+          </clipPath>
         </defs>
         <path d={posAreaPath} fill={`url(#${gradPosId})`} />
         <path d={negAreaPath} fill={`url(#${gradNegId})`} />
@@ -902,7 +915,16 @@ function GapSparkline({ gaps, segmentTimes }) {
           y2={baselineY}
           className={styles.sparklineZero}
         />
-        <path d={linePath} className={styles.sparklineLine} />
+        <path
+          d={linePath}
+          clipPath={`url(#${clipPosId})`}
+          className={styles.sparklineLine}
+        />
+        <path
+          d={linePath}
+          clipPath={`url(#${clipNegId})`}
+          className={cn(styles.sparklineLine, styles.sparklineLineNeg)}
+        />
       </svg>
     </div>
       {hasXAxis && xLabels.length > 0 && (
@@ -1127,6 +1149,10 @@ function RaceStrategyView({ race }) {
   // Hydrate each drone with its `recentRaces` (for form dots) + applied skin.
   // The race endpoint doesn't return recentRaces; /api/drones/[id] does.
   const [details, setDetails] = useState({ drone1: null, drone2: null });
+  // The signed-in viewer's full upcoming-races list, used to power
+  // the prev/next strip above the H2H bar so a user can flip
+  // between their pending matchups without going back to /races.
+  const [upcomingList, setUpcomingList] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1152,6 +1178,21 @@ function RaceStrategyView({ race }) {
     };
   }, [race.drone1?.id, race.drone2?.id]);
 
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    let cancelled = false;
+    fetch('/api/races/upcoming')
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return;
+        if (body?.data?.races) setUpcomingList(body.data.races);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   const drone1 = details.drone1 ?? race.drone1;
   const drone2 = details.drone2 ?? race.drone2;
 
@@ -1167,10 +1208,31 @@ function RaceStrategyView({ race }) {
   const lvl2 = drone2?.level ?? 1;
   const radarMax = calculatePerStatCap(Math.max(lvl1, lvl2));
 
+  // Resolve prev/next race ids from the user's upcoming list. Wraps
+  // around so prev from the first race lands on the last and vice
+  // versa. Hidden when this race isn't in the user's upcoming list
+  // (viewing someone else's matchup) or when the user has only one.
+  const upcomingIndex = upcomingList.findIndex((r) => r.id === race.id);
+  const showUpcomingNav = upcomingIndex >= 0 && upcomingList.length > 1;
+  const prevRaceId = showUpcomingNav
+    ? upcomingList[
+        (upcomingIndex - 1 + upcomingList.length) % upcomingList.length
+      ]?.id
+    : null;
+  const nextRaceId = showUpcomingNav
+    ? upcomingList[(upcomingIndex + 1) % upcomingList.length]?.id
+    : null;
+
   return (
     <NavShell>
       <div className={styles.matchupPage}>
-        <H2HStrip race={race} drone1={drone1} drone2={drone2} />
+        <H2HStrip
+          race={race}
+          drone1={drone1}
+          drone2={drone2}
+          prevRaceId={showUpcomingNav ? prevRaceId : null}
+          nextRaceId={showUpcomingNav ? nextRaceId : null}
+        />
         <div className={styles.matchupGrid}>
           <MatchupDroneCard
             drone={leftDrone}
@@ -1240,7 +1302,7 @@ function StatusBar({ scheduledAt }) {
  *  lower in --text-secondary, and ties in --text-primary. Names at the
  *  ends mirror the ELO comparison since ELO is the canonical strength
  *  signal. */
-function H2HStrip({ race, drone1, drone2 }) {
+function H2HStrip({ race, drone1, drone2, prevRaceId, nextRaceId }) {
   if (!drone1 || !drone2) return null;
 
   const elo1 = drone1.eloRating ?? 0;
@@ -1267,6 +1329,15 @@ function H2HStrip({ race, drone1, drone2 }) {
 
   return (
     <div className={styles.h2hStrip}>
+      {prevRaceId && (
+        <Link
+          href={`/races/${prevRaceId}`}
+          className={cn(styles.h2hNavArrow, styles.h2hNavArrowPrev)}
+          aria-label="Previous upcoming matchup"
+        >
+          <ChevronLeft size={16} aria-hidden="true" />
+        </Link>
+      )}
       <span className={cn(styles.h2hName, eloClass1)}>{drone1.name}</span>
       <span className={styles.h2hSep} aria-hidden="true" />
       {race.h2h && race.h2h.total > 0 && (
@@ -1301,6 +1372,15 @@ function H2HStrip({ race, drone1, drone2 }) {
       </span>
       <span className={styles.h2hSep} aria-hidden="true" />
       <span className={cn(styles.h2hName, eloClass2)}>{drone2.name}</span>
+      {nextRaceId && (
+        <Link
+          href={`/races/${nextRaceId}`}
+          className={cn(styles.h2hNavArrow, styles.h2hNavArrowNext)}
+          aria-label="Next upcoming matchup"
+        >
+          <ChevronRight size={16} aria-hidden="true" />
+        </Link>
+      )}
     </div>
   );
 }
@@ -1765,37 +1845,21 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
             </ul>
           )}
         </div>
-        {/* Win Probability lives at the bottom of the body. The
-            percentage line ALWAYS names a drone (even matchups split
-            50/50 across both names) so a bare number can't be misread. */}
+        {/* Win Probability. Drone name lives in the card header only —
+            the body shows the bare percentage + bar so the section sits
+            tight under Strengths/Gaps. */}
         <div className={styles.raceEdgeSection}>
           <span className={styles.raceEdgeSectionLabel}>Win Probability</span>
-          {isEven ? (
-            <>
-              <div className={styles.raceEdgeWinDrone}>
-                {viewer.name} 50% · {opponent.name} 50%
-              </div>
-              <div className={styles.raceEdgeWinBar}>
-                <div
-                  className={styles.raceEdgeWinBarFill}
-                  style={{ width: '50%' }}
-                  aria-hidden="true"
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className={styles.raceEdgeWinDrone}>{viewer.name}</div>
-              <div className={styles.raceEdgeWinValue}>{pct}%</div>
-              <div className={styles.raceEdgeWinBar}>
-                <div
-                  className={styles.raceEdgeWinBarFill}
-                  style={{ width: `${pct}%` }}
-                  aria-hidden="true"
-                />
-              </div>
-            </>
-          )}
+          <div className={styles.raceEdgeWinValue}>
+            {isEven ? '50%' : `${pct}%`}
+          </div>
+          <div className={styles.raceEdgeWinBar}>
+            <div
+              className={styles.raceEdgeWinBarFill}
+              style={{ width: isEven ? '50%' : `${pct}%` }}
+              aria-hidden="true"
+            />
+          </div>
           <div className={styles.raceEdgeWinCaption}>
             ELO {viewerElo} vs {oppElo}
           </div>

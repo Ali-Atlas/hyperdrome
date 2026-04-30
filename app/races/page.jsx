@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Sun,
   Cloud,
@@ -19,7 +19,6 @@ import NavShell from '@/components/ui/NavShell';
 import DataTable from '@/components/ui/DataTable';
 import FilterBar from '@/components/ui/FilterBar';
 import Toggle from '@/components/ui/Toggle';
-import RacingStatusPill from '@/components/ui/RacingStatusPill';
 import { useSession } from '@/hooks/useSession';
 import { cn, getLevelColor } from '@/lib/utils';
 import styles from './page.module.css';
@@ -94,9 +93,14 @@ export default function RacesPage() {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({});
   const [search, setSearch] = useState('');
-  const [nextRaceAt, setNextRaceAt] = useState(null);
-  const [racingPaused, setRacingPaused] = useState(false);
-  const [myRaces, setMyRaces] = useState(false);
+  // Initial myRaces state respects the `?mine=1` URL param so the
+  // "My Races" footer link lands here with the filter pre-applied via
+  // `?mine=1`. The toggle is the source of truth from then on (URL
+  // isn't kept in sync as the toggle flips).
+  const searchParamsHook = useSearchParams();
+  const [myRaces, setMyRaces] = useState(
+    () => searchParamsHook?.get('mine') === '1',
+  );
   const [pageSize, setPageSize] = useState(50);
   const [upcomingRaces, setUpcomingRaces] = useState([]);
   const [selectedUpcoming, setSelectedUpcoming] = useState(0);
@@ -124,19 +128,6 @@ export default function RacesPage() {
     }
   }, [page, pageSize, filters, myRaces, user?.id]);
 
-  const fetchNextRace = useCallback(async () => {
-    try {
-      const res = await fetch('/api/races/next', { cache: 'no-store' });
-      const body = await res.json();
-      if (body?.data) {
-        setRacingPaused(Boolean(body.data.paused));
-        setNextRaceAt(body.data.nextRaceAt ?? null);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
-
   const fetchTracks = useCallback(async () => {
     try {
       const res = await fetch('/api/tracks', { cache: 'no-store' });
@@ -150,12 +141,6 @@ export default function RacesPage() {
   useEffect(() => {
     fetchRaces();
   }, [fetchRaces]);
-
-  useEffect(() => {
-    fetchNextRace();
-    const id = setInterval(fetchNextRace, 30_000);
-    return () => clearInterval(id);
-  }, [fetchNextRace]);
 
   useEffect(() => {
     fetchTracks();
@@ -436,15 +421,6 @@ export default function RacesPage() {
               </div>
             )}
           </div>
-          <div className={styles.liveGroup}>
-            <RacingStatusPill paused={racingPaused} />
-            {!racingPaused && nextRaceAt && (
-              <div className={styles.miniCountdown}>
-                <span className={styles.miniCountdownLabel}>Next race in</span>
-                <MiniCountdown targetDate={nextRaceAt} />
-              </div>
-            )}
-          </div>
         </div>
 
         <FilterBar
@@ -495,37 +471,6 @@ export default function RacesPage() {
         </div>
       </div>
     </NavShell>
-  );
-}
-
-/* ---------- Mini countdown (MM:SS, text-sm, teal) ---------- */
-function MiniCountdown({ targetDate }) {
-  const compute = () => {
-    if (!targetDate) return 0;
-    return Math.max(0, new Date(targetDate).getTime() - Date.now());
-  };
-  const [remaining, setRemaining] = useState(compute);
-  useEffect(() => {
-    setRemaining(compute());
-    const id = setInterval(() => setRemaining(compute()), 1000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetDate]);
-
-  if (remaining <= 0) {
-    return <span className={styles.miniCountdownTime}>00:00</span>;
-  }
-  const total = Math.floor(remaining / 1000);
-  const hrs = Math.floor(total / 3600);
-  const mins = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
-  const secs = String(total % 60).padStart(2, '0');
-  return (
-    <span className={styles.miniCountdownTime}>
-      {hrs > 0 && <>{String(hrs).padStart(2, '0')}<span className={styles.miniColon}>:</span></>}
-      {mins}
-      <span className={styles.miniColon}>:</span>
-      {secs}
-    </span>
   );
 }
 

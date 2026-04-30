@@ -4,6 +4,137 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-30 - Footer: hide the dot before "My Races" at <=480px
+
+**Captain ask:** In the sticky footer countdown bar, remove the middle-dot separator that sits to the left of "My Races" on small mobile only. The OTHER separator (between Next Round and Mod Lock) stays.
+
+**Files modified (2):**
+
+### `components/ui/NavShell/index.jsx`
+- The "My Races" separator was using the same generic `.countdownSep` class as the Next-Round / Mod-Lock separator. Tagged it with an additional modifier class so we can target only the second dot. The span's `aria-hidden` and visible content stay the same.
+
+### `components/ui/NavShell/NavShell.module.css`
+- Added `@media (max-width: 480px) { .countdownSepMyRaces { display: none; } }` right under the existing `.countdownSep` rule. Strict scope: only the My-Races separator hides; the first separator (between Next Round and Mod Lock) keeps showing.
+
+**Verification:**
+- Confirmed via grep: JSX renders the My-Races separator with both `countdownSep` (kept for shared color/typography) AND `countdownSepMyRaces` (the new gate class). CSS has exactly one rule on `.countdownSepMyRaces`, scoped inside the 480px media query.
+- **Not run:** dev server / browser. Captain verifies.
+
+**Not verified by Mercenary:**
+- Visual at exactly 480px and below - the My-Races item now sits directly next to the Mod-Lock value with a small gap (the parent `.countdownBar` carries `gap: var(--space-3)`) instead of dot + gap. Should read fine; if Captain wants a tighter or looser gap specifically when the dot is hidden, that's a one-line follow-up on `.countdownBar { gap: ... }` inside the same 480px block.
+
+---
+
+## 2026-04-30 - Smallest-mobile: collapse NavShell .main side padding to 4px (global)
+
+**Captain ask:** Reduce side padding further on small mobile across the app. NavShell .main and any page-level wrappers still have too much side padding at <=480px. Reduce to 4px or remove entirely. The marketplace already pulled out to 6px - match that or go tighter. Scope strictly inside @media (max-width: 480px). Don't break desktop or tablet.
+
+**Files modified (2):**
+
+### `components/ui/NavShell/NavShell.module.css`
+- Added a new `@media (max-width: 480px) { .main { padding-left: 4px; padding-right: 4px; } }` block right after the `.main` base rule. Top stays at the existing `var(--space-6)` and bottom stays at 56px (countdown clearance). This is the global lever - every page hosted inside NavShell now runs nearly edge-to-edge at <=480px.
+- `globals.css` was inspected and not touched: no global container/wrapper padding lives there. Body has `margin: 0` and no padding; the page-level padding all flows from NavShell .main.
+- Desktop (`@media (min-width: 1024px)`) still has its existing `padding: var(--space-8)` override on .main, untouched. Tablet (481-1023px) also untouched.
+
+### `app/marketplace/page.module.css`
+- Added a small reset at the top of the existing `@media (max-width: 480px)` block: `.page { margin-inline: 0; padding-inline: 0; }`.
+- Reason: the marketplace had a `margin-inline: -16px; padding-inline: 6px;` pull-out inside `@media (max-width: 768px)` to escape NavShell's old 24px gutter. That rule is still active at <=480px (cascades from 768px). With NavShell .main now at 4px side padding at <=480px, the negative-margin pull-out would push `.page` LEFT of the viewport edge (4px parent - 16px self = -12px, then +6px own padding = -6px from screen edge). The reset neutralizes both so `.page` sits flush inside the new tight 4px gutter.
+- Captain didn't name the marketplace file in scope, but skipping it would have visibly broken the page at <=480px. Flagged here.
+
+**Other pages checked for similar pull-outs:** scanned all `app/**/page.module.css` for `margin-inline: -*` / `margin-left: -*` / `margin-right: -*`. The marketplace was the only file using a negative-margin pull-out. Other pages just inherit `.main`'s padding and will flow into the new 4px gutter cleanly.
+
+**Verification:**
+- Confirmed both new rules land cleanly (NavShell line 266, marketplace line 5485). No other 480px blocks disturbed.
+- **Not run:** dev server / browser. Captain verifies at 1440 / 1024 / 768 / 480 / 375.
+
+**Not verified by Mercenary:**
+- Live behavior of every page at <=480px. The change is global - if any page had an unstated dependency on the 24px gutter (e.g. shadows getting clipped, content butting against screen edge in a way that hurts readability), it'll show up across multiple pages. Captain to glance at each high-traffic page once and flag any specific surfaces that need more breathing room.
+
+---
+
+## 2026-04-30 - Dashboard mobile: matchup-stack moved to <=480px + spotlight compact at <=675px
+
+**Captain ask:** Two scoped mobile fixes on the dashboard, all changes inside mobile media queries only - desktop and tablet untouched.
+1. Next Race card: drones currently stack at `<=768px` which is too early. Keep them side-by-side until `<=480px`; only stack on smallest mobile.
+2. Active Drone Spotlight: compact layout at `<=675px` - hide stat bars, move Manage Drone below image + metadata, center everything except name/level.
+
+**Files modified (1):**
+
+### `app/dashboard/page.module.css`
+- **Item 1 (matchup row):** removed `.matchupRow { grid-template-columns: 1fr; gap: var(--space-3); }` from the existing `@media (max-width: 768px)` block (line 1195). Added a new `@media (max-width: 480px)` block at the end with the same rule. The other 768px rules (image-frame max-width, radar size, vsDivider tweaks, trackStrip, conditionPills) stay - those are sensible at 768px even with side-by-side drones.
+- **Item 2 (spotlight compact):** added a new `@media (max-width: 675px)` block. Rules:
+  - `.spotlightBody { grid-template-columns: 1fr; }` - collapses the two-column layout so spotlightRight stacks below spotlightLeft, putting the Manage button below the image + KPI grid naturally (DOM order is preserved by single-column flow).
+  - `.spotlightStats { display: none; }` - drops the stat bars.
+  - `.spotlightRight { align-items: center; }` + `.manageBtn { width: auto; min-width: 220px; }` - the right column now contains only the manage button, so center it and constrain its width to a sensible button size instead of full-card-width.
+- No alignment overrides needed for the image, KPI grid, or name/level block. Desktop already gives them the right behavior:
+  - `.spotlightImage` and `.spotlightKpiGrid` both carry `align-self: center` on desktop, so they stay centered when the parent collapses to a single column.
+  - `.droneNameBlock` has no `align-self` override, so it inherits the parent's `align-items: flex-start` and stays left-aligned - exactly what Captain asked for.
+
+**No JSX changes.** Both fixes are pure CSS.
+
+**Verification:**
+- `.matchupRow` now has exactly two declarations: the desktop default at line 943 (`1fr auto 1fr`) and the 480px override at line 1245 (`1fr`). The 768px block no longer references it.
+- New 675px and 480px blocks land cleanly at the end of the file (lines 1225 / 1244). Existing 768px / 1023px / 1200px / 769-1200 blocks unchanged.
+- **Not run:** dev server / browser. Captain verifies at 1440 / 1024 / 768 / 675 / 480 / 375.
+
+**Not verified by Mercenary:**
+- Live behavior of the spotlight at 675px when the cycling drones (`activeDrones.length > 1`) wrap to a second row in the section heading - hadn't checked whether `.navCluster` interacts with the now-stacked spotlight body. Should be fine since navCluster sits in `.sectionHeadingRow` above the body, but Captain to glance.
+
+---
+
+## 2026-04-30 - Marketplace mobile: single-column compact cards + hide Recent Sales at <=480px
+
+**Captain ask:** Two scoped mobile fixes on the marketplace page, gated to `@media (max-width: 480px)` only - desktop and tablet must stay untouched.
+1. Smaller listing cards on smallest mobile: reduce padding, image container height, font sizes; force single-column layout (one card per row).
+2. Hide the Recent Sales section entirely at smallest mobile so the listing grid runs longer before the user hits the bottom.
+
+**Files modified (1):**
+
+### `app/marketplace/page.module.css`
+- Appended one new `@media (max-width: 480px)` block at the end of the file (after the existing `@media (min-width: 769px)` filter-toggle hide). Strictly scoped, additive only - did not touch any of the existing 480px blocks (which target the `.flowModal`, `.listModal`, `.purchaseModal`, `.voltsModal` mobile-fullscreen rules).
+- New rules:
+  - `.grid { grid-template-columns: 1fr !important; grid-auto-rows: auto; gap: var(--space-3); }` - the `!important` defeats the inline `repeat(N, 1fr)` that the listing JS writes per page-size measurement, so the grid pins to single column. `grid-auto-rows: auto` lets each card collapse to its own content height instead of being stretched to match the tallest sibling.
+  - `.listingCard { min-height: 0; }` - drops the desktop 320px floor so cards size to content.
+  - `.listingImage { padding: 28px var(--space-2) 6px; }` (default), with overrides for drone (`.card_level_*`) at 22px top and mod (`.cardMod .listingImage`) at 20px top. The 28px top still clears the 20px `YOUR LISTING` ribbon.
+  - `.listingBody { padding: 8px 10px; }` (was 10px/14px).
+  - `.listingName { font-size: 11px; }` (was 12px).
+  - `.tapeSection { display: none; }` - drops the entire Recent Sales section at <=480px.
+- No JSX changes. Visibility and sizing are entirely CSS-driven.
+
+**Verification:**
+- Confirmed the new `@media (max-width: 480px)` block appends cleanly at line 5485, doesn't conflict with the existing 480px blocks at lines 3397 / 3426 / 4299 / 5359 (each targets a disjoint set of selectors). All existing modal mobile-fullscreen rules unchanged.
+- **Not run:** dev server / browser. Captain verifies at 1440 / 1024 / 480 / 375.
+
+**Not verified by Mercenary:**
+- Live behavior of `.cardPlaceholder` (the invisible spacers used to keep the pagination bar at a constant y on the tail page). They carry `min-height: 200px` from desktop and aren't explicitly hidden at <=480px - on a partially-filled tail page they could create a 200px gap at the bottom of the scroll. With single-column layout and JS measuring desktop column counts, behavior may differ; if Captain sees an awkward gap below the last card, follow-up to add `.cardPlaceholder { display: none; }` (or zero its min-height) inside the same 480px block.
+
+---
+
+## 2026-04-30 - Demo drones: unique generated names per row (no more shared STRIKER/RUNNER/...)
+
+**Captain ask:** The 8 demo drone names (STRIKER / RUNNER / VIPER / SCOUT / BOLT / HAWK / PHANTOM / GHOST) were shared across all 50 demo accounts, producing duplicate names in race results. Switch to `generateUniqueDroneName` from `lib/game-engine/drone-names.js` for ALL demo drones. Keep DEMO_DRONES only as a reference structure. Code change only - reseed required for it to take effect.
+
+**Files modified (1):**
+
+### `scripts/seed-demo-player.js`
+- Added `import { generateUniqueDroneName } from '../lib/game-engine/drone-names.js';`.
+- DEMO_DRONES: renamed the per-row `name` field to `archetype` to make it unambiguous that it's an INTERNAL slot label (drives the per-slot skin policy: Diamond Hands on the LV18, Ember on the LV3, rotated tier-4 epic on the LV17, plus the SCOUT / BOLT collection inserts) and never reaches the user-facing drone name. Updated the array's docstring accordingly.
+- droneRows construction: replaced `.map((d) => {...})` with a sequential `for` loop. Each iteration awaits `generateUniqueDroneName(db, drones)` to pick a name. Sequential (not `Promise.all`) is intentional - the generator queries the DB on each candidate, and parallel calls would all see the same pre-insert state and could pick the same candidate.
+- Lookup map: `droneByName` -> `droneByArchetype`, built from the inserted rows paired with `DEMO_DRONES[i].archetype` by index. `db.insert(...).returning()` preserves input order, so the index pairing is sound. All downstream skin/mod equip steps (`droneByArchetype.STRIKER`, `.RUNNER`, `.VIPER`, `.SCOUT`, `.BOLT`) keep working unchanged.
+- Bottom race-history loop: `droneByName[def.name]` -> `droneByArchetype[def.archetype]`.
+
+**Cross-reference scan:**
+- `STRIKER / RUNNER / VIPER / SCOUT / BOLT / HAWK / PHANTOM / GHOST` only ever appeared as DEMO_DRONES labels inside this one file (and as random tokens inside the `drone-names.js` name pool, where their presence is unrelated). Bot drones in `seed-production.js` / `lib/db/seed.js` / `seed-marketplace.js` use different prefixes (`VIPER-K7`, `MKT_SCOUT_01`, etc.) and are unaffected.
+
+**Verification:**
+- Confirmed via grep: no remaining `droneByName` references; `def.name` against DEMO_DRONES is gone (replaced with `def.archetype`); `generateUniqueDroneName` is imported and called sequentially inside the drone-loop.
+- **Not run:** the seed itself (Captain explicitly said code change only). Reseed required to take effect.
+
+**Not verified by Mercenary:**
+- Live reseed against the dev DB. Suggest a `npm run seed:dev -- --fresh` to verify (a) the names land unique across all 50 demos, (b) the existing skin-policy plumbing still equips Diamond Hands on the LV18 / Ember on the LV3 / rotated tier-4 epic on the LV17 (the index-pairing assumption hinges on `.returning()` order matching input order - true for Drizzle/Neon HTTP today, but if it ever changed we'd silently mis-equip).
+
+---
+
 ## 2026-04-30 - Race detail Win Probability: name the drone it favors
 
 **Captain ask:** The bare "62%" Win Probability in the `RaceEdgeCard` (race detail page) doesn't say WHICH drone the percentage favors. Add the drone name next to the value. Also check `app/dashboard/page.jsx` for the same pattern.
@@ -4000,3 +4131,133 @@ The landing page already had its own `<HeroAudio>` component (`app/HeroAudio.jsx
   - Manual `pause` branch writes `'false'` immediately, same as before but explicit now.
 
 End result: when audio is on at the landing page and the user clicks PLAY DEMO, NavShell on the dashboard auto-resumes from the same `currentTime = 0` start without a second click. The audio singleton in NavShell takes over from there; subsequent in-app navigations don't restart it (per the previous handoff entry).
+
+## 2026-04-30 - Dashboard next-race card: drop the countdown, keep RACE QUEUED
+
+The dashboard's Next Race card was rendering its own `LocksInCountdown` component in the section heading - so users saw the same countdown twice (footer + card) until expiry. Captain wants the footer to be the single source of truth for both "Next Round" and "Mod Lock" timers; the card should only carry matchup info plus a status badge when the race is past its scheduled time and waiting on the cron tick.
+
+**File modified (1):** `app/dashboard/page.jsx`
+
+- Replaced the `<LocksInCountdown ... />` render in `NextRacePanel`'s heading row with `<RaceQueuedBadge scheduledAt={race.scheduledAt} status={race.status} />`.
+- Deleted the `LocksInCountdown` component definition entirely - no other call sites.
+- New `RaceQueuedBadge` component: 1s ticker just to detect the moment `scheduledAt` elapses. Returns `null` unless (a) there's a `scheduledAt`, (b) `status === 'pending'`, AND (c) `Date.now() >= scheduledAt`. When all three hold, renders a `<span class="locksIn locksInExpired">RACE QUEUED</span>`. Pre-elapse: nothing in the heading. Post-elapse + still pending: "RACE QUEUED" appears. Post-completion: race falls out of the next-race list anyway, so the badge isn't reached.
+- No "LOCKS IN" / "Locks in" text remains anywhere in the dashboard. The footer's `Next Round in MM:SS` and `Mod Lock in MM:SS` are the only countdowns now.
+- CSS unchanged. `.locksIn` + `.locksInExpired` were reused by the new badge so `app/dashboard/page.module.css` didn't need an edit.
+
+## 2026-04-30 - "My Races" nav link + arrow paginator on the upcoming-races banner
+
+**Files modified (3):**
+
+- `components/ui/NavShell/index.jsx`
+  - Added a "My Races" entry to `NAV_LINKS` pointing to `/races?mine=1` (`Calendar` icon from `lucide-react`). The existing "Races" entry now carries `noMine: true` so only one of the two highlights at a time.
+  - Active-state logic switched from a pure prefix match to a path-only match (`href.split('?')[0]`) plus a `requireMine` / `noMine` flag check against `useSearchParams().get('mine')`. Other links continue to match purely by path.
+  - Added `useSearchParams` import. NavShell is already inside `'use client'` page trees that CSR-fetch their data, so the search-params hook's prerender bailout is a no-op in practice.
+
+- `app/races/page.jsx`
+  - `useSearchParams` initializes `myRaces` to `true` when the URL has `?mine=1` (lazy `useState` initializer). The toggle is the source of truth from then on; URL isn't kept in sync as the toggle flips.
+  - Banner restructured: the numbered chip strip is gone. New layout is `[← arrow] · live dot · "You have N upcoming races · M of N" · VIEW MATCHUP → · [→ arrow]`. Arrows render only when `count > 1`. `goPrev` / `goNext` use modular arithmetic so the row wraps around (left from 1 lands on N; right from N lands on 1).
+  - VIEW MATCHUP `<Link>` `href` continues to derive from `selectedUpcoming` so it always points at whatever the arrows have selected.
+  - Imported `ChevronLeft` to pair with the existing `ChevronRight` lucide import.
+
+- `app/races/page.module.css`
+  - Removed `.upcomingNumberChips`, `.upcomingNumberChip`, `.upcomingNumberChipActive` (chips replaced by arrows).
+  - New `.upcomingArrow` (22×22 teal-outlined chevron button, hover-tinted) and `.upcomingBannerIndex` (mono "M of N" counter inside the summary text).
+  - `.upcomingBanner` font-size dropped from `var(--text-xs)` (12px) to `11px` and vertical padding tightened from `8px` to `6px` per Captain's "smaller text". `.upcomingBannerDot` and `.upcomingBannerCta` got `flex-shrink: 0` so the summary text is the only flex element that yields to the arrows.
+
+## 2026-04-30 - Reposition: My Races to sidebar footer + arrows on race-detail page
+
+Previous round placed My Races in the main NAV_LINKS strip and put prev/next arrows on the `/races` index banner; both were in the wrong location. Captain's correction: My Races belongs in the sidebar footer, prev/next arrows belong in the top bar of the individual race-detail page (`/races/[raceId]`). Reverting both moves and re-implementing in the right places.
+
+**Files modified (6):**
+
+- `components/ui/NavShell/index.jsx`
+  - Reverted: dropped the My Races entry from `NAV_LINKS`; removed `useSearchParams` import; restored simple path-based active matching in `renderLinks` (no more `requireMine` / `noMine` flags). Calendar lucide import kept since it's now used in the footer link below.
+  - New: `renderUserArea` adds a `<Link href="/races?mine=1" className={styles.myRacesLink}>` between the volts row and the Sign Out button. Calendar icon + "My Races" label, accent-primary outlined.
+
+- `components/ui/NavShell/NavShell.module.css`
+  - New `.myRacesLink` rule: matches `.signOut`'s padding/sizing/typography so the two stack at equal heights, but uses accent-primary border + text to read as a positive shortcut rather than a neutral action. Hover lifts the teal tint.
+
+- `app/races/page.jsx`
+  - Reverted: removed `ChevronLeft` import; dropped `selectedUpcoming` state; restored the original single-`<Link>` upcoming banner. Kept `useSearchParams` and the `myRaces` lazy-init from `?mine=1` so the new footer shortcut still pre-applies the filter on landing.
+
+- `app/races/page.module.css`
+  - Reverted: removed `.upcomingArrow`, `.upcomingBannerIndex`, and the `flex-shrink: 0` additions; restored `.upcomingBanner` to its original `var(--text-xs)` font, 8px padding, and link-style hover background. Single-link summary, no in-page picker.
+
+- `app/races/[raceId]/page.jsx`
+  - Added `ChevronLeft` + `ChevronRight` to the lucide import.
+  - `RaceStrategyView` now also fetches `/api/races/upcoming` (only when signed in) and stores the result in `upcomingList`. Computes `upcomingIndex` from the current race id; if the race is in the list and the list has 2+ entries, derives wrap-around `prevRaceId` / `nextRaceId`.
+  - JSX: a new `<div class="upcomingNav">` strip sits above `H2HStrip`, rendered only when `showUpcomingNav` is true. Contents: `<Link href={…prevRaceId}><ChevronLeft/></Link>` · `Upcoming · M of N` caption · `<Link href={…nextRaceId}><ChevronRight/></Link>`. Each arrow is a real navigation, so back/forward and middle-click work.
+
+- `app/races/[raceId]/page.module.css`
+  - New `.upcomingNav`, `.upcomingNavArrow`, `.upcomingNavIndex` styles. Layout mirrors the index banner's color palette (teal-tinted bg + accent-primary outlines on the chevron buttons) so the row reads as the same family of UI.
+
+## 2026-04-30 - Re-correction round: My Races to bottom bar, chips back on /races, arrows inside H2H strip
+
+Captain's "footer" meant the fixed bottom `.countdownBar`, not the sidebar footer. Prev/next nav on the race detail page should live INSIDE the existing H2H strip (the `RUNNER · ELO · WIN RATE · RUNNER` row), not in a new top-of-page strip. Restoring numbered chips on `/races`.
+
+**Files modified (6):**
+
+- `components/ui/NavShell/index.jsx`
+  - Removed the `<Link className=myRacesLink>` from `renderUserArea` (sidebar footer).
+  - Removed the `Calendar` lucide import (no longer used).
+  - In `CountdownBar`, after the Mod Lock cell, added another `.countdownSep` dot and a `<Link href="/races?mine=1" className=countdownMyRaces>My Races</Link>`. The bottom bar now reads `Next Round in MM:SS · Mod Lock in MM:SS · MY RACES`. The link is hidden when racing is paused (it's inside the same `paused ? : ...` ternary that hides the timers).
+
+- `components/ui/NavShell/NavShell.module.css`
+  - Removed the old `.myRacesLink` rule.
+  - New `.countdownMyRaces`: mono + bold + accent-primary with the same letter-spacing / casing as the existing `.countdownValue` so it reads as a peer of the timers, distinguished only by being clickable. `:hover` lifts brightness.
+
+- `app/races/page.jsx`
+  - Restored `selectedUpcoming` state and the chip-strip JSX from the earlier round. Banner is no longer a `<Link>` wrapper - it's a `<div>` containing dot · summary · chips · `VIEW MATCHUP →` link. The link href tracks the selected chip via `safeIndex`. Single-race case omits chips.
+  - Kept the `?mine=1` -> `myRaces` lazy init from earlier (the new bottom-bar My Races link sets `?mine=1`).
+
+- `app/races/page.module.css`
+  - Restored `.upcomingNumberChips`, `.upcomingNumberChip`, `.upcomingNumberChipActive`. Active chip = solid teal with dark text. Removed the link-style `:hover` background on `.upcomingBanner` (no longer a clickable surface; the CTA inside is the only link).
+
+- `app/races/[raceId]/page.jsx`
+  - Removed the standalone `.upcomingNav` strip JSX entirely. `H2HStrip` now takes `prevRaceId` and `nextRaceId` props. Caller (`RaceStrategyView`) passes them when `showUpcomingNav` is true (viewer signed in, current race is in their upcoming list, list has 2+ entries).
+  - Inside `H2HStrip`: when `prevRaceId` is set, a `<Link>` wrapping `<ChevronLeft size={16}/>` is inserted as the first child of the strip with class `h2hNavArrow h2hNavArrowPrev`. Similarly for `nextRaceId` as the last child with class `h2hNavArrow h2hNavArrowNext`. Each arrow is a real navigation (`/races/[id]`) so back/forward and middle-click work.
+
+- `app/races/[raceId]/page.module.css`
+  - Removed the entire `.upcomingNav` / `.upcomingNavArrow` / `.upcomingNavIndex` block.
+  - New `.h2hNavArrow` rule (24x24 teal-outlined chevron link). `.h2hNavArrowPrev { margin-right: auto }` and `.h2hNavArrowNext { margin-left: auto }` exploit the strip's `justify-content: center` + `gap` so the arrows pin to the row's far left/right while the drone names + stat cells stay visually centered between them.
+
+## 2026-04-30 - H2H strip: smaller text + 550px collapse to names-only
+
+**File modified (1):** `app/races/[raceId]/page.module.css`
+
+- `.h2hStrip` padding tightened from `var(--space-3) var(--space-4)` to `var(--space-2) var(--space-3)`.
+- `.h2hName` font-size dropped from `var(--text-sm)` (14px) to `var(--text-xs)` (12px). `.h2hValue` matched at `var(--text-xs)` so the ELO / WIN RATE numbers don't tower over the drone names. Labels were already `--text-xs`.
+- New `@media (max-width: 550px)` rule scoped to `.h2hStrip .h2hCell, .h2hStrip .h2hSep { display: none }` - on narrow viewports the strip collapses to just `[← arrow] DRONE 1 vs DRONE 2 [→ arrow]`. The matchup cards below already carry per-drone stats so nothing's lost.
+
+## 2026-04-30 - Dashboard: server-side fetch for "Your Recent Results", rename Race Feed
+
+**File modified (1):** `app/dashboard/page.jsx`
+
+- **Recent Results now hits the API directly.** Replaced the `recentRaces` `useMemo` (which client-side filtered the global top-20 `liveFeed` down to drones owned by the user) with a new `recentRaces` state populated from a dedicated `fetch('/api/races?user_id=${user.id}&limit=10')` request inside `fetchAll`. The races route already accepts `user_id` server-side and joins through the user's drones, so this returns the user's actual most-recent 10 races regardless of global volume - the prior approach silently emptied under prod-scale activity once the user's races fell out of the global top-20 window.
+- The user-scoped fetch is conditional on `user?.id` being present so we don't fire `user_id=undefined` against the API before the session loads. `fetchAll`'s dependency array gains `user?.id` so the poll restarts when the session arrives.
+- **Race Feed rename.** Heading text changed from "Live Race Feed" to "Race Feed". The data is completed races only (the service hard-filters `eq(races.status, 'completed')`); "Live" was misleading. Underlying `liveFeed` state name kept as-is for now (CSS class `.liveFeed` still references it and a wider rename would balloon scope).
+
+## 2026-04-30 - Dashboard: Live Race Feed shows pending, Recent Results scrollable + time ago
+
+Wired a `status` query param through the races API + service so the dashboard can pull pending races for the Live Race Feed (the "Live" name now actually means something) and split it from the user's completed-results table.
+
+**Files modified (4):**
+
+- `services/race.service.js`
+  - `getRaces()` no longer hard-codes `eq(races.status, 'completed')`. New `requestedStatus = filters.status || 'completed'` keeps the historical default but lets callers ask for `pending`. Order clause is conditional too: pending sorts by `races.scheduledAt` ASC (soonest first), completed keeps `desc(races.createdAt)`.
+
+- `app/api/races/route.js`
+  - Added `status: url.searchParams.get('status')` to the filters passed into `getRaces()`. No schema validation - the service treats anything unknown as "no rows" via the equality match.
+
+- `app/dashboard/page.jsx`
+  - `fetchAll` now hits `/api/races?status=pending&limit=100` for `liveFeed` and `/api/races?user_id=${user.id}&status=completed&limit=20` for `recentRaces`. Both are stored without slicing client-side.
+  - Live Race Feed JSX rewritten for pending races: rows render `[scheduledAt HH:MM] | drone1 vs drone2 on track`. Empty state copy switched from "No recent races" to "No upcoming races". Added a `<Link href="/races" className=feedSeeAll>See All Races →</Link>` footer under the scrollable list.
+  - Recent Results table grew a 5th column "Time" rendering `formatTimeAgo(r.createdAt)` (compact: `Ns` / `Nm` / `Nh` / `Nd`). Header label "Volts Earned" tightened to "Volts" so the row fits cleanly on narrow screens.
+  - New `formatTimeAgo()` helper at module scope.
+
+- `app/dashboard/page.module.css`
+  - `.resultsHeader / .resultsRow` grid template `1.2fr 1.5fr 80px 110px` → `1.2fr 1.5fr 70px 90px 60px` to make room for the new Time column. Mobile (`max-width: 768px`) template `1fr 1fr 60px 80px` → `1fr 1fr 50px 64px 44px`.
+  - New `.resultsTimeAgo` class colors the relative-time cell at `--text-tertiary` so it doesn't fight WIN/LOSS or the volts cell for attention.
+  - `.feedSeeAll` rule: mono accent-primary right-aligned link with a top border so it reads as a footer of the feed card. Fixed-position via `flex-shrink: 0` so the scrollable list above can resize without pushing it off.
+  - `.resultsTable` gains `max-height: 400px` to match `.feedList`.
+  - Mobile (`max-width: 768px`): both `.feedList` and `.resultsTable` cap at `max-height: 250px` so the dashboard doesn't grow past the viewport on narrow screens. Internal scroll preserved.

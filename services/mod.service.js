@@ -1,8 +1,35 @@
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { ApiError } from '@/lib/api/response.js';
 
-const { mods, droneMods, drones } = schema;
+const { mods, droneMods, drones, races } = schema;
+
+/**
+ * True iff the drone has a PENDING race whose strategy window has closed
+ * (scheduled_at has been reached). Mirrors the same check in skin.service.js;
+ * both services duplicate the helper rather than sharing a third file so
+ * the equip-path lock stays a one-file concern per service.
+ *
+ * @param {string} droneId
+ * @returns {Promise<boolean>}
+ */
+async function isDroneLockedForRace(droneId) {
+  const [row] = await db
+    .select({ id: races.id })
+    .from(races)
+    .where(
+      and(
+        or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)),
+        eq(races.status, 'pending'),
+        sql`${races.scheduledAt} <= NOW()`,
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+const LOCKED_FOR_RACE_MESSAGE =
+  'Drone is locked for an upcoming race. Changes will be available after the race completes.';
 
 /* -------------------------------------------------------------------------- */
 /* Reads                                                                      */
@@ -162,6 +189,14 @@ export async function equipMod(userId, droneId, modId) {
   if (!drone) throw new ApiError('Drone not found', 404);
   if (drone.userId !== userId) {
     throw new ApiError('You do not own this drone', 403);
+  }
+
+  // Lock window: once a pending race for this drone crosses scheduled_at,
+  // every loadout-mutating endpoint rejects until the race completes.
+  // Covers both equip (modId set) and unequip (modId === null) since the
+  // check sits before the null branch.
+  if (await isDroneLockedForRace(droneId)) {
+    throw new ApiError(LOCKED_FOR_RACE_MESSAGE, 409);
   }
 
   if (modId == null) {
