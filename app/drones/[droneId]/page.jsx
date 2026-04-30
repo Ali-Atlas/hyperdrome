@@ -284,6 +284,13 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
           : body?.error || 'Toggle failed';
         showToast(msg, 'error');
       } else {
+        // The DB write lands immediately, but matchmaking only runs at
+        // each cron tick - so the active-flag change doesn't affect
+        // the currently queued race (which loads its drones by ID
+        // from the PENDING row, not by `active`). Toast clarifies the
+        // delay so the user isn't confused when their just-deactivated
+        // drone still races out the current matchup.
+        showToast('Change takes effect next round.', 'info');
         await onReload();
       }
     } catch (err) {
@@ -486,10 +493,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
       ? ((drone.wins / drone.totalRaces) * 100).toFixed(1) + '%'
       : '-';
 
-  const inPendingRace = (drone.recentRaces ?? []).some(
-    (r) => r.status === 'pending',
-  );
-
   const raceRows = (drone.recentRaces ?? []).map((r) => {
     const isDrone1 = r.drone1Id === drone.id;
     const won = r.winnerDroneId === drone.id;
@@ -545,17 +548,11 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                 {isOwner && (
                   <div className={styles.activeControl}>
                     <span className={styles.activeControlLabel}>Active</span>
-                    <span
-                      className={cn(
-                        styles.activeToggleWrap,
-                        inPendingRace && styles.activeToggleLocked,
-                      )}
-                      data-tooltip="In active race"
-                    >
+                    <span className={styles.activeToggleWrap}>
                       <Toggle
                         checked={drone.active}
                         onChange={toggleActive}
-                        disabled={togglePending || inPendingRace}
+                        disabled={togglePending}
                         className={styles.activeToggle}
                       />
                     </span>

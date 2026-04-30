@@ -148,26 +148,37 @@ export async function bindMod(userId, modId, droneId) {
     );
   }
 
-  // Binding now always equips, replacing whatever was previously equipped.
-  // Captain spec: bind means "I want to use this." Mods don't depend on
-  // tier renders, so every bound mod is equippable.
-  await db
-    .update(droneMods)
-    .set({ isEquipped: false })
-    .where(eq(droneMods.droneId, droneId));
+  // Binding auto-equips, replacing whatever was previously equipped -
+  // unless the drone's matchup is queued and waiting on the cron tick.
+  // Lock-bypass guard mirrors equipMod: bind still succeeds so the
+  // collection updates, but the auto-equip side effect is skipped
+  // (the freshly-bound mod sits in the collection unequipped until
+  // the pending race completes). Mods don't depend on tier renders,
+  // so every bound mod is otherwise equippable.
+  const locked = await isDroneLockedForRace(droneId);
+  const shouldEquip = !locked;
+
+  if (shouldEquip) {
+    await db
+      .update(droneMods)
+      .set({ isEquipped: false })
+      .where(eq(droneMods.droneId, droneId));
+  }
 
   await db.insert(droneMods).values({
     droneId,
     modId,
-    isEquipped: true,
+    isEquipped: shouldEquip,
   });
 
-  await db
-    .update(drones)
-    .set({ appliedModId: modId })
-    .where(eq(drones.id, droneId));
+  if (shouldEquip) {
+    await db
+      .update(drones)
+      .set({ appliedModId: modId })
+      .where(eq(drones.id, droneId));
+  }
 
-  return { droneId, modId, isEquipped: true };
+  return { droneId, modId, isEquipped: shouldEquip };
 }
 
 /**

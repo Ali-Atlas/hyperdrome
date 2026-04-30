@@ -1442,6 +1442,41 @@
   margin-right: 6px;
 }
 
+/* At <=564px the ticker splits into two left-aligned rows:
+     Row 1 — `Live · N packs opened today`
+     Row 2 — `MKT_ORBIT pulled Legendary: Mach Zero`
+   The separator hides; tickerPull gets `flex-basis: 100%` so it
+   wraps to its own row. tickerPull also scrolls horizontally if its
+   content (which can include long skin names) is wider than the
+   container. Text shrinks across the row so each line stays compact. */
+@media (max-width: 564px) {
+  .ticker {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    font-size: 9px;
+    gap: 4px var(--space-3);
+    padding: 8px 14px;
+  }
+  .tickerLive {
+    font-size: 8px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .tickerMetric {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .tickerSep {
+    display: none;
+  }
+  .tickerPull {
+    flex-basis: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
 .tickerSep {
   width: 1px;
   height: 14px;
@@ -2631,25 +2666,38 @@
     min-height: 0;
   }
 
-  /* Center pack content at <=768px. Text reads center-aligned, info
-     column children center-stack, and the desktop translateY-15
-     anchor on .packTopRight is dropped (it was pulling the whole
-     info stack 15px below where it should sit when image is above
-     it instead of beside it). */
+  /* Center pack content at <=768px. text-align centers each text
+     element's content; align-self on the Buy Pack button centers it
+     in the .packTopRight flex column without shrinking the description
+     paragraph (which still wants to span full width and center its
+     text inside). The desktop translateY-15 anchor on .packTopRight
+     is dropped — it was pulling the whole info stack 15px below
+     where it should sit when image is above it instead of beside it. */
   .packCard {
     text-align: center;
-    align-items: center;
   }
   .packTopRight {
-    align-items: center;
     align-self: center;
     transform: none;
+  }
+  .packTopRight .packBtn {
+    align-self: center;
   }
   .packCtaRow {
     justify-content: center;
   }
   .pillRow {
     justify-content: center;
+  }
+  /* "MOST POPULAR" pill removed on mobile - the badge's positioning
+     in the side-by-side desktop layout doesn't translate well when
+     the pack stacks above the info, and it crowds the title at this
+     size. The .pillRowSpacer Starter uses for layout parity is also
+     hidden so the two cards' titles sit at matching heights without
+     it. */
+  .pillRow,
+  .pillRowSpacer {
+    display: none;
   }
   /* "Earn volts by racing or buy from the marketplace" hint: matched to
      the `.packPriceSuffix` "(3 skins included)" caption's exact metrics
@@ -2907,14 +2955,47 @@
 
 /* ---------- Responsive ---------- */
 
+/* At <=1440 the heroGrid right column hugs the L-card via min-content
+   (was 30fr which forced the column wider than the L-card itself) and
+   the L-card itself shrinks further (220x310 -> 150x210). This frees
+   up width in the left column, but the legendary's packTopRow keeps
+   its default 1fr/1fr split — same as Premium / Starter — so the gold
+   pack image is roughly the same size as the other packs at this
+   breakpoint, NOT larger. A wider heroGrid gap visually isolates the
+   L-card from the info column to its left. */
+@media (max-width: 1440px) {
+  .heroGrid {
+    grid-template-columns: minmax(0, 1fr) min-content;
+    gap: 56px;
+  }
+  .heroCardStack,
+  .bigLegendaryCard,
+  .particleLayer {
+    width: 150px;
+    height: 210px;
+  }
+  .bigCardL {
+    font-size: 88px;
+  }
+
+  /* Stack Premium and Starter so each pack keeps enough width to
+     comfortably hold its Buy Pack button + 6-up preview grid. */
+  .packsRow {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1100px) {
   .heroGrid {
     grid-template-columns: 1fr;
   }
-  /* Tablet/mobile: L card on top centered, info stacks below. */
+  /* Tablet/mobile: L card on top centered, info stacks below. The
+     small margin-top nudges the L card down a bit at this breakpoint
+     so it doesn't sit flush against the top of the hero card. */
   .heroCardWrap {
     order: -1;
     justify-self: center;
+    margin-top: 20px;
   }
   .heroInfo {
     align-items: flex-start;
@@ -2923,29 +3004,16 @@
     align-self: center;
     width: 180px;
   }
-  .bigLegendaryCard {
-    width: 180px;
-    height: 250px;
-  }
-  .bigCardL {
-    font-size: 110px;
-  }
-  .particleLayer {
-    width: 180px;
-    height: 250px;
-  }
-  .heroCardStack {
-    width: 180px;
-    height: 250px;
-  }
+  /* L-card sizing inherits from the <=1440 block above (180x250). */
 }
 
-/* Stack Premium and Starter from 1440px down so each pack keeps enough
-   width to comfortably hold its Buy Pack button + 6-up preview grid
-   without the button overflowing the card. Above 1440px the side-by-side
-   layout has enough room for both. */
-@media (max-width: 1440px) {
-  .packsRow {
+/* Re-override at <=767 so the legendary packTopRow stacks single-column
+   like Premium / Starter once the L-card disappears. The <=1440 rule
+   above sets it to `2fr 1fr` to give the gold pack image the larger
+   share at desktop tablet sizes; that has to be undone at mobile where
+   the image stacks on top of the info instead of sitting beside it. */
+@media (max-width: 767px) {
+  .packCard_legendary .packTopRow {
     grid-template-columns: 1fr;
   }
 }
@@ -3027,6 +3095,54 @@
   /* Button keeps desktop 240px sizing - the prior `width: 100%`
      override that lived here pre-1440px-stack made the CTA stretch
      across the now-full-width card, which is what Captain flagged. */
+}
+
+/* Late-source re-assert of pack-card centering at <=767px. The block
+   above (`<=900` `.packCard { text-align: left }`) sits later in source
+   than the original <=767 centering block earlier in the file, so at
+   <=767 viewport the 900-block's `text-align: left` was winning by
+   source order and pulling the content back to the left edge. This
+   block re-asserts every center rule AFTER the 900-block so the
+   correct rule wins. */
+@media (max-width: 767px) {
+  .packCard {
+    text-align: center;
+  }
+  .packTopRight {
+    align-self: center;
+    transform: none;
+  }
+  .packTopRight .packBtn {
+    align-self: center;
+  }
+  .packCtaRow {
+    justify-content: center;
+  }
+  /* These two are flex containers in their own right - text-align
+     doesn't reach their children, so center via flex justify-content.
+     Without this, the price (volt + number + "(3 skins included)")
+     and the odds row (Common 100% · Rare 17% · ...) sit left-aligned
+     inside their otherwise-centered column. */
+  .packPriceLarge {
+    justify-content: center;
+  }
+  .oddsText {
+    justify-content: center;
+  }
+  /* 29px clearance below the soft glow shadow under each pack image
+     so the next content row (info column when stacked) doesn't sit
+     up against — or behind — the shadow. The shadow itself is
+     absolute-positioned via .packImgWrap::after so it doesn't push
+     layout; this margin-bottom on the wrap pushes following content
+     down. */
+  .packImgWrap {
+    margin-bottom: 29px;
+  }
+  /* MOST POPULAR pill + matching Starter spacer hidden on mobile. */
+  .pillRow,
+  .pillRowSpacer {
+    display: none;
+  }
 }
 
 /* ==========================================================================
@@ -5828,15 +5944,24 @@
     outline-offset: 2px;
   }
 
-  /* Pack foil locked at a fixed pixel width below 440px - it stops
-     scaling down with the viewport so the pack stays prominent on the
-     narrowest phones. The card's `overflow: hidden` clips any excess
-     cleanly when the viewport gets tighter than the locked width. */
-  .packPackImg_starter,
-  .packPackImg_premium,
-  .packPackImg_legendary {
-    width: 360px;
-    max-width: 360px;
+  /* Pack image shrinks with the viewport at <=440px - no fixed lock.
+     The <=767px max-width: 420px cap (set in the block above) carries
+     through, so the image keeps scaling down along with everything
+     else as the viewport narrows. */
+
+  /* Subtext + rarity-text shrink so the info column reads cleanly at
+     this size without crowding the centered content. */
+  .packCardDescription,
+  .legendaryDescription,
+  .legendaryTagline {
+    font-size: var(--text-xs);
+    line-height: 1.4;
+  }
+  .oddsText {
+    font-size: 9px;
+  }
+  .tickerLive {
+    font-size: 9px;
   }
 }
 

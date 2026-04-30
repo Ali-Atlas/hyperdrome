@@ -4316,3 +4316,30 @@ All edits below are scoped to specific `@media` blocks. Desktop / tablet (>768px
   - New `@media (max-width: 380px) { .grid { grid-template-columns: 1fr } }` for the actual single-column breakpoint, matching the marketplace.
 
 - `app/marketplace/page.jsx`: no edit. The Plus icon is hidden via the `.listItemBtn svg { display: none }` rule inside the 768px block, so JSX stays single-source-of-truth.
+
+## 2026-04-30 - Bind no longer bypasses the mod lock
+
+`bindMod` and `bindSkinToDrone` were always auto-equipping. `equipMod` / `equipSkin` already gate on `isDroneLockedForRace(droneId)` (reject equip after `scheduled_at` has passed), but `bind*` skipped that check, so users could side-step the lock by re-binding a fresh item to swap their loadout into a queued race.
+
+**Files modified (2):**
+
+- `services/skin.service.js`
+  - `bindSkinToDrone`: `shouldEquip` now combines the existing `canEquipSkin` tier check with `!await isDroneLockedForRace(droneId)`. Non-renderable skins keep the no-equip branch they had; the new lock branch joins them. The bind always succeeds (collection updates), only the auto-equip is suppressed.
+
+- `services/mod.service.js`
+  - `bindMod`: introduced `shouldEquip = !await isDroneLockedForRace(droneId)`. The "clear other equipped" `UPDATE droneMods` and the `drones.appliedModId` write are now both gated on `shouldEquip`. Insert always happens with `isEquipped: shouldEquip`. Return shape preserved (`{ droneId, modId, isEquipped }`) so callers see whether the bind also took effect.
+
+**Result:** during a queued race window, a fresh bind drops the item into the drone's inventory unequipped. After the race completes the lock lifts and the user can equip via the existing flow.
+
+## 2026-04-30 - Footer "Racing in Progress" + drone-active toggle no longer locked during pending
+
+**Files modified (2):**
+
+- `components/ui/NavShell/index.jsx`
+  - `CountdownBar` now derives a `batchExpired = batchAt != null && batchAt <= now` flag. When true, the Next-Round cell renders `<span class="countdownInProgress">RACING IN PROGRESS</span>` (existing accent-primary + pulse style) instead of the MM:SS countdown. The hold lasts until the next `/api/races/next` poll returns a fresh future timestamp - the visible value never jumps with stale "00:00 → 00:01" data while the cron tick lands. Mod Lock cell unchanged (its `MOD LOCKED` state already covered the same lifecycle).
+
+- `app/drones/[droneId]/page.jsx`
+  - Removed the `inPendingRace` boolean and both of its consumers: the `disabled={togglePending || inPendingRace}` on the Active toggle now reads as `disabled={togglePending}`, and the `activeToggleLocked` class + `data-tooltip="In active race"` wrapper attribute are gone (the locked-tooltip CSS still ships unused, no-cost).
+  - `toggleActive` adds an `info` toast on success: `"Change takes effect next round."` Lets the user flip active/inactive immediately even when their drone is in a queued race; the queued race itself is unaffected because `executePendingRace` loads drones by id from the PENDING row, not by the `active` flag. Matchmaking honors the new flag at the next cron tick.
+
+**`services/drone.service.js`:** no edit needed. The block was UI-only - the service's `toggleActive` only enforces the slot-count cap, never checked pending-race status.

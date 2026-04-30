@@ -172,13 +172,16 @@ export async function bindSkinToDrone(userId, skinId, droneId) {
     );
   }
 
-  // Binding now always equips the skin if it's renderable on this drone's
-  // tier, replacing whatever was previously equipped. Captain spec: bind
-  // means "I want to use this." Non-renderable skins (frontend filters
-  // these out with a demo toast) bind without equipping as a defense in
-  // depth; the user keeps them in the collection but the drone keeps its
-  // current visual.
-  const shouldEquip = canEquipSkin(skin, drone.level);
+  // Binding equips the skin only when it's renderable on this drone's
+  // tier AND the drone isn't locked into a pending race past its
+  // scheduled time. Non-renderable skins bind without equipping (the
+  // user keeps them in the collection but the drone keeps its current
+  // visual). Lock-bypass guard mirrors equipSkin: if the drone's
+  // matchup is queued and waiting on the cron tick, mods/skins are
+  // frozen until the race completes - the bind still succeeds so the
+  // collection updates, just without the auto-equip side effect.
+  const locked = await isDroneLockedForRace(droneId);
+  const shouldEquip = canEquipSkin(skin, drone.level) && !locked;
 
   if (shouldEquip) {
     // Clear any currently-equipped skin on this drone so the new one is

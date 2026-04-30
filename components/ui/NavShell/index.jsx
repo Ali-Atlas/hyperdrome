@@ -211,31 +211,57 @@ function CountdownBar() {
   const [paused, setPaused] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
-  // Poll the next-batch endpoint. 30s cadence as specced; the timer
-  // continues to count locally between polls.
+  // Adaptive poll for /api/races/next. The cadence flips between 30s
+  // (the next-batch timestamp is comfortably in the future) and 2s
+  // (the current batch has elapsed and the cron is mid-process).
+  // Recursive setTimeout (instead of setInterval) so each tick can
+  // pick its own delay based on the freshest response: when we have
+  // a future timestamp we aim to poll just past its expiration so
+  // RACING IN PROGRESS lights up and fast-poll mode takes over within
+  // ~2s of the server finishing the cycle. Closest to instant we can
+  // get without websockets.
   useEffect(() => {
     let cancelled = false;
+    let timerId = null;
+    const FAST_MS = 2_000;
+    const SLOW_MS = 30_000;
+
     const tick = async () => {
+      let nextBatchAt = null;
       try {
         const res = await fetch('/api/races/next');
         const body = await res.json();
-        if (cancelled || !body?.data) return;
-        if (body.data.paused) {
+        if (cancelled) return;
+        if (body?.data?.paused) {
           setPaused(true);
           setBatchAt(null);
-          return;
+        } else if (body?.data) {
+          setPaused(false);
+          nextBatchAt = body.data.nextRaceAt
+            ? new Date(body.data.nextRaceAt).getTime()
+            : null;
+          setBatchAt(nextBatchAt);
         }
-        setPaused(false);
-        setBatchAt(body.data.nextRaceAt ? new Date(body.data.nextRaceAt).getTime() : null);
       } catch {
-        /* keep stale */
+        /* network blip - fall through to scheduling */
       }
+      if (cancelled) return;
+      // remaining > 100 ms: aim to poll right after expiration (or at
+      // 30s, whichever comes first). 100ms buffer absorbs clock skew so
+      // the very next poll lands AFTER the new cycle has started.
+      // remaining <= 100 ms (or null): we're already in / past the
+      // server-processing window; fast-poll until a fresh future
+      // timestamp comes back.
+      const remaining = nextBatchAt != null ? nextBatchAt - Date.now() : 0;
+      const delay =
+        remaining > 100 ? Math.min(remaining + 100, SLOW_MS) : FAST_MS;
+      timerId = setTimeout(tick, delay);
     };
+
     tick();
-    const id = setInterval(tick, 30_000);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      if (timerId) clearTimeout(timerId);
     };
   }, []);
 
@@ -254,6 +280,11 @@ function CountdownBar() {
   };
 
   const batchText = formatRemaining(batchAt);
+  // Once batchAt elapses, the cron tick is firing right now (or any
+  // moment). Hold "RACING IN PROGRESS" until /api/races/next polls
+  // back a fresh future timestamp - prevents the visible MM:SS from
+  // jumping at 00:00 with stale data while the server catches up.
+  const batchExpired = batchAt != null && batchAt <= now;
   // Derive the mod-lock target from the same next-race timestamp.
   const modLockAt = batchAt != null ? batchAt - MOD_LOCK_LEAD_MS : null;
   const modLockExpired = modLockAt != null && modLockAt <= now;
@@ -266,10 +297,18 @@ function CountdownBar() {
       ) : (
         <>
           <span className={styles.countdownItem}>
-            <span className={styles.countdownLabel}>Next Round in</span>
-            <span className={styles.countdownValue}>
-              {batchText ?? '--:--'}
-            </span>
+            {batchExpired ? (
+              <span className={styles.countdownInProgress}>
+                RACING IN PROGRESS
+              </span>
+            ) : (
+              <>
+                <span className={styles.countdownLabel}>Next Round in</span>
+                <span className={styles.countdownValue}>
+                  {batchText ?? '--:--'}
+                </span>
+              </>
+            )}
           </span>
           <span className={styles.countdownSep} aria-hidden="true">
             ·

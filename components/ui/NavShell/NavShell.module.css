@@ -421,6 +421,27 @@
   50% { opacity: 0.55; }
 }
 
+/* Mid-mobile shrink: at 560px and below, every text element in the
+   countdown bar drops from --text-xs (~12px) to 10px so the
+   "Next Round in MM:SS · Mod Lock in MM:SS · My Races" row stops
+   squeezing against the bar edges before the labels actually drop
+   away at 480px. Setting the parent .countdownBar font-size catches
+   .countdownSep (which inherits); each labeled child overrides --text-xs
+   explicitly, so they're listed individually. */
+@media (max-width: 560px) {
+  .countdownBar {
+    font-size: 10px;
+  }
+  .countdownLabel,
+  .countdownValue,
+  .countdownLockedText,
+  .countdownMyRaces.countdownMyRaces,
+  .countdownPaused,
+  .countdownInProgress {
+    font-size: 10px;
+  }
+}
+
 /* Small-mobile collapse: drop the "Next Round in" / "Mod Lock in"
    labels so the bar fits on a 375px-wide phone without horizontal
    squeeze. The countdown values, the separator, and the My Races
