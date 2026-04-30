@@ -575,7 +575,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   stats={editedStats}
                   labels={radarLabels}
                   className={styles.radar}
-                  maxValue={cap}
+                  maxValue={100}
                 />
 
                 <div className={styles.droneMeta}>

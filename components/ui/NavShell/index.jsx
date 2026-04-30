@@ -206,10 +206,105 @@ export default function NavShell({ children }) {
  * schedule) or `PENDING_WINDOW_SECONDS` changes. */
 const MOD_LOCK_LEAD_MS = 60 * 1000;
 
+/* sessionStorage keys for the countdown bar. These let a remount (every
+ * SPA-style page navigation) hydrate from the last known values
+ * instantly, before the first poll returns. Without this, the footer
+ * flickers '--:--' / empty races every time the user changes pages
+ * because NavShell remounts and the countdown's state resets to its
+ * initial empty values. */
+const CB_STORAGE = {
+  batchAt: 'nav.countdown.batchAt',
+  paused:  'nav.countdown.paused',
+  upcoming: 'nav.countdown.upcomingRaces',
+};
+
+/* Drop a cached batchAt that's more than 5 minutes old. The race cycle
+ * is 3 minutes, so a >5min stale timestamp means we missed at least one
+ * processing window — show '--:--' rather than a guaranteed-wrong stale
+ * value. Fresher misses ride out within the next 2-30s poll. */
+const CB_BATCH_TTL_MS = 5 * 60 * 1000;
+
+function readCachedBatchAt() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(CB_STORAGE.batchAt);
+    if (!raw) return null;
+    const ts = Number(raw);
+    if (!Number.isFinite(ts)) return null;
+    if (ts < Date.now() - CB_BATCH_TTL_MS) return null;
+    return ts;
+  } catch { return null; }
+}
+
+function readCachedPaused() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(CB_STORAGE.paused) === 'true';
+  } catch { return false; }
+}
+
+function readCachedUpcoming() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = sessionStorage.getItem(CB_STORAGE.upcoming);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+
+function writeCache(key, value) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (value == null) {
+      sessionStorage.removeItem(key);
+    } else {
+      sessionStorage.setItem(
+        key,
+        typeof value === 'string' ? value : JSON.stringify(value),
+      );
+    }
+  } catch { /* quota / privacy mode - safe to ignore */ }
+}
+
 function CountdownBar() {
-  const [batchAt, setBatchAt] = useState(null);
-  const [paused, setPaused] = useState(false);
+  /* All three state slots hydrate from sessionStorage on mount via lazy
+   * initializers. Server-side render (and the matching first hydration
+   * frame) get null/false/[] because window is undefined; subsequent
+   * client mounts (SPA navigation) read the last successful poll's
+   * values and render them instantly while the new poll is in flight. */
+  const [batchAt, setBatchAt] = useState(readCachedBatchAt);
+  const [paused, setPaused] = useState(readCachedPaused);
   const [now, setNow] = useState(() => Date.now());
+  /* User's pending/upcoming races - rendered as numbered links to the
+   * right of the timers. Polled on a 15s cadence (independent of the
+   * main next-batch poll above). The parent NavShell only mounts this
+   * component when the user is authenticated, so we don't read the
+   * session here - that would subscribe the bar to session updates
+   * and force unnecessary re-renders. */
+  const [upcomingRaces, setUpcomingRaces] = useState(readCachedUpcoming);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/races/upcoming');
+        const body = await res.json();
+        if (!cancelled && res.ok && body?.data?.races) {
+          setUpcomingRaces(body.data.races);
+          writeCache(CB_STORAGE.upcoming, body.data.races);
+        }
+      } catch {
+        /* keep stale list */
+      }
+    };
+    load();
+    const id = setInterval(load, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   // Adaptive poll for /api/races/next. The cadence flips between 30s
   // (the next-batch timestamp is comfortably in the future) and 2s
@@ -234,13 +329,21 @@ function CountdownBar() {
         if (cancelled) return;
         if (body?.data?.paused) {
           setPaused(true);
-          setBatchAt(null);
+          writeCache(CB_STORAGE.paused, 'true');
+          /* DO NOT clear batchAt here. The paused branch hides the
+             timer regardless, and clearing it would force a flicker
+             back to '--:--' if the server briefly bounces between
+             paused and not-paused (or if a remount lands during a
+             paused poll). Keep the last known value cached so unpause
+             resumes instantly. */
         } else if (body?.data) {
           setPaused(false);
+          writeCache(CB_STORAGE.paused, 'false');
           nextBatchAt = body.data.nextRaceAt
             ? new Date(body.data.nextRaceAt).getTime()
             : null;
           setBatchAt(nextBatchAt);
+          writeCache(CB_STORAGE.batchAt, nextBatchAt != null ? String(nextBatchAt) : null);
         }
       } catch {
         /* network blip - fall through to scheduling */
@@ -333,15 +436,36 @@ function CountdownBar() {
               </>
             )}
           </span>
+          {/* Pipe `|` separator before the Races group so the eye reads
+              the numbered links as a distinct cluster from the
+              countdowns on the left. Hidden at the smallest mobile
+              breakpoint via `.countdownSepRaces`. */}
           <span
-            className={`${styles.countdownSep} ${styles.countdownSepMyRaces}`}
+            className={`${styles.countdownSepPipe} ${styles.countdownSepRaces}`}
             aria-hidden="true"
           >
-            ·
+            |
           </span>
-          <Link href="/races?mine=1" className={styles.countdownMyRaces}>
-            My Races
-          </Link>
+          <span className={styles.countdownRacesGroup}>
+            <span className={styles.countdownLabel}>Races:</span>
+            {upcomingRaces.length === 0 ? (
+              <span className={styles.countdownRacesEmpty}>--</span>
+            ) : (
+              /* No active-state highlighting: the bar deliberately
+                 doesn't subscribe to pathname so it doesn't re-render
+                 on navigation. Every number stays accent-teal; users
+                 still get hover feedback. */
+              upcomingRaces.map((race, i) => (
+                <Link
+                  key={race.id}
+                  href={`/races/${race.id}`}
+                  className={styles.countdownRaceLink}
+                >
+                  {i + 1}
+                </Link>
+              ))
+            )}
+          </span>
         </>
       )}
     </div>

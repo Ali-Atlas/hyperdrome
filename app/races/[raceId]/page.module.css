@@ -87,6 +87,43 @@
   background: var(--text-tertiary);
 }
 
+/* Prev/next chevron pair that sits where the FINAL pill used to be on
+   the completed-race header. Mirrors the matchup view's H2HStrip
+   arrows (subtle teal-outlined squares; bright on hover) so the two
+   surfaces feel like part of the same navigation pattern. Each arrow
+   only renders when the corresponding neighbor exists - no disabled
+   greyed state, just absent. */
+.raceNavArrows {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.raceNavArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 1px solid rgba(3, 218, 198, 0.4);
+  border-radius: var(--radius-sm);
+  color: var(--accent-primary);
+  text-decoration: none;
+  flex-shrink: 0;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.raceNavArrow:hover {
+  background: rgba(3, 218, 198, 0.16);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
 /* ==========================================================================
  * Headline result banner
  * ========================================================================== */
@@ -333,6 +370,38 @@
   min-height: 220px;
   display: flex;
   flex-direction: column;
+}
+
+/* Header bar for the Lead Tracker card. Stacks the title and the
+   "[winner]'s advantage" subline vertically while keeping the same
+   greyed bar treatment + border-bottom as the standalone
+   `.sectionHeading` used by other cards. The nested `.sectionHeading`
+   gets its own background / border / padding stripped so this wrapper
+   owns the bar chrome. */
+.gapHeaderBar {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--header-bar-bg);
+  border-bottom: 1px solid var(--border-default);
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.gapHeaderBar .sectionHeading {
+  background: transparent;
+  border-bottom: none;
+  padding: 0;
+  min-height: auto;
+  line-height: 1.1;
+}
+
+.gapHeaderSub {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: 1.2;
 }
 
 /* Empty-state placeholder shown when the race log doesn't have enough

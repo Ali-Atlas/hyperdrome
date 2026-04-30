@@ -34,10 +34,7 @@ import SkinThumb from '@/components/ui/SkinThumb';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import TrackPlaceholder from '@/components/tracks/TrackPlaceholder';
-import {
-  STAT_KEYS,
-  calculatePerStatCap,
-} from '@/lib/game-engine/economy.js';
+import { STAT_KEYS } from '@/lib/game-engine/economy.js';
 import styles from './page.module.css';
 
 /** Tracks with a transparent-optimized image at /tracks/<slug>.webp.
@@ -251,6 +248,39 @@ export default function RaceDetailPage({ params }) {
   const [race, setRace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  /* Chronological neighbors for the prev/next chevrons in the FINAL
+   * header. Both null until the lookup completes; null also marks
+   * "no older / newer race exists" so the corresponding arrow hides.
+   * Only fetched once the user is authenticated and the race has
+   * resolved into the completed view. */
+  const [adjacent, setAdjacent] = useState({
+    prevRaceId: null,
+    nextRaceId: null,
+  });
+
+  useEffect(() => {
+    if (!viewerUserId || race?.status !== 'completed') {
+      setAdjacent({ prevRaceId: null, nextRaceId: null });
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/races/${raceId}/adjacent`);
+        const body = await res.json();
+        if (cancelled || !res.ok || !body?.data) return;
+        setAdjacent({
+          prevRaceId: body.data.prevRaceId ?? null,
+          nextRaceId: body.data.nextRaceId ?? null,
+        });
+      } catch {
+        /* keep nulls; arrows just don't render */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [raceId, race?.status, viewerUserId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -412,14 +442,38 @@ export default function RaceDetailPage({ params }) {
               {formatTimestamp(race.createdAt)}
             </span>
           </div>
-          <div
-            className={`${styles.statusPill} ${
-              isComplete ? styles.statusFinal : styles.statusLive
-            }`}
-          >
-            <span className={styles.statusDot} aria-hidden="true" />
-            <span>{isComplete ? 'FINAL' : 'LIVE'}</span>
-          </div>
+          {isComplete ? (
+            /* Chronological prev/next nav across the user's COMPLETED
+               races, populated by /api/races/[raceId]/adjacent. Each
+               arrow hides entirely (instead of rendering disabled)
+               when the corresponding neighbor doesn't exist - matches
+               the H2HStrip arrows on the matchup view. */
+            <div className={styles.raceNavArrows}>
+              {adjacent.prevRaceId && (
+                <Link
+                  href={`/races/${adjacent.prevRaceId}`}
+                  className={styles.raceNavArrow}
+                  aria-label="Previous completed race"
+                >
+                  <ChevronLeft size={14} aria-hidden="true" />
+                </Link>
+              )}
+              {adjacent.nextRaceId && (
+                <Link
+                  href={`/races/${adjacent.nextRaceId}`}
+                  className={styles.raceNavArrow}
+                  aria-label="Next completed race"
+                >
+                  <ChevronRight size={14} aria-hidden="true" />
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className={`${styles.statusPill} ${styles.statusLive}`}>
+              <span className={styles.statusDot} aria-hidden="true" />
+              <span>LIVE</span>
+            </div>
+          )}
         </div>
 
         {/* ---- Headline result banner ---- */}
@@ -524,7 +578,14 @@ export default function RaceDetailPage({ params }) {
               when the race log is too short to plot gaps (or missing
               entirely on legacy rows). */}
           <Card className={styles.gapCard}>
-            <h2 className={styles.sectionHeading}>Gap Over Race</h2>
+            <div className={styles.gapHeaderBar}>
+              <h2 className={styles.sectionHeading}>Lead Tracker</h2>
+              {winnerDrone?.name && (
+                <span className={styles.gapHeaderSub}>
+                  {winnerDrone.name}&apos;s advantage
+                </span>
+              )}
+            </div>
             {gaps.length > 1 ? (
               <div className={styles.sparklineWrap}>
                 <GapSparkline gaps={gaps} segmentTimes={segmentTimes} />
@@ -1204,9 +1265,13 @@ function RaceStrategyView({ race }) {
   const leftDrone = userDroneIsDrone2 ? drone2 : drone1;
   const rightDrone = userDroneIsDrone2 ? drone1 : drone2;
 
-  const lvl1 = drone1?.level ?? 1;
-  const lvl2 = drone2?.level ?? 1;
-  const radarMax = calculatePerStatCap(Math.max(lvl1, lvl2));
+  // Radar axes plot against the absolute stat ceiling (100), NOT the
+  // per-level cap. This way a LV3 drone reads visibly small and a LV20
+  // drone reads visibly large on the same chart - the level difference
+  // is the entire point of comparing them. Plotting against the level
+  // cap would make every drone's radar look similarly full regardless
+  // of level, defeating the purpose.
+  const radarMax = 100;
 
   // Resolve prev/next race ids from the user's upcoming list. Wraps
   // around so prev from the first race lands on the last and vice

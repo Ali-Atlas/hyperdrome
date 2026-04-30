@@ -25,7 +25,6 @@ import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import StatRadar from '@/components/ui/StatRadar';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
-import { calculatePerStatCap } from '@/lib/game-engine/economy';
 import { useSession } from '@/hooks/useSession';
 import styles from './page.module.css';
 
@@ -594,15 +593,13 @@ function NextRaceMatchup({ race, totalCount }) {
   const opponent = isUserDrone1 ? race.drone2 : race.drone1;
   const moreCount = Math.max(0, (totalCount ?? 0) - 1);
 
-  // Shared radar max for both sides: the higher of the two drones'
-  // per-level stat caps. Both radars then render on the same scale so
-  // a stronger drone's polygon is visibly larger than a weaker one's,
-  // and the matchup correctly shows the strength gap instead of each
-  // radar auto-scaling to its own drone (which flattens differences).
-  const radarMax = Math.max(
-    calculatePerStatCap(userDrone?.level ?? 1),
-    calculatePerStatCap(opponent?.level ?? 1),
-  );
+  // Radar axes plot against the absolute stat ceiling (100), NOT the
+  // per-level cap. A LV3 drone reads visibly small and a LV20 drone
+  // reads visibly large on the same chart - the level difference is
+  // the entire point of comparing them. Plotting against the per-level
+  // cap would make every drone's radar look similarly full regardless
+  // of level, flattening the very strength gap the chart should show.
+  const radarMax = 100;
 
   return (
     <div className={styles.nextRaceBody}>

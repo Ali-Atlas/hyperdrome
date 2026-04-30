@@ -63,14 +63,14 @@ const XP_PER_LOSS = 4;
  * name in race results.
  */
 const DEMO_DRONES = [
-  { archetype: 'STRIKER', level: 18, active: true,  equippedSkinPolicy: 'diamond' },
-  { archetype: 'RUNNER',  level: 3,  active: true,  equippedSkinPolicy: 'ember' },
-  { archetype: 'VIPER',   level: 17, active: true,  equippedSkinPolicy: 'tier4_rotation' },
-  { archetype: 'SCOUT',   level: 12, active: false },
-  { archetype: 'BOLT',    level: 7,  active: false },
-  { archetype: 'HAWK',    level: 16, active: false },
-  { archetype: 'PHANTOM', level: 5,  active: false },
-  { archetype: 'GHOST',   level: 14, active: false },
+  { archetype: 'STRIKER', level: 18, active: true,  profile: 'speedster',   equippedSkinPolicy: 'diamond' },
+  { archetype: 'RUNNER',  level: 3,  active: true,  profile: 'balanced',    equippedSkinPolicy: 'ember' },
+  { archetype: 'VIPER',   level: 17, active: true,  profile: 'cornerer',    equippedSkinPolicy: 'tier4_rotation' },
+  { archetype: 'SCOUT',   level: 12, active: false, profile: 'allrounder' },
+  { archetype: 'BOLT',    level: 7,  active: false, profile: 'speedster' },
+  { archetype: 'HAWK',    level: 16, active: false, profile: 'nightHunter' },
+  { archetype: 'PHANTOM', level: 5,  active: false, profile: 'balanced' },
+  { archetype: 'GHOST',   level: 14, active: false, profile: 'tank' },
 ];
 
 /** demoIndex % 5 -> which tier-4 epic equips on VIPER. */
@@ -96,7 +96,6 @@ const TSB_PER_LEVEL = 20;
 const STAT_CAP_BASE = 10;
 const STAT_CAP_PER_LEVEL = 4.5;
 
-const STAT_KEYS_RANDOMIZED = ['speed', 'turning', 'acceleration', 'durability'];
 const ALL_STAT_KEYS = [
   'speed',
   'turning',
@@ -109,6 +108,24 @@ const ALL_STAT_KEYS = [
   'consistency',
 ];
 
+/* Profile weight vectors duplicated from scripts/seed-production.js so the
+ * demo seeder can build organic-looking, archetype-flavored drones with
+ * the same algorithm prod uses for racing bots. Indexes line up with
+ * ALL_STAT_KEYS. Every weight is >=1 so every stat receives points and
+ * the full TSB is always consumed. */
+const BOT_PROFILES = {
+  balanced:    [1, 1, 1, 1, 1, 1, 1, 1, 1],
+  speedster:   [3, 1, 3, 1, 1, 1, 1, 3, 1],
+  cornerer:    [1, 4, 1, 2, 1, 1, 1, 1, 2],
+  tank:        [1, 1, 1, 4, 1, 2, 1, 1, 2],
+  nightHunter: [2, 1, 1, 1, 4, 1, 1, 1, 1],
+  rainRider:   [1, 2, 1, 1, 1, 1, 4, 1, 2],
+  windWalker:  [2, 1, 2, 1, 1, 1, 1, 4, 1],
+  marathoner:  [2, 1, 1, 2, 1, 4, 1, 1, 1],
+  consistent:  [1, 2, 1, 1, 1, 1, 1, 1, 5],
+  allrounder:  [2, 2, 2, 2, 1, 1, 1, 1, 2],
+};
+
 /* -------------------------------------------------------------------------- */
 /* RNG / utility                                                              */
 /* -------------------------------------------------------------------------- */
@@ -116,33 +133,39 @@ const ALL_STAT_KEYS = [
 const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-function tsbForLevel(level) {
-  return TSB_BASE + TSB_PER_LEVEL * level;
-}
-function statCapForLevel(level) {
-  return Math.min(100, STAT_CAP_BASE + Math.floor(STAT_CAP_PER_LEVEL * level));
-}
-
 /**
- * Bias 4 headline stats high, leave the other 5 at 1, trim to TSB.
- * Matches the prior buildDemoStats so the look-and-feel of demo drones
- * doesn't shift under the H2 rewrite.
+ * Distribute the full TSB across all 9 stats per the profile's weight
+ * vector. Mirrors `buildStats` in scripts/seed-production.js exactly so
+ * demo drones use the same algorithm as the racing bots and end up with
+ * organic, archetype-flavored stat lines (no more 5 secondaries stuck
+ * at 1, no more wasted TSB).
  */
-function buildDemoStats(level) {
-  const cap = statCapForLevel(level);
-  const tsb = tsbForLevel(level);
+function buildStats(level, profileName) {
+  const tsb = TSB_BASE + TSB_PER_LEVEL * level;
+  const cap = Math.min(100, STAT_CAP_BASE + Math.floor(STAT_CAP_PER_LEVEL * level));
+  const points = tsb - 9;
+  const weights = BOT_PROFILES[profileName] ?? BOT_PROFILES.balanced;
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+
   const stats = Object.fromEntries(ALL_STAT_KEYS.map((k) => [k, 1]));
-  for (const key of STAT_KEYS_RANDOMIZED) {
-    stats[key] = randInt(5, cap);
+  let assigned = 0;
+  for (let i = 0; i < ALL_STAT_KEYS.length; i++) {
+    const share = Math.floor((points * weights[i]) / totalWeight);
+    stats[ALL_STAT_KEYS[i]] = Math.min(cap, 1 + share);
+    assigned += stats[ALL_STAT_KEYS[i]] - 1;
   }
-  let total = Object.values(stats).reduce((a, b) => a + b, 0);
+  let remaining = points - assigned;
   let guard = 0;
-  while (total > tsb && guard < 1000) {
-    const reducible = STAT_KEYS_RANDOMIZED.filter((k) => stats[k] > 5);
-    if (reducible.length === 0) break;
-    const k = pick(reducible);
-    stats[k] -= 1;
-    total -= 1;
+  while (remaining > 0 && guard < 100) {
+    let placed = 0;
+    for (let k = 0; k < ALL_STAT_KEYS.length && remaining > 0; k++) {
+      if (stats[ALL_STAT_KEYS[k]] < cap) {
+        stats[ALL_STAT_KEYS[k]] += 1;
+        remaining -= 1;
+        placed += 1;
+      }
+    }
+    if (placed === 0) break;
     guard += 1;
   }
   return { stats, tsb };
@@ -468,7 +491,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   // use that map to find each archetype's drone (STRIKER, RUNNER, etc.).
   const droneRows = [];
   for (const d of DEMO_DRONES) {
-    const { stats, tsb } = buildDemoStats(d.level);
+    const { stats, tsb } = buildStats(d.level, d.profile);
     const name = await generateUniqueDroneName(db, drones);
     droneRows.push({
       userId,

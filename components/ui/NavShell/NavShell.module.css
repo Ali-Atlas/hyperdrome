@@ -369,34 +369,62 @@
   color: var(--text-tertiary);
 }
 
-/* Hide just the separator that sits before "My Races" on smallest
-   mobile - the other countdownSep (between Next Round and Mod Lock)
-   stays. */
+/* Hide the `|` pipe separator that sits before the Races group on the
+   smallest mobile - the other countdownSep (between Next Round and Mod
+   Lock) stays. The numbered race links themselves still render. */
 @media (max-width: 480px) {
-  .countdownSepMyRaces {
+  .countdownSepRaces {
     display: none;
   }
 }
 
-/* "My Races" shortcut sitting at the right edge of the countdown bar.
-   Doubled selector locks specificity at (0,0,2,0) so generic anchor
-   color: inherit / parent-bar color rules can't dim it. Subtle teal
-   text-shadow makes the link read as a "bright" accent peer to the
-   timers next to it without being garish. */
-.countdownMyRaces.countdownMyRaces {
+/* `|` pipe separator that splits the timer cluster on the left from
+   the numbered upcoming-race shortcuts on the right. Slightly heavier
+   than the `·` separator between Next Round and Mod Lock to read as a
+   group divider rather than an item-to-item beat. */
+.countdownSepPipe {
+  color: var(--text-tertiary);
+  letter-spacing: 0;
+  font-weight: var(--font-medium);
+}
+
+/* Wrapper for "Races: 1 2 3" - inline-flex so the numbered links sit
+   tight against the label and each other. */
+.countdownRacesGroup {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* Empty state when the user has no pending races. */
+.countdownRacesEmpty {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+}
+
+/* Numbered race shortcut. Doubled selector pins specificity to
+   (0,0,2,0) so generic anchor `color: inherit` / parent-bar color
+   rules can't dim it. Subtle teal text-shadow gives the same "bright
+   accent" feel the prior My Races link had, scaled per-link. */
+.countdownRaceLink.countdownRaceLink {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: var(--font-bold);
   color: var(--accent-primary);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
   text-decoration: none;
   white-space: nowrap;
-  text-shadow: 0 0 6px rgba(3, 218, 198, 0.45);
-  transition: filter var(--duration-fast) var(--ease-out);
+  padding: 0 2px;
+  text-shadow: 0 0 6px rgba(3, 218, 198, 0.35);
+  transition:
+    filter var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
-.countdownMyRaces.countdownMyRaces:hover {
+.countdownRaceLink.countdownRaceLink:hover {
   filter: brightness(1.2);
 }
 
@@ -435,7 +463,8 @@
   .countdownLabel,
   .countdownValue,
   .countdownLockedText,
-  .countdownMyRaces.countdownMyRaces,
+  .countdownRaceLink.countdownRaceLink,
+  .countdownRacesEmpty,
   .countdownPaused,
   .countdownInProgress {
     font-size: 10px;
