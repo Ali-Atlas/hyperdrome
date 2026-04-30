@@ -188,7 +188,8 @@ export default function NavShell({ children }) {
 /* 15s. Renders only for authenticated users (gated above).                  */
 /* -------------------------------------------------------------------------- */
 
-/* The Mod Lock timer counts down to when matchups lock for execution.
+/* The Strategy Lock timer counts down to when matchups lock for
+ * execution (player can no longer swap mods after this point).
  * Server-side that target is `scheduled_at = createdAt + PENDING_WINDOW_SECONDS`
  * on each PENDING race (PENDING_WINDOW_SECONDS = 120s in
  * `services/race.service.js`). Matchups are created at the start of a
@@ -197,14 +198,14 @@ export default function NavShell({ children }) {
  *
  *   scheduled_at = batchAt - CRON_CYCLE_SECONDS + PENDING_WINDOW_SECONDS
  *                = batchAt - (CRON_CYCLE_SECONDS - PENDING_WINDOW_SECONDS)
- *                = batchAt - MOD_LOCK_LEAD_MS
+ *                = batchAt - STRATEGY_LOCK_LEAD_MS
  *
  * With the current 180s cron cadence and 120s strategy window the lead
  * is 60s, so the timer reads ~120s at the start of a cycle (the full
  * strategy window) and counts down to 0 when mods lock. Update this
  * constant if either the cron cadence (vercel.json's every-3-minute
  * schedule) or `PENDING_WINDOW_SECONDS` changes. */
-const MOD_LOCK_LEAD_MS = 60 * 1000;
+const STRATEGY_LOCK_LEAD_MS = 60 * 1000;
 
 /* sessionStorage keys for the countdown bar. These let a remount (every
  * SPA-style page navigation) hydrate from the last known values
@@ -389,9 +390,9 @@ function CountdownBar() {
   // jumping at 00:00 with stale data while the server catches up.
   const batchExpired = batchAt != null && batchAt <= now;
   // Derive the mod-lock target from the same next-race timestamp.
-  const modLockAt = batchAt != null ? batchAt - MOD_LOCK_LEAD_MS : null;
-  const modLockExpired = modLockAt != null && modLockAt <= now;
-  const modLockText = formatRemaining(modLockAt);
+  const strategyLockAt = batchAt != null ? batchAt - STRATEGY_LOCK_LEAD_MS : null;
+  const strategyLockExpired = strategyLockAt != null && strategyLockAt <= now;
+  const strategyLockText = formatRemaining(strategyLockAt);
 
   return (
     <div className={styles.countdownBar} aria-label="Race timing">
@@ -417,21 +418,21 @@ function CountdownBar() {
             ·
           </span>
           <span
-            className={`${styles.countdownItem} ${styles.countdownItemModLock}`}
+            className={`${styles.countdownItem} ${styles.countdownItemStrategyLock}`}
           >
-            {modLockExpired ? (
+            {strategyLockExpired ? (
               <span
                 className={`${styles.countdownLockedText} ${styles.countdownValueWarning}`}
               >
-                MOD LOCKED
+                LOCKED IN
               </span>
             ) : (
               <>
-                <span className={styles.countdownLabel}>Mod Lock in</span>
+                <span className={styles.countdownLabel}>Strategy Lock in</span>
                 <span
                   className={`${styles.countdownValue} ${styles.countdownValueWarning}`}
                 >
-                  {modLockText ?? '--:--'}
+                  {strategyLockText ?? '--:--'}
                 </span>
               </>
             )}

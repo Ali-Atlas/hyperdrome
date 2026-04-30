@@ -663,7 +663,7 @@ function NextRaceMatchup({ race, totalCount }) {
  *  passed and it's still pending - waiting on the next cron tick to
  *  execute. The countdown itself was removed from the next-race card:
  *  the global footer (NavShell `CountdownBar`) is the single source of
- *  truth for both "Next Round" and "Mod Lock" timers, so duplicating
+ *  truth for both "Next Round" and "Strategy Lock" timers, so duplicating
  *  one of them in the card was redundant. The badge tick (1s) is
  *  cheap and lets the badge appear right when scheduledAt elapses. */
 function RaceQueuedBadge({ scheduledAt, status }) {

@@ -237,7 +237,7 @@ export async function equipSkin(userId, droneId, skinId) {
     throw new ApiError('You do not own this drone', 403);
   }
 
-  // Mod lock applies to skins too: once a pending race for this drone
+  // Strategy lock applies to skins too: once a pending race for this drone
   // crosses scheduled_at, every loadout-mutating endpoint rejects until
   // the race completes. Covers both equip (skinId set) and unequip
   // (skinId === null) since the check sits before the null branch.

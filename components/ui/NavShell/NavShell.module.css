@@ -298,11 +298,11 @@
 }
 
 /* Mod-lock item carries a fixed minimum width so the layout doesn't
-   shift when the inner content swaps between "Mod Lock in MM:SS"
-   and "MOD LOCKED". 11em comfortably fits both at --text-xs body
+   shift when the inner content swaps between "Strategy Lock in MM:SS"
+   and "LOCKED IN". 11em comfortably fits both at --text-xs body
    font + tabular MM:SS in mono. justify-content keeps the content
    left-aligned inside the slot so the label position is stable. */
-.countdownItemModLock {
+.countdownItemStrategyLock {
   min-width: 11em;
   justify-content: flex-start;
 }
@@ -346,14 +346,14 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Yellow-on-brand variant used by the Mod Lock countdown so players read
+/* Yellow-on-brand variant used by the Strategy Lock countdown so players read
    it as a "running out" timer at a glance, distinct from the teal
    Next-Round value. */
 .countdownValueWarning {
   color: var(--accent-warning);
 }
 
-/* MOD LOCKED text rendered inside .countdownItemModLock when expired.
+/* LOCKED IN text rendered inside .countdownItemStrategyLock when expired.
    Uses the same mono + bold + warning color as the live MM:SS value so
    the swap reads as the same "timer" element, just locked. No min-width
    here because the parent slot already holds the layout fixed. */
@@ -380,7 +380,7 @@
 
 /* `|` pipe separator that splits the timer cluster on the left from
    the numbered upcoming-race shortcuts on the right. Slightly heavier
-   than the `·` separator between Next Round and Mod Lock to read as a
+   than the `·` separator between Next Round and Strategy Lock to read as a
    group divider rather than an item-to-item beat. */
 .countdownSepPipe {
   color: var(--text-tertiary);
@@ -451,7 +451,7 @@
 
 /* Mid-mobile shrink: at 560px and below, every text element in the
    countdown bar drops from --text-xs (~12px) to 10px so the
-   "Next Round in MM:SS · Mod Lock in MM:SS · My Races" row stops
+   "Next Round in MM:SS · Strategy Lock in MM:SS · My Races" row stops
    squeezing against the bar edges before the labels actually drop
    away at 480px. Setting the parent .countdownBar font-size catches
    .countdownSep (which inherits); each labeled child overrides --text-xs
@@ -471,10 +471,10 @@
   }
 }
 
-/* Small-mobile collapse: drop the "Next Round in" / "Mod Lock in"
+/* Small-mobile collapse: drop the "Next Round in" / "Strategy Lock in"
    labels so the bar fits on a 375px-wide phone without horizontal
    squeeze. The countdown values, the separator, and the My Races
-   shortcut on the right all stay. The "MOD LOCKED" state text isn't
+   shortcut on the right all stay. The "LOCKED IN" state text isn't
    a `.countdownLabel`, so it survives the hide. */
 @media (max-width: 480px) {
   .countdownLabel {

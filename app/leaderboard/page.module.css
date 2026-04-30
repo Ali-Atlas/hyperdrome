@@ -721,8 +721,8 @@
     display: none;
   }
   .podiumCard {
-    flex: 0 0 80vw;
-    max-width: 280px;
+    flex: 0 0 62vw;
+    max-width: 220px;
     scroll-snap-align: center;
   }
   .podiumFirst {
