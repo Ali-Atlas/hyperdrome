@@ -475,10 +475,15 @@
    labels so the bar fits on a 375px-wide phone without horizontal
    squeeze. The countdown values, the separator, and the My Races
    shortcut on the right all stay. The "LOCKED IN" state text isn't
-   a `.countdownLabel`, so it survives the hide. */
+   a `.countdownLabel`, so it survives the hide. The "Races:" label
+   in the right-hand group is also kept - without it, the numbered
+   1/2/3 links read as orphan digits. */
 @media (max-width: 480px) {
   .countdownLabel {
     display: none;
+  }
+  .countdownRacesGroup .countdownLabel {
+    display: inline;
   }
 }
 
