@@ -522,7 +522,15 @@ export default function MarketplacePage() {
     return () => ro.disconnect();
   }, [tab, loading]);
 
-  const ROWS_PER_PAGE = 3;
+  // On narrow viewports (1–2 cols) 3 rows would only show 3–6 listings —
+  // pagination kicks in too aggressively. Lock a minimum of 10 listings
+  // per page by adding rows when the column count is low.
+  const MIN_PAGE_SIZE = 10;
+  const BASE_ROWS_PER_PAGE = 3;
+  const ROWS_PER_PAGE = Math.max(
+    BASE_ROWS_PER_PAGE,
+    Math.ceil(MIN_PAGE_SIZE / Math.max(1, columns)),
+  );
   const PAGE_SIZE = columns * ROWS_PER_PAGE;
 
   useEffect(() => {

@@ -316,32 +316,44 @@ export default function LeaderboardPage() {
 
             <div className={styles.rewardsRow}>
               <span className={styles.rewardsLabel}>Season Rewards</span>
-              <span className={styles.rewardInline}>
+              <span
+                className={styles.rewardInline}
+                title="Exclusive Skins"
+                aria-label="Exclusive Skins"
+              >
                 <span
                   className={cn(styles.rewardThumb, styles.rewardThumbSkins)}
                   aria-hidden="true"
                 >
                   <Sparkles size={12} />
                 </span>
-                Exclusive Skins
+                <span className={styles.rewardText}>Exclusive Skins</span>
               </span>
-              <span className={styles.rewardInline}>
+              <span
+                className={styles.rewardInline}
+                title="Volt Prizes"
+                aria-label="Volt Prizes"
+              >
                 <span
                   className={cn(styles.rewardThumb, styles.rewardThumbPoints)}
                   aria-hidden="true"
                 >
                   <Coins size={12} />
                 </span>
-                Volt Prizes
+                <span className={styles.rewardText}>Volt Prizes</span>
               </span>
-              <span className={styles.rewardInline}>
+              <span
+                className={styles.rewardInline}
+                title="Titles / Badges"
+                aria-label="Titles / Badges"
+              >
                 <span
                   className={cn(styles.rewardThumb, styles.rewardThumbTitles)}
                   aria-hidden="true"
                 >
                   <Award size={12} />
                 </span>
-                Titles / Badges
+                <span className={styles.rewardText}>Titles / Badges</span>
               </span>
             </div>
           </section>

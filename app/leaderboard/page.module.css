@@ -866,6 +866,15 @@
   .podiumStatRow dd {
     font-size: 10px;
   }
+
+  /* Mobile: drop the reward category labels and rely on icon tooltips
+     so the rewards row fits without wrapping. */
+  .rewardText {
+    display: none;
+  }
+  .rewardInline {
+    gap: 0;
+  }
 }
 
 /* ==========================================================================
