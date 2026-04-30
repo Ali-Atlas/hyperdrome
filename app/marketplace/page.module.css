@@ -31,6 +31,14 @@
   gap: var(--space-3);
 }
 
+/* Native <select> swap-in for the pill row at <=440px. Hidden by default
+   at every other size so desktop / tablet / small-mobile keep the pills.
+   Pill-matched styling (bg, border, mono caps, accent text) lives in the
+   <=440px media block below. */
+.tabsSelect {
+  display: none;
+}
+
 .tabs {
   display: inline-flex;
   gap: 2px;
@@ -2582,8 +2590,9 @@
 }
 
 /* Mobile: collapse to single column. Pack image on top centered at
-   max 200px (smaller than the desktop hierarchy floors); CTA below
-   spans the column width. */
+   a slightly larger cap than tablet (the legendary glow card is
+   hidden so the pack image is the visual anchor); CTA below spans
+   the column width. */
 @media (max-width: 767px) {
   .packTopRow,
   .packCard_legendary .packTopRow {
@@ -2592,7 +2601,7 @@
   .packPackImg_starter,
   .packPackImg_premium,
   .packPackImg_legendary {
-    max-width: 200px;
+    max-width: 280px;
     min-height: auto;
     margin: 0 auto;
   }
@@ -2600,6 +2609,12 @@
      above the info block. */
   .packCard_legendary .packImgWrap {
     transform: none;
+  }
+  /* Hide the glowing big-L legendary stack on mobile - the layout
+     break around 770px squeezes it into a thin sliver and the actual
+     pack image is the better visual anchor at this size. */
+  .heroCardWrap {
+    display: none;
   }
   /* Mobile container floors. With packTopRow stacked to 1 column the
      image sits on top of the info, so the card's natural height grows
@@ -2897,6 +2912,20 @@
 @media (max-width: 900px) {
   .possibleGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  /* Tighten the preview tiles at this breakpoint - the layout starts
+     to crowd around here, so shrink each tile's chrome (padding +
+     gap) and bump the inner artwork a touch so it still reads at the
+     smaller footprint. */
+  .possibleCard {
+    padding: 4px 3px 4px;
+    gap: 3px;
+  }
+  .possibleName {
+    font-size: 9px;
+  }
+  .possibleRarity {
+    font-size: 8px;
   }
 }
 
@@ -4294,6 +4323,30 @@
   }
 }
 
+/* Around tablet-down: shrink the primary CTA so it doesn't dwarf the
+ * narrow modal width, and bump the hero image so the pack fills more
+ * of the modal's canvas. */
+@media (max-width: 600px) {
+  .purchaseCta {
+    min-height: 44px;
+    padding: 0 var(--space-3);
+    font-size: var(--text-sm);
+    max-width: 320px;
+  }
+  .purchaseHeroImg {
+    max-width: 360px;
+  }
+  .purchaseHeroSkin {
+    max-width: 320px;
+  }
+  .purchaseHeroPack {
+    max-width: 95%;
+  }
+  .purchaseHero {
+    min-height: 280px;
+  }
+}
+
 /* Mobile: full screen takeover. The overlay loses its gutter, the panel
  * fills the viewport and drops the radius. */
 @media (max-width: 480px) {
@@ -5392,31 +5445,53 @@
     overflow-x: hidden;
   }
 
-  /* Top-row reflow: 2-row grid. Row 1 = tabs full-width. Row 2 = list-item
-     button (left) + balance (right). Cancels desktop's `margin-left: auto`
-     on .balance because grid placement now handles alignment. */
+  /* Top-row reflow on small mobile: tabs + List Item share row 1, with
+     the button pinned to the right of the pill row. Balance goes on
+     row 2 by itself, right-aligned, so the user's volts read clearly
+     without being squeezed between the pills and the CTA.
+     `auto 1fr` columns let the pills hug their natural content width
+     (no full-width stretch) while the 1fr cell on the right anchors
+     the button to the row's right edge via justify-self: end. */
   .topRow {
     display: grid;
     grid-template-columns: auto 1fr;
     grid-template-areas:
-      "tabs    tabs"
-      "btn     balance";
+      "tabs    btn"
+      "balance balance";
     gap: var(--space-2);
     align-items: center;
   }
   .topRow > .tabs {
     grid-area: tabs;
-    justify-self: stretch;
+    justify-self: start;
   }
   .topRow > .listItemBtn.listItemBtn {
     grid-area: btn;
-    justify-self: start;
+    justify-self: end;
     align-self: center;
+    /* Padding/font intentionally not overridden here - the desktop
+       defaults from `.listItemBtn.listItemBtn` (padding 0 var(--space-4),
+       font-size 10px, leading Plus icon) carry through unchanged so
+       the CTA reads identical at every size. */
   }
   .topRow > .balance {
     grid-area: balance;
     justify-self: end;
     margin-left: 0;
+  }
+
+  /* Pill (tab) text shrinks slightly so all five tabs fit comfortably
+     across the row even on the narrowest mobile viewports. */
+  .tabs .tab {
+    font-size: 10px;
+    padding: 6px 10px;
+  }
+
+  /* Filter toggle text shrinks - the 11px default reads too prominent
+     at this size. */
+  .filtersToggle {
+    font-size: 9px;
+    padding: 6px 10px;
   }
 
   /* Sub-toolbar: keep view-toggle + search wrappable; tighten search
@@ -5466,6 +5541,15 @@
   .filtersCollapsed .filtersInner {
     display: none;
   }
+
+  /* Tighten the page gap so the filters dropdown doesn't sit on a
+     thick band of whitespace above and below it. */
+  .page {
+    gap: var(--space-2);
+  }
+  .body {
+    gap: var(--space-2);
+  }
 }
 
 /* Desktop (>=769px) explicitly hides the mobile filter toggle so it
@@ -5496,13 +5580,14 @@
     padding-inline: 0;
   }
 
-  /* Single column. !important defeats the inline `grid-template-columns:
+  /* Two columns. !important defeats the inline `grid-template-columns:
      repeat(N, 1fr)` that JS writes per page-size measurement. Reverting
      grid-auto-rows to `auto` lets each card collapse to its own content
      height instead of being stretched to match the tallest sibling, so
-     the vertical scroll stays tight. */
+     the vertical scroll stays tight. Single-column kicks in at <=380px
+     (see the dedicated block further down). */
   .grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     grid-auto-rows: auto;
     gap: var(--space-3);
   }
@@ -5541,5 +5626,67 @@
      listing scroll runs longer. Tablet (>481px) still shows it. */
   .tapeSection {
     display: none;
+  }
+}
+
+/* ==========================================================================
+ * Extra-narrow mobile (<=380px): single-column listing grid. Mod cards
+ * also drop their image padding and bump the chip to fill more of the
+ * tile - at this width the row only has one card, so the mod placeholder
+ * gets enough surface area to read clearly.
+ * ========================================================================== */
+@media (max-width: 380px) {
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+  .cardMod .listingImage {
+    padding: 12px var(--space-2) 6px;
+  }
+  .listingImage .listingImageMod {
+    width: 150px;
+    height: 150px;
+  }
+}
+
+/* ==========================================================================
+ * Ultra-mobile (<=440px): swap the pill bar for a tappable native <select>
+ * and keep the List Item button next to it on the same row. The pill bar
+ * is the most horizontally-greedy element on the smallest viewports, so
+ * collapsing it to a dropdown gives ~150px back to the row.
+ *
+ * Strictly scoped to <=440px — the >440px (small-mobile / tablet / desktop)
+ * pill layout is untouched.
+ * ========================================================================== */
+@media (max-width: 440px) {
+  .topRow > .tabs {
+    display: none;
+  }
+  .topRow > .tabsSelect {
+    display: inline-block;
+    grid-area: tabs;
+    justify-self: start;
+    /* Pill-matched chrome: same surface, border, radius and mono-caps
+       type that .tabs uses, so the dropdown reads as a sibling control
+       even though it's a native <select> opening the system picker. */
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--accent-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 5px 26px 5px 10px;
+    cursor: pointer;
+    /* min-height matches the pill bar's resting height so the row's
+       cross-axis center alignment doesn't visibly nudge when the
+       dropdown swaps in. */
+    min-height: 28px;
+    line-height: 1;
+  }
+  .topRow > .tabsSelect:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
   }
 }

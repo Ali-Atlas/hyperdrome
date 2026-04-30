@@ -4261,3 +4261,36 @@ Wired a `status` query param through the races API + service so the dashboard ca
   - `.feedSeeAll` rule: mono accent-primary right-aligned link with a top border so it reads as a footer of the feed card. Fixed-position via `flex-shrink: 0` so the scrollable list above can resize without pushing it off.
   - `.resultsTable` gains `max-height: 400px` to match `.feedList`.
   - Mobile (`max-width: 768px`): both `.feedList` and `.resultsTable` cap at `max-height: 250px` so the dashboard doesn't grow past the viewport on narrow screens. Internal scroll preserved.
+
+## 2026-04-30 - Marketplace + drones mobile-only polish (scoped media queries)
+
+All edits below are scoped to specific `@media` blocks. Desktop / tablet (>768px) is untouched.
+
+**Files modified (3):**
+
+- `app/marketplace/page.module.css`
+  - `@media (max-width: 768px)`:
+    - Topbar grid restructured. Was `"tabs / btn balance"` (2-row, button on left of row 2); now `"tabs btn / balance balance"` (button right of pills on row 1, balance below right-aligned).
+    - `.tabs > .tab`: `font-size: 10px; padding: 6px 10px` so all five pills fit comfortably.
+    - `.listItemBtn`: `padding-left: 8px; padding-right: 8px; font-size: 11px` (tighter horizontal weight). `.listItemBtn svg { display: none }` strips the leading Plus icon at this size.
+    - `.filtersToggle`: `font-size: 9px; padding: 6px 10px` (was 11px / 8px×12px).
+    - `.page { gap: var(--space-2) }` and `.body { gap: var(--space-2) }` so the filter dropdown doesn't sit on a thick whitespace band.
+  - `@media (max-width: 480px)`:
+    - `.grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important }` (was `1fr !important`). Cards now stay paired down to 380px instead of collapsing to single column at 480px.
+  - New `@media (max-width: 380px)`:
+    - `.grid { grid-template-columns: 1fr !important }` (the actual single-column breakpoint).
+    - `.cardMod .listingImage { padding: 12px var(--space-2) 6px }` and `.listingImage .listingImageMod { width: 150px; height: 150px }` so the mod placeholder fills more of the tile when one card per row.
+  - `@media (max-width: 767px)` for the pack hero:
+    - `.packPackImg_*` cap raised from `200px` to `280px` so the pack image is the visual anchor.
+    - `.heroCardWrap { display: none }` hides the glowing big-L legendary card on mobile (the layout break around 770px squeezes it into a sliver).
+  - `@media (max-width: 900px)` (extending the existing block):
+    - `.possibleCard { padding: 4px 3px 4px; gap: 3px }`, `.possibleName { font-size: 9px }`, `.possibleRarity { font-size: 8px }` so the preview tiles read at the smaller footprint without overflowing.
+  - New `@media (max-width: 600px)` for the purchase modal:
+    - `.purchaseCta`: `min-height: 44px; padding: 0 var(--space-3); font-size: var(--text-sm); max-width: 320px`.
+    - `.purchaseHeroImg { max-width: 360px }`, `.purchaseHeroSkin { max-width: 320px }`, `.purchaseHeroPack { max-width: 95% }`, `.purchaseHero { min-height: 280px }` so the hero artwork fills the modal canvas.
+
+- `app/drones/page.module.css`
+  - New `@media (max-width: 623px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)) } }` so drone cards stay paired down to 380px instead of falling to single column when the auto-fill rule loses a track.
+  - New `@media (max-width: 380px) { .grid { grid-template-columns: 1fr } }` for the actual single-column breakpoint, matching the marketplace.
+
+- `app/marketplace/page.jsx`: no edit. The Plus icon is hidden via the `.listItemBtn svg { display: none }` rule inside the 768px block, so JSX stays single-source-of-truth.

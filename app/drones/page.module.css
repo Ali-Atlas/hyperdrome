@@ -699,21 +699,43 @@
  * Breakpoints
  * ========================================================================== */
 
+/* Force 2 columns down to 380px so the drone cards keep pairing on
+   narrow phones instead of falling to single column at ~623px (which
+   the desktop auto-fill rule does once the container drops below
+   ~560px). Below 380px we go single column. Matches the marketplace
+   listing-grid behavior at the same breakpoints. */
+@media (max-width: 623px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 380px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 640px) {
   .fleetRow {
     flex-direction: column;
   }
   .fleet {
-    align-items: flex-start;
+    align-items: stretch;
   }
+  /* Drop the "FLEET" heading entirely on small screens - the stats
+     speak for themselves at this width and the label was eating
+     horizontal space the stat row needs. */
   .fleetLabel {
-    padding-right: 0;
-  }
-  .fleetLabel::after {
     display: none;
+  }
+  .fleetContent {
+    width: 100%;
   }
   .fleetStats {
     gap: var(--space-3);
+    justify-content: center;
+    width: 100%;
   }
   .fleetStatValue {
     font-size: 12px;
@@ -732,6 +754,37 @@
   }
   .sortWrap {
     justify-content: space-between;
+  }
+}
+
+/* Tighter mobile: 4+2 grid layout for the fleet stats (Drones, Active,
+   Avg Level, Avg ELO on row 1; Races, Win Rate centered on row 2).
+   Stat values shrink a touch so the row fits comfortably at ~360-400px
+   viewports without overflowing the card. The tier-distribution bar
+   below stays full-width via its own existing `width: 100%`. */
+@media (max-width: 400px) {
+  .fleetStats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    column-gap: var(--space-2);
+    row-gap: var(--space-3);
+    justify-items: center;
+  }
+  /* Items 1-4 (Drones, Active, Avg Level, Avg ELO) auto-flow into row 1
+     across the four columns. Items 5-6 (Races, Win Rate) get pinned to
+     columns 2 and 3 on row 2 so they read as centered, with the empty
+     columns 1 and 4 acting as symmetric side margins. */
+  .fleetStats > :nth-child(5) {
+    grid-column: 2;
+  }
+  .fleetStats > :nth-child(6) {
+    grid-column: 3;
+  }
+  .fleetStat {
+    min-width: 0;
+  }
+  .fleetStatValue {
+    font-size: 11px;
   }
 }
 

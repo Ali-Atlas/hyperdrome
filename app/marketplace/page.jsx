@@ -792,8 +792,24 @@ export default function MarketplacePage() {
         {/* ---- Top row: tabs + list-item (left), balance (right).
                 Three direct flex children so mobile CSS can grid-reflow
                 them to (tabs full-width row) / (list-item + balance row)
-                without restructuring the DOM per breakpoint. */}
+                without restructuring the DOM per breakpoint.
+                A native <select> is rendered alongside the pill bar and
+                swapped in via CSS at <=440px so the smallest viewports
+                trade horizontal space for a tappable dropdown without
+                shipping a separate component or popover. */}
         <div className={styles.topRow}>
+          <select
+            className={styles.tabsSelect}
+            value={tab}
+            onChange={(e) => setTab(e.target.value)}
+            aria-label="Marketplace section"
+          >
+            <option value="drones">Drones</option>
+            <option value="mods">Mods</option>
+            <option value="skins">Skins</option>
+            <option value="packs">Packs</option>
+            <option value="points">Volts</option>
+          </select>
           <div className={styles.tabs} role="tablist">
             <button
               type="button"
