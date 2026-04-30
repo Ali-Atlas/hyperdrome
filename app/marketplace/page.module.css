@@ -1739,8 +1739,15 @@
   align-content: flex-start;
 }
 
+/* Legendary odds: keep the row anchored on its own line, matching the
+   starter/premium odds rows. Font size lines up with the other two
+   containers, the row spans the column's full width so its block
+   boundary reads cleanly between description and price, and wrapping
+   stays disabled so all three rarity entries sit on a single line. */
 .packCardHero .oddsText {
-  font-size: 11px;
+  font-size: 10px;
+  width: 100%;
+  flex-wrap: nowrap;
 }
 
 .oddsTextItem {
@@ -3590,30 +3597,43 @@
 }
 
 @media (max-width: 480px) {
+  /* Pack modal sizes to its content instead of forcing a full-screen
+     takeover. The earlier 100vh lock left a tall band of dead space
+     above and below the pack image on most phones; sizing to content
+     keeps the modal compact. Width still fills the viewport. */
   .flowModal {
     width: 100vw !important;
     max-width: 100vw !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
-    min-height: 100vh !important;
+    height: auto !important;
+    max-height: 100dvh !important;
+    min-height: 0 !important;
     border-radius: 0;
     border: none;
   }
 
   /* Tighten the pack-flow stage so the pack image and the title /
      price / CTA block below it don't get pushed apart on narrow
-     viewports. Drops the 620px desktop floor (no longer needed since
-     the modal is already full-screen here), shrinks the slot's
-     min-height, removes its internal padding, and pulls the gap
-     between rows down from var(--space-4) to var(--space-2). */
+     viewports. Drops the desktop floor, shrinks the slot's min-height,
+     removes its internal padding, and pulls the gap between rows
+     down from var(--space-4) to var(--space-2). */
   .flowStage {
     min-height: 0;
     gap: var(--space-2);
     padding: var(--space-4) var(--space-3) var(--space-4);
   }
+  /* purchaseStage's mobile rule forces 100vh for the listing-purchase
+     modal; the pack flow body composes both .purchaseStage and
+     .flowStage on the same element, so target the combined selector
+     (specificity 2) to beat the single-class .purchaseStage rule and
+     let the pack flow size to its content. */
+  .purchaseStage.flowStage {
+    min-height: 0;
+  }
+  /* Lock the pack-image slot to its content height so the modal can't
+     stretch past what's needed - prevents the dead band that the
+     default `flex: 1 1 auto` produced when the modal was 100vh tall. */
   .flowSlot {
-    min-height: 220px;
-    padding: 0;
+    flex: 0 0 auto;
   }
 }
 
@@ -4118,7 +4138,10 @@
    visual breathing room on a tiny screen. */
 @media (max-width: 480px) {
   .flowStage {
-    min-height: 480px;
+    /* Sized by content, not a hard floor - prevents the dead space that
+       a 480px floor created when the pack image + title + price + CTA
+       stack ended up shorter than 480px on most phones. */
+    min-height: 0;
     padding: var(--space-3) var(--space-3) var(--space-3);
     gap: var(--space-2);
   }
