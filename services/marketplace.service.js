@@ -250,7 +250,10 @@ export async function buyListing(buyerId, listingId) {
       .where(eq(mods.id, listing.modId));
   }
 
-  return claimed[0];
+  // Buyer's post-purchase volts. Returned alongside the listing so the
+  // marketplace UI can refresh its displayed balance immediately without a
+  // hard reload (matches the openPack / openCapsule contract).
+  return { listing: claimed[0], balance: buyer.points - listing.price };
 }
 
 /* -------------------------------------------------------------------------- */

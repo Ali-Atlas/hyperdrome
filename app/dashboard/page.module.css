@@ -926,6 +926,11 @@
 
 .locksInExpired {
   color: var(--accent-warning);
+  /* Match the LV badge (`.droneLevel`) on this page so the queued
+     state reads at the same visual weight as the level chip. The
+     normal countdown stays at `--text-sm` via the base `.locksIn`
+     rule above. */
+  font-size: var(--text-xs);
 }
 
 .nextRaceBody {

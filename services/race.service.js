@@ -15,10 +15,8 @@ import {
   randomWeather,
   randomTimeOfDay,
 } from '@/lib/game-engine/race-simulator.js';
-import {
-  randomDroneName,
-  buildLevelDistributedStats,
-} from '@/lib/game-engine/drone-spawn.js';
+import { buildLevelDistributedStats } from '@/lib/game-engine/drone-spawn.js';
+import { generateUniqueDroneName } from '@/lib/game-engine/drone-names.js';
 import { getRandomTrack } from '@/services/track.service.js';
 import { checkAndLevelUp } from '@/services/drone.service.js';
 import { ApiError } from '@/lib/api/response.js';
@@ -515,11 +513,12 @@ async function maybeSpawnMilestoneDrone(userId) {
  */
 async function spawnFreeDrone(userId, { activeDroneSlots: targetSlots }) {
   const stats = buildLevelDistributedStats(1);
+  const name = await generateUniqueDroneName(db, drones);
   const [drone] = await db
     .insert(drones)
     .values({
       userId,
-      name: randomDroneName(),
+      name,
       level: 1,
       xp: 0,
       xpToNextLevel: calculateXPToNextLevel(1),
@@ -808,7 +807,15 @@ export async function getNextRaceTime() {
     .orderBy(desc(races.createdAt))
     .limit(1);
   const last = latest?.createdAt ?? new Date();
-  const next = new Date(new Date(last).getTime() + cfg.raceIntervalSeconds * 1000);
+  let next = new Date(new Date(last).getTime() + cfg.raceIntervalSeconds * 1000);
+  // Advance forward by interval until we land in the future. Handles
+  // dev mode (no cron), prod pauses, and any gap where races stopped
+  // running for a while - without this the formula returns a past
+  // timestamp and the UI clamps to 00:00. No-op during normal cron
+  // operation since `last` is fresh.
+  while (next <= new Date()) {
+    next = new Date(next.getTime() + cfg.raceIntervalSeconds * 1000);
+  }
   return next;
 }
 

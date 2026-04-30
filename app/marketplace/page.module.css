@@ -2321,17 +2321,18 @@
 .packCard_premium {
   border: 1px solid rgba(187, 134, 252, 0.2);
   overflow: visible;
-  /* Pin to the natural settled height (packTopRow + 16px gap +
-     PossibleGroup) so the container doesn't grow when the 6-up preview
-     cards finalize. Same value works for Premium + Starter since they
-     share the same internal layout (only color differs). */
-  min-height: 460px;
+  /* Pin tall enough to absorb every variant of internal copy across both
+     skin packs and mod capsules so switching tabs causes zero layout
+     shift. Same floor for Premium + Starter — they share internal layout
+     (only color differs). Bumped 460 → 500 for headroom on description
+     wrap variants. */
+  min-height: 500px;
 }
 
 .packCard_starter {
   border: 1px solid rgba(3, 218, 198, 0.2);
   overflow: visible;
-  min-height: 460px;
+  min-height: 500px;
 }
 
 /* Row is explicitly tall enough to contain the bigger pack inside the

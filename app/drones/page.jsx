@@ -145,6 +145,16 @@ export default function DronesPage() {
         setVendorPending(false);
         return;
       }
+      // Push the new balance to the NavShell so the volts display
+      // updates without a page refresh. The /api/drones/create route
+      // returns the post-debit balance alongside the drone.
+      if (typeof body.data?.balance === 'number') {
+        window.dispatchEvent(
+          new CustomEvent('volts:update', {
+            detail: { balance: body.data.balance },
+          }),
+        );
+      }
       await refreshDrones();
       showToast('Drone added to your fleet.', 'success');
       setVendorOpen(false);

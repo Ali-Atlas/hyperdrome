@@ -32,6 +32,7 @@ import readline from 'node:readline';
 
 import * as schema from '../lib/db/schema.js';
 import { seedDemoAccount } from './seed-demo-player.js';
+import { generateUniqueDroneName } from '../lib/game-engine/drone-names.js';
 
 const {
   users,
@@ -903,7 +904,7 @@ async function listOneModFromVault(sellerId, rarity, price) {
 /* Drone listings: fresh-mint a drone owned by the seller and list it.
  * Idempotency is keyed on the (sellerId, drone name) pair. */
 async function mintAndListDrone(sellerId, level, profile, price) {
-  const droneName = `MARKET_${level.toString().padStart(2, '0')}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  const droneName = await generateUniqueDroneName(db, drones);
   const { stats, tsb } = buildStats(level, profile);
   const [drone] = await db
     .insert(drones)
@@ -1014,9 +1015,7 @@ async function seedDroneListingsWithSkins(botUserMap) {
     const def = DRONE_LISTINGS_WITH_SKINS[idx];
     const sellerId = sellerIds[idx % sellerIds.length];
 
-    const droneName = `MARKET_${def.level
-      .toString()
-      .padStart(2, '0')}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    const droneName = await generateUniqueDroneName(db, drones);
 
     const { stats, tsb } = buildStats(def.level, def.profile);
     const [drone] = await db

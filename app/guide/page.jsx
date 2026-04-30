@@ -366,8 +366,8 @@ const SECTIONS = [
         items: [
           { name: 'Stat upgrades', desc: 'Permanent. Cost depends on the stat\'s current value.' },
           { name: 'Marketplace', desc: 'Drones, unbound skins, and unbound mods listed by other players.' },
-          { name: 'Skin packs', desc: 'Starter (2,000), Premium (25,000), Legendary (100,000). 3 skins per pack.' },
-          { name: 'Mod capsules', desc: 'Starter (1,000), Premium (12,000), Legendary (50,000). 3 mods per capsule.' },
+          { name: 'Skin packs', desc: 'Starter (2,000), Premium (12,000), Legendary (60,000). 3 skins per pack.' },
+          { name: 'Mod capsules', desc: 'Starter (1,000), Premium (6,000), Legendary (30,000). 3 mods per capsule.' },
           { name: 'NPC drone vendor', desc: '3,500 volts buys a fresh Level 1 drone with mid-range randomized stats, plus one common skin and one common mod bound to the new drone (not equipped). No marketplace dependency, no auction.' },
         ],
       },
@@ -465,35 +465,35 @@ const SECTIONS = [
         type: 'list',
         items: [
           { name: 'Slot 1', desc: 'Common (guaranteed).' },
-          { name: 'Slot 2', desc: 'Common (guaranteed).' },
-          { name: 'Slot 3', desc: 'Rare 70% / Epic 25% / Legendary 5%.' },
+          { name: 'Slot 2', desc: 'Common 80% / Rare 17% / Epic 2.5% / Legendary 0.5%.' },
+          { name: 'Slot 3', desc: 'Common 80% / Rare 17% / Epic 2.5% / Legendary 0.5%.' },
         ],
       },
 
-      { type: 'subheading', text: 'Premium Pack - 25,000 volts' },
+      { type: 'subheading', text: 'Premium Pack - 12,000 volts' },
       {
         type: 'list',
         items: [
           { name: 'Slot 1', desc: 'Rare (guaranteed).' },
-          { name: 'Slot 2', desc: 'Epic 60% / Legendary 40%.' },
+          { name: 'Slot 2', desc: 'Common 40% / Rare 35% / Epic 20% / Legendary 5%.' },
           { name: 'Slot 3', desc: 'Common 40% / Rare 35% / Epic 20% / Legendary 5%.' },
         ],
       },
 
-      { type: 'subheading', text: 'Legendary Pack - 100,000 volts' },
+      { type: 'subheading', text: 'Legendary Pack - 60,000 volts' },
       {
         type: 'list',
         items: [
-          { name: 'Slot 1', desc: 'Epic (guaranteed).' },
-          { name: 'Slot 2', desc: 'Legendary (guaranteed).' },
-          { name: 'Slot 3', desc: 'Rare 30% / Epic 50% / Legendary 20%.' },
+          { name: 'Slot 1', desc: 'Legendary 45% / Epic 55%.' },
+          { name: 'Slot 2', desc: 'Rare 55% / Epic 40% / Legendary 5%.' },
+          { name: 'Slot 3', desc: 'Rare 55% / Epic 40% / Legendary 5%.' },
         ],
       },
 
       { type: 'subheading', text: 'Skin packs vs mod capsules' },
       {
         type: 'paragraph',
-        text: 'Skin packs roll skins (cosmetic). Mod capsules roll mods (functional, with bonus + tradeoff). The slot rarity tables above apply to both. Mod capsules are priced separately and run cheaper than skin packs - Starter 1,000 / Premium 12,000 / Legendary 50,000 vs the skin pack tiers of 2,000 / 25,000 / 100,000.',
+        text: 'Skin packs roll skins (cosmetic). Mod capsules roll mods (functional, with bonus + tradeoff). The slot rarity tables above apply to both. Mod capsules are priced separately and run cheaper than skin packs - Starter 1,000 / Premium 6,000 / Legendary 30,000 vs the skin pack tiers of 2,000 / 12,000 / 60,000.',
       },
 
       { type: 'subheading', text: 'Vault rules' },
@@ -705,7 +705,7 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'Packs' },
       {
         type: 'paragraph',
-        text: 'Two product lines: skin packs (cosmetics) and mod capsules (functional). Each comes in three tiers - Starter, Premium, and Legendary - sharing the same slot rarity tables. Skin packs cost 2,000 / 25,000 / 100,000; mod capsules cost 1,000 / 12,000 / 50,000. Every pack opens 3 items.',
+        text: 'Two product lines: skin packs (cosmetics) and mod capsules (functional). Each comes in three tiers - Starter, Premium, and Legendary - sharing the same slot rarity tables. Skin packs cost 2,000 / 12,000 / 60,000; mod capsules cost 1,000 / 6,000 / 30,000. Every pack opens 3 items.',
       },
       { type: 'subheading', text: 'Building value' },
       {

@@ -32,6 +32,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { neon } from '@neondatabase/serverless';
+import { randomDroneName } from '../lib/game-engine/drone-names.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -138,11 +139,21 @@ function buildStats(level, profile) {
   return { stats, tsb };
 }
 
-function randomDroneName(level) {
-  return `MARKET_${String(level).padStart(2, '0')}_${Math.random()
-    .toString(36)
-    .slice(2, 8)
-    .toUpperCase()}`;
+/**
+ * Raw-SQL variant of the drone-names helper. This script uses neon's
+ * tag-template `sql` directly (not Drizzle), so the shared
+ * `generateUniqueDroneName` helper - which expects a Drizzle db + table
+ * schema - can't be reused as-is. Same retry pattern, same fallback.
+ */
+async function generateUniqueDroneNameSql() {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const candidate = randomDroneName();
+    const rows = await sql`SELECT id FROM drones WHERE name = ${candidate} LIMIT 1`;
+    if (rows.length === 0) return candidate;
+  }
+  const base = randomDroneName();
+  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${base}-${suffix}`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -277,7 +288,7 @@ async function insertSkinnedListing({ def, sellerId }) {
   await sql`UPDATE skins SET user_id = ${sellerId} WHERE id = ${skin.id}`;
 
   const { stats, tsb } = buildStats(def.level, def.profile);
-  const name = randomDroneName(def.level);
+  const name = await generateUniqueDroneNameSql();
 
   const [drone] = await sql`
     INSERT INTO drones (

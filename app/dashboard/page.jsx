@@ -19,7 +19,7 @@ import {
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import btnStyles from '@/components/ui/Button/Button.module.css';
-import { cn, getLevelColor, getLegendaryTheme } from '@/lib/utils';
+import { cn, getLevelColor } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import EmptyState from '@/components/ui/EmptyState';
 import RacingStatusPill from '@/components/ui/RacingStatusPill';
@@ -688,7 +688,12 @@ function NextRaceMatchup({ race, totalCount }) {
 }
 
 
-/** Compact MM:SS countdown for the "LOCKS IN" timer in the section heading. */
+/** Compact MM:SS countdown for the "LOCKS IN" timer in the section heading.
+ *  When the schedule has elapsed (countdown hits zero) the label flips to
+ *  RACE QUEUED. The component is only mounted by NextRacePanel when there's
+ *  a PENDING race with a scheduledAt, so reaching `remaining <= 0` always
+ *  means "matchup is locked, waiting on the next cron tick" - no `status`
+ *  guard needed. */
 function LocksInCountdown({ targetDate, className }) {
   const compute = () => {
     if (!targetDate) return 0;
@@ -705,7 +710,7 @@ function LocksInCountdown({ targetDate, className }) {
   if (remaining <= 0) {
     return (
       <span className={cn(styles.locksIn, styles.locksInExpired, className)}>
-        RACING NOW
+        RACE QUEUED
       </span>
     );
   }
@@ -732,24 +737,8 @@ function NextRaceDroneSide({
   radarMax,
 }) {
   if (!drone) return <div className={styles.matchupSide} aria-hidden="true" />;
-  const legendaryTheme =
-    drone.appliedSkin?.rarity === 'legendary'
-      ? getLegendaryTheme(drone.appliedSkin?.name)
-      : null;
-  const legendaryStyle = legendaryTheme
-    ? {
-        '--legendary-bg': legendaryTheme.bg,
-        '--legendary-glow-1': legendaryTheme.glow1,
-      }
-    : undefined;
   return (
-    <div
-      className={cn(
-        styles.matchupSide,
-        legendaryTheme && styles.skinRarity_legendary,
-      )}
-      style={legendaryStyle}
-    >
+    <div className={styles.matchupSide}>
       {isOwn && <span className={styles.youBadge}>YOU</span>}
       {drone.isBot && (
         <span className={styles.botBadge} title="Bot drone">

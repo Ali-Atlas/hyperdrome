@@ -45,6 +45,24 @@ export default function NavShell({ children }) {
   const { user, signOut } = useSession();
   const onSignOut = () => signOut({ redirectTo: '/' });
 
+  // NextAuth's session.user.points is stale until the JWT refreshes, which
+  // doesn't happen after a purchase. We listen on a global `volts:update`
+  // CustomEvent that purchase handlers (marketplace buy / pack open /
+  // capsule open / NPC drone create) dispatch with the post-mutation
+  // balance returned by the server. Once an event has fired we treat the
+  // override as the source of truth so subsequent stale session reads
+  // can't undo it within this NavShell mount.
+  const [balanceOverride, setBalanceOverride] = useState(null);
+  useEffect(() => {
+    const handler = (e) => {
+      const next = e?.detail?.balance;
+      if (typeof next === 'number') setBalanceOverride(next);
+    };
+    window.addEventListener('volts:update', handler);
+    return () => window.removeEventListener('volts:update', handler);
+  }, []);
+  const displayBalance = balanceOverride ?? user?.points ?? 0;
+
   const renderLinks = () =>
     NAV_LINKS.map(({ href, label, Icon }) => {
       const active = pathname === href || pathname?.startsWith(`${href}/`);
@@ -69,7 +87,7 @@ export default function NavShell({ children }) {
         </div>
         <div className={styles.points}>
           <VoltIcon size={14} style={{ marginRight: 4 }} />
-          {(user.points ?? 0).toLocaleString()}
+          {displayBalance.toLocaleString()}
         </div>
         <button
           type="button"
@@ -122,7 +140,7 @@ export default function NavShell({ children }) {
             <span className={styles.mobileSep}>|</span>
             <span className={styles.mobilePoints}>
               <VoltIcon size={13} style={{ marginRight: 4 }} />
-              {(user.points ?? 0).toLocaleString()}
+              {displayBalance.toLocaleString()}
             </span>
           </div>
         )}
@@ -170,11 +188,18 @@ export default function NavShell({ children }) {
 /* 15s. Renders only for authenticated users (gated above).                  */
 /* -------------------------------------------------------------------------- */
 
+/* The Mod Lock timer counts down to when matchups lock for execution.
+   Server side, that's `scheduled_at = createdAt + PENDING_WINDOW_SECONDS`
+   on each PENDING race. Equivalently from the client's perspective, the
+   strategy window closes `PENDING_WINDOW_SECONDS` BEFORE the next race
+   cycle fires - so we derive it from the same `nextRaceAt` the
+   Next-Round timer uses. Keep this constant in lockstep with
+   `services/race.service.js#PENDING_WINDOW_SECONDS`. */
+const MOD_LOCK_LEAD_MS = 120 * 1000;
+
 function CountdownBar() {
   const [batchAt, setBatchAt] = useState(null);
   const [paused, setPaused] = useState(false);
-  const [raceLockAt, setRaceLockAt] = useState(null);
-  const [raceLockId, setRaceLockId] = useState(null);
   const [now, setNow] = useState(() => Date.now());
 
   // Poll the next-batch endpoint. 30s cadence as specced; the timer
@@ -205,36 +230,6 @@ function CountdownBar() {
     };
   }, []);
 
-  // Poll the user's pending races. 15s matches the dashboard.
-  useEffect(() => {
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const res = await fetch('/api/races/upcoming');
-        const body = await res.json();
-        if (cancelled || !body?.data) return;
-        const races = body.data.races ?? [];
-        if (races.length === 0) {
-          setRaceLockAt(null);
-          setRaceLockId(null);
-          return;
-        }
-        // Already sorted by scheduled_at ascending; take the first.
-        const next = races[0];
-        setRaceLockAt(next.scheduledAt ? new Date(next.scheduledAt).getTime() : null);
-        setRaceLockId(next.id);
-      } catch {
-        /* keep stale */
-      }
-    };
-    tick();
-    const id = setInterval(tick, 15_000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
-
   // 1s ticker drives the visible MM:SS for both items.
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -250,47 +245,46 @@ function CountdownBar() {
   };
 
   const batchText = formatRemaining(batchAt);
-  const raceLockText = formatRemaining(raceLockAt);
-  const raceLockExpired = raceLockAt != null && raceLockAt - now <= 0;
-
-  // Hide the race item entirely while racing is paused: pending races
-  // are frozen until the kill-switch flips back on, so showing a
-  // countdown or "in progress" pulse would mislead.
-  const showRaceItem = !paused && raceLockAt != null;
+  // Derive the mod-lock target from the same next-race timestamp.
+  const modLockAt = batchAt != null ? batchAt - MOD_LOCK_LEAD_MS : null;
+  const modLockExpired = modLockAt != null && modLockAt <= now;
+  const modLockText = formatRemaining(modLockAt);
 
   return (
     <div className={styles.countdownBar} aria-label="Race timing">
       {paused ? (
         <span className={styles.countdownPaused}>Racing paused</span>
       ) : (
-        <span className={styles.countdownItem}>
-          <span className={styles.countdownLabel}>Next batch in</span>
-          <span className={styles.countdownValue}>
-            {batchText ?? '--:--'}
-          </span>
-        </span>
-      )}
-
-      {showRaceItem && (
         <>
+          <span className={styles.countdownItem}>
+            <span className={styles.countdownLabel}>Next Round in</span>
+            <span className={styles.countdownValue}>
+              {batchText ?? '--:--'}
+            </span>
+          </span>
           <span className={styles.countdownSep} aria-hidden="true">
             ·
           </span>
-          {raceLockExpired ? (
-            <span className={styles.countdownItem}>
-              <span className={styles.countdownInProgress}>
-                Races in progress
+          <span
+            className={`${styles.countdownItem} ${styles.countdownItemModLock}`}
+          >
+            {modLockExpired ? (
+              <span
+                className={`${styles.countdownLockedText} ${styles.countdownValueWarning}`}
+              >
+                MOD LOCKED
               </span>
-            </span>
-          ) : (
-            <Link
-              href={raceLockId ? `/races/${raceLockId}` : '#'}
-              className={styles.countdownItemLink}
-            >
-              <span className={styles.countdownLabel}>Race locks in</span>
-              <span className={styles.countdownValue}>{raceLockText}</span>
-            </Link>
-          )}
+            ) : (
+              <>
+                <span className={styles.countdownLabel}>Mod Lock in</span>
+                <span
+                  className={`${styles.countdownValue} ${styles.countdownValueWarning}`}
+                >
+                  {modLockText ?? '--:--'}
+                </span>
+              </>
+            )}
+          </span>
         </>
       )}
     </div>

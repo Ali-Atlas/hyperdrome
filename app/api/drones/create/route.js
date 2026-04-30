@@ -1,10 +1,8 @@
 import { eq, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { withApiHandler, ok, ApiError } from '@/lib/api/response.js';
-import {
-  randomDroneName,
-  buildLowRangeStats,
-} from '@/lib/game-engine/drone-spawn.js';
+import { buildLowRangeStats } from '@/lib/game-engine/drone-spawn.js';
+import { generateUniqueDroneName } from '@/lib/game-engine/drone-names.js';
 import {
   calculateXPToNextLevel,
   calculateTSB,
@@ -46,13 +44,15 @@ async function handler({ session }) {
     .update(users)
     .set({ points: sql`${users.points} - ${DRONE_PRICE}` })
     .where(eq(users.id, userId));
+  const balance = user.points - DRONE_PRICE;
 
   const stats = buildLowRangeStats(1, 5);
+  const name = await generateUniqueDroneName(db, drones);
   const [drone] = await db
     .insert(drones)
     .values({
       userId,
-      name: randomDroneName(),
+      name,
       level: 1,
       xp: 0,
       xpToNextLevel: calculateXPToNextLevel(1),
@@ -92,6 +92,7 @@ async function handler({ session }) {
     drone,
     boundSkinId: skin?.id ?? null,
     boundModId: mod?.id ?? null,
+    balance,
   });
 }
 

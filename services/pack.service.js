@@ -2,13 +2,23 @@ import { and, eq, inArray, isNull, like, notInArray, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { ApiError } from '@/lib/api/response.js';
 
-const { users, skins } = schema;
+const { users, skins, mods } = schema;
 
-/** Pack prices, paid from the player's single wallet. */
+/** Skin pack prices, paid from the player's single wallet. */
 export const PACK_PRICES = {
-  starter: 500,
-  premium: 2_000,
-  legendary: 10_000,
+  starter: 2_000,
+  premium: 12_000,
+  legendary: 60_000,
+};
+
+/**
+ * Mod capsule prices. Same slot recipe as skin packs (see PACK_SLOTS),
+ * priced lower since mods are worth less than skins on the marketplace.
+ */
+export const MOD_PACK_PRICES = {
+  starter: 1_000,
+  premium: 6_000,
+  legendary: 30_000,
 };
 
 /**
@@ -26,25 +36,30 @@ const DEMO_LEGENDARY_BLOCKLIST = [
 ];
 
 /**
- * Per-pack rarity slot recipe. A string slot always yields that rarity; an
- * object slot is a probability distribution rolled at open time. Each slot
- * resolves to exactly one skin.
+ * Per-tier slot recipe. A string slot always yields that rarity; an object
+ * slot is a probability distribution rolled at open time. Each slot resolves
+ * to exactly one item. Used by BOTH skin packs and mod capsules — only the
+ * price varies between the two product lines.
+ *
+ *   starter   = 1 guaranteed common    + 2 wild slots @ 80/17/2.5/0.5
+ *   premium   = 1 guaranteed rare      + 2 wild slots @ 40/35/20/5
+ *   legendary = slot 1 @ epic 55/legendary 45 + 2 wild slots @ 55/40/5
  */
 const PACK_SLOTS = {
   starter: [
     'common',
-    'common',
-    { rare: 0.7, epic: 0.25, legendary: 0.05 },
+    { common: 0.80, rare: 0.17, epic: 0.025, legendary: 0.005 },
+    { common: 0.80, rare: 0.17, epic: 0.025, legendary: 0.005 },
   ],
   premium: [
     'rare',
-    { epic: 0.6, legendary: 0.4 },
-    { common: 0.4, rare: 0.35, epic: 0.2, legendary: 0.05 },
+    { common: 0.40, rare: 0.35, epic: 0.20, legendary: 0.05 },
+    { common: 0.40, rare: 0.35, epic: 0.20, legendary: 0.05 },
   ],
   legendary: [
-    'epic',
-    'legendary',
-    { rare: 0.3, epic: 0.5, legendary: 0.2 },
+    { legendary: 0.45, epic: 0.55 },
+    { rare: 0.55, epic: 0.40, legendary: 0.05 },
+    { rare: 0.55, epic: 0.40, legendary: 0.05 },
   ],
 };
 
@@ -60,26 +75,26 @@ function rollDistribution(dist) {
   return keys[keys.length - 1];
 }
 
-/** Resolve the 3-slot rarity list for a pack type. */
-function resolveRarityList(packType) {
-  const slots = PACK_SLOTS[packType];
+/** Resolve the 3-slot rarity list for a pack/capsule tier. */
+function resolveRarityList(tier) {
+  const slots = PACK_SLOTS[tier];
   if (!slots) return null;
   return slots.map((s) => (typeof s === 'string' ? s : rollDistribution(s)));
 }
 
 /**
- * Open a pack for a player. Validates balance, rolls rarities, picks random
- * unowned skins from the vault, debits the wallet, and assigns the skins to
- * the player. Returns the awarded skin rows.
+ * Open a skin pack for a player. Validates balance, rolls rarities, picks
+ * random unowned skins from the vault, debits the wallet, and assigns the
+ * skins to the player. Returns the awarded skin rows + the post-debit
+ * balance so the caller can refresh UI without a hard reload.
  *
  * Neon HTTP has no transactions, so the sequence is: (a) verify availability
  * up-front to avoid charging without delivery, (b) debit wallet, (c) assign
- * skins. A failure between (b) and (c) could leave the player short on
- * assignment; surface via log + toast.
+ * skins. The catch path refunds + releases on any failure between (b)/(c).
  *
  * @param {string} userId
  * @param {'starter'|'premium'|'legendary'} packType
- * @returns {Promise<Array<object>>} awarded skin rows
+ * @returns {Promise<{ awarded: Array<object>, balance: number }>}
  */
 export async function openPack(userId, packType) {
   const price = PACK_PRICES[packType];
@@ -211,5 +226,110 @@ export async function openPack(userId, packType) {
     throw new ApiError('Skin unavailable, volts refunded.', 409);
   }
 
-  return awarded;
+  return { awarded, balance: user.points - price };
+}
+
+/**
+ * Open a mod capsule for a player. Mirrors openPack but targets the mods
+ * table. Mods don't carry image_urls (the rarity-tinted ModPlaceholder hex
+ * chip is the canonical render), so the imageUrl LIKE filters are dropped.
+ *
+ * @param {string} userId
+ * @param {'starter'|'premium'|'legendary'} tier
+ * @returns {Promise<{ awarded: Array<object>, balance: number }>}
+ */
+export async function openCapsule(userId, tier) {
+  const price = MOD_PACK_PRICES[tier];
+  if (!price) throw new ApiError('Unknown capsule type', 400);
+
+  const [user] = await db
+    .select({ id: users.id, points: users.points, name: users.name })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (!user) throw new ApiError('User not found', 404);
+  if (user.points < price) {
+    throw new ApiError(
+      `Not enough volts. Need +${(price - user.points).toLocaleString()} more.`,
+      400,
+    );
+  }
+
+  const rarityList = resolveRarityList(tier);
+  if (!rarityList) throw new ApiError('Unknown capsule type', 400);
+
+  const counts = {};
+  for (const r of rarityList) counts[r] = (counts[r] || 0) + 1;
+
+  // Pre-flight: vault availability per rarity. No imageUrl filter — mods
+  // render via ModPlaceholder, not webp.
+  for (const [rarity, count] of Object.entries(counts)) {
+    const [{ available }] = await db
+      .select({ available: sql`count(*)::int` })
+      .from(mods)
+      .where(and(eq(mods.rarity, rarity), isNull(mods.userId)));
+    if (available < count) {
+      throw new ApiError(
+        `Not enough ${rarity} mods available in the vault. Try again later.`,
+        400,
+      );
+    }
+  }
+
+  await db
+    .update(users)
+    .set({ points: sql`${users.points} - ${price}` })
+    .where(eq(users.id, userId));
+
+  /** @type {Array<object>} mods CAS-claimed for this open. */
+  const awarded = [];
+  try {
+    for (const rarity of rarityList) {
+      let claimed = null;
+      const skipIds = awarded.map((m) => m.id);
+      for (let attempt = 0; attempt < 3 && !claimed; attempt += 1) {
+        const baseFilters = [eq(mods.rarity, rarity), isNull(mods.userId)];
+        if (skipIds.length > 0) {
+          baseFilters.push(notInArray(mods.id, skipIds));
+        }
+        const candidates = await db
+          .select()
+          .from(mods)
+          .where(and(...baseFilters))
+          .limit(8);
+        if (candidates.length === 0) break;
+        const candidate =
+          candidates[Math.floor(Math.random() * candidates.length)];
+
+        const claimedRows = await db
+          .update(mods)
+          .set({ userId })
+          .where(and(eq(mods.id, candidate.id), isNull(mods.userId)))
+          .returning({ id: mods.id });
+        if (claimedRows.length === 1) {
+          claimed = candidate;
+        }
+      }
+
+      if (!claimed) {
+        throw new ApiError('Mod unavailable, volts refunded.', 409);
+      }
+      awarded.push(claimed);
+    }
+  } catch (err) {
+    await db
+      .update(users)
+      .set({ points: sql`${users.points} + ${price}` })
+      .where(eq(users.id, userId));
+    if (awarded.length > 0) {
+      await db
+        .update(mods)
+        .set({ userId: null })
+        .where(inArray(mods.id, awarded.map((m) => m.id)));
+    }
+    if (err instanceof ApiError) throw err;
+    throw new ApiError('Mod unavailable, volts refunded.', 409);
+  }
+
+  return { awarded, balance: user.points - price };
 }

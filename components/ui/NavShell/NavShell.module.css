@@ -286,6 +286,16 @@
   white-space: nowrap;
 }
 
+/* Mod-lock item carries a fixed minimum width so the layout doesn't
+   shift when the inner content swaps between "Mod Lock in MM:SS"
+   and "MOD LOCKED". 11em comfortably fits both at --text-xs body
+   font + tabular MM:SS in mono. justify-content keeps the content
+   left-aligned inside the slot so the label position is stable. */
+.countdownItemModLock {
+  min-width: 11em;
+  justify-content: flex-start;
+}
+
 .countdownItemLink {
   display: inline-flex;
   align-items: baseline;
@@ -314,6 +324,34 @@
   font-weight: var(--font-bold);
   color: var(--accent-primary);
   letter-spacing: 0.04em;
+  /* Fixed width on the MM:SS slot so the value box never resizes when
+     digits change (e.g. 09:59 -> 10:00 or any single-digit transition).
+     Combined with tabular-nums to keep glyph advances uniform even when
+     mono fallback fonts kick in. inline-block + right-align so the
+     digits land flush against the label gap on every tick. */
+  display: inline-block;
+  min-width: 5ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Yellow-on-brand variant used by the Mod Lock countdown so players read
+   it as a "running out" timer at a glance, distinct from the teal
+   Next-Round value. */
+.countdownValueWarning {
+  color: var(--accent-warning);
+}
+
+/* MOD LOCKED text rendered inside .countdownItemModLock when expired.
+   Uses the same mono + bold + warning color as the live MM:SS value so
+   the swap reads as the same "timer" element, just locked. No min-width
+   here because the parent slot already holds the layout fixed. */
+.countdownLockedText {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 .countdownSep {

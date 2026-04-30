@@ -1192,7 +1192,6 @@ function RaceStrategyView({ race }) {
           <RaceEdgeCard
             leftDrone={leftDrone}
             rightDrone={rightDrone}
-            viewerUserId={user?.id}
           />
         </div>
       </div>
@@ -1638,21 +1637,46 @@ function RaceTrackCard({ race }) {
  *  `RaceEdgeCard` names the perspective drone explicitly so a viewer
  *  always sees whose strengths/gaps they're looking at.
  */
-function pickEdgePerspective(left, right, viewerUserId) {
-  const userOwnsLeft = !!(viewerUserId && left?.userId === viewerUserId);
-  const userOwnsRight = !!(viewerUserId && right?.userId === viewerUserId);
-  if (userOwnsLeft) return [left, right];
-  if (userOwnsRight) return [right, left];
+/**
+ * Compute the race-edge perspective and win probability from ELO alone.
+ * Higher-prob drone is the favorite. If the prob lands within 2% of 50%
+ * the matchup is flagged as "even" - the card shows EVEN MATCHUP in the
+ * header and skips the "favorite" framing. No ownership / left-side
+ * tiebreak: it's pure ELO math.
+ *
+ * @returns {{ isEven: boolean, viewer: object, opponent: object,
+ *             viewerElo: number, oppElo: number, prob: number }}
+ */
+function computeRaceEdge(left, right) {
   const lElo = left?.eloRating ?? 1000;
   const rElo = right?.eloRating ?? 1000;
-  return lElo >= rElo ? [left, right] : [right, left];
+  const leftProb = 1 / (1 + Math.pow(10, (rElo - lElo) / 400));
+  const isEven = Math.abs(leftProb - 0.5) <= 0.02;
+  if (leftProb >= 0.5) {
+    return {
+      isEven,
+      viewer: left,
+      opponent: right,
+      viewerElo: lElo,
+      oppElo: rElo,
+      prob: leftProb,
+    };
+  }
+  return {
+    isEven,
+    viewer: right,
+    opponent: left,
+    viewerElo: rElo,
+    oppElo: lElo,
+    prob: 1 - leftProb,
+  };
 }
 
 /** Race-edge container: Strengths / Gaps / Win Probability for the
  *  perspective drone. Sits to the right of the track at >=768px and
  *  stacks beneath at <768px. The header always names the drone whose
  *  perspective is shown. */
-function RaceEdgeCard({ leftDrone, rightDrone, viewerUserId }) {
+function RaceEdgeCard({ leftDrone, rightDrone }) {
   if (!leftDrone || !rightDrone) {
     return (
       <section className={styles.raceEdgeCard}>
@@ -1663,10 +1687,9 @@ function RaceEdgeCard({ leftDrone, rightDrone, viewerUserId }) {
       </section>
     );
   }
-  const [viewer, opponent] = pickEdgePerspective(
+  const { isEven, viewer, opponent, viewerElo, oppElo, prob } = computeRaceEdge(
     leftDrone,
     rightDrone,
-    viewerUserId,
   );
   const deltas = STAT_KEYS.map((k) => ({
     stat: k,
@@ -1682,16 +1705,19 @@ function RaceEdgeCard({ leftDrone, rightDrone, viewerUserId }) {
     .sort((a, b) => a.delta - b.delta)
     .slice(0, 3);
 
-  const viewerElo = viewer.eloRating ?? 1000;
-  const oppElo = opponent.eloRating ?? 1000;
-  const prob = 1 / (1 + Math.pow(10, (oppElo - viewerElo) / 400));
   const pct = Math.round(prob * 100);
 
   return (
     <section className={styles.raceEdgeCard}>
       <h3 className={styles.raceEdgeHeader}>
-        <span className={styles.raceEdgeHeaderTitle}>Race Edge</span>
-        <span className={styles.raceEdgeHeaderDrone}>{viewer.name}</span>
+        {isEven ? (
+          <span className={styles.raceEdgeHeaderTitle}>Even Matchup</span>
+        ) : (
+          <>
+            <span className={styles.raceEdgeHeaderTitle}>Race Edge</span>
+            <span className={styles.raceEdgeHeaderDrone}>{viewer.name}</span>
+          </>
+        )}
       </h3>
       <div className={styles.raceEdgeBody}>
         <div className={styles.raceEdgeSection}>

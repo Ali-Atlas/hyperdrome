@@ -19,15 +19,15 @@ export const metadata = {
 };
 
 const PACKS = [
-  { name: 'Starter',   image: '/skin_packs/starter_pack.webp',   price:   2_000, gold: false },
-  { name: 'Premium',   image: '/skin_packs/premium_pack.webp',   price:  25_000, gold: false },
-  { name: 'Legendary', image: '/skin_packs/legendary_pack.webp', price: 100_000, gold: true  },
+  { name: 'Starter',   image: '/skin_packs/starter_pack.webp',   price:  2_000, gold: false },
+  { name: 'Premium',   image: '/skin_packs/premium_pack.webp',   price: 12_000, gold: false },
+  { name: 'Legendary', image: '/skin_packs/legendary_pack.webp', price: 60_000, gold: true  },
 ];
 
 const CAPSULES = [
   { name: 'Starter',   image: '/capsules/capsule_starter.webp',   price:  1_000, gold: false },
-  { name: 'Premium',   image: '/capsules/capsule_premium.webp',   price: 12_000, gold: false },
-  { name: 'Legendary', image: '/capsules/capsule_legendary.webp', price: 50_000, gold: true  },
+  { name: 'Premium',   image: '/capsules/capsule_premium.webp',   price:  6_000, gold: false },
+  { name: 'Legendary', image: '/capsules/capsule_legendary.webp', price: 30_000, gold: true  },
 ];
 
 const COLLECT_LEGENDARIES = [

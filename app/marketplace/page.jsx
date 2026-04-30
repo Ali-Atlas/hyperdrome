@@ -31,79 +31,84 @@ const PACK_DEFS = [
     name: 'Starter Pack',
     price: 2_000,
     variant: 'gray',
-    contents: '3 Skins - 2 Common guaranteed, 1 Rare or higher',
+    contents: '3 Skins - 1 Common guaranteed, 2 wild slots',
     description:
-      'Cheapest way to start a collection. Two commons plus a wild slot that bumps to rare on every open.',
+      'Guaranteed common plus two wild slots. Common-heavy, with shots at rare or higher.',
     slots: [
       { variant: 'common' },
-      { variant: 'common' },
-      { variant: 'rare', mystery: true },
+      { variant: 'rainbow', mystery: true },
+      { variant: 'rainbow', mystery: true },
     ],
     rates: [
-      { label: 'Common (×2)', rarity: 'common', chance: 'Guaranteed' },
-      { label: 'Rare', rarity: 'rare', chance: '70%' },
-      { label: 'Epic', rarity: 'epic', chance: '25%' },
-      { label: 'Legendary', rarity: 'legendary', chance: '5%' },
+      { label: 'Common (slot 1)', rarity: 'common', chance: '100%' },
+      { label: 'Common (slots 2-3)', rarity: 'common', chance: '80%' },
+      { label: 'Rare (slots 2-3)', rarity: 'rare', chance: '17%' },
+      { label: 'Epic (slots 2-3)', rarity: 'epic', chance: '2.5%' },
+      { label: 'Legendary (slots 2-3)', rarity: 'legendary', chance: '0.5%' },
     ],
     buttonVariant: 'secondary',
   },
   {
     id: 'premium',
     name: 'Premium Pack',
-    price: 25_000,
+    price: 12_000,
     variant: 'purple',
-    contents: '3 Skins - 1 Rare guaranteed, 1 Epic or higher, 1 any rarity',
+    contents: '3 Skins - 1 Rare guaranteed, 2 wild slots',
     description:
-      'Guaranteed rare plus an epic-or-better slot. The sweet spot between cost and shot at a legendary.',
+      'Guaranteed rare plus two wild slots that can land any rarity.',
     pills: [
       { label: 'Most Popular', tone: 'accent' },
       { label: 'Save 30% vs Singles', tone: 'muted' },
     ],
     slots: [
       { variant: 'rare' },
-      { variant: 'epic' },
+      { variant: 'rainbow', mystery: true },
       { variant: 'rainbow', mystery: true },
     ],
     rates: [
-      { label: 'Rare (guaranteed)', rarity: 'rare', chance: '100%' },
-      { label: 'Epic (slot 2)', rarity: 'epic', chance: '60%' },
-      { label: 'Legendary (slot 2)', rarity: 'legendary', chance: '40%' },
-      { label: 'Wild slot - any rarity', rarity: 'epic', chance: '40% / 35% / 20% / 5%' },
+      { label: 'Rare (slot 1)', rarity: 'rare', chance: '100%' },
+      { label: 'Common (slots 2-3)', rarity: 'common', chance: '40%' },
+      { label: 'Rare (slots 2-3)', rarity: 'rare', chance: '35%' },
+      { label: 'Epic (slots 2-3)', rarity: 'epic', chance: '20%' },
+      { label: 'Legendary (slots 2-3)', rarity: 'legendary', chance: '5%' },
     ],
     buttonVariant: 'primary',
   },
   {
     id: 'legendary',
     name: 'Legendary Pack',
-    price: 100_000,
+    price: 60_000,
     variant: 'gold',
-    contents: '3 Skins - 1 Epic guaranteed, 1 Legendary, 1 Rare or higher',
+    contents: '3 Skins - 1 high-tier slot + 2 wild slots',
     description:
-      '1 Epic guaranteed · 1 Legendary guaranteed · 1 Rare+ wild slot.',
+      'Slot 1 lands legendary or epic. Two wild slots that lean rare or epic.',
     slots: [
-      { variant: 'epic' },
-      { variant: 'legendary' },
+      { variant: 'rainbow', mystery: true },
+      { variant: 'rainbow', mystery: true },
       { variant: 'rainbow', mystery: true },
     ],
     rates: [
-      { label: 'Epic (guaranteed)', rarity: 'epic', chance: '100%' },
-      { label: 'Legendary (guaranteed)', rarity: 'legendary', chance: '100%' },
-      { label: 'Rare+ (slot 3)', rarity: 'rare', chance: '30% / 50% / 20%' },
+      { label: 'Legendary (slot 1)', rarity: 'legendary', chance: '45%' },
+      { label: 'Epic (slot 1)', rarity: 'epic', chance: '55%' },
+      { label: 'Rare (slots 2-3)', rarity: 'rare', chance: '55%' },
+      { label: 'Epic (slots 2-3)', rarity: 'epic', chance: '40%' },
+      { label: 'Legendary (slots 2-3)', rarity: 'legendary', chance: '5%' },
     ],
     buttonVariant: 'gold',
   },
 ];
 
-/* 6-card preview composition per pack id. Mirrors the drop-table emphasis
- * (starter leans common, premium leans rare/epic, legendary leans epic/leg)
- * so users see real examples of what each pack tends to yield. Items are
- * sampled from the live image-backed catalog. Only the rarities listed
- * here are sampled - other rarities the pack can technically drop are
- * still drop-eligible; the preview just doesn't surface them. */
+/* 6-card preview composition per pack id. Mirrors the expected output
+ * across the 3 slots (1 guaranteed + 2 wild) so the preview is an honest
+ * representation of what each pack tends to yield. Derived from
+ * services/pack.service.js PACK_SLOTS:
+ *   Starter   → 1 G common + 2× wild (80/17/2.5/0.5)  → 5 common, 1 rare.
+ *   Premium   → 1 G rare   + 2× wild (40/35/20/5)     → 3 rare, 2 common, 1 epic.
+ *   Legendary → 1 G leg    + 2× wild (55/40/5)        → 2 legendary, 2 epic, 2 rare. */
 const PREVIEW_DISTRIBUTION = {
-  starter:   ['common', 'common', 'common', 'rare', 'rare', 'epic'],
-  premium:   ['rare', 'rare', 'epic', 'epic', 'legendary', 'legendary'],
-  legendary: ['rare', 'epic', 'epic', 'legendary', 'legendary', 'legendary'],
+  starter:   ['common', 'common', 'common', 'common', 'common', 'rare'],
+  premium:   ['rare', 'rare', 'rare', 'common', 'common', 'epic'],
+  legendary: ['legendary', 'legendary', 'epic', 'epic', 'rare', 'rare'],
 };
 
 /** Pick 6 sample skins from the image-backed catalog matching the pack's
@@ -130,6 +135,52 @@ function pickPreviewSamples(packId, pool) {
     const list = shuffled[rarity] ?? [];
     if (list.length === 0) continue;
     samples.push(list[cursors[rarity] % list.length]);
+    cursors[rarity] += 1;
+  }
+  return samples;
+}
+
+/* Mod template names per rarity, mirrored from lib/db/seed-mods.js. Used
+ * to populate the capsule preview cards with real names instead of bare
+ * rarity labels. Same shape as the skin pool so pickModPreviewSamples can
+ * reuse the cursor-walks-shuffled-list pattern (no duplicates per row). */
+const MOD_TEMPLATE_NAMES = {
+  common: [
+    'Streamline Plate', 'Grip Pads', 'Quick Charge', 'Shock Absorber',
+    'Steady Module', 'Night Lens', 'Rain Shield', 'Wind Fin',
+    'Light Frame', 'Tracker Coil',
+  ],
+  rare: [
+    'Aero Shell', 'Grip Coating', 'Storm Plating', 'Night Optics',
+    'Turbo Intake', 'Endurance Core', 'Aileron Kit', 'Stabilizer Brace',
+  ],
+  epic: [
+    'Plasma Core', 'Stealth Aero', 'Typhoon Module', 'Predator Lens',
+    'Iron Hull',
+  ],
+  legendary: ['Phantom Drive', 'Quantum Sync', 'Storm Rider'],
+};
+
+/** Pick 6 mod template names per the capsule's preview distribution.
+ *  Cursor-walks a per-rarity shuffled list so no name repeats inside the
+ *  same preview row. */
+function pickModPreviewSamples(packId) {
+  const distribution = CAPSULE_PREVIEW_DISTRIBUTION[packId] ?? [];
+  const shuffled = {};
+  for (const rarity of Object.keys(MOD_TEMPLATE_NAMES)) {
+    const list = [...MOD_TEMPLATE_NAMES[rarity]];
+    for (let i = list.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    shuffled[rarity] = list;
+  }
+  const cursors = { common: 0, rare: 0, epic: 0, legendary: 0 };
+  const samples = [];
+  for (const rarity of distribution) {
+    const list = shuffled[rarity] ?? [];
+    if (list.length === 0) continue;
+    samples.push({ name: list[cursors[rarity] % list.length], rarity });
     cursors[rarity] += 1;
   }
   return samples;
@@ -163,18 +214,25 @@ const RARITY_LABELS = {
   legendary: 'Legendary',
 };
 
-// Aggregate rarity % per pack across all 3 slots. Mirrors the probabilities
-// encoded in services/pack.service.js PACK_SLOTS so the visual odds bar
-// and the backend roller stay in sync.
+// Display odds per pack tier. Convention: per-rarity, surface the BEST
+// per-slot probability across the recipe. A guaranteed rarity therefore
+// shows at 100%; rarities that only appear in the wild slots show at
+// their wild-slot %. (We don't aggregate across all 3 slots — the
+// per-card chance is what a player actually cares about: "what's the
+// chance each remaining slot lands this rarity.") Skin packs and mod
+// capsules share the same recipe, so this map drives both.
+//   starter:   1 G common + wild 80/17/2.5/0.5  → C 100, R 17, E 2.5, L 0.5
+//   premium:   1 G rare   + wild 40/35/20/5     → R 100, C 40, E 20, L 5
+//   legendary: slot 1 L 45/E 55 + wild 55/40/5  → L 45, E 55, R 55
 const PACK_ODDS = {
-  starter:   { common: 66.7, rare: 23.3, epic: 8.3,  legendary: 1.7  },
-  premium:   { common: 13.3, rare: 45.0, epic: 26.7, legendary: 15.0 },
-  legendary: { common: 0,    rare: 10.0, epic: 50.0, legendary: 40.0 },
+  starter:   { common: 100, rare: 17,   epic: 2.5, legendary: 0.5 },
+  premium:   { common: 40,  rare: 100,  epic: 20,  legendary: 5 },
+  legendary: { common: 0,   rare: 55,   epic: 55,  legendary: 45 },
 };
 
-/* Capsule (mod) packs - parallel to skin packs but yielding mods. Content is
- * display-only for now; opening logic will wire later. Visual structure
- * mirrors the skin packs (variant colors, pills, three-tier hierarchy). */
+/* Capsule (mod) packs - same slot recipe as skin packs, priced lower.
+ * Backed by /api/marketplace/capsules/open via openCapsule() in
+ * services/pack.service.js. */
 const CAPSULE_PACK_DEFS = [
   {
     id: 'capsule-starter',
@@ -182,16 +240,16 @@ const CAPSULE_PACK_DEFS = [
     price: 1_000,
     variant: 'gray',
     description:
-      '3 mods to boost your drone. Common-heavy with a chance at rare.',
+      'Three wild mod slots. Common-heavy with a chance at rare or higher every slot.',
     buttonVariant: 'secondary',
   },
   {
     id: 'capsule-premium',
     name: 'Premium Capsule',
-    price: 12_000,
+    price: 6_000,
     variant: 'purple',
     description:
-      'Guaranteed rare plus an epic-or-better slot. Best value for competitive upgrades.',
+      'Guaranteed rare mod plus two wild slots leaning rare or epic.',
     pills: [
       { label: 'Most Popular', tone: 'accent' },
       { label: 'Save 30% vs Singles', tone: 'muted' },
@@ -201,24 +259,28 @@ const CAPSULE_PACK_DEFS = [
   {
     id: 'capsule-legendary',
     name: 'Legendary Capsule',
-    price: 50_000,
+    price: 30_000,
     variant: 'gold',
     description:
-      '1 Epic guaranteed · 1 Legendary guaranteed · 1 Rare+ wild slot. The only way to pull exclusive legendary mods.',
+      'Slot 1 lands legendary or epic. Two wild slots that lean rare or epic.',
     buttonVariant: 'gold',
   },
 ];
 
+// Capsules use the SAME PACK_SLOTS recipe as skin packs server-side, so
+// the aggregate odds match. Map keyed by capsule id (with `capsule-`
+// prefix) for the marketplace's per-card odds bar.
 const CAPSULE_PACK_ODDS = {
-  'capsule-starter':   { common: 67, rare: 23, epic: 8,  legendary: 2  },
-  'capsule-premium':   { common: 13, rare: 45, epic: 27, legendary: 15 },
-  'capsule-legendary': { common: 0,  rare: 10, epic: 50, legendary: 40 },
+  'capsule-starter':   PACK_ODDS.starter,
+  'capsule-premium':   PACK_ODDS.premium,
+  'capsule-legendary': PACK_ODDS.legendary,
 };
 
+// Capsule preview cards mirror the skin pack distribution one-for-one.
 const CAPSULE_PREVIEW_DISTRIBUTION = {
-  'capsule-starter':   ['common', 'common', 'common', 'rare', 'rare', 'epic'],
-  'capsule-premium':   ['rare', 'rare', 'epic', 'epic', 'legendary', 'legendary'],
-  'capsule-legendary': ['epic', 'epic', 'epic', 'legendary', 'legendary', 'legendary'],
+  'capsule-starter':   PREVIEW_DISTRIBUTION.starter,
+  'capsule-premium':   PREVIEW_DISTRIBUTION.premium,
+  'capsule-legendary': PREVIEW_DISTRIBUTION.legendary,
 };
 
 
@@ -237,6 +299,12 @@ export default function MarketplacePage() {
   //   awarded  - null until the open API returns; then the 3-item array
   //   pending  - true during the open API call (Confirm → Ready transition)
   const [packFlow, setPackFlow] = useState(null);
+  // Local override for the user's volts balance. NextAuth's session.user.points
+  // is stale until the JWT refreshes; we shadow it with the post-purchase
+  // balance returned by every buy route (pack open, capsule open, listing
+  // buy) so the displayed balance updates immediately after any purchase
+  // without a hard reload. Falls back to user.points when null.
+  const [pointsOverride, setPointsOverride] = useState(null);
   const [listings, setListings] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [salesPage, setSalesPage] = useState(1);
@@ -488,6 +556,17 @@ export default function MarketplacePage() {
         buyModal.skin?.name ??
         'Item';
       setBuySuccess({ name: itemName });
+      // Reflect the post-purchase balance returned by the buy route so the
+      // marketplace's volts display updates immediately, AND fire the
+      // volts:update event so the NavShell's balance updates too.
+      if (typeof body.data?.balance === 'number') {
+        setPointsOverride(body.data.balance);
+        window.dispatchEvent(
+          new CustomEvent('volts:update', {
+            detail: { balance: body.data.balance },
+          }),
+        );
+      }
       // Refresh listings in the background while the success view holds
       // for ~1.5s, then close the modal cleanly.
       Promise.all([fetchListings(), fetchTransactions(), fetchMine()]).catch(
@@ -594,7 +673,7 @@ export default function MarketplacePage() {
   const fee = listingPrice ? Math.floor(Number(listingPrice) * 0.05) : 0;
   const payout = listingPrice ? Number(listingPrice) - fee : 0;
 
-  const userPoints = user?.points ?? 0;
+  const userPoints = pointsOverride ?? user?.points ?? 0;
 
   // Pack flow handlers. ONE modal stays mounted from open → confirm →
   // ready → opened → close; only the inner content re-renders. State
@@ -620,8 +699,9 @@ export default function MarketplacePage() {
   };
 
   // Confirm Purchase (skin path). Hits the pack-open API; on success
-  // transitions stage confirm → ready and stores the awarded items. On
-  // failure, surfaces a toast and returns to confirm so the user can retry.
+  // transitions stage confirm → ready and stores the awarded items + the
+  // post-debit balance for the local override. On failure, surfaces a
+  // toast and returns to confirm so the user can retry.
   const confirmSkinPackPurchase = async () => {
     if (!packFlow || packFlow.kind !== 'skin') return;
     setPackFlow((f) => (f ? { ...f, pending: true } : f));
@@ -638,6 +718,14 @@ export default function MarketplacePage() {
         return;
       }
       const awarded = body.data?.awarded ?? [];
+      if (typeof body.data?.balance === 'number') {
+        setPointsOverride(body.data.balance);
+        window.dispatchEvent(
+          new CustomEvent('volts:update', {
+            detail: { balance: body.data.balance },
+          }),
+        );
+      }
       setPackFlow((f) =>
         f ? { ...f, stage: 'ready', awarded, pending: false } : f,
       );
@@ -647,11 +735,40 @@ export default function MarketplacePage() {
     }
   };
 
-  // Confirm Purchase (capsule path) - no backend wired yet. Demo-gating
-  // pattern: surface a toast and bounce out of the flow.
-  const confirmCapsulePackPurchase = () => {
-    showToast('Not available in demo.', 'info');
-    setPackFlow(null);
+  // Confirm Purchase (capsule path). Mirrors confirmSkinPackPurchase against
+  // /api/marketplace/capsules/open. Pack id carries the `capsule-` prefix;
+  // the route accepts it as `capsuleType`.
+  const confirmCapsulePackPurchase = async () => {
+    if (!packFlow || packFlow.kind !== 'capsule') return;
+    setPackFlow((f) => (f ? { ...f, pending: true } : f));
+    try {
+      const res = await fetch('/api/marketplace/capsules/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ capsuleType: packFlow.pack.id }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        showToast(body?.error || 'Capsule purchase failed', 'error');
+        setPackFlow((f) => (f ? { ...f, pending: false } : f));
+        return;
+      }
+      const awarded = body.data?.awarded ?? [];
+      if (typeof body.data?.balance === 'number') {
+        setPointsOverride(body.data.balance);
+        window.dispatchEvent(
+          new CustomEvent('volts:update', {
+            detail: { balance: body.data.balance },
+          }),
+        );
+      }
+      setPackFlow((f) =>
+        f ? { ...f, stage: 'ready', awarded, pending: false } : f,
+      );
+    } catch (err) {
+      showToast(String(err), 'error');
+      setPackFlow((f) => (f ? { ...f, pending: false } : f));
+    }
   };
 
   // Stage 2 → 3. Animation timing lives in CSS keyframes; React just
@@ -2317,34 +2434,34 @@ function CapsuleCard({ pack, onOpen }) {
    a rarity-tinted ModPlaceholder; legendary slots render the gold "L"
    treatment that the skin packs use. */
 function CapsulePossibleGroup({ packId }) {
-  const distribution = CAPSULE_PREVIEW_DISTRIBUTION[packId] ?? [];
+  // Re-shuffles on every mount/re-render. Same cadence as the skin pack
+  // previews. Each row gets unique names per rarity (cursor-walks a
+  // shuffled list).
+  const samples = useMemo(() => pickModPreviewSamples(packId), [packId]);
   return (
     <div className={styles.possibleGroup}>
       <span className={styles.possibleLabel}>What You Could Pull</span>
       <div className={styles.possibleGrid}>
-        {distribution.map((rarity, i) => (
-          <CapsulePossibleCard key={i} rarity={rarity} />
+        {samples.map((s, i) => (
+          <CapsulePossibleCard key={`${s.name}-${i}`} sample={s} />
         ))}
       </div>
     </div>
   );
 }
 
-function CapsulePossibleCard({ rarity }) {
-  const isLegendary = rarity === 'legendary';
+function CapsulePossibleCard({ sample }) {
+  const { name, rarity } = sample;
   return (
     <div className={cn(styles.possibleCard, styles[`possibleCard_${rarity}`])}>
       <div className={styles.possibleInner}>
-        {isLegendary ? (
-          <span className={styles.possibleL} aria-hidden="true">L</span>
-        ) : (
-          <ModPlaceholder
-            rarity={rarity}
-            size={120}
-            className={styles.possibleModChip}
-          />
-        )}
+        <ModPlaceholder
+          rarity={rarity}
+          size={120}
+          className={styles.possibleModChip}
+        />
       </div>
+      <span className={styles.possibleName}>{name}</span>
       <span
         className={cn(styles.possibleRarity, styles[`rarity_${rarity}`])}
       >
@@ -2354,13 +2471,29 @@ function CapsulePossibleCard({ rarity }) {
   );
 }
 
-/* Odds as colored text, one entry per rarity present in the pack.
-   Accepts an explicit `odds` map (used by capsule packs); otherwise
-   falls back to PACK_ODDS lookup by packId (used by skin packs). */
+/* Odds as colored text, one entry per rarity present in the pack. Accepts
+   an explicit `odds` map (capsules) or falls back to PACK_ODDS by packId
+   (skins). The guaranteed rarity (100%) leads the row; remaining rarities
+   follow in normal common→legendary order. Values use 1-decimal precision
+   when fractional (2.5%, 0.5%) so per-spec percentages aren't rounded. */
+function formatOddsPct(v) {
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
 function OddsText({ packId, odds: oddsProp }) {
   const odds = oddsProp ?? PACK_ODDS[packId];
   if (!odds) return null;
-  const entries = RARITY_LIST.filter((r) => odds[r] > 0);
+  const present = RARITY_LIST.filter((r) => odds[r] > 0);
+  // Lead with the 100% guaranteed rarity if any; otherwise lead with the
+  // highest-tier rarity present (legendary > epic > rare > common) so the
+  // pack's namesake rarity sits first. Other rarities follow in the
+  // common→legendary RARITY_LIST order.
+  const guaranteed = present.find((r) => odds[r] === 100);
+  // present is RARITY_LIST-ordered (common→legendary), so the last
+  // element is the highest tier present in this pack.
+  const lead = guaranteed ?? present[present.length - 1] ?? null;
+  const others = lead ? present.filter((r) => r !== lead) : present;
+  const entries = lead ? [lead, ...others] : others;
   return (
     <div className={styles.oddsText}>
       {entries.map((r, i) => (
@@ -2368,7 +2501,9 @@ function OddsText({ packId, odds: oddsProp }) {
           <span className={cn(styles.oddsTextLabel, styles[`rarity_${r}`])}>
             {RARITY_LABELS[r]}
           </span>{' '}
-          <span className={styles.oddsTextValue}>{Math.round(odds[r])}%</span>
+          <span className={styles.oddsTextValue}>
+            {formatOddsPct(odds[r])}%
+          </span>
           {i < entries.length - 1 && (
             <span className={styles.oddsTextSep} aria-hidden="true">
               ·

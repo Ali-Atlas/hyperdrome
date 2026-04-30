@@ -9,6 +9,6 @@ export const POST = withApiHandler(async ({ session, request }) => {
   if (!VALID_TYPES.has(packType)) {
     throw new ApiError('Invalid pack type', 400);
   }
-  const awarded = await openPack(session.user.id, packType);
-  return ok({ packType, awarded });
+  const { awarded, balance } = await openPack(session.user.id, packType);
+  return ok({ packType, awarded, balance });
 });

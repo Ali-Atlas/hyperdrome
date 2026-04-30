@@ -111,7 +111,7 @@ export default function RacesPage() {
     if (filters.track_id) params.set('track_id', filters.track_id);
     if (myRaces && user?.id) params.set('user_id', user.id);
     try {
-      const res = await fetch(`/api/races?${params.toString()}`);
+      const res = await fetch(`/api/races?${params.toString()}`, { cache: 'no-store' });
       const body = await res.json();
       if (body?.data) {
         setData({ items: body.data.items ?? [], total: body.data.total ?? 0 });
@@ -125,7 +125,7 @@ export default function RacesPage() {
 
   const fetchNextRace = useCallback(async () => {
     try {
-      const res = await fetch('/api/races/next');
+      const res = await fetch('/api/races/next', { cache: 'no-store' });
       const body = await res.json();
       if (body?.data) {
         setRacingPaused(Boolean(body.data.paused));
@@ -138,7 +138,7 @@ export default function RacesPage() {
 
   const fetchTracks = useCallback(async () => {
     try {
-      const res = await fetch('/api/tracks');
+      const res = await fetch('/api/tracks', { cache: 'no-store' });
       const body = await res.json();
       if (body?.data) setTracks(body.data);
     } catch (err) {
@@ -175,7 +175,7 @@ export default function RacesPage() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch('/api/races/upcoming');
+        const res = await fetch('/api/races/upcoming', { cache: 'no-store' });
         const body = await res.json();
         if (!cancelled && res.ok && body?.data?.races) {
           setUpcomingRaces(body.data.races);

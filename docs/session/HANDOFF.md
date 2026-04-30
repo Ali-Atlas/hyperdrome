@@ -4,6 +4,347 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-30 - Races page no-store fetches + RACE QUEUED label robustness
+
+**Captain ask (3 items):**
+1. Races page (`app/races/page.jsx`) shows "no races yet" on first load, then populates after refresh. Make sure every fetch is fresh on every mount - no stale cache.
+2. Dashboard `LocksInCountdown` should reliably render `RACE QUEUED` when the race is pending and past its scheduled time (not "Locks in MM:SS").
+3. Don't touch the multi-matchup cycling - post-demo feature.
+
+**Files modified (2):**
+
+### `app/races/page.jsx`
+- Added `{ cache: 'no-store' }` to all four client fetches: `/api/races` (line 114), `/api/races/next` (line 128), `/api/tracks` (line 141), `/api/races/upcoming` (line 178). Forces the browser/Next data layer to always hit the route handler instead of replaying a cached empty response.
+- No other logic touched. The `loading` state + `DataTable`'s skeleton-row treatment already handle the "fetching" UX correctly; the bug was specifically a stale-empty cache being served before the live data arrived.
+
+### `app/dashboard/page.jsx`
+- `LocksInCountdown` (lines 691+): dropped the inner `status === 'pending'` gate. The component is only mounted by `NextRacePanel` when `race?.scheduledAt` is truthy, and `getUpcomingRacesForUser` already filters `status='pending'` server-side - so the gate was structurally redundant and created a fragile path that returned `null` if the prop was ever undefined or out-of-sync. With it removed, `remaining <= 0` always renders `RACE QUEUED`. Updated the docstring to reflect the simpler contract.
+- Removed the now-unused `status` prop from `LocksInCountdown`'s signature and the call site in `NextRacePanel`. Net -11 lines on the dashboard.
+
+**Item 3 not touched** per instruction.
+
+**Verification:**
+- Confirmed via grep: all four races-page fetches carry `cache: 'no-store'`, `LocksInCountdown` signature is `({ targetDate, className })`, no `status` prop passed at the call site.
+- **Not run:** dev server / browser. Captain verifies.
+
+**Not verified by Mercenary:**
+- Live races page mount with a populated dev DB - to confirm the no-store change actually fixes Captain's "first load shows empty" symptom (could be a different cache layer if it persists).
+- Live dashboard with a PENDING race past its `scheduled_at` - expect to see `RACE QUEUED` in the next-race card header.
+
+---
+
+## 2026-04-30 - Pack economy v3: legendary repriced/reweighted + mod preview names
+
+**Captain ask:**
+1. Legendary pack 100k → 60k. Legendary capsule 50k → 30k. New slot 1 distribution: legendary 45% / epic 55% (no longer guaranteed).
+2. Display odds for legendary container now reflect actual slot 1 percentages (not 100%).
+3. Mod capsule preview cards must show real mod names (parity with skin pack previews).
+4. Sanity-check seeded marketplace prices vs new pack prices.
+5. Update guide / FAQ / landing copy.
+6. Preview placeholder cards in every pack container must show unique names — no duplicates per row.
+
+**Files changed (5):**
+
+### `services/pack.service.js`
+
+- `PACK_PRICES.legendary`: `100_000` → `60_000`.
+- `MOD_PACK_PRICES.legendary`: `50_000` → `30_000`.
+- `PACK_SLOTS.legendary`: slot 1 changed from `'legendary'` (guaranteed) to a distribution `{ legendary: 0.45, epic: 0.55 }`. Wild slots (2-3) unchanged at 55r/40e/5l.
+- Slot recipe header comment updated to `legendary = slot 1 @ epic 55/legendary 45 + 2 wild slots @ 55/40/5`.
+- Starter and Premium recipes untouched.
+- `openPack` / `openCapsule` already roll any `object`-shaped slot via `rollDistribution`, so no logic change needed for the new slot 1 distribution; the existing roller handles it.
+
+### `app/marketplace/page.jsx`
+
+- `PACK_DEFS.legendary`: price 100k → 60k. `slots` array becomes 3 mystery slots (since slot 1 is no longer guaranteed). New `rates` array: Legendary slot 1 45%, Epic slot 1 55%, Rare slots 2-3 55%, Epic slots 2-3 40%, Legendary slots 2-3 5%. Description rewritten ("Slot 1 lands legendary or epic. Two wild slots that lean rare or epic.").
+- `CAPSULE_PACK_DEFS['capsule-legendary']`: price 50k → 30k, description updated.
+- `PACK_ODDS.legendary`: `{ common: 0, rare: 55, epic: 40, legendary: 100 }` → `{ common: 0, rare: 55, epic: 55, legendary: 45 }`. Pattern: surface the BEST per-slot probability per rarity. Legendary 45% (slot 1), Epic 55% (slot 1 beats wild's 40%), Rare 55% (wild slot only). `CAPSULE_PACK_ODDS` continues to point at `PACK_ODDS` (single source of truth).
+- New `MOD_TEMPLATE_NAMES` constant — mirrored from `lib/db/seed-mods.js`. 10 commons, 8 rares, 5 epics, 3 legendaries. Same shape as the live skin pool so the sampler can reuse the cursor-walks-shuffled-list pattern.
+- New `pickModPreviewSamples(packId)` — exact mirror of `pickPreviewSamples` for mods. Returns `[{ name, rarity }]` items with no duplicates per row.
+- `CapsulePossibleGroup` now calls `pickModPreviewSamples(packId)` (memoized via `useMemo` over `packId`) and passes named samples to each `CapsulePossibleCard`.
+- `CapsulePossibleCard` now takes `sample = { name, rarity }`, renders `<ModPlaceholder>` (gold-tinted hex for all rarities including legendary — mods don't use the gold "L" treatment, that was inherited from the skin design and now dropped), the mod name, and the rarity label. Layout matches the skin `PossibleCard` exactly.
+- `OddsText` lead-rarity logic generalized: still leads with the 100% guaranteed rarity if any; if none, leads with the highest-tier rarity present (last element of the RARITY_LIST-ordered `present` array). Legacy display order preserved for starter (Common 100% leads) and premium (Rare 100% leads); legendary now leads with Legendary 45% naturally.
+
+### `app/marketplace/page.module.css`
+
+No changes this round. The added mod-name `<span>` per capsule preview card brings mod card heights up to skin card heights, which improves cross-tab visual parity. Existing `min-height: 500px` on `.packCard_premium` / `.packCard_starter` and `600px` on `.packCardHero` still comfortably absorbs the new content.
+
+### `app/guide/page.jsx`
+
+- Money & Markets bullet list: `Legendary (100,000)` → `Legendary (60,000)` for skin packs; `Legendary (50,000)` → `Legendary (30,000)` for mod capsules.
+- Legendary Pack heading: "Legendary Pack - 100,000 volts" → "60,000 volts". Slot 1 list item changed from "Legendary (guaranteed)." → "Legendary 45% / Epic 55%."
+- Skin packs vs mod capsules paragraph: prices updated to `1,000 / 6,000 / 30,000 vs 2,000 / 12,000 / 60,000`.
+- Money & Markets overview paragraph: same price update.
+
+### `app/faq/page.jsx`
+
+- Volts-spending Q: prices updated to `2,000 / 12,000 / 60,000` (skins) and `1,000 / 6,000 / 30,000` (mods).
+- Legendary Pack Q: title `(100,000 volts)` → `(60,000 volts)`. Answer's slot 1 changed from "Legendary guaranteed" to "Legendary 45% / Epic 55%". Wild slots unchanged.
+- Mod capsule Q: prices updated.
+
+### `app/page.jsx` (landing)
+
+- Legendary skin pack tile price 100k → 60k.
+- Legendary capsule tile price 50k → 30k.
+
+**Marketplace seeded-price sanity check (read-only audit, no changes needed):**
+
+| Item | Marketplace seed range | New pack/capsule price | OK? |
+|------|---|---|---|
+| Legendary skin (named) | 135k (Celestial) / 142k (Valiant) | 60k pack | ✓ certainty premium ~2.3× pack |
+| Legendary skin (placeholder) | 85k–110k | 60k pack | ✓ ~1.4× pack floor |
+| Legendary mod | 65k | 30k capsule | ✓ ~2.2× capsule |
+| Epic skin (named) | 18k–25k | 12k premium pack | ✓ |
+| Epic mod | 8k–15k | 6k premium capsule | ✓ |
+| Rare skin | 1.5k–8k | 2k starter pack | ✓ (some placeholders ≤ 2k, but pack is gamble — fine) |
+| Rare mod | 1.5k–4k | 1k starter capsule | ✓ |
+| Common skin / mod | low hundreds–1.5k / 200–700 | starter 1k–2k | OK as gamble pricing |
+
+No marketplace price flags. Legendary skin (Celestial 135k, Valiant 142k) and legendary mod (65k) all sit comfortably above the pack/capsule price as Captain framed it ("certainty premium for guaranteed vs probability-weighted").
+
+**Distribution sums verified:**
+- Legendary slot 1: 0.45 + 0.55 = 1.00 ✓
+- Legendary wild: 0.55 + 0.40 + 0.05 = 1.00 ✓ (unchanged)
+- Starter / Premium recipes untouched, prior verification still holds.
+
+**Uniqueness in previews:** Both `pickPreviewSamples` (skins) and the new `pickModPreviewSamples` (mods) shuffle each rarity's pool once and walk it with a per-rarity cursor. So when a row needs N items of the same rarity, it returns N distinct names. Pool sizes (skins: image-backed catalog from `/api/skins/catalog`; mods: 10c / 8r / 5e / 3l from `MOD_TEMPLATE_NAMES`) all comfortably exceed the per-rarity counts in any preview distribution row.
+
+---
+
+## 2026-04-30 - Footer countdown: Mod Lock is global game state, not user-specific
+
+**Captain correction:** Mod Lock should ALWAYS show alongside Next Round - it's global game state (the strategy window for the next batch), not user-specific. Derive it from the same `nextRaceAt` the Next-Round timer uses: `modLockAt = nextRaceAt - PENDING_WINDOW_SECONDS (120s)`. When the lock time has passed, show `MOD LOCKED` instead of a countdown.
+
+**Files modified (1):**
+
+### `components/ui/NavShell/index.jsx`
+- Added module-scope `MOD_LOCK_LEAD_MS = 120 * 1000` constant with a comment to keep it in lockstep with `services/race.service.js#PENDING_WINDOW_SECONDS`. Hardcoded (rather than fetched) because PENDING_WINDOW_SECONDS lives in server-side service code; importing it would pull that into a client bundle. Trade-off accepted, comment flags the dependency.
+- Removed the user-specific `/api/races/upcoming` polling effect, the `raceLockAt` / `raceLockId` state, and the derived `raceLockText` / `raceLockExpired` / `showRaceItem` locals - all dead now that the timer derives from `batchAt` alone. Net -21 lines in the JSX.
+- New derived locals: `modLockAt = batchAt != null ? batchAt - MOD_LOCK_LEAD_MS : null`, `modLockExpired = modLockAt != null && modLockAt <= now`, `modLockText = formatRemaining(modLockAt)`.
+- JSX: Mod Lock item is now always rendered alongside Next Round (gated only on `!paused`). When `modLockExpired` is true, the item collapses to a single yellow `MOD LOCKED` span (no label/value split, since "Mod Lock in LOCKED" doesn't read cleanly). Otherwise it's `Mod Lock in MM:SS` with the value in brand yellow (`var(--accent-warning)`).
+
+**Verification:**
+- Confirmed via grep: only one polling effect remains (`/api/races/next`), `raceLockAt` is fully removed, `modLockAt` / `modLockExpired` / `MOD_LOCK_LEAD_MS` all wired.
+- **Not run:** dev server / browser. Captain verifies.
+
+**Not verified by Mercenary:**
+- Visual at 1440 / 1024 / 375 - the LOCKED state collapses the timer item to a different shape (single span vs. label+value pair); the bar may shift slightly when the state flips. Captain to glance.
+- The 120s constant assumes parity with `PENDING_WINDOW_SECONDS`; if Captain ever changes the server constant, the client must update in lockstep.
+
+---
+
+## 2026-04-30 - Footer countdown: dual timers (Next Round + Mod Lock, yellow)
+
+**Captain ask:** Restore the second timer to the footer alongside Next Round. Label it "Mod Lock in MM:SS" (the time until matchups lock for execution = the 2-minute PENDING_WINDOW before `scheduled_at`). Both visible side by side. Show Mod Lock only when the user has a pending race. Mod Lock value rendered in brand yellow.
+
+**Files modified (2):**
+
+### `components/ui/NavShell/index.jsx`
+- `<CountdownBar>` JSX: dropped the single-timer wrapper and re-introduced the dual-timer layout. First item is the existing `Next Round in` (teal value, `var(--accent-primary)`). When `showRaceItem` is true (`!paused && raceLockAt != null`), renders a `·` separator and a second `<span className={styles.countdownItem}>` with label `Mod Lock in` and value styled `${countdownValue} ${countdownValueWarning}` so the value renders in brand yellow while keeping all the existing typography/sizing.
+- The lock-timer state plumbing (already in place from the earlier removal-and-restore round) wires straight into this; nothing in the polling effects, the 1s ticker, or `formatRemaining` had to change.
+- Dropped the previous "Races in progress" pulse / `Link` wrapper. Captain didn't ask for either; simpler footer reads as two equal-weight timers. If/when the lock expires the value just shows `00:00` until the next 15s `/api/races/upcoming` poll updates `raceLockAt` to the next pending race or null.
+
+### `components/ui/NavShell/NavShell.module.css`
+- Added `.countdownValueWarning` modifier: single rule, `color: var(--accent-warning)` (#F5C518, the brand-yellow token already defined in `globals.css`). Composed with the existing `.countdownValue` so font-family / size / weight / letter-spacing stay identical to the teal sibling.
+
+**Verification:**
+- Confirmed via grep both labels render (`Next Round in`, `Mod Lock in`) and the warning modifier is wired both sides.
+- **Not run:** dev server / browser. Captain verifies.
+
+**Not verified by Mercenary:**
+- Visual at 1440 / 1024 / 375 - the bar now has two items + separator instead of one. The CSS uses `white-space: nowrap` on `.countdownItem` so each item stays whole, but at 375 the bar may need to wrap or compress. Captain to glance.
+
+---
+
+## 2026-04-30 - Pack economy v2: revised slot recipe + listing-buy balance refresh + cross-tab container parity
+
+**Captain ask:** Revise the pack recipe (Starter now has 1 guaranteed common, Premium wild distribution shifted, Legendary wild dropped common entirely). Display convention: guaranteed rarity at 100% + per-wild-slot percentages for the rest. Balance must refresh after ANY purchase including marketplace listing buys. Pack containers must have zero shift switching between skins/mods tabs. Captain said skip lint.
+
+**Files changed (5):**
+
+### `services/pack.service.js`
+
+- `PACK_SLOTS` rewritten:
+  - **Starter**: `'common'` (slot 1, guaranteed) + 2× wild `{ common: 0.80, rare: 0.17, epic: 0.025, legendary: 0.005 }` (was 3 wild slots, no guarantee).
+  - **Premium**: `'rare'` + 2× wild `{ common: 0.40, rare: 0.35, epic: 0.20, legendary: 0.05 }` (was 35/40/22/3).
+  - **Legendary**: `'legendary'` + 2× wild `{ rare: 0.55, epic: 0.40, legendary: 0.05 }` (was 40/45/15; common dropped from the wild).
+- Prices already at 2k/12k/100k (skins) and 1k/6k/50k (capsules) from prior round; verified.
+- `openPack` and `openCapsule` already debit via atomic SQL (`set({ points: sql\`${users.points} - ${price}\` })`) and refund + release on failure. Confirmed user is actually charged in the DB. Both return `{ awarded, balance }`.
+
+### `services/marketplace.service.js`
+
+- `buyListing` now returns `{ listing, balance }` (was just the listing). `balance = buyer.points - listing.price`, the post-debit value, so the marketplace UI can refresh its volts display without a hard reload — same contract as the pack/capsule open paths.
+
+### `app/api/marketplace/[listingId]/buy/route.js`
+
+- Destructures `{ listing, balance }` from `buyListing`. Spreads `listing` into the response top-level (existing UI consumers read `body.data.itemType` etc.) and adds `balance` as an additional field.
+
+### `app/marketplace/page.jsx`
+
+- `PACK_DEFS`:
+  - Starter `slots`: `[common, rainbow-mystery, rainbow-mystery]` (was 3 mystery). New `rates` lead with "Common (slot 1) 100%" and follow with the per-wild-slot percentages.
+  - Premium `rates` updated to the new wild distribution (40/35/20/5).
+  - Legendary `rates` updated to the new wild distribution (55/40/5; no common at the wild slot).
+  - Description copy updated for each tier.
+- `PACK_ODDS` map switched to the **display convention**: guaranteed rarity at 100%, other rarities at their per-wild-slot probability. `{starter: 100/17/2.5/0.5, premium: 40/100/20/5, legendary: 0/55/40/100}`.
+- `CAPSULE_PACK_ODDS` and `CAPSULE_PREVIEW_DISTRIBUTION` continue to point at the skin maps (single source of truth).
+- `PREVIEW_DISTRIBUTION`:
+  - Starter `[5C, 1R]` (1 G common + 2 wild → ~5 commons, 1 rare expected).
+  - Premium `[3R, 2C, 1E]` (1 G rare + 2 wild → ~3 rare, 2 common, 1 epic expected).
+  - Legendary `[2L, 2E, 2R]` (1 G legendary + 2 wild → ~2 of each).
+- `OddsText`:
+  - New `formatOddsPct(v)` helper: integers stay as integers, fractional values render with 1 decimal (`2.5%`, `0.5%`). Replaces the prior `Math.round` that was eating the decimals.
+  - Entry order: 100%-guaranteed rarity LEADS the row; remaining rarities follow in `RARITY_LIST` order (common → legendary). So legendary pack reads "Legendary 100%, Rare 55%, Epic 40%" instead of "Rare → Epic → Legendary".
+- `pointsOverride` state declaration moved to the state-setup block at the top of `MarketplacePage` (was previously declared mid-function alongside `userPoints`). Cleaner reading order; no behavioral change.
+- `handleBuy` (marketplace listing buy) now sets `pointsOverride` from `body.data.balance` after a successful buy — volts in the marketplace top-bar update immediately on listing purchases too, matching the pack/capsule flow. Background `fetchListings/fetchTransactions/fetchMine` still kicks off in parallel for the listings refresh.
+
+### `app/marketplace/page.module.css`
+
+- `.packCard_premium` and `.packCard_starter` `min-height: 460 → 500`. Pinned tall enough to absorb every variant of internal copy across both skin packs and mod capsules so switching between the Skins and Mods tabs causes zero layout shift. Mobile floor (600 from earlier round) is still in effect at `max-width: 767`.
+- Legendary container (`.packCardHero { min-height: 600 }`) and mobile (`800`) unchanged — already comfortably above natural content height.
+
+### `app/guide/page.jsx`
+
+- Slot tables for all 3 tiers updated to match new recipe (starter 1G + 2× 80/17/2.5/0.5; premium 1G + 2× 40/35/20/5; legendary 1G + 2× 55/40/5).
+
+### `app/faq/page.jsx`
+
+- 3 pack Q&As (Starter / Premium / Legendary) rewritten with the new slot recipe.
+
+**Display convention (per Captain spec):**
+
+| Pack | Display |
+|------|---------|
+| Starter (2,000V) | Common 100%, Rare 17%, Epic 2.5%, Legendary 0.5% |
+| Premium (12,000V) | Rare 100%, Common 40%, Epic 20%, Legendary 5% |
+| Legendary (100,000V) | Legendary 100%, Rare 55%, Epic 40% |
+
+(Each row reads: guaranteed rarity at 100% first, then per-wild-slot percentages for the other rarities.)
+
+**Distribution sums verified:**
+- Starter wild: 0.80 + 0.17 + 0.025 + 0.005 = 1.000 ✓
+- Premium wild: 0.40 + 0.35 + 0.20 + 0.05 = 1.000 ✓
+- Legendary wild: 0.55 + 0.40 + 0.05 = 1.000 ✓
+
+**Cross-tab parity:** Skins and Mods tabs share the same `.packCardHero` / `.packCard_premium` / `.packCard_starter` classes with identical min-heights. Bumped premium/starter to 500px so both tabs render at the exact same height regardless of description-copy length variation between the two product lines.
+
+---
+
+## 2026-04-30 - Footer countdown: relabel "Next Round" + drop the lock timer from the UI
+
+**Captain ask:** Rename "Next batch" to "Next Round" in the footer, and remove the lock/strategy timer from the footer entirely. Lock window is an internal mechanic; players don't need to see it. Don't touch the timer logic itself.
+
+**Files modified (1):**
+
+### `components/ui/NavShell/index.jsx`
+- `<CountdownBar>` JSX (lines 261+): label `Next batch in` → `Next Round in`. Removed the entire `{showRaceItem && (...)}` block that rendered the "Race locks in MM:SS" link / "Races in progress" pulse and the dot separator.
+- The lock-timer state plumbing is intentionally LEFT IN PLACE per Captain's instruction ("don't touch the timer logic"). Specifically: the `raceLockAt` / `raceLockId` state, the `/api/races/upcoming` polling effect (15s cadence), and the derived `raceLockText` / `raceLockExpired` / `showRaceItem` locals are all still computed - they're just not rendered. Lints will flag them as unused; Captain said skip lint. Trivial cost (one poll every 15s) and zero risk if Captain wants to put the lock display back.
+- `Link` import is still used by the sidebar's other nav links, so it stays.
+
+**Verification:**
+- Confirmed via grep: only `Next Round in` label remains, no `Next batch` / `Race locks in` / `Races in progress` references in the JSX. Three other `<Link>` uses keep that import live.
+- **Not run:** dev server / browser. Captain verifies.
+
+**Not verified by Mercenary:**
+- Visual width of the countdown bar at 1440 / 1024 / 375 - the bar lost its right-side content, so single-item flexbox layout might shift visually. Captain to glance.
+
+---
+
+## 2026-04-30 - Footer countdown: graceful catch-up after gaps
+
+**Captain ask:** The footer countdown shows `Next batch in 00:00` locally because dev has no cron - the latest completed race is old, so `latest + interval` is in the past and the UI clamps. Fix `getNextRaceTime()` to advance the next-tick timestamp forward by interval until it's in the future. No-op during normal cron operation; handles dev / prod-pause / any gap.
+
+**Files modified (1):**
+
+### `services/race.service.js`
+- `getNextRaceTime()` (lines 802-820): after computing `next = last + interval`, added `while (next <= new Date()) next += interval`. Comment block notes the three scenarios this handles (dev no-cron, prod pause, generic gap) and that it's a no-op when the cron is healthy because `last` is already fresh.
+
+**Verification:**
+- Visually inspected the post-edit block - while-loop sits between the original `next` calculation and the `return next`, no other lines disturbed.
+- **Not run:** dev server / browser. Captain verifies the countdown ticks properly.
+
+**Not verified by Mercenary:**
+- Live behavior. With `racing_enabled=true` and no cron firing locally, the countdown should now show a real future time (`now + interval`-ish, depending on how many intervals fit between `last` and `now`) and tick down to 0 every 120s, then snap back. Captain to confirm visually.
+
+---
+
+## 2026-04-30 - Pack economy rewrite: prices, slot recipe, capsules wired, balance refresh, honest previews
+
+**Captain ask (7-task batch):**
+1. Skin pack prices → 2,000 / 12,000 / 100,000.
+2. Skin pack slot recipe → 3 wild slots (Starter, no guarantees), 1 R guaranteed + 2 wild (Premium), 1 L guaranteed + 2 wild (Legendary). New per-slot distributions.
+3. Balance must update in the UI immediately after pack purchase.
+4. Pack-screen preview cards must honestly reflect actual probabilities.
+5. UI premium pack price 25k → 12k.
+6. Wire mod capsules through the service layer (1,000 / 6,000 / 50,000) with the same slot recipe as skin packs.
+7. Single source of truth for prices across service / marketplace / landing / guide / FAQ.
+
+**Files changed (7):**
+
+### `services/pack.service.js`
+
+- `PACK_PRICES`: 500 / 2,000 / 10,000 → **2,000 / 12,000 / 100,000**.
+- New `MOD_PACK_PRICES`: **1,000 / 6,000 / 50,000** (exported).
+- `PACK_SLOTS` rewritten and now SHARED between skin packs and mod capsules:
+  - `starter`: three identical wild slots `{ common: 0.80, rare: 0.17, epic: 0.025, legendary: 0.005 }`.
+  - `premium`: `'rare'` (guaranteed) + two wilds `{ common: 0.35, rare: 0.40, epic: 0.22, legendary: 0.03 }`.
+  - `legendary`: `'legendary'` (guaranteed) + two wilds `{ rare: 0.40, epic: 0.45, legendary: 0.15 }`.
+- `resolveRarityList(tier)` now keyed off the shared `PACK_SLOTS`; both `openPack` and the new `openCapsule` reuse it.
+- `openPack` return shape changed `Array<skin>` → `{ awarded, balance }` (balance = `user.points - price`, the post-debit balance) so the caller can refresh the displayed wallet without a hard reload.
+- New `openCapsule(userId, tier)` — mirrors `openPack` but targets the `mods` table. No `imageUrl` filter (mods render via `<ModPlaceholder>`, not webp). Same pre-flight availability check + atomic CAS-claim + refund-and-release on failure. Returns `{ awarded, balance }`.
+
+### `app/api/marketplace/packs/open/route.js`
+
+- Destructures `{ awarded, balance }` from `openPack` and surfaces both in the response payload.
+
+### `app/api/marketplace/capsules/open/route.js` (new)
+
+- Mirrors the pack-open route. Accepts `tier` directly OR `capsuleType` (the marketplace's pack id, e.g. `capsule-starter`); strips the `capsule-` prefix and validates the tier. Returns `{ tier, awarded, balance }`.
+
+### `app/marketplace/page.jsx`
+
+- `PACK_DEFS` (skin packs):
+  - Premium price 25,000 → **12,000**.
+  - All `slots` arrays restructured to match the new recipe (starter is now 3 mystery slots, premium is rare-guaranteed + 2 mystery, legendary is legendary-guaranteed + 2 mystery).
+  - `rates` arrays rewritten with the per-slot probabilities (e.g. starter "Common (per slot) 80%", premium "Rare (slot 1) 100%" + "Common (slots 2-3) 35%" + …, legendary "Legendary (slot 1) 100%" + "Rare (slots 2-3) 40%" + …).
+  - `contents` and `description` strings updated to match.
+- `PREVIEW_DISTRIBUTION`:
+  - `starter`: `['common', 'common', 'common', 'common', 'common', 'rare']` — 5C/1R reflects the 80%/17% reality.
+  - `premium`: `['rare', 'rare', 'rare', 'rare', 'common', 'epic']` — guaranteed rare prominently + (1C/3R/1E) for the wild slots.
+  - `legendary`: `['legendary', 'legendary', 'epic', 'epic', 'rare', 'rare']` — guaranteed legendary prominently + (2R/2E/1L) for the wild slots' expected output.
+- `PACK_ODDS` aggregate updated to match new math: `{ 80/17/2.5/0.5 }`, `{ 23.3/60/14.7/2 }`, `{ 0/26.7/30/43.3 }`.
+- `CAPSULE_PACK_DEFS`:
+  - Capsule-premium price 12,000 → **6,000**.
+  - Descriptions rewritten for the new recipe (parallel copy to skin packs).
+- `CAPSULE_PACK_ODDS` and `CAPSULE_PREVIEW_DISTRIBUTION` are now thin pointers to `PACK_ODDS` / `PREVIEW_DISTRIBUTION` (single source of truth — capsules use the same recipe as packs).
+- New local state `pointsOverride`. `userPoints = pointsOverride ?? user?.points ?? 0`. After both `confirmSkinPackPurchase` and `confirmCapsulePackPurchase` succeed, `setPointsOverride(body.data.balance)` so the volts line in the marketplace top-bar updates immediately. No hard refresh needed.
+- `confirmCapsulePackPurchase` rewritten from the demo "Not available" toast to a real API call against `/api/marketplace/capsules/open`. Identical control flow to `confirmSkinPackPurchase` (set pending, fetch, on success transition to `ready` with `awarded` + `balance`, on failure toast + reset pending). Pack flow modal carries the user from confirm → ready → opened with the awarded mods, same animation as skin packs.
+
+### `app/page.jsx` (landing)
+
+- Skin pack premium price tile 25,000 → **12,000**.
+- Capsule premium price tile 12,000 → **6,000**.
+
+### `app/guide/page.jsx`
+
+- Bullet list (`Skin packs (2,000 / 12,000 / 100,000), Mod capsules (1,000 / 6,000 / 50,000)`) updated.
+- Per-pack subheadings + slot lists rewritten to match new recipe (Starter 80/17/2.5/0.5 every slot, Premium rare-guaranteed + 35/40/22/3, Legendary legendary-guaranteed + 40/45/15).
+- "Skin packs vs mod capsules" paragraph: `Starter 1,000 / Premium 6,000 / Legendary 50,000 vs the skin pack tiers of 2,000 / 12,000 / 100,000`.
+- Money & Markets overview paragraph: same price update.
+
+### `app/faq/page.jsx`
+
+- Volts-spending answer: `2,000 / 12,000 / 100,000` and `1,000 / 6,000 / 50,000`.
+- Three pack Q&As (Starter / Premium / Legendary) rewritten with new slot recipe.
+- Premium price in question text 25,000 → **12,000**.
+- Mod-capsule answer: `1,000 / 6,000 / 50,000` and `2,000 / 12,000 / 100,000`.
+
+**Single source of truth check:** Walked every file with a price grep — no stragglers left. Service `PACK_PRICES` / `MOD_PACK_PRICES` are the authoritative numbers; UI `PACK_DEFS` / `CAPSULE_PACK_DEFS` and the `app/page.jsx` tiles, guide, and FAQ now match exactly.
+
+**Aggregate odds check:** Skin and capsule packs share the same recipe. Aggregate (3-slot average) per tier: Starter 80% C / 17% R / 2.5% E / 0.5% L. Premium 23.3% C / 60% R / 14.7% E / 2% L. Legendary 0% C / 26.7% R / 30% E / 43.3% L. These match the in-UI `PACK_ODDS` map exactly.
+
+---
+
 ## 2026-04-30 - Gap chart: round-second x-axis ticks + tighter horizontal dead space
 
 **Captain ask:** Two fixes on the gap chart in `/races/[raceId]`:
@@ -3486,3 +3827,96 @@ Verify script `scripts/_verify_clustered_segments.mjs` was used to capture the d
   - Split the previous combined rule. `.bindCardImage img, .bindCardImage > svg` keep `width: 100%; height: 100%; object-fit: contain` (real images + ModPlaceholder fill the bind slot). New `.bindCardImage span` rule mirrors marketplace `.skinImg` exactly: `width: auto; height: 100%; max-width: 100%`. SkinThumb's own `.wrap.wrap` rule (specificity 0,2,0) still owns the flex centering and wins against this single-class rule, so the prism stays centered.
 
 **Verification:** Skipped per Captain.
+
+## 2026-04-30 - Dashboard + race-edge fixes from audit
+
+**Files modified (2):**
+
+- `app/dashboard/page.jsx`
+  - **Legendary styling stripped from next-race cards.** `NextRaceDroneSide` no longer reads `drone.appliedSkin?.rarity === 'legendary'`, calls `getLegendaryTheme`, applies `--legendary-*` CSS variables, or adds `styles.skinRarity_legendary` to the matchup-side container. The next-race matchup cards now render with the standard `.matchupSide` styling regardless of equipped skin. `getLegendaryTheme` import removed. CSS at `page.module.css:152-204` left in place per spec (just unreferenced from this surface now).
+  - **`RACING NOW` → `AWAITING RESULTS`.** `LocksInCountdown` gains a `status` prop. When `remaining <= 0` it now reads `status` and shows `AWAITING RESULTS` only when the race is still pending; if status is anything else (shouldn't happen on the dashboard's next-race panel today, but guards against misuse) it renders nothing. `NextRacePanel` passes `race.status` through.
+
+- `app/races/[raceId]/page.jsx`
+  - **Race Edge perspective is now pure ELO math.** `pickEdgePerspective` (ownership > higher-ELO > left-tiebreak) replaced with `computeRaceEdge(left, right)`: returns `{ isEven, viewer, opponent, viewerElo, oppElo, prob }` where `prob` is the standard ELO expected score, `viewer` is the side with `prob >= 0.5`, and `isEven = |prob - 0.5| <= 0.02` (48-52% band).
+  - `RaceEdgeCard` no longer takes `viewerUserId`. Header reads `EVEN MATCHUP` (no drone name) when `isEven`; otherwise `RACE EDGE | <viewer name>` as before with the actual win pct rendered in the body. Strengths / Gaps / Win Probability still computed from the favorite's perspective in the non-even case; in the even case they're computed from whoever has the marginal lean (so the body still shows useful diff data even at ~50/50).
+  - Caller in `RaceStrategyView` updated to drop the `viewerUserId` prop on the `RaceEdgeCard` element.
+
+**DB check:** `SELECT * FROM admin_config WHERE key = 'race_interval_seconds'` returned:
+
+```json
+{
+  "key": "race_interval_seconds",
+  "value": "180",
+  "description": "Seconds between race cycles",
+  "updated_at": "2026-04-28T06:49:42.295Z"
+}
+```
+
+So the cron tick runs every 180s (3 min) while `PENDING_WINDOW_SECONDS` is 120s (2 min). Each pending race spends ~60s post-`scheduledAt` waiting for the next tick - exactly the window where the dashboard now correctly shows `AWAITING RESULTS` instead of `RACING NOW`. Value is consistent with `vercel.json`'s `*/3 * * * *` schedule per `scripts/update-race-interval-180.js`'s docstring. No code change needed for fix #4.
+
+**Verification:** Skipped per Captain (DB check above is read-only).
+
+---
+
+## 2026-04-30 - Drone naming: cool generated names + DB-checked uniqueness
+
+**Captain ask:** No duplicate drone names allowed. Replace ad-hoc generators with one curated word pool, route every drone-creation path through it, and check the DB for uniqueness before insert. Keep RACING_BOTS and the 8 demo-account drones (STRIKER, RUNNER, ...) hand-named per Captain's exemption.
+
+**Files modified (7, 1 new):**
+- **NEW** `lib/game-engine/drone-names.js`
+  - `DRONE_NAME_WORDS` - 171 cyberpunk-flavored words (ACE, AEGIS, ... VORTEX, WRAITH, ZEPHYR).
+  - `randomDroneName()` - stateless. Returns `WORD-<LETTER><DIGIT>` (e.g. `VORTEX-X3`, `NEON-V8`, `FLUX-D4`). Pool ≈ 171 × 26 × 10 = 44,460 base combinations.
+  - `generateUniqueDroneName(db, dronesTable, { maxAttempts = 8 })` - async; loops calling `randomDroneName`, runs `SELECT id FROM drones WHERE name = X LIMIT 1`, returns the first non-collision. After 8 collisions falls back to `${name}-${4-char base36}` so the function is guaranteed to return a unique-ish name even under pathological pressure. Comment notes the small race window between SELECT and downstream INSERT (no UNIQUE index on `drones.name` because the demo-seed STRIKER × N exemption Captain explicitly preserved would block the migration).
+- `lib/game-engine/drone-spawn.js`
+  - Dropped `DRONE_ADJECTIVES`, `DRONE_NOUNS`, and the local `randomDroneName` (10 × 10 = 100-combo pool, the original collision source). Comment now points callers at `./drone-names.js`.
+- `lib/auth/index.js`
+  - Dropped the duplicate local `DRONE_ADJECTIVES`/`DRONE_NOUNS`/`randomDroneName`. `createStarterDrone` now does `const name = await generateUniqueDroneName(db, drones)` before insert. Magic-link signups can no longer collide.
+- `app/api/drones/create/route.js` (NPC vendor purchase)
+  - Import swap: dropped `randomDroneName` from `drone-spawn`, added `generateUniqueDroneName` from `drone-names`. Insert now uses `await generateUniqueDroneName(db, drones)`.
+- `services/race.service.js` (`spawnFreeDrone` for XP-milestone drops)
+  - Same import swap + `await generateUniqueDroneName(db, drones)` in `spawnFreeDrone`.
+- `scripts/seed-production.js`
+  - Added import of `generateUniqueDroneName`. `mintAndListDrone` and the `DRONE_LISTINGS_WITH_SKINS` loop both dropped the `MARKET_<lvl>_<6char>` template and now call `await generateUniqueDroneName(db, drones)`. `RACING_BOTS` array (24 hand-picked names) untouched per Captain.
+- `scripts/fix-marketplace-featured.js`
+  - This script uses neon's tag-template `sql` directly (not Drizzle), so the shared helper isn't a drop-in. Imported the stateless `randomDroneName` from `drone-names` and added a local `generateUniqueDroneNameSql()` that mirrors the shared helper's retry+fallback shape using raw SQL. Local `randomDroneName(level)` (which produced `MARKET_*` strings) deleted. Insert site now `await generateUniqueDroneNameSql()`.
+
+**Uniqueness scope (per Captain's specific instruction):**
+- All generator-driven inserts (magic-link starter, NPC vendor purchase, milestone spawn, marketplace mint, marketplace fix script) check the full `drones.name` column for collisions before inserting. They will not collide with anything else in the table - including the hand-picked `RACING_BOTS` and `DEMO_DRONES` names.
+- `RACING_BOTS` (24 hand-picked: PHANTOM-X1, SHADOW-R3, ...) keep their fixed names.
+- `DEMO_DRONES` (8 hand-picked per demo account: STRIKER, RUNNER, VIPER, SCOUT, BOLT, HAWK, PHANTOM, GHOST) keep their fixed names. With up to 100 demo accounts, STRIKER appears on every demo player's roster - duplicates *across* demo accounts are intentional per Captain. The generator's uniqueness check will avoid colliding with these names regardless.
+
+**Verification:** Skipped per Captain.
+
+## 2026-04-30 - NavShell footer countdowns: lock layout, no shifts
+
+**Files modified (2):**
+
+- `components/ui/NavShell/NavShell.module.css`
+  - `.countdownValue`: added `display: inline-block`, `min-width: 5ch`, `text-align: right`, `font-variant-numeric: tabular-nums`. The MM:SS slot is now a fixed width regardless of which digits are showing, so 09:59 → 10:00 (or any single-digit transition) doesn't reflow.
+  - New `.countdownItemModLock`: `min-width: 11em; justify-content: flex-start`. Wraps both the live ("Mod Lock in MM:SS") and locked ("MOD LOCKED") states in a single fixed-width slot so the swap is invisible to the surrounding layout. The separator dot and Next-Round item never move.
+  - New `.countdownLockedText`: mono + bold + tabular-nums to mirror `.countdownValue`'s glyph metrics. Combined with `.countdownValueWarning` for the warning color, replaces the live value cleanly when expired.
+
+- `components/ui/NavShell/index.jsx`
+  - `CountdownBar`: the mod-lock branch is now wrapped in a single `<span className={countdownItem countdownItemModLock}>` regardless of state. Inside, the `modLockExpired` ternary toggles between the locked text and the label+value pair. The wrapper itself never changes class lists or width, so the slot stays the same size as countdown values change, as the lock label flips, and across any other state.
+
+## 2026-04-30 - Live volts balance: NavShell listens for `volts:update` events
+
+NextAuth's `session.user.points` doesn't refresh after a server-side balance change, so the nav balance went stale until a hard reload. Marketplace pages already had a local `pointsOverride` for their own surfaces - that override now also broadcasts via a `volts:update` CustomEvent that the NavShell listens to. Every purchase path that returns the post-mutation balance dispatches the event; NavShell prefers the override over the stale JWT for the lifetime of the mount.
+
+**Files modified (4):**
+
+- `components/ui/NavShell/index.jsx`
+  - Added a `balanceOverride` state plus a `volts:update` window event listener. The display reads `balanceOverride ?? user.points ?? 0` in both the desktop sidebar and the mobile top bar. Once any event fires the override locks in, so a stale session re-render can't undo it.
+
+- `app/marketplace/page.jsx`
+  - `handleBuy` (marketplace listing buy), `confirmSkinPackPurchase` (pack open), and `confirmCapsulePackPurchase` (capsule open) each now dispatch `new CustomEvent('volts:update', { detail: { balance: body.data.balance } })` alongside the existing `setPointsOverride` call. The marketplace page itself still uses `pointsOverride` for its in-page balance reads; the dispatch is purely for cross-component propagation to NavShell.
+
+- `app/drones/page.jsx`
+  - `handlePurchase` (NPC vendor drone create) now dispatches the same `volts:update` event with the balance returned by `/api/drones/create`.
+
+- `app/api/drones/create/route.js`
+  - Returns `balance` (computed as `user.points - DRONE_PRICE` immediately after the debit) alongside the existing `{ drone, boundSkinId, boundModId }` payload so the caller has the post-debit value to put on the wire.
+
+**What's covered:** marketplace listing buy, pack open, capsule open, NPC vendor drone purchase. Stat allocate (drone-detail page) was not in Captain's scope and still relies on the existing `useSession` re-fetch after `onReload` - left untouched.
+
+**Persistence note:** The override survives in-app navigation because NavShell stays mounted across route changes. A hard reload still shows whatever the JWT carries until next-auth refreshes the session - that's the existing stale-JWT behavior, out of scope for this fix.
