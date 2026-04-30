@@ -331,9 +331,13 @@
   background: var(--bg-card);
 }
 
+/* Per-card border colors only - no `box-shadow` glow. Captain
+   removed the per-card halos because the three glowing cards read as
+   one container chrome around the podium group; the cards now float
+   individually on the page background. The medal hierarchy still
+   reads via border + trophy + rank-label tier colors. */
 .gold {
   border-color: rgba(255, 215, 0, 0.75);
-  box-shadow: 0 0 26px rgba(255, 215, 0, 0.22);
 }
 
 .gold .podiumRankLabel,
@@ -343,7 +347,6 @@
 
 .silver {
   border-color: rgba(192, 192, 192, 0.7);
-  box-shadow: 0 0 26px rgba(192, 192, 192, 0.22);
 }
 
 .silver .podiumRankLabel,
@@ -353,7 +356,6 @@
 
 .bronze {
   border-color: rgba(205, 127, 50, 0.75);
-  box-shadow: 0 0 26px rgba(205, 127, 50, 0.22);
 }
 
 .bronze .podiumRankLabel,
@@ -687,6 +689,40 @@
   .progressTrack {
     width: 160px;
   }
+
+  /* Tablet podium: keep all 3 cards visible in the desktop grid layout
+     but shrink them so the row doesn't dominate the page. Cards
+     narrower (max-width pinned), reduced padding, smaller text +
+     image frame. 1st place still sits taller via its extra vertical
+     padding override below. */
+  .podium {
+    max-width: 560px;
+    gap: var(--space-2);
+  }
+  .podiumCard {
+    padding: var(--space-2);
+    gap: 6px;
+  }
+  .podiumFirst {
+    padding: var(--space-3) var(--space-2);
+  }
+  .podiumImageFrame {
+    max-height: 90px;
+  }
+  .podiumName {
+    font-size: var(--text-xs);
+  }
+  .podiumFirst .podiumName {
+    font-size: var(--text-sm);
+  }
+  .podiumLevel {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+  .podiumStatRow dt,
+  .podiumStatRow dd {
+    font-size: 10px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -704,25 +740,56 @@
     width: auto;
   }
 
+  /* Mobile podium = horizontal scroll carousel.
+     - Full-bleed: width 100vw + symmetric negative margins so the
+       cards can be 75vw wide without forcing horizontal page scroll
+       on the parent's padded content area.
+     - 12.5vw padding on each side of the scroll container so the
+       first and last cards have enough offset to center-snap (without
+       it, they'd hit the scroll edge before centering).
+     - Linear-gradient mask fades the cards on the left + right edges
+       as they scroll past, so the off-screen partial cards blur out
+       of view instead of clipping hard against the edge.
+     - Scrollbar hidden (cosmetic - the snap-type makes the scroll
+       discoverable via touch / drag). */
   .podium {
     display: flex;
+    flex-direction: row;
     grid-template-columns: unset;
+    align-items: stretch;
     gap: var(--space-3);
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding: var(--space-2) 12.5vw;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     scroll-snap-type: x mandatory;
-    padding: var(--space-2) 2px;
-    margin: 0 calc(-1 * var(--space-4));
-    padding-left: var(--space-4);
-    padding-right: var(--space-4);
+    scroll-padding-inline: 12.5vw;
+    -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 15%,
+      black 85%,
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 15%,
+      black 85%,
+      transparent 100%
+    );
   }
   .podium::-webkit-scrollbar {
     display: none;
   }
   .podiumCard {
-    flex: 0 0 62vw;
-    max-width: 220px;
+    flex: 0 0 75vw;
+    max-width: 320px;
     scroll-snap-align: center;
   }
   .podiumFirst {
@@ -762,6 +829,37 @@
   }
   .yourRankValue {
     font-size: var(--text-xs);
+  }
+}
+
+/* Smallest mobile: tighter podium-card chrome inside the carousel.
+   Same flex / scroll-snap / mask behavior from the 768px block; just
+   shrinks padding + font sizes + image height + level chip so the
+   card content fits comfortably at ~360px viewports. */
+@media (max-width: 480px) {
+  .podiumCard {
+    padding: var(--space-2);
+    gap: 6px;
+  }
+  .podiumFirst {
+    padding: var(--space-3) var(--space-2);
+  }
+  .podiumImageFrame {
+    max-height: 86px;
+  }
+  .podiumName {
+    font-size: var(--text-xs);
+  }
+  .podiumFirst .podiumName {
+    font-size: var(--text-sm);
+  }
+  .podiumLevel {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+  .podiumStatRow dt,
+  .podiumStatRow dd {
+    font-size: 10px;
   }
 }
 

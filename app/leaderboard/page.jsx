@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Trophy, Sparkles, Coins, Award, ChevronRight } from 'lucide-react';
@@ -445,8 +445,31 @@ export default function LeaderboardPage() {
 /* -------------------------------------------------------------------------- */
 
 function Podium({ items, tab }) {
+  /* On mobile the podium becomes a horizontal scroll carousel. The
+   * 1st-place card sits in the middle of the DOM (between 2nd and 3rd)
+   * so on initial render we scrollLeft into the middle card. Direct
+   * scrollLeft assignment (instead of scrollTo) skips smooth-scroll
+   * animation - the user shouldn't see the carousel scroll itself
+   * into position on page load.
+   *
+   * Re-runs whenever `items` changes (e.g. a tab switch swaps the
+   * top-3 list) so the new middle card stays centered. The desktop
+   * grid isn't horizontally scrollable, so the scrollLeft assignment
+   * is a no-op there. */
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const middleCard = el.children[1];
+    if (!middleCard) return;
+    const offset =
+      middleCard.offsetLeft -
+      (el.clientWidth - middleCard.clientWidth) / 2;
+    el.scrollLeft = offset;
+  }, [items]);
+
   return (
-    <div className={styles.podium}>
+    <div className={styles.podium} ref={ref}>
       <PodiumCard rank={2} entry={items[1] ?? null} tab={tab} />
       <PodiumCard rank={1} entry={items[0] ?? null} tab={tab} />
       <PodiumCard rank={3} entry={items[2] ?? null} tab={tab} />
