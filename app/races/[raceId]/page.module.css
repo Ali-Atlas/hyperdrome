@@ -1175,9 +1175,31 @@
       "gap"
       "track";
   }
+  /* Keep the meta row + prev/next arrows on a single line. The meta
+     block (RACE / shortId / divider / timestamp) shrinks both font
+     and gap so the timestamp - by far the longest fragment - fits
+     beside the arrow pair without wrapping. The arrow group keeps
+     its intrinsic width via flex-shrink:0. */
   .topStrip {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .metaLeft {
+    font-size: 10px;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .metaTimestamp {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .raceNavArrows {
+    flex-shrink: 0;
   }
   .headlineBanner {
     flex-direction: column;
