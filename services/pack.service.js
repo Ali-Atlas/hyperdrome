@@ -5,56 +5,78 @@ import { ApiError } from '@/lib/api/response.js';
 const { users, skins, mods } = schema;
 
 /* -------------------------------------------------------------------------- */
-/* On-demand catalogs                                                         */
+/* On-demand mint catalogs                                                    */
 /*                                                                            */
-/* Mirrored from scripts/seed-production.js so a pack open can mint a fresh   */
-/* row when the vault is empty for a given rarity. The vault is intentionally */
-/* infinite from the player's perspective: drained vaults transparently mint  */
-/* new rows on the fly instead of erroring. Keep these tables in lock-step    */
-/* with seed-production.js#IMAGE_BACKED_SKINS and #MOD_TEMPLATES — they're    */
-/* the source of truth for skin imagery (webp paths must exist in            */
-/* public/skins/) and mod stat treatments (description string is computed    */
-/* the same way as the seeder).                                               */
+/* When the vault is empty for a given rarity, the pack open falls back to   */
+/* mintSkin / mintMod which create a *new* row using a procedurally-picked   */
+/* name from the placeholder pools below. Image-backed catalog skins         */
+/* (/skins/<rarity>/*.webp) are NEVER duplicated by the mint path -          */
+/* minted skins always use a /placeholder/ URL so they render as the         */
+/* rarity-tinted swatch (handled by marketplace + drone-equip fallback).     */
+/*                                                                            */
+/* Skin name pools are mirrored from scripts/seed-production.js's            */
+/* PLACEHOLDER_NAME_POOLS so minted rows are visually indistinguishable      */
+/* from seeded placeholder vault rows. Mod stat shapes come from MOD_TEMPLATES */
+/* (carefully balanced); only the mod *name* is freshly generated.           */
 /* -------------------------------------------------------------------------- */
 
-const IMAGE_BACKED_SKINS = [
-  // Common (8)
-  { name: 'Bone',        rarity: 'common',    imageUrl: '/skins/common/bone.webp' },
-  { name: 'Cobalt',      rarity: 'common',    imageUrl: '/skins/common/cobalt.webp' },
-  { name: 'Dusk',        rarity: 'common',    imageUrl: '/skins/common/dusk.webp' },
-  { name: 'Ember',       rarity: 'common',    imageUrl: '/skins/common/ember.webp' },
-  { name: 'Frost',       rarity: 'common',    imageUrl: '/skins/common/frost.webp' },
-  { name: 'Rust',        rarity: 'common',    imageUrl: '/skins/common/rust.webp' },
-  { name: 'Shadow',      rarity: 'common',    imageUrl: '/skins/common/shadow.webp' },
-  { name: 'Venom',       rarity: 'common',    imageUrl: '/skins/common/venom.webp' },
-  // Rare (8)
-  { name: 'Anodized Blaze', rarity: 'rare',   imageUrl: '/skins/rare/anodized_blaze.webp' },
-  { name: 'Arctic Fury',    rarity: 'rare',   imageUrl: '/skins/rare/arctic_fury.webp' },
-  { name: 'Chrome Fury',    rarity: 'rare',   imageUrl: '/skins/rare/chrome_fury.webp' },
-  { name: 'Copper King',    rarity: 'rare',   imageUrl: '/skins/rare/copper_king.webp' },
-  { name: 'Gunmetal Storm', rarity: 'rare',   imageUrl: '/skins/rare/gunmetal_storm.webp' },
-  { name: 'Jade Circuit',   rarity: 'rare',   imageUrl: '/skins/rare/jade_circuit.webp' },
-  { name: 'Midnight Oil',   rarity: 'rare',   imageUrl: '/skins/rare/midnight_oil.webp' },
-  { name: 'Titanium Ghost', rarity: 'rare',   imageUrl: '/skins/rare/titanium_ghost.webp' },
-  // Epic (8)
-  { name: 'Crystal Phantom',    rarity: 'epic', imageUrl: '/skins/epic/crystal_phantom.webp' },
-  { name: 'Dragon Scale',       rarity: 'epic', imageUrl: '/skins/epic/dragon_scale.webp' },
-  { name: 'Frozen Abyss',       rarity: 'epic', imageUrl: '/skins/epic/frozen_abyss.webp' },
-  { name: 'Iridescent Wraith',  rarity: 'epic', imageUrl: '/skins/epic/iridescent_wraith.webp' },
-  { name: 'Liquid Mercury',     rarity: 'epic', imageUrl: '/skins/epic/liquid_mercury.webp' },
-  { name: 'Obsidian Core',      rarity: 'epic', imageUrl: '/skins/epic/obsidian_core.webp' },
-  { name: 'Solar Flare',        rarity: 'epic', imageUrl: '/skins/epic/solar_flare.webp' },
-  { name: 'Void Bloom',         rarity: 'epic', imageUrl: '/skins/epic/void_bloom.webp' },
-  // Legendary (8)
-  { name: 'Apex Predator', rarity: 'legendary', imageUrl: '/skins/legendary/apex_predator.webp' },
-  { name: 'Celestial',     rarity: 'legendary', imageUrl: '/skins/legendary/celestial.webp' },
-  { name: 'Diamond Hands', rarity: 'legendary', imageUrl: '/skins/legendary/diamond_hand.webp' },
-  { name: 'Gilded Throne', rarity: 'legendary', imageUrl: '/skins/legendary/gilded_throne.webp' },
-  { name: 'Kraken',        rarity: 'legendary', imageUrl: '/skins/legendary/kraken.webp' },
-  { name: 'Necromancer',   rarity: 'legendary', imageUrl: '/skins/legendary/necromancer.webp' },
-  { name: 'Samurai',       rarity: 'legendary', imageUrl: '/skins/legendary/samurai.webp' },
-  { name: 'Valiant',       rarity: 'legendary', imageUrl: '/skins/legendary/valiant.webp' },
-];
+const SKIN_NAME_POOLS = {
+  common: [
+    'Carbon Fiber', 'Gunmetal', 'Stealth Gray', 'Arctic White', 'Obsidian',
+    'Matte Black', 'Brushed Steel', 'Copper Plate', 'Navy Blue', 'Forest Green',
+    'Desert Tan', 'Slate Gray', 'Rust Patina', 'Industrial Iron', 'Concrete',
+    'Military Olive', 'Plasma Gray', 'Alloy Silver', 'Chrome Plate', 'Warning Yellow',
+    'Flare Orange', 'Ember Red', 'Cool Blue', 'Stormcloud', 'Midnight Black',
+    'Ash Gray', 'Riveted Steel', 'Bronze Plating', 'Aluminum Finish', 'Coal Matte',
+  ],
+  rare: [
+    'Neon Pulse', 'Cyber Stripe', 'Electric Blue', 'Hologram', 'Signal Red',
+    'Grid Runner', 'Data Stream', 'Binary Wave', 'Tron Line', 'Synthwave',
+    'Laser Mesh', 'Circuit Board', 'Prism', 'Quantum Weave', 'Plasma Core',
+    'Phantom Edge', 'Iron Veil', 'Cobalt Strike', 'Static Drift', 'Mirror Coil',
+    'Spectral Mesh', 'Voltage Husk', 'Ion Lattice', 'Nova Burst',
+  ],
+  epic: [
+    'Inferno Phoenix', 'Tidal Surge', 'Thunder Strike', 'Void Walker',
+    'Blizzard Hunter', 'Volcanic Drift', 'Celestial Guard', 'Zephyr Dancer',
+    'Eclipse Prowler', 'Ember Coil', 'Glacial Tempest', 'Stormcaller',
+    'Riftwalker', 'Aurora Reaver',
+  ],
+  legendary: [
+    'Chimera', 'Phoenix Reborn', 'Dragonlord', 'Onyx Sovereign',
+  ],
+};
+
+/* Mod name pools for the mint path. Stats come from MOD_TEMPLATES (so balance
+ * is preserved); only the surface name is fresh, so a minted mod is clearly
+ * not a duplicate of one of the curated catalog pieces. */
+const MOD_NAME_POOLS = {
+  common: [
+    'Standard Plate', 'Basic Coil', 'Stock Brace', 'Field Kit', 'Utility Pack',
+    'Workshop Brace', 'Stock Mount', 'Generic Coil', 'Spare Plate', 'Surplus Module',
+  ],
+  rare: [
+    'Tuned Module', 'Refined Coil', 'Calibrated Plate', 'Polished Brace', 'Boosted Pack',
+    'Reinforced Mount', 'Custom Kit', 'Optimized Coil', 'Tactical Plate',
+  ],
+  epic: [
+    'Prototype Core', 'Engineered Module', 'Forged Plate', 'Quantum Brace',
+    'Advanced Coil', 'Cyclone Module', 'Shadow Coil',
+  ],
+  legendary: [
+    'Apex Drive', 'Singularity Core', 'Phantom Module', 'Ascendant Pack',
+  ],
+};
+
+/* Random suffix for the placeholder image URL on minted skins. The path
+ * doesn't need to be unique (the marketplace/drone-equip fallback only
+ * checks the `/placeholder/` prefix, not the filename), but a random
+ * suffix keeps minted rows visually grouped with seeded placeholder rows
+ * (`/placeholder/legacy_NNN.png`). */
+function placeholderImageUrl() {
+  const n = Math.floor(Math.random() * 9000) + 1000;
+  return `/placeholder/minted_${n}.png`;
+}
 
 const MOD_TEMPLATES = [
   // Common (10)
@@ -110,46 +132,54 @@ function modDescription(t) {
 
 /**
  * Mint a fresh skin row owned by the user. Called when the vault is empty
- * for a given rarity. Picks a random catalog entry (filtered by the demo
- * blocklist when applicable) and inserts the row already assigned, so no
- * CAS is needed - this row was created for this player. The new row is
- * just a regular owned skin from that point on; refunds release it back
- * to the vault like any other.
+ * for a given rarity. Pulls a name from SKIN_NAME_POOLS and gives the row
+ * a /placeholder/ URL - never reuses one of the hand-curated webp catalog
+ * skins, so minted rows can't visually duplicate an Image-Backed Kraken/
+ * Diamond Hands/etc. The non-/skins/ URL trips the marketplace + drone-equip
+ * fallback render (rarity-tinted swatch instead of webp).
+ *
+ * Inserted with userId already set, so no CAS is needed.
  */
-async function mintSkin(userId, rarity, isDemo) {
-  let pool = IMAGE_BACKED_SKINS.filter((t) => t.rarity === rarity);
-  if (isDemo && rarity === 'legendary') {
-    pool = pool.filter((t) => !DEMO_LEGENDARY_BLOCKLIST.includes(t.name));
-  }
-  const template = pool[Math.floor(Math.random() * pool.length)];
+async function mintSkin(userId, rarity) {
+  const pool = SKIN_NAME_POOLS[rarity] ?? SKIN_NAME_POOLS.common;
+  const name = pool[Math.floor(Math.random() * pool.length)];
   const [row] = await db
     .insert(skins)
     .values({
       userId,
-      name: template.name,
-      rarity: template.rarity,
-      imageUrl: template.imageUrl,
+      name,
+      rarity,
+      imageUrl: placeholderImageUrl(),
+      description: `${name} (minted on demand).`,
     })
     .returning();
   return row;
 }
 
-/** Mint a fresh mod row owned by the user. Mirrors mintSkin. */
+/**
+ * Mint a fresh mod row owned by the user. Stat shape (bonus/penalty/
+ * special + values) is pulled from a random rarity-matched MOD_TEMPLATES
+ * entry so balance is preserved; the surface name comes from MOD_NAME_POOLS
+ * so the minted mod isn't a name-duplicate of one of the curated templates.
+ * Mods don't carry images (ModPlaceholder hex chip is the canonical render).
+ */
 async function mintMod(userId, rarity) {
-  const pool = MOD_TEMPLATES.filter((t) => t.rarity === rarity);
-  const template = pool[Math.floor(Math.random() * pool.length)];
+  const templates = MOD_TEMPLATES.filter((t) => t.rarity === rarity);
+  const stats = templates[Math.floor(Math.random() * templates.length)];
+  const namePool = MOD_NAME_POOLS[rarity] ?? MOD_NAME_POOLS.common;
+  const name = namePool[Math.floor(Math.random() * namePool.length)];
   const [row] = await db
     .insert(mods)
     .values({
       userId,
-      name: template.name,
-      rarity: template.rarity,
-      description: modDescription(template),
-      statBonusType: template.bonus ? template.bonus[0] : null,
-      statBonusValue: template.bonus ? String(template.bonus[1]) : null,
-      statPenaltyType: template.penalty ? template.penalty[0] : null,
-      statPenaltyValue: template.penalty ? String(template.penalty[1]) : null,
-      specialAbility: template.special ?? null,
+      name,
+      rarity,
+      description: modDescription(stats),
+      statBonusType: stats.bonus ? stats.bonus[0] : null,
+      statBonusValue: stats.bonus ? String(stats.bonus[1]) : null,
+      statPenaltyType: stats.penalty ? stats.penalty[0] : null,
+      statPenaltyValue: stats.penalty ? String(stats.penalty[1]) : null,
+      specialAbility: stats.special ?? null,
       imageUrl: null,
     })
     .returning();
@@ -332,9 +362,10 @@ export async function openPack(userId, packType) {
 
       if (!claimed) {
         // Vault is empty for this rarity (or we lost too many CAS races).
-        // Mint a fresh row owned by the user so the pack always delivers
-        // a valid skin - vault depletion is invisible to the player.
-        claimed = await mintSkin(userId, rarity, isDemo);
+        // Mint a fresh placeholder-imaged row owned by the user so the
+        // pack always delivers - vault depletion is invisible to the
+        // player. Mint never duplicates an image-backed catalog skin.
+        claimed = await mintSkin(userId, rarity);
       }
       awarded.push(claimed);
     }
