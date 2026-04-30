@@ -346,6 +346,21 @@ export default function RaceDetailPage({ params }) {
   const winnerIsDrone1 = winnerId === race.drone1Id;
   const leadChanges = countLeadChanges(race.raceLog);
   const gaps = computeWinnerGaps(race.raceLog, winnerIsDrone1);
+  // Per-segment cumulative race time (average of the two drones) so the
+  // x-axis can label "race seconds at this segment" without committing
+  // to either drone's clock.
+  const segmentTimes = (() => {
+    if (!race.raceLog || race.raceLog.length === 0) return [];
+    const out = [];
+    let c1 = 0;
+    let c2 = 0;
+    for (const seg of race.raceLog) {
+      c1 += Number(seg.drone1Time) || 0;
+      c2 += Number(seg.drone2Time) || 0;
+      out.push((c1 + c2) / 2);
+    }
+    return out;
+  })();
   const maxGap = gaps.length > 0 ? Math.max(...gaps.map(Math.abs)) : null;
   const commentary = generateCommentary(
     race.raceLog,
@@ -510,7 +525,7 @@ export default function RaceDetailPage({ params }) {
             <h2 className={styles.sectionHeading}>Gap Over Race</h2>
             {gaps.length > 1 ? (
               <div className={styles.sparklineWrap}>
-                <GapSparkline gaps={gaps} />
+                <GapSparkline gaps={gaps} segmentTimes={segmentTimes} />
               </div>
             ) : (
               <div className={styles.gapEmpty}>Gap data unavailable</div>
@@ -687,11 +702,15 @@ function formatGapSeconds(s) {
  * end-to-end has the zero line near the bottom and a constant lead
  * sits high above it. Smooth curves via Catmull-Rom → cubic-Bezier.
  *
- * @param {{ gaps: number[] }} props - signed cumulative gap per
- *   segment from the winner's perspective: positive = winner ahead,
- *   negative = winner behind. See `computeWinnerGaps`.
+ * @param {{ gaps: number[], segmentTimes?: number[] }} props -
+ *   `gaps`: signed cumulative gap per segment from the winner's
+ *   perspective (positive = winner ahead, negative = winner behind).
+ *   See `computeWinnerGaps`.
+ *   `segmentTimes`: cumulative race time at each segment in seconds,
+ *   used to label the x-axis. Same length as `gaps`. Optional: when
+ *   absent, the x-axis labels are suppressed.
  */
-function GapSparkline({ gaps }) {
+function GapSparkline({ gaps, segmentTimes }) {
   // useId is called unconditionally so the rules-of-hooks early-return
   // guard below is safe. Colons are stripped because they break
   // url(#...) references in some specs.
@@ -723,9 +742,19 @@ function GapSparkline({ gaps }) {
   const gapToY = (g) =>
     padTop + ((yMaxPadded - g) / rangePadded) * usableH;
 
-  // Even segment-index spacing across the chart; segment count is the
-  // x dimension (not race time).
-  const xs = gaps.map((_, i) => (i / (gaps.length - 1)) * W);
+  // X mapping: time-based when segmentTimes is supplied, so the curve
+  // and the race-time tick labels along the bottom share the same axis.
+  // Falls back to even segment-index spacing when no times (legacy logs).
+  const hasTimes =
+    Array.isArray(segmentTimes) &&
+    segmentTimes.length === gaps.length &&
+    segmentTimes[segmentTimes.length - 1] > 0;
+  const totalTime = hasTimes ? segmentTimes[segmentTimes.length - 1] : 0;
+  const xs = gaps.map((_, i) =>
+    hasTimes
+      ? (segmentTimes[i] / totalTime) * W
+      : (i / (gaps.length - 1)) * W,
+  );
   const ys = gaps.map(gapToY);
   const baselineY = gapToY(0);
 
@@ -768,7 +797,35 @@ function GapSparkline({ gaps }) {
   // proportions instead of being evenly spaced by the flex container.
   const yLabelPct = (y) => `${(y / H) * 100}%`;
 
+  // X-axis labels: round-second ticks across the race duration. Pick a
+  // "nice" interval (5/10/15/20/30/60/90/120/180s) so the labels read as
+  // 0s, 30s, 60s, 90s for a typical race. The smallest interval that
+  // fits at most 5 ticks across the duration wins. The race-end is
+  // appended as a final tick when the last interval-tick lands far short
+  // of `totalTime`. Suppressed when segmentTimes isn't usable.
+  const hasXAxis = hasTimes;
+  const xLabels = (() => {
+    if (!hasXAxis) return [];
+    const niceIntervals = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300];
+    const interval =
+      niceIntervals.find((iv) => totalTime / iv <= 5) ?? 600;
+    const ticks = [];
+    for (let t = 0; t <= totalTime + 0.5; t += interval) {
+      ticks.push(t);
+    }
+    const lastTick = ticks[ticks.length - 1];
+    if (totalTime - lastTick > interval * 0.25) {
+      ticks.push(Math.round(totalTime));
+    }
+    return ticks.map((t) => ({
+      time: t,
+      pct: (t / totalTime) * 100,
+      text: `${Math.round(t)}s`,
+    }));
+  })();
+
   return (
+    <div className={styles.sparklineFigure}>
     <div className={styles.sparklineChart}>
       <div className={styles.sparklineYAxis} aria-hidden="true">
         {yMax > 0 && (
@@ -847,6 +904,31 @@ function GapSparkline({ gaps }) {
         />
         <path d={linePath} className={styles.sparklineLine} />
       </svg>
+    </div>
+      {hasXAxis && xLabels.length > 0 && (
+        <div className={styles.sparklineXAxis} aria-hidden="true">
+          <div className={styles.sparklineXAxisInner}>
+            {xLabels.map((l, i) => {
+              const isFirst = i === 0;
+              const isLast = i === xLabels.length - 1;
+              const style = isFirst
+                ? { left: 0 }
+                : isLast
+                ? { right: 0 }
+                : { left: `${l.pct}%`, transform: 'translateX(-50%)' };
+              return (
+                <span
+                  key={l.time}
+                  className={styles.sparklineXAxisLabel}
+                  style={style}
+                >
+                  {l.text}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

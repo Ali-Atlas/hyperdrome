@@ -4,6 +4,81 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-30 - Gap chart: round-second x-axis ticks + tighter horizontal dead space
+
+**Captain ask:** Two fixes on the gap chart in `/races/[raceId]`:
+1. Add x-axis time labels along the bottom at round-second intervals (0s, 30s, 60s, 90s for a 90s race). Not lap numbers, not at irregular per-segment positions.
+2. Reduce the chart's horizontal dead space so the chart fills more of the container.
+
+**Files changed (2):**
+
+### `app/races/[raceId]/page.jsx` (`GapSparkline`)
+
+- X mapping switched from segment-index-based to time-based when `segmentTimes` is supplied: `xs[i] = (segmentTimes[i] / totalTime) * W`. Falls back to even segment-index spacing only when `segmentTimes` is missing or zero (legacy logs). This keeps tick labels aligned to the actual race-time of every point on the curve, instead of pretending all segments take equal time.
+- Replaced the "4 evenly-spaced segment indexes" tick logic with a round-second tick generator. Picks the smallest "nice" interval from `[5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300]` such that `totalTime / interval ≤ 5` ticks. Generates ticks at every `interval` from 0 to `totalTime`. Appends `Math.round(totalTime)` as a final tick when the last interval-tick lands further than `interval * 0.25` short of the actual end (so the race-end mark is always shown without crowding the previous tick). Each tick gets `pct = (time / totalTime) * 100` so it positions correctly on the time-mapped X axis.
+- For a 90s race: interval = 30, ticks `[0, 30, 60, 90]`. For 200s: interval = 60, ticks `[0, 60, 120, 180, 200]`. For 30s: interval = 10, ticks `[0, 10, 20, 30]`.
+- Object shape: `{ time, pct, text }`. Map `key` updated from `l.idx` → `l.time`.
+
+### `app/races/[raceId]/page.module.css`
+
+Tightened the chart's horizontal padding so the SVG has more room to breathe:
+- `.sparklineWrap`: padding `var(--space-3) var(--space-2)` → `var(--space-3) 0`. Drops 8px each side; vertical padding kept.
+- `.sparklineYAxis`: width `44px` → `38px`. Y-axis labels (`+1.2s`, `0s`, `-0.8s`) still fit comfortably at 9px mono.
+- `.sparklineChart` gap: `8px` → `6px`.
+- `.sparklineXAxis` padding-left: `52px` → `44px` (38 y-axis + 6 gap), keeping the x-axis labels aligned with the SVG's left edge.
+
+**Net horizontal gain for the chart SVG:** ~24px more width on every render.
+
+---
+
+## 2026-04-30 - Race tuning round (variance pulse) + gap chart x-axis & padding
+
+**Captain asks (two tasks in one prompt):**
+1. Replace the stretch-momentum mechanic with a per-stretch variance pulse: at each stretch start each drone rolls an independent ±6% modifier that holds for every segment of the stretch. Re-run `scripts/test-races.js` and report results.
+2. Add x-axis time labels to the gap chart and tighten the chart's left/right padding so it fills more of the container.
+
+**Files modified (3):**
+
+### `lib/game-engine/race-simulator.js`
+- Removed the cumulative-momentum streak state and its multiplier.
+- Replaced with a per-stretch variance pulse: `stretchMod1` and `stretchMod2` are rolled independently as `1 + (Math.random() * 0.12 - 0.06)` (= ±6%) at each stretch start (when `type !== lastType`), and stay applied to that drone's score for every segment of the stretch. Per-segment variance still applies on top.
+- Comment block explains the design intent (asymmetric noise as a lead-change lever).
+
+### `app/races/[raceId]/page.jsx`
+- Computed `segmentTimes` in the parent (cumulative race time per segment, averaging the two drones' per-segment times so neither defines "the clock").
+- Threaded `segmentTimes` into `<GapSparkline gaps={gaps} segmentTimes={segmentTimes} />`.
+- `GapSparkline` now renders an x-axis labels strip below the SVG. Picks 4 evenly-spaced segment indexes (or 2 for very short logs), formats each as integer seconds (`Math.round(t)`s). First label aligns left, last aligns right, middle two center on their tick. Suppressed when `segmentTimes` is missing or length-mismatched (defensive).
+- Restructured the component's return to wrap the existing chart row in a new `.sparklineFigure` flex column so the x-axis sits as a sibling of the chart row, decoupled from the parent `.sparklineWrap` layout.
+
+### `app/races/[raceId]/page.module.css`
+- `.sparklineWrap` horizontal padding `var(--space-4) → var(--space-2)` (16px → 8px) to reclaim wasted space on the sides without going edge-to-edge.
+- Added `.sparklineFigure` (column wrapper, gap 4px between chart row and x-axis row).
+- Added `.sparklineXAxis` with `padding-left: 52px` so the labels strip aligns with the SVG (skipping past the 44px y-axis column + 8px chart-row gap), `.sparklineXAxisInner` as the relative-positioning context, `.sparklineXAxisLabel` as the absolutely-positioned label.
+
+**Result of Task 1 (run on dev DB, 100 races):**
+
+| Metric | Baseline (no momentum, no pulse) | + Pulse |
+|---|---|---|
+| 0 lead changes | 56 | 68 |
+| 1-2 lead changes | 38 | 28 |
+| 3-5 lead changes | 5 | 4 |
+| 6+ lead changes | 1 | 0 |
+| Avg flips/race | 0.73 | 0.51 |
+| Mean final gap (s) | 0.59 | 0.69 |
+| Max final gap (s) | 2.93 | 5.23 |
+
+Counter-intuitive: the pulse REDUCED average lead changes (0.73 → 0.51) and pushed the 0-flips bucket UP. A +6% pulse held over 4 segments compounds into a stretch-long advantage that's larger than per-segment variance can claw back. Flagged to Captain - they may want to revisit at a smaller magnitude (±3%?) or shorter stretches.
+
+**Verification:**
+- Test script ran and reported the table above.
+- **Not run:** dev server / browser visual on the chart. Captain verifies the chart layout at 1440 / 1024 / 375.
+
+**Not verified by Mercenary:**
+- Visual alignment of the x-axis labels with the SVG ticks at all three breakpoints. The 52px left padding equals the y-axis (44px) + chart-row gap (8px); if either of those numbers ever changes, the alignment breaks.
+- Edge case: very-short race logs (`L < 2`) - the parent already gates with `gaps.length > 1` so the chart only mounts when at least 2 segments exist, and the 2-label fallback handles the L=2..3 range cleanly.
+
+---
+
 ## 2026-04-30 - Pack modal fixes round 4: bigger button, no pack-shrink, neon orb (no off-center sparks)
 
 **Captain ask:** Three concrete fixes:

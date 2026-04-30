@@ -903,10 +903,25 @@
 }
 
 .sparklineWrap {
-  padding: var(--space-3) var(--space-4);
+  /* Left padding 0 so the y-axis column sits flush. Small right padding
+     gives the final x-axis label (and the chart's right edge) breathing
+     room from the card border. Vertical padding stays for breathing room
+     above/below the figure. */
+  padding: var(--space-3) var(--space-2) var(--space-3) 0;
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  gap: 4px;
+}
+
+/* Wraps the chart row + x-axis labels strip into a single column so the
+   x-axis sits flush below the SVG without depending on the parent's
+   layout. */
+.sparklineFigure {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   min-height: 0;
   gap: 4px;
 }
@@ -916,12 +931,39 @@
   align-items: stretch;
   flex: 1;
   min-height: 0;
-  gap: 8px;
+  gap: 6px;
+}
+
+/* X-axis labels strip. Indented by the y-axis column width (38px) + the
+   chart row's gap (6px) so labels align with the SVG's horizontal
+   extent, not the whole chart row. The inner div is the positioning
+   context that absolute-positioned labels reference. */
+.sparklineXAxis {
+  display: flex;
+  padding-left: 44px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.sparklineXAxisInner {
+  position: relative;
+  flex: 1;
+  height: 1em;
+}
+
+.sparklineXAxisLabel {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .sparklineYAxis {
   position: relative;
-  width: 44px;
+  width: 38px;
   font-family: var(--font-mono);
   font-size: 9px;
   color: var(--text-tertiary);
