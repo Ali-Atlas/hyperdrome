@@ -99,12 +99,12 @@ const PACK_DEFS = [
 ];
 
 /* 6-card preview composition per pack id. Mirrors the expected output
- * across the 3 slots (1 guaranteed + 2 wild) so the preview is an honest
- * representation of what each pack tends to yield. Derived from
- * services/pack.service.js PACK_SLOTS:
+ * across the 3 slots so the preview is an honest representation of what
+ * each pack tends to yield. Derived from services/pack.service.js
+ * PACK_SLOTS:
  *   Starter   → 1 G common + 2× wild (80/17/2.5/0.5)  → 5 common, 1 rare.
  *   Premium   → 1 G rare   + 2× wild (40/35/20/5)     → 3 rare, 2 common, 1 epic.
- *   Legendary → 1 G leg    + 2× wild (55/40/5)        → 2 legendary, 2 epic, 2 rare. */
+ *   Legendary → slot 1 (45L/55E) + 2× wild (55/40/5)  → 2 legendary, 2 epic, 2 rare. */
 const PREVIEW_DISTRIBUTION = {
   starter:   ['common', 'common', 'common', 'common', 'common', 'rare'],
   premium:   ['rare', 'rare', 'rare', 'common', 'common', 'epic'],
@@ -240,7 +240,7 @@ const CAPSULE_PACK_DEFS = [
     price: 1_000,
     variant: 'gray',
     description:
-      'Three wild mod slots. Common-heavy with a chance at rare or higher every slot.',
+      'Guaranteed common plus two wild slots. Common-heavy, with shots at rare or higher.',
     buttonVariant: 'secondary',
   },
   {
@@ -1632,9 +1632,21 @@ function PacksShowcase({ userPoints, openingId, onOpen, onOpenCapsule }) {
       .then((r) => r.json())
       .then((body) => {
         if (cancelled || !body?.data) return;
+        // The catalog returns every image-backed skin row, including the
+        // multiple vault-stock duplicates per name (15+ rows per legendary
+        // by the seed's design). Dedupe by name within each rarity so the
+        // preview pool has each distinct skin once - otherwise the cursor
+        // walk in pickPreviewSamples can land on the same name twice when
+        // a single name appears multiple times early in the shuffle.
         const grouped = {};
+        const seenByRarity = {};
         for (const skin of body.data) {
-          if (!grouped[skin.rarity]) grouped[skin.rarity] = [];
+          if (!grouped[skin.rarity]) {
+            grouped[skin.rarity] = [];
+            seenByRarity[skin.rarity] = new Set();
+          }
+          if (seenByRarity[skin.rarity].has(skin.name)) continue;
+          seenByRarity[skin.rarity].add(skin.name);
           grouped[skin.rarity].push(skin);
         }
         setSkinPool(grouped);
@@ -3494,7 +3506,6 @@ function PackFlowModalBody({ flow, onConfirm, onOpen, onEquip, onClose }) {
    pulses) matches everywhere else in the app. The 3-up grid sizing and
    stagger delay come from .flowCards / .flowCard. */
 function FlowRevealCard({ item, kind, index }) {
-  const isLegendary = item.rarity === 'legendary';
   return (
     <div
       className={cn(
@@ -3511,9 +3522,13 @@ function FlowRevealCard({ item, kind, index }) {
             size={72}
             className={styles.possibleSkinThumb}
           />
-        ) : isLegendary ? (
-          <span className={styles.possibleL} aria-hidden="true">L</span>
         ) : (
+          // Revealed skin card shows the actual skin image when one is
+          // available (SkinThumb resolves real /skins/...webp URLs and
+          // falls back to the rarity-tinted SkinMini prism only when the
+          // skin has no image). All four rarities, including legendary,
+          // use the same path - the prior legendary-only "L" placeholder
+          // hid real legendary art on opens.
           <SkinThumb
             skin={item}
             rarity={item.rarity}

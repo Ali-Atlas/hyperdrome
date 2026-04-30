@@ -71,6 +71,49 @@
   color: var(--text-primary);
 }
 
+/* Top-left hero audio toggle. Sits opposite .heroLogin so the two
+   corner controls mirror each other; both share the z-index 3 layer
+   above the dark video overlay. Subtle by design - small dark pill
+   with a 16px icon, muted tertiary color. */
+.heroAudioToggle {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.heroAudioToggle:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.heroAudioToggle:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.heroAudioToggle svg {
+  display: block;
+}
+
 .heroContent {
   position: absolute;
   inset: 0;

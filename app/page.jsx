@@ -4,6 +4,7 @@ import { Crosshair, Hexagon, TrendingUp } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import VoltIcon from '@/components/ui/VoltIcon';
 import HeroActions from './HeroActions';
+import HeroAudio from './HeroAudio';
 import styles from './page.module.css';
 
 export const metadata = {
@@ -58,6 +59,8 @@ export default async function LandingPage() {
           <source src="/hero-video.mp4" type="video/mp4" />
         </video>
         <div className={styles.heroOverlay} aria-hidden="true" />
+
+        <HeroAudio />
 
         {process.env.NODE_ENV === 'development' && (
           <Link href="/login" className={styles.heroLogin}>

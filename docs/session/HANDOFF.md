@@ -4,6 +4,36 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-04-30 - Race detail Win Probability: name the drone it favors
+
+**Captain ask:** The bare "62%" Win Probability in the `RaceEdgeCard` (race detail page) doesn't say WHICH drone the percentage favors. Add the drone name next to the value. Also check `app/dashboard/page.jsx` for the same pattern.
+
+**Files changed (2):**
+
+### `app/races/[raceId]/page.jsx`
+
+`RaceEdgeCard` Win Probability section: added a new `<div className={styles.raceEdgeWinDrone}>{viewer.name}</div>` rendered directly above the percentage value. Hidden when `isEven` (no clear favorite — even matchup already labels itself in the card header). The existing `viewer` is the higher-probability drone from `computeRaceEdge`, so the name correctly identifies who the percentage favors.
+
+### `app/races/[raceId]/page.module.css`
+
+New `.raceEdgeWinDrone` rule: mono caps small label (`var(--text-xs)`), same accent color as the value below it for visual cohesion, `font-weight: var(--font-bold)`, `letter-spacing: 0.08em`. Sits flush above the existing `.raceEdgeWinValue` (which keeps its larger heading-style percentage).
+
+### `app/dashboard/page.jsx`
+
+Audited — no Win Probability surface there. The dashboard does not render a `RaceEdgeCard` or any win-percentage value, so no change needed.
+
+**Result:** The Win Probability section now reads:
+```
+WIN PROBABILITY
+KRAKEN
+62%
+[bar]
+ELO 1240 vs 1080
+```
+Drone name is omitted on even matchups; the card's header already says "Even Matchup" in that case so there's no ambiguity.
+
+---
+
 ## 2026-04-30 - Races page no-store fetches + RACE QUEUED label robustness
 
 **Captain ask (3 items):**
@@ -3920,3 +3950,53 @@ NextAuth's `session.user.points` doesn't refresh after a server-side balance cha
 **What's covered:** marketplace listing buy, pack open, capsule open, NPC vendor drone purchase. Stat allocate (drone-detail page) was not in Captain's scope and still relies on the existing `useSession` re-fetch after `onReload` - left untouched.
 
 **Persistence note:** The override survives in-app navigation because NavShell stays mounted across route changes. A hard reload still shows whatever the JWT carries until next-auth refreshes the session - that's the existing stale-JWT behavior, out of scope for this fix.
+
+## 2026-04-30 - Pack previews / reveals: dedupe legendary names + show real images on reveal
+
+**Files modified (1):** `app/marketplace/page.jsx`
+
+- **Pack preview legendary duplicates (fix #1).** `/api/skins/catalog` returns every image-backed skin row, which in seed includes ~15 vault rows per name for legendaries. The previous `setSkinPool` grouped by rarity but kept all rows, so when `pickPreviewSamples` shuffled-and-walked the legendary list, the first two cursor positions could land on the same name. Updated the `useEffect` that builds `skinPool` to dedupe by `name` per rarity (Set-tracked) before storing. The cursor walk in `pickPreviewSamples` is unchanged - it now operates over distinct names so the legendary preview shows two unique skins, the epic preview shows two unique skins, etc.
+
+- **Revealed cards show real images (fix #2).** `FlowRevealCard` had an `isLegendary` branch that rendered a placeholder `<span>L</span>` instead of the skin art, hiding real legendary imagery on opens. Removed the legendary special-case: skin reveals now always go through `SkinThumb`, which resolves real `/skins/...webp` URLs via its `<img>` path and falls back to the rarity-tinted `SkinMini` prism only when no image is present. Capsule reveals (mods) keep their `ModPlaceholder` hex chip path - unchanged.
+
+**Fix #3 - demo legendary pulls already have real images.** Verified end-to-end:
+
+- `services/pack.service.js:openPack` already filters every pull (demo and non-demo) by `like(skins.imageUrl, '/skins/%')` AND `like(skins.imageUrl, '%.webp')` (lines 132-134, 172-173), so no skin without a real image can ever be claimed by any user.
+- The demo blocklist (`DEMO_LEGENDARY_BLOCKLIST` = Kraken / Diamond Hands / Apex Predator / Celestial / Valiant) leaves three legendaries available to demo users: **Gilded Throne, Samurai, Necromancer**.
+- All three have real image files: `/public/skins/legendary/gilded_throne.webp`, `samurai.webp`, `necromancer.webp` (confirmed via `ls`). `scripts/seed-production.js` lines 476-479 populate the matching `imageUrl` for each.
+
+No swap needed; demo legendary pulls always render a real image.
+
+**Files modified count: 1.** Fixes #1 and #2 in `app/marketplace/page.jsx`. Fix #3 was a verification, no code change.
+
+## 2026-04-30 - Persistent in-app audio + numbered upcoming-races picker
+
+**Files modified (3):**
+
+- `components/ui/NavShell/index.jsx`
+  - **Audio singleton.** NavShell is rendered per-page, so client-side navigations unmount and remount it. The previous implementation stored the `<audio>` element via JSX + `useRef`, which means each remount created a NEW HTMLAudioElement with `currentTime = 0` - the audible "music restarts on every navigation" symptom.
+  - The HTMLAudioElement is now held in a module-scoped `let sharedAudio` (created lazily via `getOrCreateSharedAudio()` using `new Audio('/audio/hero-bg.mp3')`). It lives outside the React tree so navigations can't recreate it; `currentTime` is preserved across mounts. Removed the `<audio>` JSX element entirely and dropped the unused `useRef` import.
+  - NavShell's `audioPlaying` React state now mirrors `audio.paused` via `play`/`pause` event listeners attached on every mount and torn down on unmount. The mirror is just for re-rendering the speaker icon; `audio.paused` is the source of truth.
+  - Autoplay-resume after a hard reload still uses `sessionStorage` (the singleton dies when the JS module unloads). Module-scoped `sharedAutoplayAttempted` flag gates the resume to once per page load so multiple NavShell remounts during a session can't keep retrying after a blocked first attempt.
+
+- `app/races/page.jsx`
+  - New `selectedUpcoming` state (default 0). The upcoming-races banner is no longer a single `<Link>` - it's now a `<div>` row containing the live-dot + summary + (when 2+ races) a numbered chip strip + a `VIEW MATCHUP` `<Link>` whose `href` is keyed off the selected chip. Stale-index guard via `Math.min(selectedUpcoming, upcomingRaces.length - 1)` so the picker stays valid if the soonest race executes between polls.
+  - Chips carry `role="tab"` + `aria-selected` so screen readers read the picker as a tab list. Single-race case unchanged (no chips, just the link).
+
+- `app/races/page.module.css`
+  - `.upcomingBanner` is no longer styled as a clickable link surface; the banner-level hover transition was removed (only the `VIEW MATCHUP` link is interactive now).
+  - New `.upcomingNumberChips`, `.upcomingNumberChip`, `.upcomingNumberChipActive`. Chip is teal-outlined when inactive, solid teal with dark text when active. Hover lifts the inactive chip to a teal-tinted background so the picker reads as obviously interactive.
+  - `.upcomingBannerCta` gains `text-decoration: none` and a brightness hover (it was previously inheriting from the wrapping `<Link>`).
+
+## 2026-04-30 - Landing → app audio handoff via sessionStorage
+
+The landing page already had its own `<HeroAudio>` component (`app/HeroAudio.jsx`) - first-interaction `pointerdown` listener + corner toggle - but it didn't write to sessionStorage, so PLAY DEMO carried no intent into the next route and NavShell mounted muted. NavShell already reads the existing `AUDIO_PREF_KEY = 'hyperdrome.audio.playing'` on its first mount per page load and tries to resume.
+
+**File modified (1):**
+- `app/HeroAudio.jsx`
+  - Imported the same `AUDIO_PREF_KEY = 'hyperdrome.audio.playing'` constant (kept inline + commented in lockstep with `components/ui/NavShell/index.jsx`).
+  - The first-interaction `start()` and the manual `handleToggle` play branch now both **synchronously set the flag to `'true'`** before calling `audio.play()`. Synchronous-before-play matters for the PLAY DEMO case: the user's click triggers both the audio `start` (via the global `pointerdown` listener) and the Link navigation in the same gesture. Writing sessionStorage before `play()` returns a promise guarantees the flag is set by the time NavShell mounts on the next route.
+  - Both play paths now also clear the flag back to `'false'` in their `.catch` handlers so a rejected autoplay doesn't leave a stale "playing" intent for NavShell to chase on the next page.
+  - Manual `pause` branch writes `'false'` immediately, same as before but explicit now.
+
+End result: when audio is on at the landing page and the user clicks PLAY DEMO, NavShell on the dashboard auto-resumes from the same `currentTime = 0` start without a second click. The audio singleton in NavShell takes over from there; subsequent in-app navigations don't restart it (per the previous handoff entry).

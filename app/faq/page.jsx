@@ -47,7 +47,7 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I get more drones?',
-        a: 'Three ways. (1) XP milestones: at 3,000 total races (across all your drones) you auto-receive a free Level 1 drone, plus a slot 2 unlock. At 10,000 races, the same again with slot 3. Each milestone spawn includes one unbound common skin and one unbound common mod. (2) NPC vendor: 3,500 volts per Level 1 drone — random mid-range stats, one bound common skin, one bound common mod. Available anytime, no marketplace dependency. (3) Marketplace: buy a drone listed by another player at any level with whatever skins, mods, and race history the seller built into it.',
+        a: 'Three ways. (1) Race milestones: at 3,000 total races (across all your drones) you auto-receive a free Level 1 drone, plus a slot 2 unlock. At 10,000 races, the same again with slot 3. Each milestone spawn includes one unbound common skin and one unbound common mod. (2) NPC vendor: 3,500 volts per Level 1 drone. Random mid-range stats, one bound common skin, one bound common mod. Available anytime, no marketplace dependency. (3) Marketplace: buy a drone listed by another player at any level with whatever skins, mods, and race history the seller built into it.',
       },
       {
         q: 'Can I buy XP or buy levels?',
@@ -97,15 +97,15 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'What\'s the difference between Speed and Acceleration?',
-        a: 'Speed weights 40% on straights, 0% on turns. Acceleration weights 30% on straights and 20% on turns. Speed is a pure straight-line bonus. Acceleration helps everywhere.',
+        a: 'Speed weights 50% on straights, 0% on turns. Acceleration weights 30% on straights and 20% on turns. Speed is a pure straight-line bonus. Acceleration helps everywhere.',
       },
       {
         q: 'Does Consistency do anything besides reduce variance?',
-        a: 'Yes. It also weights 15% on every segment, both straights and turns. So it adds a steady contribution to score on top of dampening randomness.',
+        a: 'No. Consistency is a pure variance dampener. It does not contribute to segment scoring. At consistency 0 the per-segment swing is +/- 7%; the swing scales toward zero as consistency rises. Higher consistency means more predictable race results.',
       },
       {
         q: 'Does Wind Resistance only matter when it\'s windy?',
-        a: 'No. Wind Resistance weights 15% on every straight regardless of weather. In "wind" weather it additionally applies a multiplier to every segment score.',
+        a: 'No. Wind Resistance weights 20% on every straight regardless of weather. In "wind" weather it additionally applies a multiplier to every segment score.',
       },
       {
         q: 'Why isn\'t my Night Vision helping?',
@@ -143,11 +143,11 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How is the winner decided?',
-        a: 'Each track is a fixed list of straights and turns shuffled into a segment order. For each segment, both drones get a score from a weighted stat formula, modified by weather, time of day, battery degradation, and a small consistency-dampened variance. Score becomes time via 100 / score. Times accumulate over 3 laps. Lower total time wins.',
+        a: 'Each track is a fixed count of straights and turns, clustered into stretches of 2-4 same-type segments and re-shuffled at the start of every lap. For each segment, both drones get a score from a weighted stat formula, modified by weather, time of day, battery degradation, and a small consistency-dampened variance. Score becomes time via segment time = baseTime - 0.005 * score, where baseTime = 1.6 + 0.33 * difficulty. Times accumulate over 3 laps. Lower total time wins.',
       },
       {
         q: 'What stats matter most?',
-        a: 'Depends on the track and conditions. Speed dominates straight-heavy tracks. Turning dominates turn-heavy tracks. Consistency adds steady score and reduces randomness. Battery Capacity matters on long tracks and later laps. Weather stats matter when the conditions roll.',
+        a: 'Depends on the track and conditions. Speed dominates straight-heavy tracks. Turning dominates turn-heavy tracks. Consistency reduces randomness. Battery Capacity matters on long tracks and later laps. Weather stats matter when the conditions roll.',
       },
       {
         q: 'Can I choose which track to race on?',
@@ -163,7 +163,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'How many laps per race?',
-        a: '3 laps. Same shuffled segment order each lap.',
+        a: '3 laps. Segments are re-shuffled at the start of every lap, so the layout varies lap to lap.',
       },
       {
         q: 'What weather conditions roll?',
@@ -205,11 +205,11 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I earn volts?',
-        a: 'Race — winners take 3 base plus level, difficulty, upset, and dominance bonuses; losers take 1 base plus a level bonus. Also: marketplace sales (95% of sale price), and a +20 wallet bonus on every level-up.',
+        a: 'Race. Winners take 3 base plus level, difficulty, upset, and dominance bonuses; losers take 1 base plus a level bonus. Also: marketplace sales (95% of sale price), and a +20 wallet bonus on every level-up.',
       },
       {
         q: 'Do losers earn volts?',
-        a: 'Yes — 1 base volt plus floor(loserLevel / 4) every race. LV1-3: 1V. LV4-7: 2V. LV20: 6V. The level bonus means high-level losses still pay enough to feel non-zero. Plus 4 XP every loss.',
+        a: 'Yes. 1 base volt plus floor(loserLevel / 4) every race. LV1-3: 1V. LV4-7: 2V. LV8-11: 3V. LV12-15: 4V. LV16-19: 5V. LV20: 6V. The level bonus means high-level losses still pay enough to feel non-zero. Plus 4 XP every loss.',
       },
       {
         q: 'How much does a win pay?',
@@ -217,7 +217,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'How does the payout system work?',
-        a: 'Wins are tiered. Base 3V + (a) level bonus floor(winnerLevel/2) up to +10 at LV20, (b) difficulty bonus floor(track.difficulty/2) up to +5 on the hardest track, (c) upset bonus floor((loserElo-winnerElo)/100) when negative — +1 per 100 ELO underdog, (d) dominance bonus +2V if your win margin is above 20% of the loser\'s time, +5V if above 40% (margin is computed from the actual race times). Losses pay 1V base + floor(loserLevel/4) up to +5 at LV20. The intent is that losing a tight race at high level still earns meaningful volts, while crushing wins on hard tracks against higher-ranked opponents pay out big.',
+        a: 'Wins are tiered. Base 3V + (a) level bonus floor(winnerLevel/2) up to +10 at LV20, (b) difficulty bonus floor(track.difficulty/2) up to +5 on the hardest track, (c) upset bonus floor((loserElo-winnerElo)/100) when positive: +1 per 100 ELO underdog, (d) dominance bonus +2V if your win margin is above 20% of the loser\'s time, +5V if above 40% (margin is computed from the actual race times). Losses pay 1V base + floor(loserLevel/4) up to +5 at LV20. The intent is that losing a tight race at high level still earns meaningful volts, while crushing wins on hard tracks against higher-ranked opponents pay out big.',
       },
       {
         q: 'Are volts shared between my drones?',

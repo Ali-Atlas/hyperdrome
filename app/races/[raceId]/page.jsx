@@ -1639,10 +1639,12 @@ function RaceTrackCard({ race }) {
  */
 /**
  * Compute the race-edge perspective and win probability from ELO alone.
- * Higher-prob drone is the favorite. If the prob lands within 2% of 50%
- * the matchup is flagged as "even" - the card shows EVEN MATCHUP in the
- * header and skips the "favorite" framing. No ownership / left-side
- * tiebreak: it's pure ELO math.
+ * Higher-prob drone is the favorite. If the prob lands within 0.5% of
+ * 50% (i.e. 49.5-50.5%) the matchup is flagged as "even" - the card
+ * shows EVEN MATCHUP in the header and the win-probability section
+ * splits 50/50 across both drones. Anything outside that band - even
+ * 51% - has a real favorite. No ownership / left-side tiebreak: pure
+ * ELO math.
  *
  * @returns {{ isEven: boolean, viewer: object, opponent: object,
  *             viewerElo: number, oppElo: number, prob: number }}
@@ -1651,7 +1653,7 @@ function computeRaceEdge(left, right) {
   const lElo = left?.eloRating ?? 1000;
   const rElo = right?.eloRating ?? 1000;
   const leftProb = 1 / (1 + Math.pow(10, (rElo - lElo) / 400));
-  const isEven = Math.abs(leftProb - 0.5) <= 0.02;
+  const isEven = Math.abs(leftProb - 0.5) <= 0.005;
   if (leftProb >= 0.5) {
     return {
       isEven,
@@ -1673,9 +1675,8 @@ function computeRaceEdge(left, right) {
 }
 
 /** Race-edge container: Strengths / Gaps / Win Probability for the
- *  perspective drone. Sits to the right of the track at >=768px and
- *  stacks beneath at <768px. The header always names the drone whose
- *  perspective is shown. */
+ *  perspective drone (the favorite, named in the header). Sits to the
+ *  right of the track at >=768px and stacks beneath at <768px. */
 function RaceEdgeCard({ leftDrone, rightDrone }) {
   if (!leftDrone || !rightDrone) {
     return (
@@ -1764,16 +1765,37 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
             </ul>
           )}
         </div>
+        {/* Win Probability lives at the bottom of the body. The
+            percentage line ALWAYS names a drone (even matchups split
+            50/50 across both names) so a bare number can't be misread. */}
         <div className={styles.raceEdgeSection}>
           <span className={styles.raceEdgeSectionLabel}>Win Probability</span>
-          <div className={styles.raceEdgeWinValue}>{pct}%</div>
-          <div className={styles.raceEdgeWinBar}>
-            <div
-              className={styles.raceEdgeWinBarFill}
-              style={{ width: `${pct}%` }}
-              aria-hidden="true"
-            />
-          </div>
+          {isEven ? (
+            <>
+              <div className={styles.raceEdgeWinDrone}>
+                {viewer.name} 50% · {opponent.name} 50%
+              </div>
+              <div className={styles.raceEdgeWinBar}>
+                <div
+                  className={styles.raceEdgeWinBarFill}
+                  style={{ width: '50%' }}
+                  aria-hidden="true"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={styles.raceEdgeWinDrone}>{viewer.name}</div>
+              <div className={styles.raceEdgeWinValue}>{pct}%</div>
+              <div className={styles.raceEdgeWinBar}>
+                <div
+                  className={styles.raceEdgeWinBarFill}
+                  style={{ width: `${pct}%` }}
+                  aria-hidden="true"
+                />
+              </div>
+            </>
+          )}
           <div className={styles.raceEdgeWinCaption}>
             ELO {viewerElo} vs {oppElo}
           </div>

@@ -177,6 +177,62 @@
   color: var(--accent-primary);
 }
 
+/* Persistent audio toggle. Same subtle dark-pill styling as the
+   landing-page corner control so the in-app and pre-login surfaces
+   read consistently. */
+.audioToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.audioToggle:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.audioToggle:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.audioToggle svg {
+  display: block;
+}
+
+/* Fixed bottom-left position so the audio control sits at the very
+   left of the in-app footer, vertically centered in the 34px
+   .countdownBar strip. z-index 10 floats it above the bar's z-index 9
+   so it's never clipped. On desktop the sidebar takes the leftmost
+   240px so the toggle's left offset jumps to clear it - matches the
+   countdown bar's own desktop offset below. */
+.audioToggleFooter {
+  position: fixed;
+  left: var(--space-3);
+  bottom: 3px;
+  z-index: 10;
+}
+
+@media (min-width: 1024px) {
+  .audioToggleFooter {
+    left: calc(240px + var(--space-3));
+  }
+}
+
 .mobileLogo {
   font-family: var(--font-heading);
   font-size: var(--text-lg);

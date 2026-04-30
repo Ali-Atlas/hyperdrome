@@ -99,6 +99,7 @@ export default function RacesPage() {
   const [myRaces, setMyRaces] = useState(false);
   const [pageSize, setPageSize] = useState(50);
   const [upcomingRaces, setUpcomingRaces] = useState([]);
+  const [selectedUpcoming, setSelectedUpcoming] = useState(0);
   const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
   const fetchRaces = useCallback(async () => {
@@ -367,19 +368,53 @@ export default function RacesPage() {
   return (
     <NavShell>
       <div className={styles.page}>
-        {upcomingRaces.length > 0 && (
-          <Link
-            href={`/races/${upcomingRaces[0].id}`}
-            className={styles.upcomingBanner}
-          >
-            <span className={styles.upcomingBannerDot} aria-hidden="true" />
-            <span className={styles.upcomingBannerText}>
-              You have {upcomingRaces.length} upcoming{' '}
-              {upcomingRaces.length === 1 ? 'race' : 'races'}
-            </span>
-            <span className={styles.upcomingBannerCta}>VIEW MATCHUP →</span>
-          </Link>
-        )}
+        {upcomingRaces.length > 0 && (() => {
+          // Guard the index against stale state if the upcoming list
+          // shrank between polls (e.g. the soonest race just executed).
+          const safeIndex = Math.min(
+            selectedUpcoming,
+            upcomingRaces.length - 1,
+          );
+          const target = upcomingRaces[safeIndex];
+          return (
+            <div className={styles.upcomingBanner}>
+              <span className={styles.upcomingBannerDot} aria-hidden="true" />
+              <span className={styles.upcomingBannerText}>
+                You have {upcomingRaces.length} upcoming{' '}
+                {upcomingRaces.length === 1 ? 'race' : 'races'}
+              </span>
+              {upcomingRaces.length > 1 && (
+                <div
+                  className={styles.upcomingNumberChips}
+                  role="tablist"
+                  aria-label="Pick an upcoming matchup"
+                >
+                  {upcomingRaces.map((race, i) => (
+                    <button
+                      key={race.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={i === safeIndex}
+                      className={cn(
+                        styles.upcomingNumberChip,
+                        i === safeIndex && styles.upcomingNumberChipActive,
+                      )}
+                      onClick={() => setSelectedUpcoming(i)}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Link
+                href={`/races/${target.id}`}
+                className={styles.upcomingBannerCta}
+              >
+                VIEW MATCHUP →
+              </Link>
+            </div>
+          );
+        })()}
         <div className={styles.topStrip}>
           <div className={styles.totalRacesGroup}>
             <div className={styles.totalRaces}>

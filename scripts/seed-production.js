@@ -1302,7 +1302,7 @@ export async function runSeed({ skipConfirm = false, fresh = false } = {}) {
   const skinnedDrones = await seedDroneListingsWithSkins(botUserMap);
   fmt('G2. skinned_drones', skinnedDrones);
 
-  console.log('\n  Seeding 10 demo accounts (real race simulation)...');
+  console.log('\n  Seeding 50 demo accounts (real race simulation)...');
   const demo = await seedDemoAccounts();
   fmt('H. demo_accounts', demo);
 

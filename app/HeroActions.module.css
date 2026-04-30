@@ -1,40 +1,8 @@
 /*
- * Audio toggle - absolutely positioned in the top-right of the hero.
- * z-index: 3 sits above .heroContent (z-index: 2) and the top-right
- * Login/Register link (which lives at z-index: 3 too). They don't
- * overlap horizontally so the order doesn't matter visually.
- */
-.audioToggle {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-full);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: all var(--duration-normal) var(--ease-out);
-}
-
-.audioToggle:hover {
-  color: var(--accent-primary);
-  border-color: var(--accent-primary);
-}
-
-.audioToggle:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
-}
-
-/*
  * Single-CTA cluster. PLAY DEMO sits on its own; Login moved to a
  * top-right link in the hero. Error text stays beneath the button.
+ * Hero background audio + its corner toggle live in
+ * `app/HeroAudio.jsx` (landing) and the persistent NavShell (in-app).
  */
 .cluster {
   display: flex;

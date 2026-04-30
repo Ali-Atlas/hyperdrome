@@ -69,20 +69,20 @@ const SECTIONS = [
       { type: 'subheading', text: 'The 9 stats' },
       {
         type: 'paragraph',
-        text: 'On every track segment (a straight or a turn), each drone gets a score from a weighted combination of stats. Score becomes time on that segment via 100 / score. The drone with the lowest total time across all segments and laps wins.',
+        text: 'On every track segment (a straight or a turn), each drone gets a score from a weighted combination of stats. A higher score is a faster segment. Conversion: segment time = baseTime - 0.005 * score, where baseTime = 1.6 + 0.33 * difficulty. Track difficulty sets the baseline pace. Lowest total time across all segments and laps wins.',
       },
       {
         type: 'list',
         items: [
-          { name: 'Speed', desc: '40% weight on straight segments. 0% on turns. Higher speed lowers your time on straights.' },
-          { name: 'Turning', desc: '40% weight on turn segments. 0% on straights. Higher turning lowers your time on turns.' },
+          { name: 'Speed', desc: '50% weight on straight segments. 0% on turns. Higher speed lowers your time on straights.' },
+          { name: 'Turning', desc: '50% weight on turn segments. 0% on straights. Higher turning lowers your time on turns.' },
           { name: 'Acceleration', desc: '30% weight on straights, 20% on turns. Pulls weight on every segment.' },
-          { name: 'Durability', desc: '25% weight on turns, 0% on straights. Reduces turn penalties.' },
-          { name: 'Consistency', desc: '15% weight on both straights and turns. Also dampens the random variance applied to every segment score. At consistency 0 the variance is +/- 5%. At 100 it\'s near zero.' },
+          { name: 'Durability', desc: '30% weight on turns, 0% on straights. Reduces turn penalties.' },
+          { name: 'Consistency', desc: 'No segment-scoring weight. Pure variance dampener. At consistency 0 the per-segment swing is +/- 7%. As consistency rises the swing scales toward zero. Higher consistency means more predictable race results.' },
           { name: 'Battery Capacity', desc: 'No direct segment weight. Reduces battery degradation that ramps from lap 2 to the final lap. At 100 there\'s zero drain. At 0 a long-track segment can lose up to 60% of its score by the final lap.' },
-          { name: 'Night Vision', desc: 'Only triggers when time of day rolls "night". At 0 it\'s a 0.5x multiplier on every segment score, at 50 it\'s neutral (1.0x), capped at 1.5x past 75.' },
-          { name: 'Rain Handling', desc: 'Only triggers in "rain" or "heavy rain" weather. Same 0.5x at 0, 1.0x at 50, capped at 1.5x.' },
-          { name: 'Wind Resistance', desc: '15% weight on every straight regardless of weather. In "wind" weather, additionally applies the 0.5x / 1.0x / 1.5x multiplier on every segment.' },
+          { name: 'Night Vision', desc: 'Triggers when time of day is "night" (0.5x at 0, 1.0x at 50, 1.5x cap), and as the visibility stat for "fog" and "haze" weather. At night a 0-NV drone halves its segment score; at 75+ it caps at 1.5x.' },
+          { name: 'Rain Handling', desc: 'Triggers in "rain" weather (0.5x / 1.0x / 1.5x) and "heavy rain" weather (harsher: 0.4x at 0, 1.0x at 60, 1.4x cap). Heavy rain punishes low-rain drones more than regular rain.' },
+          { name: 'Wind Resistance', desc: '20% weight on every straight regardless of weather. In "wind" weather, additionally applies the 0.5x / 1.0x / 1.5x multiplier on every segment.' },
         ],
       },
 
@@ -151,20 +151,23 @@ const SECTIONS = [
       { type: 'subheading', text: 'Race simulation' },
       {
         type: 'paragraph',
-        text: 'Each track is a fixed list of straights and turns, shuffled into a segment order at race start. The same shuffled order repeats every lap. For each segment, both drones get a score from the weighted stat formula, multiplied by any weather and time-of-day modifiers, multiplied by battery degradation for that lap, multiplied by a small variance dampened by consistency. Score becomes time via 100 / score. Times accumulate. Lower total time wins.',
+        text: 'Each track is a fixed count of straights and turns, clustered into stretches of 2-4 same-type segments per lap (e.g. 3 straights, then 2 turns, then 1 straight). Segments are re-shuffled at the start of every lap so the layout varies lap to lap. For each segment, both drones get a score from the weighted stat formula, multiplied by any weather and time-of-day modifiers, multiplied by battery degradation for that lap, multiplied by a small variance dampened by consistency. Score becomes time via segment time = baseTime - 0.005 * score, where baseTime = 1.6 + 0.33 * difficulty. Times accumulate. Lower total time wins. The clustering means a stretch of 3 straights gives a speed build a real chance to open a gap before the next turn cluster lets a turning build claw it back.',
       },
 
       { type: 'subheading', text: 'Weather and time of day' },
       {
         type: 'paragraph',
-        text: '7 weathers roll randomly per race: clear, clouds, rain, heavy rain, wind, haze, fog. 4 times of day: dawn, day, dusk, night. Only 3 conditions apply a stat multiplier:',
+        text: '7 weathers roll randomly per race: clear, clouds, rain, heavy rain, wind, haze, fog. 4 times of day: dawn, day, dusk, night. Clear weather, cloudy weather, dawn, day, and dusk are all neutral. The rest apply stat multipliers:',
       },
       {
         type: 'list',
         items: [
-          { name: 'Rain / Heavy rain', desc: 'Applies your Rain Handling multiplier to every segment score (0.5x at 0, 1.0x at 50, 1.5x at 75+).' },
-          { name: 'Wind', desc: 'Applies your Wind Resistance multiplier to every segment score (same scale).' },
-          { name: 'Night', desc: 'Applies your Night Vision multiplier to every segment score (same scale).' },
+          { name: 'Rain', desc: 'Applies your Rain Handling multiplier to every segment score: 0.5x at 0, 1.0x at 50, 1.5x at 75+.' },
+          { name: 'Heavy rain', desc: 'Harsher than rain. 0.4x at rain handling 0, 1.0x at 60, 1.4x cap. Low-rain drones get punished more, top-rain drones cap a touch lower.' },
+          { name: 'Wind', desc: 'Applies your Wind Resistance multiplier to every segment score (0.5x / 1.0x / 1.5x scale).' },
+          { name: 'Fog', desc: 'Visibility hit. Uses Night Vision: 0.6x at 0, 1.0x at 60, 1.4x cap.' },
+          { name: 'Haze', desc: 'Light visibility hit. Uses Night Vision: 0.7x at 0, 1.0x at 70, 1.3x cap.' },
+          { name: 'Night (time of day)', desc: 'Applies your Night Vision multiplier to every segment score (0.5x / 1.0x / 1.5x scale).' },
         ],
       },
       {
@@ -244,7 +247,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Level-up' },
       {
         type: 'paragraph',
-        text: 'XP needed for the next level = 300 * level^2. Level 1 to 2: 300 XP. 2 to 3: 1,200. 3 to 4: 2,700. 5 to 6: 7,500. 10 to 11: 30,000. 15 to 16: 67,500. 19 to 20: 108,300. Level-ups cascade in one shot if you have the XP banked.',
+        text: 'XP needed for the next level = 200 * level^2. Level 1 to 2: 200 XP. 2 to 3: 800. 3 to 4: 1,800. 5 to 6: 5,000. 10 to 11: 20,000. 15 to 16: 45,000. 19 to 20: 72,200. Level-ups cascade in one shot if you have the XP banked.',
       },
 
       { type: 'subheading', text: 'Level benefits' },
@@ -457,7 +460,7 @@ const SECTIONS = [
     blocks: [
       {
         type: 'paragraph',
-        text: 'Two product lines: skin packs (cosmetics) and mod capsules (functional). Both lines come in three tiers - Starter, Premium, Legendary - at the same price points. Every pack opens 3 items. Each slot has a guaranteed minimum rarity or a probability table.',
+        text: 'Two product lines: skin packs (cosmetics) and mod capsules (functional). Both lines come in three tiers - Starter, Premium, Legendary - at the same price points. Every pack opens 3 items. Each slot is either a guaranteed rarity or rolled from a probability table.',
       },
 
       { type: 'subheading', text: 'Starter Pack - 2,000 volts' },
@@ -615,7 +618,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Beyond the milestones' },
       {
         type: 'paragraph',
-        text: 'Milestone spawns cap at 3 free drones (your starter + slot-2 spawn + slot-3 spawn). Past that, additional Level 1 drones are available from the NPC vendor at 3,500 volts each — random mid-range stats, one bound common skin, one bound common mod. There is no marketplace dependency to grow your fleet.',
+        text: 'Milestone spawns cap at 3 free drones (your starter + slot-2 spawn + slot-3 spawn). Past that, additional Level 1 drones are available from the NPC vendor at 3,500 volts each: random mid-range stats, one bound common skin, one bound common mod. There is no marketplace dependency to grow your fleet.',
       },
     ],
   },
@@ -695,7 +698,7 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'Volts' },
       {
         type: 'paragraph',
-        text: 'Volts are the only in-game currency. You earn them by racing — winners take 3 base plus level, difficulty, upset, and dominance bonuses; losers take 1 base plus a level bonus. Volts buy stat upgrades, packs, NPC vendor drones (3,500V each), and other players\' listings on the Marketplace.',
+        text: 'Volts are the only in-game currency. You earn them by racing. Winners take 3 base plus level, difficulty, upset, and dominance bonuses; losers take 1 base plus a level bonus. Volts buy stat upgrades, packs, NPC vendor drones (3,500V each), and other players\' listings on the Marketplace.',
       },
       { type: 'subheading', text: 'The Marketplace' },
       {
