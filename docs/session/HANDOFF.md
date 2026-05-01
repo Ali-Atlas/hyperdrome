@@ -4,6 +4,38 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-01 - Dashboard overhaul: Recent Results + Live Feed tables, Next Race cycling, mobile matchup
+
+**Captain ask (5 items):**
+1. Loss volts: stop showing `-`; show `loserPointsAwarded` from the race row.
+2. Recent Results columns: You | Opponent | Track | Result | Volts | Time. Drone names = accent-color links to `/drones/[droneId]`.
+3. Live Race Feed: restyle as a real table (Time | You | Opponent | Track) matching the Recent Results visuals (row height, padding, borders, hover).
+4. Next Race header: cycling arrows that step through the user's upcoming races, mirroring the Spotlight nav cluster.
+5. Mobile next-race matchup: keep drones side-by-side at <=480px (image hidden, badges below name, name smaller). Stack only at <=360px.
+
+**Files modified (2):**
+
+### `app/dashboard/page.jsx`
+- **Item 1+2 (Recent Results):** added `userIsDrone1` / `userDrone` derivation alongside the existing opp lookup. New `voltsEarned` reads `pointsAwarded` on win, `loserPointsAwarded ?? 0` on loss - dash gone. Replaced row-level `<Link href="/races/{id}">` with `<div>` so per-cell drone-name `<Link>`s aren't nested inside another anchor (invalid HTML). Both "You" and "Opponent" cells render as accent-color `<Link>` to `/drones/{id}` via the new `.droneLink` class. Header gained "You" as the first column. Six columns total.
+- **Item 3 (Live Race Feed):** replaced the `.feedList` / pill-style `.feedRow` + flex-row layout with `.feedTable / .feedHeader / .feedRow` mirroring Recent Results. Per-row "You" anchored to the user's drone if they're in the matchup; otherwise falls back to drone1 so feed rows from races the user isn't in still render two-up. Drone names use the same `.droneLink` accent style.
+- **Item 4 (Next Race cycling):** lifted three pieces of state to `DashboardPage`: `nextRaceIndex` (useState), `nextRaceForCard = upcomingRaces[nextRaceIndex]`, plus `goPrevNextRace` / `goNextNextRace` handlers that wrap the index modulo `upcomingRaces.length`. A render-time `if` resets the index to 0 when the list shrinks beneath the current index (e.g. after a race completes). The Next Race panel is now independent of the spotlight drone - any of the user's upcoming races can be cycled to. `<NextRacePanel>` accepts `race`, `currentIndex`, `canCycle`, `onPrev`, `onNext` and renders the existing `.navCluster / .navBtn / .navCounter` cluster (same as the Spotlight) when there's more than one upcoming race. Counter format: "1/3". Dropped the now-redundant "X MORE UPCOMING" caption inside `NextRaceMatchup` and the `totalCount` prop it depended on.
+
+### `app/dashboard/page.module.css`
+- **Recent Results grid** (`.resultsHeader, .resultsRow`): updated `grid-template-columns` from 5-col `1.2fr 1.5fr 70px 90px 60px` to 6-col `1fr 1fr 1.2fr 60px 70px 50px` for You / Opponent / Track / Result / Volts / Time.
+- **`.droneLink`**: new class. Accent-color, semibold, hover bumps brightness + adds underline. Reused by both Recent Results and Live Feed.
+- **Live Race Feed**: dropped `.feedList`, `.feedSep`, `.feedDrone`, `.feedWord`, `.feedTrack`, `.feedTime` (the old flex pill set). Replaced with `.feedTable`, `.feedHeader`, `.feedRow` that mirror the Recent Results visuals exactly - same `padding: 7px var(--space-4)`, `font-size: 11px`, hover `rgba(3, 218, 198, 0.06)`, header `#A0A0A0` text, row border-bottom `#3F3F3F`. Grid template is 4-col: `60px 1fr 1fr 1.4fr` (Time / You / Opponent / Track).
+- **Mobile shuffle:** moved the existing `@media (max-width: 480px) { .matchupRow { grid-template-columns: 1fr; ...} }` block to a new `@media (max-width: 360px)` block (same rule, different breakpoint). Replaced the 480 block with new compact-side-by-side rules: `.matchupImageFrame { display: none; }`, `.matchupName { font-size: 11px; }`, `.matchupSide .youBadge / .botBadge { position: static; align-self: center; margin-top: 2px; }`, `.matchupRadar { width: 88px; height: 88px; }`. Net at 480: drones stay 1fr auto 1fr, image gone, badges flow under the name, smaller fonts. At 360: full vertical stack returns.
+
+**Verification:**
+- Confirmed via grep: 4 `.droneLink` usages (2 in Recent Results, 2 in Live Feed); `voltsEarned` derived from both `pointsAwarded` and `loserPointsAwarded`; `nextRaceIndex` plumbed through five named locals; `.feedTable / .feedHeader / .feedRow` referenced in JSX. New media blocks at 1212 (480) and 1233 (360).
+- **Not run:** dev server / browser. Captain verifies at 1440 / 1024 / 768 / 480 / 360.
+
+**Not verified by Mercenary:**
+- Whether `.droneLink` looks right inside the Live Feed when both drones in a row are bots (no user drone). The fallback in JSX picks drone1 as "You" in that case so the row still renders two-up, but that's a slight semantic stretch - the column heading says "You" but it's just drone1. Captain may want a different empty-state for "races I'm not in"; flagging.
+- Visual at exactly 480px with the new compact matchup - the `.matchupRow` is still `1fr auto 1fr` (auto = the VS divider). At very narrow widths the VS column may eat into the radar columns; the 480 override doesn't reflow it. If it reads cramped, change `.matchupRow` to `1fr 1fr` at 480 (drop the VS column entirely) - one extra rule.
+
+---
+
 ## 2026-04-30 - Vercel build fix: wrap /races useSearchParams in Suspense
 
 **Captain ask:** Vercel build failing - locate and fix.
