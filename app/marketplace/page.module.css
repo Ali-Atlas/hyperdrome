@@ -2996,6 +2996,22 @@
   .packsRow {
     grid-template-columns: 1fr;
   }
+
+  /* Pin the legendary article to the same width as the now-stacked
+     premium / starter cards. Without this, the heroGrid's min-content
+     right-track lets the article shrink in the 1100-1440 range. */
+  .packCardHero {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Match the legendary pack foil's max-width to premium's at this
+     breakpoint. The default 880px doesn't help when the heroGrid's
+     L-card column eats space and the foil renders smaller than
+     premium/starter despite the larger cap. */
+  .packPackImg_legendary {
+    max-width: 640px;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -5703,6 +5719,156 @@
 }
 
 /* ==========================================================================
+ * Filter dropdown + tablet/mobile shell
+ *
+ * Three breakpoint tiers below desktop:
+ *
+ *   <=900px (shared)                  Filter aside becomes a collapsible
+ *                                     dropdown. Smaller text in the body.
+ *   769px - 900px (tablet)            Page becomes a 2-col grid; filter
+ *                                     dropdown sits in row 2 col 1 next to
+ *                                     the sub-toolbar (search + view toggle)
+ *                                     in col 2. Expanding the dropdown opens
+ *                                     a popover that doesn't reflow neighbours.
+ *   <=768px (mobile)                  Sub-toolbar stacks (search row 1 own
+ *                                     line); filter aside lives below it as
+ *                                     a full-width dropdown. Top row reflows
+ *                                     for tabs + List Item; page side
+ *                                     padding tightens.
+ *
+ * Source order matters: the <=900 block defines the dropdown styling; the
+ * 769-900 block overrides for tablet popover positioning; the <=768 block
+ * overrides for mobile-specific shrink. Cascade picks them in that order.
+ * ========================================================================== */
+
+/* Shared at <=900: filter aside is a collapsible dropdown. */
+@media (max-width: 900px) {
+  .filtersToggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: var(--font-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  .filtersToggle:hover {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+  }
+  .filtersToggleIcon {
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+  .filtersToggleIconOpen {
+    transform: rotate(180deg);
+  }
+  .filters {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .filtersCollapsed .filtersInner {
+    display: none;
+  }
+
+  /* Smaller text inside the dropdown body so the popover reads compact. */
+  .filterLabel {
+    font-size: 10px;
+  }
+  .check {
+    font-size: 10px;
+  }
+  .rangeInput {
+    font-size: 9px;
+  }
+}
+
+/* Tablet through small mobile (481-900): filter dropdown sits side-by-side
+   with the search bar in a 50/50 grid; the view-toggle drops to its own
+   row below filter+search. Both `.body` and `.subToolbar` use display:
+   contents so their children (filter aside, content, view toggle, search
+   wrap) reach up into `.page`'s grid as direct items. The dropdown body
+   opens as an absolute popover so expanding it doesn't squeeze the search
+   input next to it. */
+@media (min-width: 481px) and (max-width: 900px) {
+  .page {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "topRow      topRow"
+      "filters     search"
+      "viewToggle  viewToggle"
+      "content     content";
+    column-gap: var(--space-3);
+    row-gap: var(--space-4);
+  }
+  .topRow {
+    grid-area: topRow;
+  }
+  .subToolbar {
+    display: contents;
+  }
+  .viewToggle {
+    grid-area: viewToggle;
+  }
+  .searchWrap {
+    grid-area: search;
+    min-width: 0;
+    max-width: none;
+  }
+  .body {
+    display: contents;
+  }
+  /* Packs / Points tabs render only `.content` inside `.body` (no filter
+     aside, no sub-toolbar). Without this override the empty filters /
+     search / viewToggle grid rows would still claim row-gap between
+     topRow and content. Use `:has` to swap to a flat 2-row layout for
+     this tab pair so the spacing matches the prior behaviour. */
+  .page:has(.bodyPacks) {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "topRow"
+      "content";
+  }
+  .bodyPacks {
+    display: block;
+    grid-area: content;
+  }
+  .filters {
+    grid-area: filters;
+    position: relative;
+  }
+  .content {
+    grid-area: content;
+  }
+
+  /* Filter trigger fills its 50% column; matches the search input
+     width on the right. */
+  .filtersToggle {
+    width: 100%;
+  }
+
+  .filtersInner {
+    position: absolute;
+    top: calc(100% + var(--space-2));
+    left: 0;
+    z-index: 10;
+    width: 100%;
+    min-width: 240px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* ==========================================================================
  * Mobile fixes for the marketplace shell. Strictly scoped under 768px.
  *
  * 1. Reduce side padding: pull the .page out of NavShell .main's 24px
@@ -5712,11 +5878,11 @@
  * 2. Safety overflow-x: hidden on .page so any stray wide child can't
  *    cause a horizontal scrollbar on mobile. The fix above also tightens
  *    .searchWrap min-width so the sub-toolbar can wrap cleanly.
- * 3. Filter aside collapses to a tap-to-expand dropdown.
- * 4. Top row reflows to: tabs row / (List Item left + balance right) row.
+ * 3. Top row reflows to: tabs row / (List Item left + balance right) row.
  *
- * Desktop (>=769px) uses none of this — the CSS above defines the
- * unchanged desktop / tablet layout.
+ * Filter dropdown styling itself is inherited from the <=900 block above;
+ * this block only adds mobile-specific overrides (smaller trigger text,
+ * full-width search, tighter page gaps).
  * ========================================================================== */
 @media (max-width: 768px) {
   .page {
@@ -5770,9 +5936,10 @@
     padding: 3px 10px;
   }
 
-  /* Filter toggle text shrinks - the 11px default reads too prominent
-     at this size. */
+  /* Filter trigger smaller at mobile - overrides the <=900 trigger
+     styling above. Full-width since the trigger sits on its own row. */
   .filtersToggle {
+    width: 100%;
     font-size: 9px;
     padding: 6px 10px;
   }
@@ -5786,45 +5953,6 @@
     flex: 1 1 100%;
   }
 
-  /* Filter aside becomes a collapse panel. The toggle button shows by
-     default; .filtersCollapsed hides the body. */
-  .filtersToggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-2);
-    width: 100%;
-    padding: 8px 12px;
-    background: var(--bg-card);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-md);
-    color: var(--text-primary);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: var(--font-bold);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    cursor: pointer;
-  }
-  .filtersToggle:hover {
-    border-color: var(--accent-primary);
-    color: var(--accent-primary);
-  }
-  .filtersToggleIcon {
-    transition: transform var(--duration-fast) var(--ease-out);
-  }
-  .filtersToggleIconOpen {
-    transform: rotate(180deg);
-  }
-  .filters {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-  .filtersCollapsed .filtersInner {
-    display: none;
-  }
-
   /* Tighten the page gap so the filters dropdown doesn't sit on a
      thick band of whitespace above and below it. */
   .page {
@@ -5835,9 +5963,9 @@
   }
 }
 
-/* Desktop (>=769px) explicitly hides the mobile filter toggle so it
+/* Desktop (>=901px) explicitly hides the mobile filter toggle so it
    never renders alongside the always-visible filter rail. */
-@media (min-width: 769px) {
+@media (min-width: 901px) {
   .filtersToggle {
     display: none;
   }

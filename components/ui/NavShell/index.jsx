@@ -473,15 +473,15 @@ function CountdownBar() {
               </>
             )}
           </span>
-          {/* Pipe `|` separator before the Races group so the eye reads
-              the numbered links as a distinct cluster from the
-              countdowns on the left. Hidden at the smallest mobile
-              breakpoint via `.countdownSepRaces`. */}
+          {/* Dot separator before the Races group, matching the dot
+              between Next Round and Strategy Lock so all three footer
+              sections share one separator style. Hidden at the smallest
+              mobile breakpoint via `.countdownSepRaces`. */}
           <span
-            className={`${styles.countdownSepPipe} ${styles.countdownSepRaces}`}
+            className={`${styles.countdownSep} ${styles.countdownSepRaces}`}
             aria-hidden="true"
           >
-            |
+            ·
           </span>
           <span className={styles.countdownRacesGroup}>
             <span className={styles.countdownLabel}>Races:</span>

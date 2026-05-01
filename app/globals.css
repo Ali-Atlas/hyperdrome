@@ -233,6 +233,28 @@ a {
 }
 
 /* ==========================================================================
+ * Interactive cursor baseline
+ *
+ * Pointer cursor on every clickable input/control across the app. Component
+ * rules that set `cursor: not-allowed` on `:disabled` or `[aria-disabled]`
+ * states have higher specificity than these element / role selectors and
+ * still win the cascade, so disabled affordances stay correct.
+ * ========================================================================== */
+
+select,
+input[type="checkbox"],
+input[type="radio"],
+button,
+[role="button"],
+[role="tab"],
+[role="option"],
+label,
+.filter select,
+.filter input {
+  cursor: pointer;
+}
+
+/* ==========================================================================
  * Reduced motion
  * ========================================================================== */
 

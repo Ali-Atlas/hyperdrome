@@ -223,7 +223,7 @@
 
 .headlineWinAction {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 10px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -443,33 +443,58 @@
 
 .logScroll {
   flex: 1;
-  overflow-y: auto;
+  overflow: auto;
   min-height: 0;
-  /* Fills .logCard fully (flex: 1) and scrolls on overflow (overflow-y).
-     The parent .logCard's stretched height (capped by overflow: hidden +
-     min-height: 0 on the grid item) is the bound. Scrollbar styling
-     inherits the global modal-style rules from app/globals.css. */
+  /* Fills .logCard fully (flex: 1). Both axes scroll: vertical when
+     the log overflows the card height, horizontal when the table's
+     natural width (DataTable's 600px min plus per-column intrinsic
+     widths) exceeds the card's column. Captain's call: the log is a
+     dense data dump - readability beats squeezing. */
 }
 
-/* DataTable ships with `min-width: 600px` on its inner <table> for
-   readability across most contexts. Inside the narrow log column on
-   the desktop 3-up grid (roughly 320-420px wide), that minimum forces
-   the wrapper into horizontal scroll and pushes the rows off-screen.
-   Override locally so the table compresses to the column's actual
-   width and rows stay visible.
-   `table-layout: fixed` shares the column widths equally; combined
-   with `white-space: normal` on th/td below, the long drone-name
-   headers wrap to two lines instead of forcing the table wider. */
+/* Pin column widths so the layout is predictable across log/card
+   widths. Without this the auto-layout algorithm hands the
+   leftover space to whichever column has the longest content
+   (Segment "STRAIGHT"), leaving an obvious dead zone next to it.
+   With fixed layout + explicit widths on small columns, the
+   Drone-1 / Drone-2 time columns absorb leftover - they're
+   right-aligned, so extra space sits to the LEFT of each value
+   inside its column instead of pooling next to Segment. */
 .logScroll table {
   min-width: 0;
-  table-layout: fixed;
   width: 100%;
+  table-layout: fixed;
 }
 
+/* Compact log cells: smaller mono + tighter padding so a 6-column
+   race log packs into the narrow log column on the >1440 layout
+   without ballooning row heights. nowrap + ellipsis truncates any
+   single value (e.g. a long drone name in the time-column headers)
+   instead of wrapping or pushing the row taller. */
 .logScroll th,
 .logScroll td {
-  white-space: normal;
-  overflow-wrap: anywhere;
+  font-size: 9px;
+  padding: 6px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.logScroll th:nth-child(1),
+.logScroll td:nth-child(1) {
+  width: 36px;
+}
+.logScroll th:nth-child(2),
+.logScroll td:nth-child(2) {
+  width: 42px;
+}
+.logScroll th:nth-child(3),
+.logScroll td:nth-child(3) {
+  width: 80px;
+}
+.logScroll th:nth-child(6),
+.logScroll td:nth-child(6) {
+  width: 56px;
 }
 
 /* ==========================================================================
@@ -676,9 +701,19 @@
   gap: var(--space-2);
 }
 
+/* Local override of the shared Badge primitive's level chip when used
+   inside the completed-race drone card. Doubled-class specificity
+   (0,2,0) wins over the base `.badge` rule regardless of stylesheet
+   load order. Smaller font + tighter padding so the LV chip reads as
+   secondary trim next to the smaller drone name. */
+.droneLevelBadge.droneLevelBadge {
+  font-size: 9px;
+  padding: 2px 6px;
+}
+
 .droneName {
   font-family: var(--font-heading);
-  font-size: var(--text-xl);
+  font-size: var(--text-base);
   font-weight: var(--font-bold);
   color: var(--text-primary);
   margin: 0;
@@ -693,7 +728,7 @@
 
 .droneOwner {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 10px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -736,7 +771,7 @@
 
 .metaKpiLabel {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 10px;
   color: var(--text-primary);
   font-weight: var(--font-semibold);
   text-transform: uppercase;
@@ -752,7 +787,7 @@
 
 .metaKpiValue {
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--text-secondary);
   font-weight: var(--font-medium);
 }
@@ -793,13 +828,13 @@
 
 .h2hLine {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 10px;
   color: var(--text-secondary);
   letter-spacing: 0.03em;
 }
 
 .h2hDrone {
-  font-size: var(--text-xs);
+  font-size: 10px;
   color: var(--text-primary);
   font-weight: var(--font-bold);
 }
@@ -858,98 +893,162 @@
   text-transform: uppercase;
 }
 
-.trackDifficulty {
+/* Footer body: chrome mirrors the tracks-page card footer (`.body`) so
+   the two surfaces read as the same component. Hosts the difficulty
+   dots row, the stats row, and the (race-only) conditions row.
+   `margin-top: auto` pins the footer to the bottom of `.trackCard` -
+   when the card stretches taller than its natural content height
+   (e.g. row-stretching against a tall .gapCard sibling at <=768),
+   the empty space sits between the image and this footer instead
+   of below it. */
+.trackBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--header-bar-bg);
+  border-top: 1px solid var(--border-default);
+  margin-top: auto;
+}
+
+/* Explicit font-size on the meta row so the Length value, which
+   moves into this row at the <=768 mobile-only branch, doesn't
+   inherit the page-default body size and render larger than its
+   peers in `.trackStatsRow`. Same 10px scale across both rows. */
+.trackMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   font-family: var(--font-mono);
   font-size: 10px;
-  padding: 3px 10px;
-  border: none;
-  border-radius: var(--radius-sm);
+}
+
+.trackMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trackMetaLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  white-space: nowrap;
+}
+
+.trackDotsTrack {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.trackDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
   flex-shrink: 0;
+}
+
+.trackDotOn {
+  background: var(--diff-color, var(--accent-primary));
+  box-shadow: 0 0 4px var(--diff-color, var(--accent-primary));
+}
+
+.trackMetaScore {
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: var(--font-bold);
-  box-shadow: none;
+  color: var(--diff-color, var(--accent-primary));
+  letter-spacing: 0.04em;
 }
 
 .trackStatsRow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
+  gap: 8px;
   flex-wrap: wrap;
-  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
 }
 
 .trackConditionsRow {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
   flex-wrap: wrap;
-  padding: 0 var(--space-4) var(--space-3);
-}
-
-.trackConditionPill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  background: rgba(160, 160, 160, 0.1);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: var(--font-medium);
-  letter-spacing: 0.02em;
-  text-transform: capitalize;
-  white-space: nowrap;
-  line-height: 1.4;
-}
-
-.trackConditionPill svg {
-  flex-shrink: 0;
-  color: var(--text-secondary);
 }
 
 .trackStatItem {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  gap: 4px;
 }
 
 .trackStatLabel {
-  font-size: 10px;
-  color: var(--text-primary);
-  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 8px;
 }
 
 .trackStatValue {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  font-weight: var(--font-bold);
 }
 
 .trackStatDivider {
   width: 1px;
-  height: 12px;
-  background: var(--border-default);
+  height: 9px;
+  background: var(--border-subtle);
   flex-shrink: 0;
 }
 
+/* Image area grows to fill whatever vertical space `.trackCard` has
+   between the header bar and the (bottom-pinned) `.trackBody`. The
+   actual image sits centered (object-fit: contain), and the
+   placeholder is transparent + centered so it reads through to the
+   card surface. `min-height: 160px` is the unstretched-card fallback
+   so the area never collapses to 0. */
 .trackImage {
   position: relative;
   width: 100%;
-  aspect-ratio: 5 / 2;
+  flex: 1;
+  min-height: 160px;
   overflow: hidden;
   background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Length / Conditions get dual-rendered for the desktop vs mobile track
+   info layouts. Default state hides the mobile-only wrappers; the
+   <=768 block below flips them. */
+.trackLengthMobileOnly,
+.trackCondInlineMobile {
+  display: none;
+}
+
+.trackLengthDesktopOnly {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Win-probability head: label sits on the left, percentage on the
+   right of the same row at every breakpoint. Reads as
+   "WIN PROBABILITY    62%" rather than label-on-top / number-below. */
+.raceEdgeWinHead {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
 }
 
 .trackImg {
@@ -978,12 +1077,14 @@
   z-index: 1;
 }
 
-/* DataTable's stock .th declares border-bottom, but with
-   border-collapse: collapse + a sticky thead the collapsed border can
-   render inconsistently as the user scrolls. A box-shadow draws the
-   1px line as part of the th's own paint, which rides along with the
-   sticky positioning at every scroll offset. */
+/* DataTable's stock .th declares its own border-bottom, but with
+   border-collapse: collapse + a sticky thead the collapsed border
+   can render inconsistently as the user scrolls. The inset box-shadow
+   draws the 1px line as part of the th's own paint, which rides along
+   with the sticky positioning at every scroll offset. Kill the stock
+   border so the two don't stack as a doubled (~2px) header underline. */
 .logScroll thead th {
+  border-bottom: 0;
   box-shadow: inset 0 -1px 0 var(--border-default);
 }
 
@@ -1036,6 +1137,11 @@
   color: var(--text-tertiary);
   letter-spacing: 0.04em;
   flex-shrink: 0;
+  /* Belt-and-suspenders: even if the parent's flex math somehow leaves
+     leftover vertical space (browser quirks with min-height: 0 + flex: 1
+     children), `margin-top: auto` pins the time-tick row to the very
+     bottom of `.sparklineFigure` regardless. */
+  margin-top: auto;
 }
 
 .sparklineXAxisInner {
@@ -1120,7 +1226,7 @@
 
 .logSegType {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 9px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1142,11 +1248,14 @@
   color: var(--accent-error);
 }
 
-@media (max-width: 1023px) {
-  /* Tablet: outer grid collapses to a single column. The log card
-     reverts to static positioning so it stacks below raceLeft in the
-     normal flow (the desktop absolute-positioning trick is desktop-
-     only). */
+@media (max-width: 1440px) {
+  /* Captain's call: at <=1440 the outer grid collapses to a single
+     column so the race log lives in its own full-width row beneath
+     the drones / Lead Tracker / Track stack. Above 1440 the log
+     stays in the narrow side column (absolute-positioned). The
+     promotion from 1023 -> 1440 trades the dense desktop-3-up
+     layout for a more readable log that doesn't horizontally scroll
+     until the user really wants it. */
   .raceLayout {
     grid-template-columns: 1fr;
   }
@@ -1164,17 +1273,22 @@
   .logScroll {
     max-height: 420px;
   }
+  /* Race-detail chips on the right of the headline banner step down
+     to 9px from 1440 onward. The desktop default (--text-xs) reads
+     too loud against the now-smaller winner text on the left. */
+  .pointsChip,
+  .conditionChip {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
 }
 
 @media (max-width: 768px) {
-  .raceLeft {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "drone1"
-      "drone2"
-      "gap"
-      "track";
-  }
+  /* raceLeft KEEPS its 2-col / 2-row grid here (drones side-by-side,
+     Lead Tracker + Track also side-by-side). Internal text + image
+     sizes step down to compensate. Only the .logCard stacks below,
+     which it already does via the 1023 block. The single-column
+     stack is reserved for the <=550 block further down. */
   /* Keep the meta row + prev/next arrows on a single line. The meta
      block (RACE / shortId / divider / timestamp) shrinks both font
      and gap so the timestamp - by far the longest fragment - fits
@@ -1201,24 +1315,26 @@
   .raceNavArrows {
     flex-shrink: 0;
   }
-  .headlineBanner {
-    flex-direction: column;
-    align-items: flex-start;
+  /* Headline banner stays as a single row at this width: winner stamp
+     on the left, volts + condition chips on the right. Font sizes
+     drop so everything fits without wrapping to a second line. The
+     pointsChip / conditionChip already drop to 9px from the 1440
+     block above; commentary stays one tick larger so it reads as
+     prose, not chip-tier metadata. */
+  .headlineWinner {
+    font-size: 11px;
   }
-  /* Match the drone-manager hero image footprint at this viewport.
-     Drone manager (`app/drones/[droneId]/page.module.css`) has its
-     own `@media (max-width: 768px)` override that drops
-     `.droneImageFrame max-width 320px -> 240px`, so the race-result
-     frame here has to mirror 240px (not the desktop 320px) to stay
-     no-larger-than the drone manager. 4/3 aspect + image fills 100%
-     mirrors the drone-manager rules at lines 195-216 of that file.
-     `min-height: 200px` floor is dropped on mobile so the card hugs
-     its content. */
+  .commentary {
+    font-size: 10px;
+  }
+  /* Drone cards now sit at ~half the raceLeft width here, so the hero
+     image, name, and meta strip all step down a notch to keep the
+     card readable in the tighter column. */
   .droneImageFrame {
-    max-width: 240px;
+    max-width: 170px;
     aspect-ratio: 4 / 3;
     min-height: 0;
-    padding: var(--space-3);
+    padding: var(--space-2);
     margin-left: auto;
     margin-right: auto;
   }
@@ -1228,14 +1344,43 @@
     max-width: none;
   }
   .droneName {
-    font-size: var(--text-lg);
+    font-size: var(--text-sm);
   }
-  .headlineWinner {
-    font-size: var(--text-xs);
+  .droneOwner,
+  .metaKpiLabel,
+  .metaKpiValue {
+    font-size: 10px;
   }
   .droneMeta {
     flex-wrap: wrap;
-    gap: var(--space-3);
+    gap: var(--space-2);
+  }
+  .droneMetaSide {
+    gap: var(--space-2);
+  }
+}
+
+/* At <=680: collapse raceLeft to a single column so drones / Lead
+   Tracker / Track stack vertically. Headline banner also stacks so
+   the winner stamp + volts/conditions read one above the other. */
+@media (max-width: 680px) {
+  .raceLeft {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "drone1"
+      "drone2"
+      "gap"
+      "track";
+  }
+  .headlineBanner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .droneImageFrame {
+    max-width: 240px;
+  }
+  .droneName {
+    font-size: var(--text-lg);
   }
 }
 
@@ -1310,7 +1455,7 @@
 }
 
 .h2hLabel {
-  font-size: var(--text-xs);
+  font-size: 10px;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1321,7 +1466,7 @@
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  font-size: var(--text-xs);
+  font-size: 10px;
   font-weight: var(--font-bold);
   letter-spacing: 0.03em;
 }
@@ -1408,6 +1553,20 @@
   margin-left: auto;
 }
 
+/* Inline "vs" word that sits between the two drone names. Hidden by
+   default (the cells + seps between names already carry the spacing
+   semantics at desktop); revealed at <=550 where those cells collapse
+   and the row needs an explicit connector word. */
+.h2hVs {
+  display: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: lowercase;
+  letter-spacing: 0.06em;
+}
+
 /* Narrow viewports: collapse the H2H strip to drone names + nav
    arrows only. The H2H / ELO / WIN RATE cells and their separators
    hide so the row reads as `[← arrow]  DRONE 1 vs DRONE 2  [→ arrow]`
@@ -1417,6 +1576,9 @@
   .h2hStrip .h2hCell,
   .h2hStrip .h2hSep {
     display: none;
+  }
+  .h2hStrip .h2hVs {
+    display: inline;
   }
 }
 
@@ -1982,6 +2144,23 @@
   color: var(--text-secondary);
 }
 
+/* Tablet pass: drone hero image steps down a touch + meta text drops
+   to the same compact 9px scale used at 768. The matchupGrid two-up
+   layout stays (the cards-side-by-side stack only collapses at 768
+   below) so this block strictly retunes per-card density. */
+@media (max-width: 1024px) {
+  .matchupImageFrame {
+    max-width: 260px;
+  }
+  .matchupStatLabel,
+  .matchupStatValue,
+  .matchupFormLabel,
+  .matchupFormStreak,
+  .matchupFormStrip {
+    font-size: 9px;
+  }
+}
+
 @media (max-width: 768px) {
   .matchupGrid {
     grid-template-columns: 1fr;
@@ -1990,8 +2169,38 @@
   .trackSectionInner {
     grid-template-columns: 1fr;
   }
-  .matchupSplit {
-    grid-template-columns: 1fr;
+  /* Drone hero image shrinks at this breakpoint instead of disappearing.
+     The radar + meta block below stays side-by-side (matchupSplit keeps
+     its desktop two-column layout) so the card still reads like a
+     compact dossier rather than a vertical scroll. */
+  .matchupImageFrame {
+    max-width: 200px;
+  }
+  /* Radar grows from 110->140 at this breakpoint and centers in its
+     grid cell (vertically too via align-self) - there's room for the
+     bigger chart now that the meta text shrinks alongside it. */
+  .matchupRadar {
+    width: 140px;
+    height: 140px;
+  }
+  .matchupRadarCol {
+    align-self: center;
+  }
+  /* Compact metadata: form/stat labels + values + skin/mod labels +
+     skin/mod chip name all step down so the dossier reads tight. */
+  .matchupStatLabel,
+  .matchupStatValue,
+  .matchupFormLabel,
+  .matchupFormStreak,
+  .matchupFormStrip {
+    font-size: 9px;
+  }
+  .skinLabel,
+  .modLabel {
+    font-size: 8px;
+  }
+  .modName {
+    font-size: 9px;
   }
   .h2hStrip {
     gap: var(--space-2);
@@ -1999,6 +2208,56 @@
   }
   .statusBar {
     font-size: var(--text-base);
+  }
+
+  /* Lead Tracker + Track sit side-by-side at this width per Captain;
+     bump gapCard's min-height so they get a reasonable footprint
+     even when the natural content height is short. The shared row
+     pulls trackCard up to match. */
+  .gapCard {
+    min-height: 300px;
+  }
+
+  /* Track info layout switch:
+     Line 1: difficulty (left) + length (right)
+     Line 2: straights/turns/laps (left) + conditions pills (right)
+     The desktop standalone conditions row is hidden; length flips from
+     the desktop stats row to the meta row (right-aligned via
+     margin-left: auto). */
+  .trackMetaRow {
+    justify-content: space-between;
+  }
+  .trackLengthMobileOnly {
+    display: inline-flex;
+    margin-left: auto;
+  }
+  .trackLengthDesktopOnly {
+    display: none;
+  }
+  .trackCondInlineMobile {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+  .trackConditionsRow {
+    display: none;
+  }
+
+  /* Win Probability percentage shrinks one more step at mobile (the
+     inline label+value row layout itself is already in the base
+     `.raceEdgeWinHead` rule). */
+  .raceEdgeWinValue {
+    font-size: var(--text-base);
+  }
+}
+
+/* Smallest mobile: stack radar above meta. Above 400px the two columns
+   still fit comfortably (radar minimum at ~110px, meta column minimum
+   at ~140px, plus gap, fits inside a 320px card content width). */
+@media (max-width: 400px) {
+  .matchupSplit {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -2281,6 +2540,25 @@
   white-space: nowrap;
 }
 
+.raceTrackDotsTrack {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.raceTrackDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+.raceTrackDotOn {
+  background: var(--diff-color, var(--accent-primary));
+  box-shadow: 0 0 4px var(--diff-color, var(--accent-primary));
+}
+
 .raceTrackDiffScore {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -2331,29 +2609,6 @@
   gap: 6px;
   flex-wrap: wrap;
   margin-left: auto;
-}
-
-.raceConditionPill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  background: rgba(160, 160, 160, 0.1);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: var(--font-medium);
-  letter-spacing: 0.02em;
-  text-transform: capitalize;
-  white-space: nowrap;
-  line-height: 1.4;
-}
-
-.raceConditionPillIcon {
-  flex-shrink: 0;
-  color: var(--text-secondary);
 }
 
 /* ==========================================================================
@@ -2415,11 +2670,19 @@
   flex-direction: column;
   /* Body is the row-height determinant in `.raceBottomGrid` (the track
      sibling's image is flex: 1 and fills whatever the card height ends
-     up being), so trimming this section's gap + padding pulls BOTH
-     cards down together. Aggressive trim to remove the visible empty
-     space at the bottom of the edge container. */
+     up being), so its height also drives the track card's height via
+     the grid's default `align-items: stretch`. The min-height in the
+     desktop media block below adds breathing room so the
+     win-probability section can drop to the bottom (margin-top: auto)
+     instead of crowding under Gaps. */
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4) var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .raceEdgeBody {
+    min-height: 260px;
+  }
 }
 
 .raceEdgeSection {
@@ -2428,11 +2691,12 @@
   gap: 4px;
 }
 
-/* Extra breathing room above the Win Probability section so the bare
-   percentage doesn't crowd the last Gaps row. Stacks on top of the
-   body's flex gap, giving ~14px total separation. */
+/* Win Probability lives in the last `.raceEdgeSection` and absorbs any
+   leftover vertical slack via `margin-top: auto`, so it sits pinned to
+   the bottom of the card while Strengths/Gaps stay anchored at the top.
+   Combines with `.raceEdgeBody { min-height: 260px }` at desktop. */
 .raceEdgeSection:last-child {
-  margin-top: 6px;
+  margin-top: auto;
 }
 
 .raceEdgeSectionLabel {
@@ -2505,9 +2769,10 @@
 
 .raceEdgeWinValue {
   font-family: var(--font-heading);
-  /* Stepped down from --text-2xl so the win-probability number reads
-     prominent without dominating the card's vertical footprint. */
-  font-size: var(--text-xl);
+  /* Stepped down from --text-2xl so the win-probability number sits
+     inline next to the WIN PROBABILITY label without dominating the
+     row. The 768 override below shrinks it one more step for mobile. */
+  font-size: var(--text-lg);
   font-weight: var(--font-bold);
   color: var(--accent-primary);
   letter-spacing: 0.02em;
@@ -2542,12 +2807,25 @@
 }
 
 @media (max-width: 767px) {
-  .raceTrackInfo {
-    align-items: flex-start;
+  /* When the bottom-grid stops being a 2-col stretch row (collapses to
+     a single column at <=767), the track card no longer has its height
+     pushed by the edge card. The image's `flex: 1; min-height: 0`
+     would then collapse to 0 and the picture would disappear. Pin an
+     explicit aspect-ratio + opt out of flex-grow so the image keeps
+     a visible footprint at this breakpoint. */
+  .raceTrackImage {
+    flex: 0 0 auto;
+    aspect-ratio: 16 / 9;
+    min-height: 0;
   }
-  .raceTrackPills {
-    margin-left: 0;
-    margin-top: var(--space-2);
-    width: 100%;
+  /* Flatten the stats stack into a single horizontal row at this
+     breakpoint - difficulty + length + straights + turns + laps all
+     sit inline, with the condition pills wrapping after them as
+     space allows. Stays tight without losing any of the info. */
+  .raceTrackStats {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
   }
 }

@@ -11,4 +11,5 @@ export { default as NavShell } from './NavShell';
 export { default as Skeleton } from './Skeleton';
 export { default as EmptyState } from './EmptyState';
 export { default as Modal } from './Modal';
+export { default as ConditionPill } from './ConditionPill';
 export { ToastProvider, useToast } from './Toast';

@@ -7,7 +7,7 @@
      fixed height, `aspect-ratio: 2 / 1` kicks in as a fallback. */
   height: 100%;
   aspect-ratio: 2 / 1;
-  background: var(--bg-elevated);
+  background: transparent;
   overflow: hidden;
 }
 

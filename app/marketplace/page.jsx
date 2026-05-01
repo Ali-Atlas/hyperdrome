@@ -3579,7 +3579,11 @@ function PackFlowModalBody({ flow, onConfirm, onOpen, onEquip, onClose }) {
         )}
       </div>
 
-      <div className={styles.purchaseTitleRow}>
+      <div
+        className={styles.purchaseTitleRow}
+        style={{ visibility: stage === 'opened' ? 'hidden' : 'visible' }}
+        aria-hidden={stage === 'opened' ? 'true' : undefined}
+      >
         <h3
           className={cn(styles.purchaseName, styles[`packCardName_${tier}`])}
         >

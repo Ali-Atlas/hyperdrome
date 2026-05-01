@@ -290,18 +290,23 @@
   font-size: var(--text-xs);
 }
 
+/* Each timer slot carries a fixed min-width so its inner content can
+   swap between "Next Round in MM:SS" / "RACING IN PROGRESS" and
+   "Strategy Lock in MM:SS" / "LOCKED IN" without shifting the rest of
+   the bar. 11em comfortably fits all four states at --text-xs body
+   font + tabular MM:SS in mono. justify-content keeps the content
+   left-aligned inside the slot so the label position is stable.
+   Units in em so the slot scales with the 560px/480px font-size
+   shrinks - desktop is unaffected. */
 .countdownItem {
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
   white-space: nowrap;
+  min-width: 11em;
+  justify-content: flex-start;
 }
 
-/* Mod-lock item carries a fixed minimum width so the layout doesn't
-   shift when the inner content swaps between "Strategy Lock in MM:SS"
-   and "LOCKED IN". 11em comfortably fits both at --text-xs body
-   font + tabular MM:SS in mono. justify-content keeps the content
-   left-aligned inside the slot so the label position is stable. */
 .countdownItemStrategyLock {
   min-width: 11em;
   justify-content: flex-start;
@@ -389,12 +394,18 @@
 }
 
 /* Wrapper for "Races: 1 2 3" - inline-flex so the numbered links sit
-   tight against the label and each other. */
+   tight against the label and each other. Fixed min-width pins the
+   slot so the bar's centered cluster doesn't reflow when the race
+   count changes (0 -> 3) or when "Races: --" swaps to "Races: 1 2 3".
+   7em fits the worst case at --text-xs; em units scale with the
+   560/480 font-size shrinks. */
 .countdownRacesGroup {
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
   white-space: nowrap;
+  min-width: 7em;
+  justify-content: flex-start;
 }
 
 /* Empty state when the user has no pending races. */

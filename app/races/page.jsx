@@ -2,43 +2,16 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  Sun,
-  Cloud,
-  CloudRain,
-  CloudDrizzle,
-  Wind,
-  CloudFog,
-  Sunrise,
-  Sunset,
-  Moon,
-  ChevronRight,
-} from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import NavShell from '@/components/ui/NavShell';
 import DataTable from '@/components/ui/DataTable';
 import FilterBar from '@/components/ui/FilterBar';
 import Toggle from '@/components/ui/Toggle';
+import ConditionPill from '@/components/ui/ConditionPill';
 import { useSession } from '@/hooks/useSession';
 import { cn, getLevelColor } from '@/lib/utils';
 import styles from './page.module.css';
-
-const WEATHER_ICONS = {
-  clear: Sun,
-  clouds: Cloud,
-  rain: CloudDrizzle,
-  heavy_rain: CloudRain,
-  wind: Wind,
-  haze: Cloud,
-  fog: CloudFog,
-};
-
-const TIME_ICONS = {
-  dawn: Sunrise,
-  day: Sun,
-  dusk: Sunset,
-  night: Moon,
-};
 
 const WEATHER_OPTIONS = [
   { value: 'clear', label: 'Clear' },
@@ -232,28 +205,18 @@ function RacesPageInner() {
         label: 'Weather',
         shortLabel: 'Wx',
         align: 'center',
-        render: (row) => {
-          const Icon = WEATHER_ICONS[row.weather] ?? Cloud;
-          return (
-            <span title={row.weather} className={styles.iconCell}>
-              <Icon size={16} />
-            </span>
-          );
-        },
+        render: (row) => (
+          <ConditionPill kind="weather" value={row.weather} />
+        ),
       },
       {
         key: 'timeOfDay',
         label: 'Time of Day',
         shortLabel: 'Time',
         align: 'center',
-        render: (row) => {
-          const Icon = TIME_ICONS[row.timeOfDay] ?? Sun;
-          return (
-            <span title={row.timeOfDay} className={styles.iconCell}>
-              <Icon size={16} />
-            </span>
-          );
-        },
+        render: (row) => (
+          <ConditionPill kind="time" value={row.timeOfDay} />
+        ),
       },
       {
         key: 'drone1',

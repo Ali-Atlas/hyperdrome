@@ -3,15 +3,6 @@
 import { use, useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import {
-  Sun,
-  Cloud,
-  CloudRain,
-  CloudDrizzle,
-  Wind,
-  CloudFog,
-  Sunrise,
-  Sunset,
-  Moon,
   Trophy,
   Bot,
   ChevronLeft,
@@ -23,6 +14,7 @@ import Badge from '@/components/ui/Badge';
 import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
 import StatRadar from '@/components/ui/StatRadar';
+import ConditionPill from '@/components/ui/ConditionPill';
 import {
   cn,
   getLevelColor,
@@ -87,40 +79,6 @@ const RADAR_LABELS = {
   consistency: 'CST',
 };
 
-const WEATHER_ICONS = {
-  clear: Sun,
-  clouds: Cloud,
-  rain: CloudDrizzle,
-  heavy_rain: CloudRain,
-  wind: Wind,
-  haze: Cloud,
-  fog: CloudFog,
-};
-
-const WEATHER_LABELS = {
-  clear: 'Clear',
-  clouds: 'Clouds',
-  rain: 'Rain',
-  heavy_rain: 'Heavy Rain',
-  wind: 'Wind',
-  haze: 'Haze',
-  fog: 'Fog',
-};
-
-const TIME_ICONS = {
-  dawn: Sunrise,
-  day: Sun,
-  dusk: Sunset,
-  night: Moon,
-};
-
-const TIME_LABELS = {
-  dawn: 'Dawn',
-  day: 'Day',
-  dusk: 'Dusk',
-  night: 'Night',
-};
-
 function formatTimestamp(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -160,23 +118,6 @@ function countLeadChanges(log) {
     }
   }
   return changes;
-}
-
-/**
- * Difficulty pill palette - matches the .pointsChip + level Badge pattern:
- * tinted 15% bg, full-colour text, no border, no glow. Teal easy, purple
- * mid, red extreme.
- */
-const DIFFICULTY_STYLES = {
-  easy: { fg: '#03DAC6', bg: 'rgba(3, 218, 198, 0.15)' },
-  mid:  { fg: '#BB86FC', bg: 'rgba(187, 134, 252, 0.15)' },
-  hard: { fg: '#CF6679', bg: 'rgba(207, 102, 121, 0.15)' },
-};
-
-function getDifficultyStyle(n /* 1-10 */) {
-  if (n <= 3) return DIFFICULTY_STYLES.easy;
-  if (n <= 7) return DIFFICULTY_STYLES.mid;
-  return DIFFICULTY_STYLES.hard;
 }
 
 /** Cumulative lead gap per segment (+ = winner ahead, − = loser ahead). */
@@ -453,14 +394,9 @@ export default function RaceDetailPage({ params }) {
     winnerDrone?.name,
   );
 
-  const WeatherIcon = WEATHER_ICONS[race.weather] ?? Cloud;
-  const TimeIcon = TIME_ICONS[race.timeOfDay] ?? Sun;
-
   // Tracks now store difficulty as an absolute 1-10 rating, paired with
   // level brackets enforced at matchmaking time - no client-side scaling.
   const difficultyOutOfTen = race.track?.difficulty ?? null;
-  const difficultyStyle =
-    difficultyOutOfTen != null ? getDifficultyStyle(difficultyOutOfTen) : null;
 
   const trackSlug = trackSlugFromName(race.track?.name);
   const trackHasImage = TRACKS_WITH_IMAGES.includes(trackSlug);
@@ -661,24 +597,13 @@ export default function RaceDetailPage({ params }) {
               <h2 className={styles.sectionHeading}>
                 Track · {race.track?.name ?? 'Unknown track'}
               </h2>
-              <div className={styles.trackHeaderRight}>
-                {race.isNewTrackRecord && (
+              {race.isNewTrackRecord && (
+                <div className={styles.trackHeaderRight}>
                   <span className={styles.trackRecordPill}>
                     NEW TRACK RECORD
                   </span>
-                )}
-                {difficultyOutOfTen != null && difficultyStyle && (
-                  <span
-                    className={styles.trackDifficulty}
-                    style={{
-                      background: difficultyStyle.bg,
-                      color: difficultyStyle.fg,
-                    }}
-                  >
-                    Difficulty {difficultyOutOfTen}/10
-                  </span>
-                )}
-              </div>
+                </div>
+              )}
             </div>
             <div className={styles.trackImage} aria-label="Track visualization">
               {trackHasImage ? (
@@ -694,30 +619,45 @@ export default function RaceDetailPage({ params }) {
                 />
               )}
             </div>
-            <div className={styles.trackStatsRow}>
-              <TrackStat
-                label="Straights"
-                value={race.track?.straights ?? 0}
-              />
-              <TrackStatDivider />
-              <TrackStat label="Turns" value={race.track?.turns ?? 0} />
-              <TrackStatDivider />
-              <TrackStat label="Laps" value={race.track?.laps ?? 3} />
-              <TrackStatDivider />
-              <TrackStat
-                label="Length"
-                value={race.track?.length ?? '-'}
-              />
-            </div>
-            <div className={styles.trackConditionsRow}>
-              <span className={styles.trackConditionPill}>
-                <WeatherIcon size={12} aria-hidden="true" />
-                {WEATHER_LABELS[race.weather] ?? race.weather ?? '-'}
-              </span>
-              <span className={styles.trackConditionPill}>
-                <TimeIcon size={12} aria-hidden="true" />
-                {TIME_LABELS[race.timeOfDay] ?? race.timeOfDay ?? '-'}
-              </span>
+            <div className={styles.trackBody}>
+              {(difficultyOutOfTen != null || race.track?.length) && (
+                <div className={styles.trackMetaRow}>
+                  {difficultyOutOfTen != null && (
+                    <TrackDifficultyDots value={difficultyOutOfTen} />
+                  )}
+                  <span className={styles.trackLengthMobileOnly}>
+                    <TrackStat
+                      label="Length"
+                      value={race.track?.length ?? '-'}
+                    />
+                  </span>
+                </div>
+              )}
+              <div className={styles.trackStatsRow}>
+                <TrackStat
+                  label="Straights"
+                  value={race.track?.straights ?? 0}
+                />
+                <TrackStatDivider />
+                <TrackStat label="Turns" value={race.track?.turns ?? 0} />
+                <TrackStatDivider />
+                <TrackStat label="Laps" value={race.track?.laps ?? 3} />
+                <span className={styles.trackLengthDesktopOnly}>
+                  <TrackStatDivider />
+                  <TrackStat
+                    label="Length"
+                    value={race.track?.length ?? '-'}
+                  />
+                </span>
+                <span className={styles.trackCondInlineMobile}>
+                  <ConditionPill kind="weather" value={race.weather} />
+                  <ConditionPill kind="time" value={race.timeOfDay} />
+                </span>
+              </div>
+              <div className={styles.trackConditionsRow}>
+                <ConditionPill kind="weather" value={race.weather} />
+                <ConditionPill kind="time" value={race.timeOfDay} />
+              </div>
             </div>
           </Card>
           </div>
@@ -1090,6 +1030,29 @@ function TrackStatDivider() {
   return <span className={styles.trackStatDivider} aria-hidden="true" />;
 }
 
+function TrackDifficultyDots({ value }) {
+  const v = Math.max(0, Math.min(10, Number(value) || 0));
+  const color = getDifficultyColor(v);
+  return (
+    <span
+      className={styles.trackMetaItem}
+      aria-label={`Difficulty ${v} of 10`}
+      style={{ '--diff-color': color }}
+    >
+      <span className={styles.trackMetaLabel}>Difficulty</span>
+      <span className={styles.trackDotsTrack} aria-hidden="true">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <span
+            key={i}
+            className={cn(styles.trackDot, i < v && styles.trackDotOn)}
+          />
+        ))}
+      </span>
+      <span className={styles.trackMetaScore}>{v}/10</span>
+    </span>
+  );
+}
+
 function DroneCard({
   drone,
   isWinner,
@@ -1150,7 +1113,11 @@ function DroneCard({
         <div className={styles.droneCardBody}>
           <div className={styles.droneHead}>
             <h3 className={styles.droneName}>{drone.name}</h3>
-            <Badge variant="level" value={drone.level} />
+            <Badge
+              variant="level"
+              value={drone.level}
+              className={styles.droneLevelBadge}
+            />
           </div>
           <div className={styles.droneOwner}>
             {isViewerDrone ? (
@@ -1339,6 +1306,7 @@ function RaceStrategyView({ race, upcomingList, onSwapToRace }) {
           race={race}
           drone1={drone1}
           drone2={drone2}
+          viewerUserId={user?.id}
           prevRaceId={prevRaceId}
           nextRaceId={nextRaceId}
           onNavigate={onSwapToRace}
@@ -1408,11 +1376,19 @@ function StatusBar({ scheduledAt }) {
 }
 
 /** Single-row comparison card: drone1 name · H2H · ELO · WIN RATE · drone2 name.
- *  Per-comparison color: the higher value reads in --accent-primary, the
- *  lower in --text-secondary, and ties in --text-primary. Names at the
- *  ends mirror the ELO comparison since ELO is the canonical strength
- *  signal. */
-function H2HStrip({ race, drone1, drone2, prevRaceId, nextRaceId, onNavigate }) {
+ *  Highlighting is ownership-based: the viewer's drone reads in
+ *  --accent-primary, the opponent in --text-secondary, and a spectated
+ *  bot-vs-bot race renders both drones in --text-primary (no accent
+ *  anywhere). Names + ELO + WR + H2H all follow the same per-drone class. */
+function H2HStrip({
+  race,
+  drone1,
+  drone2,
+  viewerUserId,
+  prevRaceId,
+  nextRaceId,
+  onNavigate,
+}) {
   if (!drone1 || !drone2) return null;
 
   const elo1 = drone1.eloRating ?? 0;
@@ -1424,18 +1400,18 @@ function H2HStrip({ race, drone1, drone2, prevRaceId, nextRaceId, onNavigate }) 
   const wr1 = wrPct1 != null ? `${Math.round(wrPct1 * 100)}%` : '-';
   const wr2 = wrPct2 != null ? `${Math.round(wrPct2 * 100)}%` : '-';
 
-  const compareClass = (a, b) => {
-    if (a == null || b == null) return styles.h2hValueNeutral;
-    if (a === b) return styles.h2hValueNeutral;
-    return a > b ? styles.h2hValueHigh : styles.h2hValueLow;
-  };
+  const userIsDrone1 = !!(viewerUserId && drone1.userId === viewerUserId);
+  const userIsDrone2 = !!(viewerUserId && drone2.userId === viewerUserId);
+  const isSpectating = !userIsDrone1 && !userIsDrone2;
 
-  const eloClass1 = compareClass(elo1, elo2);
-  const eloClass2 = compareClass(elo2, elo1);
-  const wrClass1 = compareClass(wrPct1, wrPct2);
-  const wrClass2 = compareClass(wrPct2, wrPct1);
-  const h2hClass1 = compareClass(race.h2h?.drone1Wins, race.h2h?.drone2Wins);
-  const h2hClass2 = compareClass(race.h2h?.drone2Wins, race.h2h?.drone1Wins);
+  const ownerClass = (isUser) =>
+    isSpectating
+      ? styles.h2hValueNeutral
+      : isUser
+        ? styles.h2hValueHigh
+        : styles.h2hValueLow;
+  const ownerClass1 = ownerClass(userIsDrone1);
+  const ownerClass2 = ownerClass(userIsDrone2);
 
   return (
     <div className={styles.h2hStrip}>
@@ -1452,16 +1428,16 @@ function H2HStrip({ race, drone1, drone2, prevRaceId, nextRaceId, onNavigate }) 
       >
         <ChevronLeft size={16} aria-hidden="true" />
       </button>
-      <span className={cn(styles.h2hName, eloClass1)}>{drone1.name}</span>
+      <span className={cn(styles.h2hName, ownerClass1)}>{drone1.name}</span>
       <span className={styles.h2hSep} aria-hidden="true" />
       {race.h2h && race.h2h.total > 0 && (
         <>
           <span className={styles.h2hCell}>
             <span className={styles.h2hLabel}>H2H</span>
             <span className={styles.h2hValue}>
-              <span className={h2hClass1}>{race.h2h.drone1Wins}</span>
+              <span className={ownerClass1}>{race.h2h.drone1Wins}</span>
               <span className={styles.h2hValueSep}>-</span>
-              <span className={h2hClass2}>{race.h2h.drone2Wins}</span>
+              <span className={ownerClass2}>{race.h2h.drone2Wins}</span>
             </span>
           </span>
           <span className={styles.h2hSep} aria-hidden="true" />
@@ -1470,22 +1446,23 @@ function H2HStrip({ race, drone1, drone2, prevRaceId, nextRaceId, onNavigate }) 
       <span className={styles.h2hCell}>
         <span className={styles.h2hLabel}>ELO</span>
         <span className={styles.h2hValue}>
-          <span className={eloClass1}>{elo1}</span>
+          <span className={ownerClass1}>{elo1}</span>
           <span className={styles.h2hValueSep}>vs</span>
-          <span className={eloClass2}>{elo2}</span>
+          <span className={ownerClass2}>{elo2}</span>
         </span>
       </span>
       <span className={styles.h2hSep} aria-hidden="true" />
       <span className={styles.h2hCell}>
         <span className={styles.h2hLabel}>WIN RATE</span>
         <span className={styles.h2hValue}>
-          <span className={wrClass1}>{wr1}</span>
+          <span className={ownerClass1}>{wr1}</span>
           <span className={styles.h2hValueSep}>vs</span>
-          <span className={wrClass2}>{wr2}</span>
+          <span className={ownerClass2}>{wr2}</span>
         </span>
       </span>
       <span className={styles.h2hSep} aria-hidden="true" />
-      <span className={cn(styles.h2hName, eloClass2)}>{drone2.name}</span>
+      <span className={styles.h2hVs} aria-hidden="true">vs</span>
+      <span className={cn(styles.h2hName, ownerClass2)}>{drone2.name}</span>
       <button
         type="button"
         onClick={() => onNavigate?.(nextRaceId)}
@@ -1739,8 +1716,6 @@ function RaceTrackCard({ race }) {
   const accentColor = TRACK_ACCENT_COLORS[slug] ?? '#03DAC6';
   const diff = Number(track.difficulty) || 0;
   const difficultyColor = getDifficultyColor(diff);
-  const WeatherIcon = WEATHER_ICONS[race.weather] ?? Cloud;
-  const TimeIcon = TIME_ICONS[race.timeOfDay] ?? Sun;
 
   return (
     <article className={styles.raceTrackCard}>
@@ -1765,8 +1740,20 @@ function RaceTrackCard({ race }) {
             <span
               className={styles.raceTrackMetaItem}
               style={{ '--diff-color': difficultyColor }}
+              aria-label={`Difficulty ${diff} of 10`}
             >
               <span className={styles.raceTrackMetaLabel}>Difficulty</span>
+              <span className={styles.raceTrackDotsTrack} aria-hidden="true">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={cn(
+                      styles.raceTrackDot,
+                      i < diff && styles.raceTrackDotOn,
+                    )}
+                  />
+                ))}
+              </span>
               <span className={styles.raceTrackDiffScore}>{diff}/10</span>
             </span>
             <span className={styles.raceTrackMetaItem}>
@@ -1800,22 +1787,8 @@ function RaceTrackCard({ race }) {
           </div>
         </div>
         <div className={styles.raceTrackPills}>
-          <span className={styles.raceConditionPill}>
-            <WeatherIcon
-              size={12}
-              aria-hidden="true"
-              className={styles.raceConditionPillIcon}
-            />
-            {WEATHER_LABELS[race.weather] ?? race.weather ?? '-'}
-          </span>
-          <span className={styles.raceConditionPill}>
-            <TimeIcon
-              size={12}
-              aria-hidden="true"
-              className={styles.raceConditionPillIcon}
-            />
-            {TIME_LABELS[race.timeOfDay] ?? race.timeOfDay ?? '-'}
-          </span>
+          <ConditionPill kind="weather" value={race.weather} />
+          <ConditionPill kind="time" value={race.timeOfDay} />
         </div>
       </div>
     </article>
@@ -1963,13 +1936,18 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
             </ul>
           )}
         </div>
-        {/* Win Probability. Drone name lives in the card header only —
-            the body shows the bare percentage + bar so the section sits
-            tight under Strengths/Gaps. */}
+        {/* Win Probability. Drone name lives in the card header only -
+            the body shows the bare percentage + bar. The label and
+            value share a flex row (`.raceEdgeWinHead`) so they sit
+            inline as "WIN PROBABILITY    62%". The whole section is
+            pinned to the bottom of the card via `margin-top: auto` on
+            `.raceEdgeSection:last-child`. */}
         <div className={styles.raceEdgeSection}>
-          <span className={styles.raceEdgeSectionLabel}>Win Probability</span>
-          <div className={styles.raceEdgeWinValue}>
-            {isEven ? '50%' : `${pct}%`}
+          <div className={styles.raceEdgeWinHead}>
+            <span className={styles.raceEdgeSectionLabel}>Win Probability</span>
+            <span className={styles.raceEdgeWinValue}>
+              {isEven ? '50%' : `${pct}%`}
+            </span>
           </div>
           <div className={styles.raceEdgeWinBar}>
             <div

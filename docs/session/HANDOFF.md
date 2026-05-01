@@ -4,6 +4,800 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-01 - Dashboard tables: full rebuild as a matched-pair Live Race Feed + Recent Results
+
+**Captain ask:** Live Race Feed and Recent Results tables on the dashboard were broken. Delete all `.feedTable / .feedRow / .feedHeader / .feedDroneCell / .feedConditionsCell / .feedTrackCell / .feedConditionPill / .diffBadge / .levelTag / .youName` and `.resultsTable / .resultsHeader / .resultsRow` rules. Start fresh. Both tables share base structure (CSS grid, identical row chrome, font sizes, padding, hover); only the columns differ. Detailed shared + per-table specs provided. Skip lint.
+
+**Files modified (2):**
+
+### `app/dashboard/page.module.css`
+- Replaced the entire feed-table CSS block (149 lines, `.feedTable` through `.feedRow:hover`) with a unified shared + per-table system. Then deleted the now-redundant results-table CSS block (156 lines, `.resultsTable` through `.mono`). Net deletion ~150 lines, replaced with one clean ~170-line section.
+- Mobile-breakpoint overrides updated to the new class names: dropped per-table `grid-template-columns` overrides at `<=768px` (the new base templates plus `.tableScroll` overflow-x handle narrow widths automatically); collapsed three separate `.resultsTable, .feedTable max-height` blocks into single `.tableScroll` overrides at `<=768`, `<=1284`, and `<=480`.
+- **New shared chrome** (applies to both tables):
+  - `.tableScroll` — outer wrapper. `flex: 1; min-width: 0; min-height: 0; max-height: 500px; overflow-x: auto; overflow-y: auto; border-bottom: 1px solid var(--border-subtle)`. Custom 6px scrollbar. The horizontal-scroll behavior kicks in only when the row's `min-content` exceeds the container; at desktop/tablet widths the columns fit and there's no scrollbar.
+  - `.table` — inner flex column with `min-width: min-content` so the grid never compresses below its column mins.
+  - `.tableHeader, .tableRow` — `display: grid; gap: var(--space-3); padding: 8px 12px; align-items: center; border-bottom: 1px solid var(--border-subtle)`.
+  - `.tableHeader` — font-size 9px, color `var(--text-tertiary)`, uppercase, letter-spacing 0.05em, semibold.
+  - `.tableRow` — font-size 11px, primary text color, cursor pointer, no underline, transition on background; hover bumps to `rgba(255, 255, 255, 0.04)`. `:last-child` drops the bottom border so it doesn't double-up with `.tableScroll`'s own border.
+  - `.cellName` — flex row (gap 4px, `min-width: 0`) holding the drone `name` + inline `lv`. Lets the LV stay glued to the right of an ellipsis-truncated name without taking its own grid column.
+  - `.name` — `overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0`.
+  - `.nameYou` — accent-primary + semibold (the user's drone name).
+  - `.lv` — mono 8px, weight medium, letter-spacing 0.04em, `flex-shrink: 0`. Tier color piped via inline `style={{ color: getLevelColor(level) }}` from the JSX.
+  - `.cellTrack` — `-webkit-line-clamp: 2` so long track names wrap to a 2nd line instead of ellipsis-truncating, but never push past 2 lines.
+- **Live Race Feed specifics** (under `.tableFeed .tableHeader / .tableRow`):
+  - Grid template: `minmax(80px, 1fr) minmax(80px, 1fr) minmax(100px, 1.5fr) 36px 90px`.
+  - `.diff` — mono 10px, tertiary text.
+  - `.conditions` — flex column, gap 3px, `align-items: flex-start`. Doubled-class `.conditions .condPill` selector (specificity 0,2,0) overrides ConditionPill's base `.pill` (0,1,0) without depending on stylesheet load order: font-size 8px, padding 2px 5px, gap 3px, max-width 100%; the inner svg shrinks to 9×9px.
+- **Recent Results specifics** (under `.tableResults .tableHeader / .tableRow`):
+  - Grid template: `minmax(70px, 1fr) minmax(70px, 1fr) minmax(80px, 1.2fr) 48px 48px 36px`.
+  - `.resultWin` — mono 10px, weight 600, accent-primary, uppercase.
+  - `.resultLoss` — mono 10px, weight 600, accent-error, uppercase. Both shed the prior glow `text-shadow` (Captain's spec called for size + color + weight only).
+  - `.volts` — mono, accent-primary. Applied conditionally on `voltsEarned > 0` so a 0-payout loss reads in the default text color rather than glowing accent.
+  - `.time` — mono, tertiary text.
+
+### `app/dashboard/page.jsx`
+- **Live Race Feed:** dropped the two standalone LV grid columns (and the now-orphaned `LV` header cells); inlined LV after each drone name inside a single `.cellName` flex cell (`<span class=name>...</span><span class=lv style="color: tier">LVN</span>`). Dropped `.feedLevelCell`. Header is now 5 cells: `Drone 1 | Drone 2 | Track | Diff | Conditions`. Container changed from `<div class=feedTable>` to nested `<div class="tableScroll tableFeed"><div class=table>...`. The `myDroneIds` Set computation + `drone1IsMine`/`drone2IsMine` logic is unchanged — still drives `.nameYou` accent on whichever side(s) the viewer owns. The conditions cell uses `.condPill` instead of `.feedConditionPill` and falls back to `<span class=diff>-</span>` when neither weather nor time is set.
+- **Recent Results:** added LV after both `You` + `Opponent` drone names (matches the shared "LV after name" rule — both tables now show drone+LV per Captain's "look like siblings" goal). Volts cell now uses the conditional `.volts` class (accent only when payout > 0) and a single `+{voltsEarned}` template. Time cell uses `.time` instead of the chained `mono + alignRight + resultsTimeAgo` triple. Container changed from `<div class=resultsTable>` to nested `<div class="tableScroll tableResults"><div class=table>...`. Header is `You | Opponent | Track | Result | Volts | Time` — Volts/Time no longer carry `.alignRight` since the new compact column widths and grid alignment handle this naturally.
+- The `recentRaces.map` body's `userDrone` / `opp` / `won` / `voltsEarned` derivation is unchanged.
+
+**Verified by Mercenary:**
+- Old class names fully purged from both files: `grep -nE "feedTable|feedHeader|feedRow|feedDroneCell|feedConditionsCell|feedTrackCell|feedConditionPill|feedLevelCell|diffBadge|levelTag|youName|resultsTable|resultsHeader|resultsRow|resultsTimeAgo|droneLink|alignRight|\.mono\b"` returns zero matches in `page.module.css` and `page.jsx`.
+- All `styles.X` JSX references resolve to a defined `.X` rule in the CSS module.
+
+**Not run:** dev / lint / build / browser per standing instruction (and Captain explicitly: "Skip lint"). Captain to confirm both tables read as siblings at desktop / 1284 / 768 / 480 widths and that the horizontal scroll only activates when columns truly can't fit.
+
+---
+
+## 2026-05-01 - Upcoming-race H2H strip: keep all top-row text at the drone-name size
+
+**Captain ask:** The H2H/ELO/WIN-RATE labels + values in the top row of the upcoming race page were larger than the drone names sitting alongside them in the same row. Shrink the data + values down to match the drone-name size in that row (and restore the drone-name size if it had been bumped). Skip lint.
+
+**File modified (1):** `app/races/[raceId]/page.module.css`
+
+- First pass got the direction wrong: I bumped all four H2H-strip text tokens UP to `var(--text-base)` to match `.matchupName` in the matchup cards below. Captain corrected — the comparison target is the drone names in the strip itself, NOT the matchup-card names below. Reverted.
+- Final state: four H2H-strip text tokens all back to `var(--text-xs)` so the row reads at one consistent size:
+  - `.h2hName` — drone names at the strip's left/right ends.
+  - `.h2hLabel` — `H2H` / `ELO` / `WIN RATE` caps.
+  - `.h2hValue` — the per-cell number pairs (H2H winner-loser scores, ELO numbers, win-rate percentages).
+  - `.h2hVs` — the mobile-only inline `vs` connector that appears at `<=550px` when the labelled cells collapse.
+- `.h2hValueSep` (the `vs` / `-` between numbers inside `.h2hValue`) inherits font-size from its parent — follows automatically.
+- Strip layout untouched: `flex-wrap: wrap`, `.h2hSep` divider height, `.h2hStrip` padding + gap, and the `<=550px` cell-collapse media block all unchanged.
+- The h2h section in the file now matches HEAD exactly for those four font-size declarations (verified via `git diff HEAD` — no `font-size:` deltas inside the h2h block).
+
+**Not verified by Mercenary:** dev / lint / build / browser per standing instruction.
+
+---
+
+## 2026-05-01 - Pack opening animation: full revert to pre-electricity state
+
+**Captain ask:** Revert ALL pack opening animation changes from the recent sessions. Restore to the state BEFORE longer rumble / electrical arcs / zigzag lightning / recolored bursts: original rumble duration, original burst/fog/explosion timing, remove `.flowArcs` / `.flowArcBolt` / `.flowArcBoltCore` and all their CSS, remove `LIGHTNING_BOLTS` from JSX, restore original burst color, restore original card reveal timing. The simple rumble + burst + fog + card reveal that was working before. Skip lint.
+
+**Files modified (2):**
+
+### `app/marketplace/page.module.css`
+- Verified that all the rumble-lengthening + electricity work was uncommitted (HEAD `631771d` still had the original 1000ms rumble + no `.flowArcs` + the gold-fallback burst color). Replaced lines 3800-4298 of the working tree (the entire `Stage 3` pack-flow block plus its `<=600px` and `<=480px` mobile media blocks) with HEAD's verbatim version. Splice was surgical — left the unrelated CSS additions further up/down the file (`.packCardHero`/`.packPackImg_legendary` responsive widths at line 2996, and the filter-dropdown / tablet-mobile shell block around line 5702) untouched.
+- Result vs HEAD for the pack-flow region: `git diff HEAD -- app/marketplace/page.module.css` shows zero hunks inside the 3800-4298 range. Restored exactly:
+  - `.flowExplodingPack` rumble + explode at **1000ms** each, original 11-stop `flowRumble` keyframe (±0.5px → ±5px ramp).
+  - `.flowOrb` orbGrow + orbExplode at **1000ms** each.
+  - `.flowBurst` delay **1000ms**, original 5-stop radial gradient (`0% / 10% / 28% / 55% / 82%`, gold `#FFD700` fallback, `85%/white`, `30%/transparent`).
+  - `.flowFog` delay **1000ms**.
+  - Reduced-motion block back to its original selector list (no `.flowArcs`).
+  - Stage-3 header comment + .flowCard stagger comment + .flowBurst comment back to the 1s timeline / 1.3-1.9s cards window / "delay 1000ms" wording.
+- Removed entirely (no longer present in file): `.flowArcs`, `.flowArcBolt`, `.flowArcBoltCore` rules and the `flowArcsBurst` keyframes block. Verified via `grep -nE "flowArcs|flowArcBolt|flowArcsBurst|LIGHTNING_BOLTS"` returning zero matches.
+- Cleaned up a single doubled blank line introduced by the splice between the `<=480px` block's closing brace and the next `.purchaseCloseBtn {` rule.
+
+### `app/marketplace/page.jsx`
+- Removed the `LIGHTNING_BOLTS` IIFE / module-level constant directly above `PackFlowModalBody` (the 33-line block that built the pre-computed jagged polyline points).
+- Removed the `<svg className={styles.flowArcs} viewBox="-140 -140 280 280">…</svg>` block from the stage-3 reveal paint stack — element order is now back to: `.flowExplodingPack` → `.flowOrb` → `.flowBurst` → `.flowFog` → `.flowCards`. Same exact DOM as HEAD for that subtree.
+- `FlowRevealCard` `animationDelay`: `4600 + index * 140` → **`1300 + index * 140`** (HEAD baseline; first card lands ~300ms after the explosion peak as before).
+
+**Intentionally preserved (not part of the animation revert):**
+- The `purchaseTitleRow` `visibility` + `aria-hidden` toggle for `stage === 'opened'` from the prior session ("Hide PACK OPENED title on stage 3" task) is **kept**. That's a title-display change, not a pack-opening animation change, and it was outside the scope Captain enumerated. Captain to flag if it should also be reverted.
+
+**Verification:**
+- `git diff HEAD -- app/marketplace/page.jsx` shows a single 4-line hunk (the title-visibility toggle above) — no animation deltas.
+- `git diff HEAD -- app/marketplace/page.module.css` hunk locations: 2996 (packCardHero responsive widths), 5702+ (filter dropdown / tablet-mobile shell). Zero hunks in the 3800-4298 pack-flow range.
+- Not run: dev / lint / build / browser per standing instruction (and this task explicitly: "Skip lint").
+
+---
+
+## 2026-05-01 - Upcoming-race / matchup polish: 768 layout, track image, H2H ownership accent
+
+**Captain ask (3 items):**
+1. At 768px: shrink (don't hide) the drone hero image; keep radar + meta side-by-side down to ~400px, only stack at smallest mobile.
+2. At 768px: bring the disappearing track image back; replace numeric "6/10" difficulty with the dots track from the tracks page; condense difficulty + length + straights/turns/laps + conditions to one row.
+3. H2H strip: at <=550px, show "DRONE1 vs DRONE2" with a small "vs" between names. ELO + WR + H2H values + names accent ONLY the viewer's drone. Spectated bot-vs-bot races render with no accent anywhere.
+
+**Files modified (2):**
+
+### `app/races/[raceId]/page.jsx`
+- **H2HStrip ownership accent:** added `viewerUserId` prop (passed from MatchupView as `user?.id`). Replaced the comparison-based `compareClass(eloA, eloB)` / `compareClass(wrPctA, wrPctB)` / `compareClass(h2h drone1Wins, drone2Wins)` calls and their six derived class slots with a single `ownerClass(isUser)` helper that returns `h2hValueHigh` (accent) for the viewer's drone, `h2hValueLow` (text-secondary) for the opponent, or `h2hValueNeutral` (text-primary) when nobody is the viewer. `ownerClass1` / `ownerClass2` flow into name + H2H + ELO + WR values for each drone. Bot-vs-bot races: `userIsDrone1` and `userIsDrone2` are both false, `isSpectating` is true, both drones land on neutral.
+- **H2HStrip vs word:** inserted `<span className={styles.h2hVs} aria-hidden="true">vs</span>` between the last `.h2hSep` and drone2's name. Hidden by default; shown via the `<=550` block in CSS so the row reads "[← arrow] DRONE 1 vs DRONE 2 [→ arrow]" once the cells collapse.
+- **MatchupView:** passes `viewerUserId={user?.id}` to `<H2HStrip>` (one new prop, no other changes).
+- **RaceTrackCard difficulty dots:** replaced the single `<span className={styles.raceTrackDiffScore}>{diff}/10</span>` rendering with a tracks-page-style 10-dot track + score, mirroring the pattern used by `<TrackDifficultyDots>` on the completed-race page. Each `.raceTrackDot` lights up via `i < diff && styles.raceTrackDotOn`. The wrapping `.raceTrackMetaItem` carries `--diff-color` (already set inline) plus a new `aria-label="Difficulty N of 10"` so screen-reader output isn't lost.
+
+### `app/races/[raceId]/page.module.css`
+- **H2H vs word:** added `.h2hVs` (default `display: none`; mono, text-tertiary, text-xs, lowercase). Inside the existing `@media (max-width: 550)` block: `.h2hStrip .h2hVs { display: inline; }`.
+- **Matchup at 768:** removed `.matchupSplit { grid-template-columns: 1fr; }` from the `@media (max-width: 768)` block - radar + meta now stay side-by-side at this breakpoint. Added in the same block: `.matchupImageFrame { max-width: 200px; }` (down from 320px desktop default), `.matchupRadar { width: 110px; height: 110px; }` (down from 140), and `.matchupStatLabel / .matchupStatValue / .matchupFormStrip { font-size: 11px; }` so the meta column reads tight enough to share the row.
+- **Matchup at 400:** new `@media (max-width: 400px)` block with `.matchupSplit { grid-template-columns: 1fr; }` so the smallest-mobile path stacks radar above meta.
+- **Track image at 767:** swapped the existing `@media (max-width: 767)` rules (`.raceTrackInfo { align-items: flex-start } .raceTrackPills { margin-left: 0; margin-top: ...; width: 100% }`) with a new pair: `.raceTrackImage { flex: 0 0 auto; aspect-ratio: 16 / 9; min-height: 0; }` (gives the image a real footprint when the bottom-grid stops stretching the card) plus `.raceTrackStats { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; }` (flattens the metaRow + specs sub-stack into one inline row). Net: image visible, all info on one row, pills sit inline beside the stats (margin-left: auto on `.raceTrackPills` is the default, untouched).
+- **Difficulty dot tokens:** added `.raceTrackDotsTrack` (inline-flex, 3px gap), `.raceTrackDot` (5x5 dim white), `.raceTrackDotOn` (color + glow via `--diff-color`). Same dimensions as the tracks-page tokens.
+
+**Verification (mental):**
+- `cn` and `getDifficultyColor` were already imported - no new imports needed.
+- The previous `compareClass` helper is now unused inside H2HStrip but is replaced cleanly by `ownerClass`. No other component references it.
+- The `h2hValueLow` (opponent) class and `h2hValueNeutral` (spectator) class were already defined; only the call sites changed.
+- **Not run:** dev / lint / build per Captain's standing instruction (and "Skip lint" on this task).
+
+**Not verified by Mercenary:**
+- Visual at exactly 768/550/400 boundaries. Captain to confirm the drone image cap (200px) reads right at 768 and that the matchupSplit two-column layout doesn't overflow at 401-480 with very long form streaks or six-figure ELO.
+- The `RaceTrackInfo` flex-row layout at 767 relies on natural wrap. If a particular track has a very long length string + conditions, content could wrap across two lines. Lower-priority; flagging.
+- The H2H "vs" word renders aria-hidden so SR users won't hear it - the comparable info is announced by reading drone1.name then drone2.name. Acceptable per accessibility guidance.
+
+---
+
+## 2026-05-01 - Pack opening: shorter rumble + lightning-bolt arcs at explosion only
+
+**Captain ask:** Shorten total animation by 1s (rumble 5s → 4s; explode/burst/fog at 4s; cards at 4.6s). Remove the arc/spoke lines during the rumble entirely — `.flowArcs` invisible while the pack shakes. Show arcs ONLY at the 4s explosion, bursting outward from center. Replace the straight/spoke look with jagged lightning-bolt SVG polylines, each a different random zigzag. Keep reduced-motion behavior. Skip lint.
+
+**Files modified (2):**
+
+### `app/marketplace/page.module.css`
+- **Timing shift (5000ms → 4000ms everywhere):** `.flowExplodingPack` (rumble duration + explode delay), `.flowOrb` (orbGrow duration + orbExplode delay), `.flowBurst` delay, `.flowFog` delay. Keyframe percentages unchanged — same shape, compressed into the shorter window. The `flowRumble` ramp (back-loaded, ±6px shudder by end) and `flowOrbGrow` ramp still hit the same milestones at 50%/100% of the duration.
+- **`.flowArcs` rewritten:** dropped the conic-gradient + radial mask + `flowArcsRumble` rotate/flicker keyframes entirely. New rule sizes the container the same (280×280, mobile breakpoints 220×220 / 180×180 still apply), but is now an inline `<svg>` host: `overflow: visible`, `transform: translate(-50%, -50%) scale(0.25)`, `opacity: 0`, single `flowArcsBurst` animation with **delay 4000ms** + 800ms duration. The bolts inside are static polylines; the container animates scale 0.25 → 1.85 + opacity 0 → 1 → 0 (peaks at 20% / 55% / fades to 100%). Drop-shadow filter (rarity color, 6px + 14px) gives the electrical glow.
+- **Added `.flowArcBolt` and `.flowArcBoltCore`:** the colored stroke (rarity color, 2.2px, round caps) and the bright white inner core stroke (rgba(255,255,255,0.95), 0.8px) for the classic lightning look — colored halo around a hot white center.
+- **Comment updates** for the new timeline: stage-3 header, `.flowCard` stagger comment, `.flowBurst` comment all now reference the 4s rumble / 4-4.6s explosion / 4.6-5.5s cards window.
+- **Reduced-motion block untouched** — `.flowArcs` was already in both the `animation: none` and `display: none` selector lists, so the new SVG inherits the same hide-everything behavior.
+
+### `app/marketplace/page.jsx`
+- **Added `LIGHTNING_BOLTS` module-level constant** (just above `PackFlowModalBody`): IIFE produces 11 polyline `points` strings. Each bolt has a base radial angle (`(b/11)*360 + (b*53)%17 - 8` so they're not perfectly evenly spaced), 5 segments from `r=6` near the center to `r=132` at the outer edge, with perpendicular zigzag jitter that grows toward the tip and uses hashed pseudo-noise (`Math.sin(b*12.9898 + i*78.233)*43758.5453`) for varied amplitudes. The hash is deterministic, so SSR/hydration produces the same DOM and React doesn't warn — but each bolt looks distinctly random vs. its neighbors.
+- **Replaced `<span className={styles.flowArcs} />`** with `<svg className={styles.flowArcs} viewBox="-140 -140 280 280" aria-hidden="true">` containing one `<g>` per bolt with two stacked `<polyline>`s (colored bolt + white core). The viewBox matches the 280×280 container so polyline coordinates are 1:1 with CSS px before the container scales.
+- **Card stagger:** `animationDelay = 5600 + index * 140` → `4600 + index * 140`, so first card lands ~600ms after the explosion (same offset relative to the new 4000ms detonation that 5600ms had to the old 5000ms one).
+
+**Not verified by Mercenary:** dev / lint / build / browser per standing instruction. Captain to confirm the lightning bolts read as electrical discharge (not sun-rays), the rumble feels right at 4s, and the explosion + burst + fog + cards still chain cleanly into each other on the compressed timeline.
+
+---
+
+## 2026-05-01 - Pack modal: hide "Pack Opened" title on stage 3
+
+**Captain ask:** Remove the "PACK OPENED" text from Stage 3 of the pack modal. Skip lint. Just delete the text element. Don't change anything else about the modal layout, spacing, or positioning.
+
+**File modified (1):** `app/marketplace/page.jsx`
+
+- Wrapped the existing `.purchaseTitleRow` div with `visibility: stage === 'opened' ? 'hidden' : 'visible'` plus `aria-hidden` on the same condition. This mirrors the existing visibility-based hide pattern used directly below by the `.flowPriceBlock` (lines 3590-3596), so the title row keeps its full vertical space on the opened stage and nothing in the modal shifts. Title computation and the `<h3>` itself untouched - it still renders for confirm/ready and the DOM box is preserved on opened, just visually invisible.
+
+---
+
+## 2026-05-01 - Race detail track container: match tracks-page footer chrome + difficulty dots
+
+**Captain ask:** Race-page Track container (Image 1: TRACK · TEMPEST RUN) should match the tracks-page card footer (Image 2: HELIX). Mirror background, layout, font sizes, colors, spacing. Replace the filled "Difficulty 6/10" badge with the dots-and-score format used on the tracks page. Keep the race-only condition pills (weather/time). Make the inner content tokens match the tracks-page footer too.
+
+**Files modified (2):**
+
+### `app/races/[raceId]/page.jsx`
+- **Removed:** `DIFFICULTY_STYLES` palette (lines 165-174 of pre-edit file), the `getDifficultyStyle` helper, and the derived `difficultyStyle` value. They were used only by the filled bg/fg badge in the track header right slot, which is gone.
+- **Header right slot:** now only renders when `race.isNewTrackRecord` is true (used to be a wrapper that also held the difficulty badge). The wrapper itself is conditional, so no empty `<div>` when there's no record.
+- **Restructured the track card body:** removed the loose `.trackStatsRow` + `.trackConditionsRow` siblings; wrapped them inside a new `.trackBody` div with a `.trackMetaRow` above the stats. Order is now: header -> image -> body { metaRow (difficulty dots) -> stats -> conditions }.
+- **Added `<TrackDifficultyDots>` helper** (defined right after `TrackStat`/`TrackStatDivider`): renders the tracks-page pattern - "Difficulty" label + 10 dots (filled up to value, glowing in `--diff-color` from `getDifficultyColor(v)`) + `N/10` score. Uses `aria-label="Difficulty N of 10"` for screen readers and `aria-hidden` on the dots track itself.
+- **Class renamed:** the new score span uses `styles.trackMetaScore` instead of `trackDiffScore` because there is a dead `.trackDiffScore` rule lower in the stylesheet (line 1959 area, inside an unused `.trackSection*` block) that would have cascaded over the new color. Renaming was the lower-blast-radius fix.
+
+### `app/races/[raceId]/page.module.css`
+- **Removed:** the `.trackDifficulty` rule (the filled bg/fg pill that used to sit in the header right slot).
+- **Added `.trackBody`** (mirrors tracks-page `.body`): `display: flex; flex-direction: column; gap: 6px; padding: var(--space-3) var(--space-4); background: var(--header-bar-bg); border-top: 1px solid var(--border-default);`.
+- **Added difficulty-dot tokens:** `.trackMetaRow`, `.trackMetaItem`, `.trackMetaLabel` (9px secondary uppercase mono), `.trackDotsTrack` (3px gap), `.trackDot` (5x5 dim white), `.trackDotOn` (--diff-color bg + matching glow), `.trackMetaScore` (10px bold mono in --diff-color). All match the tracks-page tokens 1:1.
+- **Restyled `.trackStatsRow`:** dropped its standalone padding (now inherits from `.trackBody`), changed `justify-content: center` -> `flex-start`, gap `var(--space-2)` -> `8px`, added `font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary);`. Mirrors tracks-page `.specs`.
+- **Restyled `.trackStatItem`:** gap `6px` -> `4px`, dropped the now-redundant `font-family: mono`, `text-transform: uppercase`, and `letter-spacing` (parent row sets the family; spec/value child rules carry their own casing rules).
+- **Restyled `.trackStatLabel`:** font-size `10px` -> `8px`, color `var(--text-primary)` -> `var(--text-secondary)`, weight `semibold` -> implicit, added `text-transform: uppercase; letter-spacing: 0.08em;`. Mirrors `.specLabel`.
+- **Restyled `.trackStatValue`:** font-size `11px` -> implicit (inherits 10px from row), color `secondary` -> `primary`, weight `medium` -> `bold`. Mirrors `.specValue`.
+- **Restyled `.trackStatDivider`:** height `12px` -> `9px`, bg `var(--border-default)` -> `var(--border-subtle)`. Mirrors `.specSep`.
+- **Restyled `.trackConditionsRow`:** dropped its standalone padding (now inherits from `.trackBody`); `justify-content: center` -> default (flex-start, since it sits in the body). The `.trackConditionPill` rule itself is unchanged - Captain wanted the conditions kept.
+
+**Verification (mental):**
+- `getDifficultyColor` import was already present (line 29) and is still used at line 1741 for the spotlight. The removal of `DIFFICULTY_STYLES` / `getDifficultyStyle` doesn't disturb other call sites - they were only referenced inside the deleted block.
+- The TrackPlaceholder accent (Captain's "dotted outline" mention) is already shared between both pages - the race page passes the same `trackAccent` to the same component the tracks page uses. No container-border accent on the tracks page itself, so the race page doesn't get one either.
+- **Not run:** dev / lint / build per Captain's standing instruction (and this task explicitly: "Skip lint").
+
+**Not verified by Mercenary:**
+- Visual at the tracks-page card breakpoints. The two pages have different parent layouts (race page has `.raceLeft .trackCard` with media-query overrides at line 1158-ish; tracks page is a 1-3 col grid). Captain to confirm the new body chrome reads right at all 1440 / 1024 / 768 / 480 widths inside the race page's column.
+- Captain mentioned "track accent color on the container border/outline" - I read this as the placeholder wireframe (already shared) rather than a per-track container ring, since the tracks-page card uses a flat `var(--border-default)` border and never reads `--track-neon` at the `.card` level. If Captain wanted an explicit per-track-accent container border on BOTH pages, that's a separate change to both `.card` (tracks page) and `.trackCard` (race page).
+- There is dead CSS in the race page (`.trackSection`, `.trackSectionInner`, `.trackImageBox`, `.trackImagePlaceholder`, `.trackInfo`, `.trackName`, `.trackDiffRow`, `.trackDiffLabel`, `.trackDiffDots`, `.trackDiffDot`, `.trackDiffDotOn`, `.trackDiffScore`, `.trackSpecRow`, `.trackSpecItem`, `.trackSpecLabel`, `.trackSpecValue`, `.trackSpecSep` - lines ~1866-1999) - none referenced from JSX. Left alone to keep blast radius minimal. Worth a follow-up cleanup pass.
+
+---
+
+## 2026-05-01 - Spotlight->Next Race sync: move from useEffect to direct call in arrow handlers
+
+**Captain ask:** the prior `useEffect`-based sync had a bug - first spotlight cycle drove Next Race correctly, then a manual Next Race cycle would persist, then the next spotlight cycle did not update Next Race. The sync should be unconditional: every spotlight arrow click checks the new drone's pending race and jumps Next Race to it (no flags, no stale-state checks).
+
+**Files modified (1):**
+
+### `app/dashboard/page.jsx`
+- **Removed the `useEffect`** keyed on `spotlightDrone?.id` / `upcomingRaces`. Effect-based sync is exposed to dep-tracking edge cases (Strict Mode replays, batched updates, polled `upcomingRaces` ref churn) that can leave the Next Race index out of sync after a manual cycle.
+- **`goPrev` / `goNext` (spotlight arrows) now sync inline.** Each computes the new spotlight index, calls `setSpotlightIndex(newIndex)`, then calls a small `syncNextRaceToDrone(activeDrones[newIndex])` helper that does `upcomingRaces.findIndex(r => r.userDroneId === drone.id)` and `setNextRaceIndex(idx)` if the drone has an upcoming race. If not, the Next Race index is left as-is.
+- **Manual Next Race arrows** (`goPrevNextRace` / `goNextNextRace`) are unchanged - they only update `nextRaceIndex`, never spotlight, never any flag. The two inputs are independent: spotlight drives both, Next Race drives only itself.
+
+---
+
+## 2026-05-01 - Spotlight cycles the Next Race; Quick Stats header gets username
+
+**Captain ask (2):**
+1. When the user cycles the Active Drone Spotlight via the < > arrows, the Next Race panel should auto-switch to that drone's pending race (if it has one). If the spotlighted drone has no upcoming race, the Next Race panel stays as-is so the user can keep browsing.
+2. Add the user's username to the right side of the Quick Stats header (smaller muted text) so it's obvious the stats are user-level aggregates, not scoped to the spotlight drone.
+
+**Files modified (2):**
+
+### `app/dashboard/page.jsx`
+- Added a `useEffect` that fires on `spotlightDrone?.id` (and `upcomingRaces`) changes. It finds the index of the upcoming race whose `userDroneId === spotlightDrone.id` and calls `setNextRaceIndex(idx)`. The `userDroneId` field is already pre-computed server-side by the upcoming-races endpoint as whichever side of the matchup the viewer owns - no need to scan both `drone1Id` and `drone2Id`. Skips the update when the spotlighted drone has no race in `upcomingRaces`, so the panel keeps its current selection.
+- Wrapped the Quick Stats `<h2>` in the existing `.sectionHeadingRow` flex container and added a `<span class="quickStatsUser">{user.username}</span>` after it. Conditional on `user?.username` so guests / loading-state don't see an empty span.
+
+### `app/dashboard/page.module.css`
+- New `.quickStatsUser` rule: `var(--font-mono)`, `var(--text-xs)`, `var(--font-bold)`, `var(--text-tertiary)`, uppercase, `letter-spacing: 0.06em`, `white-space: nowrap`. Reads as a small muted "scope tag" alongside the heading.
+
+---
+
+## 2026-05-01 - Live Feed divider follows the link; tighter Next Race track strip
+
+**Captain ask (2):**
+1. The horizontal line that previously sat right under the feed table should travel down with the "SEE ALL RACES" link to the bottom of the card.
+2. Reduce the vertical padding on the Next Race track strip - cut it down quite a bit.
+
+**Files modified (1):**
+
+### `app/dashboard/page.module.css`
+- **Divider follows the link.** Removed the bottom border on the Live Feed table specifically: `.tableScroll.tableFeed { border-bottom: none }` (Recent Results keeps the base `.tableScroll { border-bottom }` rule). Added `border-top: 1px solid var(--border-subtle)` on `.feedSeeAll` so the divider sits at the top of the link wherever the link lands - including pinned to the bottom of a stretched card. Switched `.feedSeeAll` margin from `margin: auto var(--space-3) 0` to `margin: auto 0 0` so the link's top border spans the full body width (no horizontal inset that would interrupt the line under the table).
+- **Track strip padding.** `.trackStrip` padding from `var(--space-3)` (12px all around) to `4px var(--space-3)` (4px top/bottom, 12px left/right). Tightens the vertical band so the track name + condition pills don't sit on a thick whitespace pad.
+
+---
+
+## 2026-05-01 - Live Race Feed: pin "SEE ALL RACES" to the bottom
+
+**Captain ask (with screenshot):** when the Live Race Feed Card stretches taller than its content (because Recent Results has more rows and they share row 3 in the dashboard grid via `align-items: stretch`), the "SEE ALL RACES ->" link sits right under the table with empty space below it. Should be pinned to the bottom of the card.
+
+**Root cause:** `.tableScroll` is `flex: 1; max-height: 500px` - so when there's more vertical room than the table cap + link's natural height, the leftover slack sits between the link and the bottom of the card (flex column items default to `flex-start` alignment, so unused space pools at the end).
+
+**Files modified (1):**
+
+### `app/dashboard/page.module.css`
+- `.feedSeeAll` margin changed from `margin: 0 var(--space-3)` to `margin: auto var(--space-3) 0`. The `margin-top: auto` absorbs whatever vertical slack remains inside `.feedBody` after the table caps at 500 and the link takes its natural ~32px - the link drops to the bottom of the body. At narrower widths where the card is content-sized (no stretch), the auto-margin resolves to 0 and the link sits naturally right below the table.
+
+---
+
+## 2026-05-01 - Next Race track strip: just name + condition pills
+
+**Captain ask:** the bottom track strip in the Next Race container shows the track name plus stats (DIFF X/10, NS, NT, N LAPS, LENGTH) plus condition pills. Drop the stats - keep just the track name on the left and the condition pills on the right.
+
+**Files modified (2):**
+
+### `app/dashboard/page.jsx`
+- `NextRaceMatchup` track strip: removed the entire `<span class="trackSpecs">` block (DIFF / S / T / LAPS / LENGTH plus separator dots). The strip now contains just the track-name span on the left and the condition pills span on the right; the existing `.conditionPills { margin-left: auto }` rule pushes the pills to the right edge.
+
+### `app/dashboard/page.module.css`
+- Removed `.trackSpecs` and `.trackSpecsSep` rules - dead now that the JSX no longer references them.
+- Removed the `.trackSpecs { font-size: 8px; gap: 4px }` override inside the `<=480` block as well.
+
+---
+
+## 2026-05-01 - Next Race whole-card clickable; Quick Stats values match Spotlight
+
+**Captain ask (2):**
+1. Remove the "VIEW FULL MATCHUP ->" link from the Next Race container; make the whole container clickable instead.
+2. Quick Stats values were too small. Bump them so they match the data values in the Active Drone Spotlight (Races / Win Rate / Record / ELO).
+
+**Files modified (2):**
+
+### `app/dashboard/page.jsx`
+- **NextRacePanel.** Added an absolutely-positioned `<Link href="/races/{id}">` directly inside the `Card`. The link only renders when there's a race; it's invisible (no children, no styles beyond `inset: 0; z-index: 1`) and covers the entire panel. Clicking anywhere on the card navigates to the race detail.
+- **NextRaceMatchup.** Removed the trailing `<div className={styles.nextRaceFooter}>` block that contained the "VIEW FULL MATCHUP ->" `<Link>`.
+
+### `app/dashboard/page.module.css`
+- **`.nextRacePanel`** picked up `position: relative` so the absolute overlay anchors to the panel.
+- **New `.nextRaceClickOverlay`** rule: `position: absolute; inset: 0; z-index: 1; border-radius: inherit;`. The link covers the entire panel but is invisible.
+- **`.navCluster`** gained `position: relative; z-index: 2` so the Next Race cycling prev/next buttons escape the overlay and clicks reach them. The same class is reused on the Spotlight where there's no overlay - the `z-index` is a no-op there.
+- **Removed `.nextRaceFooter`, `.viewMatchupLink`, `.moreUpcomingLink`** rules - all dead now that the footer block is gone.
+- **`.quickValue`** font-size bumped from `11px` to `var(--text-sm)` (14px) so the Quick Stats values read at the same weight as `.kpiCell dd` in the Spotlight.
+
+---
+
+## 2026-05-01 - Spotlight at <=675px: smaller KPI text, gap above Manage Drone
+
+**Captain ask:** at the 675 stack breakpoint (where the spotlight body collapses to a single column - image + KPI on top, Manage Drone button below), the KPI metadata reads a bit too large under the image, and the Manage Drone button sits too close to it. A little more space between them.
+
+**Files modified (1):**
+
+### `app/dashboard/page.module.css`
+- `@media (max-width: 675px)` spotlight block:
+  - Added `.spotlightBody { gap: var(--space-6) }` (24px) so the row gap between the left column (ending at the KPI grid) and the right column (the Manage Drone button at this width) is wider than the desktop 16px - gives visible breathing room between the data and the button.
+  - Added `.kpiCell dt { font-size: 10px }` and `.kpiCell dd { font-size: 11px }` so the metadata under the image reads a bit smaller (was inheriting the desktop 12px / 14px).
+
+---
+
+## 2026-05-01 - Spotlight card: actually pin KPI + Manage button to the bottom
+
+**Captain ask (with screenshot):** the spotlight card stretches to match the Next Race card's height (they share a row in the dashboard grid). But the data (RACES / WIN RATE / RECORD / ELO) and the MANAGE DRONE button still sit at their natural mid-card position with empty space below them - they should be at the actual bottom of the card.
+
+**Root cause:** `.spotlightBody` had no `flex: 1`. The Card stretched (because `align-items: stretch` on the dashboard grid) but the body inside stayed at content height, leaving a dead zone below the body inside the card. The prior `justify-content: flex-end` on `.spotlightRight` and `align-self: center` on `.spotlightKpiGrid` had nothing to push against - each column was sized to content, not to the card height.
+
+**Files modified (1):**
+
+### `app/dashboard/page.module.css`
+- `.spotlightBody`: added `flex: 1; min-height: 0;` so the body stretches to fill whatever height the card was stretched to. Added `grid-template-rows: 1fr` so the body's single grid row fills the body (otherwise the row would still sit at content height even after the body stretches).
+- `.spotlightKpiGrid`: added `margin-top: auto` (kept the existing `align-self: center`). The metadata grid is still horizontally centered under the (centered) image, but now also pinned to the bottom of the left column.
+- `.spotlightRight { justify-content: flex-end }` from the prior task is now actually effective: the right column has real slack (column = full body height), and stats + Manage button are pushed to the bottom.
+
+**Visual result at desktop (>=1285, where the cards share a row):**
+- Left column: name top, image just below name (centered), empty space, KPI row at the very bottom of the card (centered).
+- Right column: empty space at the top, stats list, Manage Drone button flush against the bottom of the card.
+
+**At <=1284 (stacked dashboard):** the spotlight card sits alone in its row - no stretching, body stays content-sized, KPI and Manage button sit at their natural positions (just below image / just below stats). Same layout as before.
+
+**Not verified by Mercenary:** Captain runs dev / browser at desktop / 1284 / 768.
+
+---
+
+## 2026-05-01 - Dashboard Next Race at 480px: bigger artwork, name up, LV down
+
+**Captain ask:** At 480px the Next Race container compresses awkwardly - the drone name shrinks while the LV stays the same size, leaving LV looking heavier than the name. There's plenty of room at 480 for the drone image and radar to be larger and still sit side-by-side.
+
+**Files modified (1):**
+
+### `app/dashboard/page.module.css`
+- `@media (max-width: 480px)` Next Race block:
+  - `.matchupImageFrame { max-width: 100px }` -> `140px` (drone artwork bigger).
+  - `.matchupRadar { width: 88px; height: 88px }` -> `110 / 110` (radar bigger).
+  - `.matchupName { font-size: 10px }` -> `12px` (drone name reads larger).
+  - Added `.matchupLevel { font-size: 8px }` (was inheriting the desktop 10px - now smaller than the name so the LV reads as a secondary tag instead of competing with the drone name).
+- Container math: at 480 viewport with the dashboard stacked, the matchup container is ~440-460px wide. `.matchupRow` is `1fr 1fr` at <=768 (VS divider hidden), so each side is ~220-230px - 140px image + 110px radar both fit comfortably.
+
+---
+
+## 2026-05-01 - Dashboard: LV is its own column on the feed, tinier QuickStats, KPI grid centered under image
+
+**Captain ask (3 follow-ups to the prior dashboard pass):**
+1. Live Race Feed: the LV number should be a proper column in the table, not a tag pinned to the right edge of the drone-name cell.
+2. Quick Stats: the values are still too big. Make them clearly smaller across all breakpoints.
+3. Active Drone Spotlight: the metadata grid under the image should be horizontally centered (matching the centered image), not pushed to the bottom of the column or pinned to the left edge. Each row inside the grid stays left-justified naturally; the grid as a whole is centered.
+
+**Files modified (2):**
+
+### `app/dashboard/page.module.css`
+- **LV as a real column.** `.feedHeader, .feedRow` grid template went from 5 cols (`minmax(120px, 1fr) minmax(120px, 1fr) minmax(160px, 1.4fr) 40px 100px`) to 7 cols `minmax(80px, 1fr) 30px minmax(80px, 1fr) 30px minmax(140px, 1.2fr) 36px 90px`. The two LV cells sit immediately after their drone-name columns. Updated nth-child selectors so drone-name ellipsis applies to cols 1+3 (was 1+2) and Track line-clamp applies to col 5 (was 3). Mobile (`<=768`) override switched to `60px 24px 60px 24px minmax(0, 1fr) 30px 76px`.
+- **New `.feedLevelCell` class** for the LV cells: 9px mono, `flex-shrink: 0` not needed (it's a grid cell now), `white-space: nowrap`. JSX overrides colour inline via `getLevelColor(level)` for tier paint.
+- **Removed dead classes** `.feedDroneCell`, `.feedDroneCellName`, and `.levelTag` from the CSS - no longer referenced from JSX after the LV split.
+- **QuickStat values smaller.** `.quickValue` font-size pinned to `11px` (was `var(--text-sm)` = 14px). 11px is one step below `--text-xs` (12px) so the value reads visibly smaller than its label - clearly supporting data, not a headline.
+- **Spotlight body reverted** to its pre-prior-task state - removed the `min-height: 420px` and `grid-template-rows: 1fr` I'd added when push-down was the goal. Captain's followup clarified the metadata should sit naturally below the image (not pushed to the bottom of a stretched column), so the body returns to content-sized.
+- **`.spotlightKpiGrid`** `align-self` reverted from `flex-start` (left of column) back to `center` (horizontally centered under the centered image). The text inside `.kpiCell` rows is naturally left-justified; only the grid container's horizontal placement changes.
+
+### `app/dashboard/page.jsx`
+- **Live Race Feed header** picks up two new `LV` columns: `Drone 1 / LV / Drone 2 / LV / Track / Diff / Conditions`.
+- **Live Race Feed rows** restructured: drone-name cells are now bare `<span>` (not `.feedDroneCell` flex wrappers), with `.youName` applied directly when the user owns that side of the matchup. The LV is rendered in its own grid cell as `<span class="feedLevelCell" style={{ color: getLevelColor(level) }}>LV{level}</span>` (or `'-'` when level is missing).
+
+**Not verified by Mercenary:** Captain runs dev / browser at desktop / 1284 / 1024 / 768 / 480.
+
+---
+
+## 2026-05-01 - Recent Results: drop the LV tags (Live Race Feed only)
+
+**Captain ask:** The LV tags I'd added to the Recent Results rows in the prior tier-colour task were out of scope. LV tags belong only on the Live Race Feed.
+
+**Files modified (2):**
+
+### `app/dashboard/page.jsx`
+- Recent Results body cells reverted from `.feedDroneCell` flex wrappers (with inner `.feedDroneCellName` + tier-coloured `.levelTag`) back to bare spans:
+  - `<span class="youName">{userDrone.name}</span>` for the user's drone (accent + semibold via the existing `.youName` rule).
+  - `<span>{opp.name}</span>` for the opponent (default colour).
+- Track / Result / Volts / Time cells unchanged.
+
+### `app/dashboard/page.module.css`
+- Updated the doc comment on `.feedDroneCell` so it no longer claims Recent Results uses the class. The class itself stays in CSS - still used by the Live Race Feed.
+
+---
+
+## 2026-05-01 - Dashboard: Live Feed h-scroll, stack at 1284, smaller QuickStats, spotlight content bottoms
+
+**Captain ask (3):**
+1. Live Race Feed: stop column compression. Allow horizontal scroll when content doesn't fit, with columns keeping their readable widths. Also raise the dashboard stack-vs-grid breakpoint from the current value to `@media (max-width: 1284px)`.
+2. Quick Stats values: smaller across all breakpoints; should read as supporting data, not headlines.
+3. Active Drone Spotlight right side: push stats + Manage button to the bottom of the container so there's breathing room at the top. Metadata (Races / Win Rate / Record / ELO) sits bottom-left below the drone image.
+
+**Files modified (1):**
+
+### `app/dashboard/page.module.css`
+- **Live Race Feed scroll.** `.feedTable { overflow-x: auto }` (was `hidden`). The grid template on `.feedHeader, .feedRow` switched from `minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr) 36px 90px` to `minmax(120px, 1fr) minmax(120px, 1fr) minmax(160px, 1.4fr) 40px 100px`. The explicit pixel mins prevent the drone-name and Track columns from compressing below readable widths; when their sum exceeds the parent (e.g. desktop col-3 of the 3-col grid is ~440-520px), the row's `min-content` exceeds the table and the table scrolls horizontally instead of squishing each cell. The Diff and Conditions columns also bumped (36->40, 90->100) so the pinned cells aren't the tightest possible.
+- **Stacking breakpoint raised.** `@media (max-width: 1023px) { .grid { display: flex; flex-direction: column } ... }` -> `@media (max-width: 1284px) { ... }`. Below 1284 the dashboard stacks vertically; the Live Race Feed gets full container width before its narrow desktop col 3 starts compressing.
+- **Recent Results table also takes the new 1284 stack value** (it was already inside the 1023 block; just shifts to 1284 alongside).
+- **Quick Stats smaller.** `.quickValue { font-size: var(--text-sm) }` (was `var(--text-base)`). Updated the doc-comment to match. Removed the redundant `@media (max-width: 768px) { .quickValue { font-size: var(--text-base) } }` override - it was identical to the prior base, and would have made the mobile value larger than the new desktop value if left in place.
+- **Spotlight right column to bottom.** `.spotlightRight { justify-content: flex-end }` so any slack from the body row's stretched height pushes onto the top of the column - stats + Manage button cluster at the bottom. Dropped the prior `.spotlightRight .spotlightStats { flex: 1; justify-content: space-between }` so the stats list is a tight stack (gap 2px) rather than expanding to fill and distributing rows space-between.
+- **Metadata bottom-left.** `.spotlightKpiGrid` `align-self` changed from `center` to `flex-start` so the 2x2 KPI grid (Races / Win Rate / Record / ELO) reads left-aligned under the drone image.
+- **Stale comment update.** The `<=480` block's note about the Live Race Feed being "deliberately excluded from horizontal scroll" was rewritten now that the feed scrolls at every breakpoint via the base `overflow-x: auto`.
+
+**No JSX changes.** Pure CSS.
+
+**Not verified by Mercenary:** Captain runs dev / browser at desktop / 1440 / 1284 / 1024 / 768 / 480.
+
+---
+
+## 2026-05-01 - Dashboard tables: feed sort, "Drone 1 / 2" headers, accent on user's drone, tier-coloured LV
+
+**Captain ask (4):**
+1. Confirm Recent Results is sorted newest-first.
+2. Live Race Feed sort: user's pending races first, then everything else by the higher-level drone in the matchup, descending.
+3. Live Race Feed: "You" -> "Drone 1", "Opponent" -> "Drone 2"; render the matchup as the API ordered it; the user's drone name picks up accent colour wherever it sits.
+4. LV tags on both tables coloured by tier via `getLevelColor` (LV1-5 steel, LV6-10 orange, LV11-15 purple, LV16-20 gold).
+
+**Files modified (2):**
+
+### `app/dashboard/page.jsx`
+- **Recent Results sort: confirmed, no change.** The `/api/races?status=completed&user_id=...` endpoint sorts by `desc(races.createdAt)` (see `services/race.service.js` -> `getRaces`, the order clause in the `requestedStatus !== 'pending'` branch). The dashboard sets `recentRaces` straight from the API response, so newest-first holds.
+- **Live Race Feed sort.** Updated `sortedLiveFeed` `useMemo`. New `maxMatchupLevel(race)` helper returns `Math.max(drone1.level, drone2.level)`. The "others" bucket is sorted by that value descending so high-tier matchups bubble to the top. The "mine" bucket keeps the API order (scheduledAt ascending - the next race the user has fires first). When the user has no drones at all, the whole list sorts by max-level descending.
+- **Live Race Feed header + body.** Header labels switched from `You / Opponent` to `Drone 1 / Drone 2`. The row map drops the prior `userDrone / opp` re-anchor logic and renders `r.drone1` and `r.drone2` directly. `drone1IsMine` / `drone2IsMine` are computed independently and the `.youName` accent class is applied to whichever drone-name span belongs to the viewer (both can light up if the user owns both sides of a self-vs-self bot edge case).
+- **Tier-coloured LV.** Every `<span class="levelTag">` in the feed now carries `style={{ color: getLevelColor(drone.level) }}`. `getLevelColor` was already imported.
+- **Recent Results LV tags.** The Recent Results body cells were bare `<span>` -> wrapped each in a `.feedDroneCell` flex container holding `.feedDroneCellName` (with `.youName` accent on the user's drone) plus a tier-coloured `.levelTag`. The class names are shared across both tables now.
+
+### `app/dashboard/page.module.css`
+- **Dropped the now-dead `.feedYouName .feedDroneCellName` rule** (the parent-modifier selector). The accent now lives on `.youName` applied directly to the inner name span, so the parent class is unused.
+- **Updated the doc comment on `.feedDroneCell`** to note it's shared by both tables.
+- **Updated the doc comment on `.levelTag`** to flag that JSX overrides the colour inline via `getLevelColor` for tier paint; the CSS colour is a fallback.
+
+**Not verified by Mercenary:** Captain runs dev / browser at desktop / 768.
+
+---
+
+## 2026-05-01 - Upcoming race: taller track + edge cards, win-prob inline at desktop, pinned to bottom
+
+**Captain ask (from screenshot of the upcoming-race RaceEdgeCard, desktop):**
+1. Make the track container and the race edge container a bit taller.
+2. Win Probability section should sit closer to the bottom of the card.
+3. Win-probability percentage should be slightly smaller and sit on the right side of the same row as the "WIN PROBABILITY" label.
+
+**Files modified (2):**
+
+### `app/races/[raceId]/page.module.css`
+- **Cards taller.** Added `.raceEdgeBody { min-height: 260px }` inside an `@media (min-width: 768px)` block. The body is the row-height determinant in `.raceBottomGrid` (per the existing comment), so the track card stretches to match via the grid's default `align-items: stretch`. At <=767 the min-height doesn't apply so mobile keeps its tight stack.
+- **Win Probability pinned to bottom.** Changed `.raceEdgeSection:last-child { margin-top: 6px }` to `margin-top: auto`. With the new body min-height, the slack absorbs into this margin and the section drops to the bottom of the card; Strengths/Gaps stay anchored at the top.
+- **Inline label + value at desktop.** Promoted the prior 768-only `.raceEdgeWinHead` flex layout to be the base rule: `display: flex; flex-direction: row; justify-content: space-between; align-items: baseline; gap: var(--space-2);`. This applies at all breakpoints. Removed the now-redundant duplicate inside the `(max-width: 768px)` block.
+- **Slightly smaller percentage at desktop.** `.raceEdgeWinValue` font-size dropped from `var(--text-xl)` to `var(--text-lg)` so the percentage doesn't dominate the row. The mobile override (`var(--text-base)`) inside the 768 block stays for an extra shrink at small screens.
+
+### `app/races/[raceId]/page.jsx`
+- Updated the inline comment above the Win Probability JSX to reflect the new `display: flex` base behaviour and the `margin-top: auto` pin (the prior `display: contents` desktop note no longer applies).
+
+**Not verified by Mercenary:** Captain runs dev / browser at desktop / 768.
+
+---
+
+## 2026-05-01 - Race detail page: 768px polish (radar bigger, metadata smaller, track info compact, win-prob inline)
+
+**Captain ask (5, all at `@media (max-width: 768px)` unless noted):**
+1. Matchup card radar grows from 110x110 to ~140x140 and stays centered in its grid cell.
+2. Metadata text (form, total races, wins, losses, win rate, ELO) and skin/mod equipped text all step down to a much smaller size.
+3. Track info layout switch (768 -> small mobile, no further change at lower breakpoints): line 1 = Difficulty + Length side-by-side, line 2 = Straights/Turns/Laps on the left + Conditions pills on the right of the same line. Conditions no longer get their own row.
+4. Track image significantly smaller (and centered).
+5. Win Probability label + percentage on a single row (`WIN PROBABILITY    62%`); percentage size stepped down.
+
+**Files modified (2):**
+
+### `app/races/[raceId]/page.module.css`
+- **Issue 1.** `.matchupRadar { width: 140px; height: 140px; }` at <=768 (was 110x110). Added `.matchupRadarCol { align-self: center; }` at 768 so the radar's grid cell centers vertically; the cell is already a flex container with `justify-content: center` for horizontal centering.
+- **Issue 2.** Bumped the existing 768 metadata shrink from 11px to 9px and broadened the rule to also cover `.matchupFormLabel` and `.matchupFormStreak`. Added `.skinLabel, .modLabel { font-size: 8px }` and `.modName { font-size: 9px }` so the skin/mod chip text shrinks too.
+- **Issue 3.** New CSS toggles for the dual-rendered Length and Conditions:
+  - `.trackLengthMobileOnly`, `.trackCondInlineMobile` -> `display: none` at desktop, flipped to `display: inline-flex` at <=768 with `margin-left: auto` so they right-align in their respective rows.
+  - `.trackLengthDesktopOnly` -> `display: inline-flex` at desktop, hidden at <=768.
+  - `.trackConditionsRow { display: none }` at <=768 (the desktop standalone pills row).
+  - `.trackMetaRow { justify-content: space-between }` at <=768 so difficulty (left) and length (right) read as a balanced pair.
+- **Issue 4.** `.trackImage { max-width: 60%; margin-left: auto; margin-right: auto; }` at <=768. Aspect-ratio preserved, image just narrows and centers.
+- **Issue 5.** Added `.raceEdgeWinHead { display: contents }` (transparent at desktop so label + value still stack via the parent flex column). At <=768, override to `display: flex; flex-direction: row; justify-content: space-between; align-items: baseline;` so label and value share a single line. `.raceEdgeWinValue { font-size: var(--text-base) }` at <=768 (was `var(--text-xl)` from the desktop rule).
+
+### `app/races/[raceId]/page.jsx`
+- **Track info dual-render.** Length now appears in two places in the JSX, one for each layout, with the CSS toggling visibility per breakpoint:
+  - In `.trackMetaRow`, after the difficulty dots, wrapped in `<span class="trackLengthMobileOnly">`. Visible at <=768.
+  - In `.trackStatsRow`, the prior `<TrackStatDivider />` + `<TrackStat label="Length" />` pair is now wrapped in `<span class="trackLengthDesktopOnly">`. Visible at desktop only.
+  - The conditions pills get a second copy in `.trackStatsRow` wrapped in `<span class="trackCondInlineMobile">` (visible at <=768) on top of the existing `.trackConditionsRow` (visible at desktop only). Pills render via the shared `<ConditionPill>` component (no inline duplication).
+- **Win Probability head.** Wrapped the section label `<span>` and the value (changed from `<div>` to `<span>` so it can sit inline) inside a new `<div class="raceEdgeWinHead">`. CSS controls whether they stack or sit on one line.
+
+**Not verified by Mercenary:** Captain runs dev / browser at desktop / 1024 / 768 / 480 / 360.
+
+---
+
+## 2026-05-01 - Dashboard: Next Race always side-by-side, Live Feed proper table, drop "See All" border
+
+**Captain ask (3):**
+1. Next Race container: drones stay side-by-side at every screen size. Remove any breakpoint that stacks them. Shrink at narrow widths if needed but never stack.
+2. Rebuild Live Race Feed as a real grid-table matching Recent Results' row chrome. Columns: You / Opponent / Track / Difficulty / Conditions. Drop the Time column. Header styled identically to Recent Results header. Allow horizontal scroll on narrow viewports.
+3. Remove the `border-top` separator above "SEE ALL RACES ->".
+
+**Files modified (2):**
+
+### `app/dashboard/page.module.css`
+- **Issue 1.** Deleted the `@media (max-width: 360px) { .matchupRow { grid-template-columns: 1fr } }` block. The remaining `<=768` `1fr 1fr` rule already keeps the matchup side-by-side at narrow widths; the existing `<=480` shrinks (`.matchupImageFrame { max-width: 70px }`, `.matchupRadar { width: 88px; height: 88px }`) carry through to <=360.
+- **Issue 2.** Reworked `.feedHeader, .feedRow`:
+  - `grid-template-columns` from `50px 110px 110px minmax(0, 1fr)` (Time / You / Opp / Track) to `90px 90px minmax(0, 1fr) 40px 100px` (You / Opp / Track / Diff / Conditions). Row chrome (gap, padding, font-size, align-items) unchanged - matches `.resultsHeader / .resultsRow` exactly.
+  - Updated header-cell `nth-child` selectors so You/Opp ellipsis-truncate on cols 1+2 and Track line-clamps on col 3 (was 2/3 + 4 with the Time column in front).
+  - Added `.feedRow > span:nth-child(3)` to the line-clamp selector since the Track row cell is now a plain span (Recent Results pattern) rather than the prior `.feedTrackCell` flex container.
+  - Dropped the now-dead `.feedRow > span:nth-child(1) { color: var(--text-tertiary) }` (Time cell), and the dead `.feedTrackCell` / `.feedTrackCellName` rules (replaced by the simpler nth-child treatment).
+  - Repurposed `.diffBadge` from a small inline 9px chip to a column-friendly muted-mono cell (`font-family: var(--font-mono); color: var(--text-tertiary);`) so it picks up the row's 11px font-size while staying visually muted (same treatment as Recent Results' time-ago column).
+  - Added `.feedConditionsCell` - inline-flex with `flex-wrap: wrap; gap: 3px;` so two condition pills can drop to a second line when the cell is narrow.
+- **Issue 2 (mobile grid).** Updated `@media (max-width: 768px)` row template from `44px 80px 80px minmax(0, 1fr)` to `70px 70px minmax(0, 1fr) 32px 80px`. The existing `@media (max-width: 480px) { .feedTable { overflow-x: auto } }` stays in place so narrow viewports get horizontal scroll on overflow.
+- **Issue 3.** Removed `border-top: 1px solid #3F3F3F;` and updated the comment block on `.feedSeeAll`.
+
+### `app/dashboard/page.jsx`
+- **Live Race Feed header:** changed from `Time / You / Opponent / Track` to `You / Opponent / Track / Diff / Conditions`.
+- **Live Race Feed row:** dropped the Time cell; pulled the difficulty badge and condition pills out of the prior in-Track flex container and into their own grid cells. New cell order:
+  1. `.feedDroneCell` (You) - keeps the existing accent + LV tag pattern.
+  2. `.feedDroneCell` (Opponent) - same shape, no accent.
+  3. Plain `<span>` track name - line-clamp via `nth-child(3)`.
+  4. `<span class="diffBadge">D{n}</span>` or `'-'` when null.
+  5. `<span class="feedConditionsCell">` with `<ConditionPill>` children. Pills hidden when weather is `'clear'` or timeOfDay is `'day'`; if both are hidden, render a `'-'` so the cell isn't visually empty.
+
+**Not verified by Mercenary:** Captain runs dev / browser at desktop / 1024 / 768 / 480 / 360.
+
+---
+
+## 2026-05-01 - Global cursor: pointer baseline for interactive elements
+
+**Captain ask:** Add a global rule to `app/globals.css` that sets `cursor: pointer` on `select`, `input[type="checkbox"]`, `input[type="radio"]`, `button`, `[role="button"]`, `[role="tab"]`, `[role="option"]`, `label`, `.filter select`, `.filter input`. Existing disabled cursor rules (`cursor: default` / `cursor: not-allowed`) should keep applying.
+
+**Files modified (1):**
+
+### `app/globals.css`
+- Added the rule verbatim, just before the existing "Reduced motion" block. Component-level `:disabled` and `[aria-disabled="true"]` rules out-specificity these element / role selectors so disabled affordances stay correct without an explicit `:not(:disabled)` qualifier. CSS-module rules also load after globals, so any component-scoped `cursor:` rules continue to win the cascade where present.
+
+---
+
+## 2026-05-01 - Marketplace tablet fix: 50/50 filter+search, viewToggle on its own row
+
+**Captain ask:**
+The prior tablet fix was wrong. At the 900px area, filter dropdown and search bar should be side-by-side at 50/50 width (not 'auto + 1fr'); the "ALL LISTINGS / YOUR LISTINGS" view-toggle should drop to its own row *below* filter+search; and the side-by-side layout should hold all the way down to 481px. Stacking only at <=480.
+
+**Files modified (1):**
+
+### `app/marketplace/page.module.css`
+- **Widened the tablet block** from `(min-width: 769px) and (max-width: 900px)` to `(min-width: 481px) and (max-width: 900px)` so the side-by-side layout covers small-mobile (481-768) too. At <=480 the rule no longer matches and the page reverts to the existing flex-column stack from the base + <=768 mobile rules (viewToggle stacked over search inside `.subToolbar`, filter aside below).
+- **Switched columns** from `minmax(0, auto) minmax(0, 1fr)` to `1fr 1fr` so filter and search each take exactly 50% of the row.
+- **Flattened `.subToolbar` via `display: contents`** so its children (`.viewToggle`, `.searchWrap`) reach up into `.page`'s grid as direct items - the only way to put `.viewToggle` in its own grid row while leaving the existing JSX untouched.
+- **New `grid-template-areas`:**
+  ```
+  "topRow      topRow"
+  "filters     search"
+  "viewToggle  viewToggle"
+  "content     content"
+  ```
+- **Filter trigger now `width: 100%`** so it fills its 50% column; popover (`.filtersInner`) is also `width: 100%` so it spans the column when expanded (was `width: 280px`).
+- **Packs / Points edge case:** the prior fix used `.bodyPacks { display: block; grid-area: content }` which still left two empty grid rows claiming `row-gap`. Replaced with `.page:has(.bodyPacks) { grid-template-columns: 1fr; grid-template-areas: "topRow" "content" }` so on those tabs the page grid collapses to a flat 2-row layout - no leftover gaps.
+- The `.subToolbar { flex-direction: column }` and `.searchWrap { flex: 1 1 100% }` rules in the existing `<=768` blocks are harmless at 481-768 (subToolbar is `display: contents`, searchWrap is a grid item; flex props don't apply) and remain in effect at <=480 where the layout falls back to flex.
+
+**Not verified by Mercenary:** Captain runs dev / browser at desktop / 900 / 800 / 600 / 481 / 480 / 360.
+
+---
+
+## 2026-05-01 - Marketplace filter: dropdown at <=900, side-by-side with search at 769-900
+
+**Captain ask (3-tier breakpoint progression):**
+1. **<=900px:** Filter sidebar becomes a collapsible dropdown (same toggle UX as the existing <=768 dropdown). Smaller text inside the body. The filter dropdown sits side-by-side with the search bar - filter on the left, search on the right - both on one line.
+2. **<=768px:** Filter stays as a dropdown but stacks vertically below the search (existing behavior preserved).
+3. **<=440px:** Existing section-pill -> select dropdown unchanged.
+
+**Files modified (1):**
+
+### `app/marketplace/page.module.css`
+- **Refactored the existing `(max-width: 768px)` filter-trigger block.** Moved the trigger styling (`.filtersToggle`, hover, icon, icon-open, `.filters` flex column, `.filtersCollapsed`) up into a new shared `(max-width: 900px)` block so the dropdown UX kicks in at the wider breakpoint. Added smaller `font-size` on `.filterLabel`, `.check`, `.rangeInput` inside that same block per Captain's "smaller text in the dropdown" ask. The shared block lives **before** the `(max-width: 768px)` block so mobile-specific overrides (smaller trigger text, full-width search, tighter page gaps) still win at <=768.
+- **Added a new `(min-width: 769px) and (max-width: 900px)` tablet block.** `.page` becomes a 2-col grid with `grid-template-areas` of `topRow / [filters subToolbar] / content`. `.body` uses `display: contents` so its children (filter aside, content) reach up into `.page`'s grid - that's how the filter ends up in the row alongside the sub-toolbar without restructuring JSX. `.filtersInner` is `position: absolute; top: 100% + space-2; left: 0; z-index: 10; width: 280px;` so expanding the dropdown opens a popover that doesn't squeeze the search input next to it. `.filtersToggle` switches to `width: auto; font-size: 10px;` for a compact pill.
+- **Packs / Points edge case:** when `.bodyPacks` is on `.body`, neither the filter aside nor the sub-toolbar renders. Without an override, the empty filter/subToolbar grid row would still claim a `row-gap`. Added `.bodyPacks { display: block; grid-area: content }` inside the tablet block so the body element itself takes the content area, leaving topRow + content with a single gap between them (matches the prior layout for that tab).
+- **Updated the desktop hide rule** from `(min-width: 769px) { .filtersToggle { display: none } }` to `(min-width: 901px)` so the trigger stays visible at the new 769-900 dropdown range.
+
+**No JSX changes.** Pure CSS restructure. The existing `filtersOpen` state and DOM (filter aside lives inside `.body`) carry through.
+
+**Not verified by Mercenary:** Captain runs dev / browser at desktop (>=1024) / 900 / 800 / 768 / 480 / 440.
+
+---
+
+## 2026-05-01 - Drone detail page: skin/mod side-by-side + unify "None" tile chrome
+
+**Captain ask (per Compass plan):**
+1. Skin and mod blocks were stacking too early at `<= 600px`. The two blocks fit side-by-side on a phone width via `flex: 1 1 0; min-width: 0;`, so move the stack breakpoint to very-narrow only.
+2. The "None" tile shown to non-owners (no skin/mod equipped) was rendering as plain text. Make it look identical to an owner's selector chip - same elevated background, border, padding - just with the existing `disabled` read-only behavior.
+
+**Files modified (2):**
+
+### `app/drones/[droneId]/page.module.css`
+- Moved the `.collectibleRow { flex-direction: column }` rule from `@media (max-width: 600px)` to `@media (max-width: 400px)`. The two blocks now stay side-by-side from desktop down through 401px and only stack on very narrow mobile.
+- Deleted the `.modSelector.modSelectorBare` rule (`background: transparent; border-color: transparent; padding-left: 0; padding-right: 0;`) and its preceding "Public viewer with nothing equipped" comment. Without that override, the base `.modSelector` styling carries through (elevated bg, subtle border, normal padding) and `:disabled { cursor: default; opacity: 1 }` keeps the read-only state from fading.
+
+### `app/drones/[droneId]/page.jsx`
+- Skin selector `cn(...)` (around line 663): removed the `!isOwner && !drone.appliedSkin && styles.modSelectorBare` term so the chip frame stays for non-owners viewing an unequipped drone.
+- Mod selector `cn(...)` (around line 805): same removal for `!isOwner && !drone.appliedMod && styles.modSelectorBare`.
+
+**Not verified by Mercenary:** Captain runs dev / browser at desktop / 768 / 480 / 401 / 400.
+
+---
+
+## 2026-05-01 - Live Race Feed: more info per row + accent "YOU" drone
+
+**Captain ask:**
+1. Drone names in both Live Race Feed and Recent Results: render the user's own drone in the accent colour. Opponent stays default.
+2. Live Race Feed rows: append the level after each drone name ("VIPER LV17"), append a difficulty badge after the track name ("Keyhole D2"), and show condition pills after the track when the race has weather or time-of-day other than clear/day. Hide pills for clear weather and day timeOfDay.
+
+**Files modified (2):**
+
+### `app/dashboard/page.jsx`
+- **Recent Results "You" cell:** added `className={styles.youName}` to the user's drone span. Opponent unchanged. The existing `nth-child(1)` ellipsis rule still applies regardless of class so truncation behaviour is unaffected.
+- **Live Race Feed row:** introduced `userInRace = userIsDrone1 || userIsDrone2` so the accent style only paints when the user actually owns a drone in the matchup (the existing fallback row picks drone1 as "You" when the user is uninvolved, which would otherwise lie about ownership).
+- **Drone cells (You + Opponent)** are now flex containers: an inner `<span class="feedDroneCellName">` carries the name (ellipsis-truncates) and a sibling `<span class="levelTag">LV{level}</span>` renders only when `drone.level != null`. Accent is applied to the outer cell via `.feedYouName` so the name picks up the colour while the level tag stays muted.
+- **Track cell** is now a flex-wrap container holding the track name, an optional `<span class="diffBadge">D{difficulty}</span>`, and two optional `<ConditionPill>` siblings. Pills are gated on `weather && weather !== 'clear'` and `timeOfDay && timeOfDay !== 'day'` so a clear-and-day race shows neither. Reused the `ConditionPill` component already defined at the bottom of this page (no new component).
+
+**Data check:** `/api/races?status=pending` (and `?status=completed`) calls `getRaces()` in `services/race.service.js`, which returns `{ ...race, track, drone1, drone2 }`. `race.weather`, `race.timeOfDay`, `track.difficulty`, `drone1.level`, `drone2.level` are all already in the shape. No API or service changes required.
+
+### `app/dashboard/page.module.css`
+- **Removed the row-level `nth-child(2/3/4)` ellipsis/line-clamp selectors on the feed.** Header-only versions remain (`.feedHeader > span:nth-child(2/3/4)`) since the header still renders plain text. Row cells now style via the new classes below so flex layout doesn't fight the legacy ellipsis rules.
+- **Added classes:**
+  - `.feedDroneCell` - inline-flex, gap 4px, `min-width: 0; overflow: hidden;` so the cell can shrink without breaking the grid track.
+  - `.feedDroneCellName` - `flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;` so the name truncates while the LV tag stays visible.
+  - `.feedYouName .feedDroneCellName` - paints the accent colour on the inner name only when the parent cell carries the YouName modifier (so the LV tag inside stays muted).
+  - `.levelTag` - 9px mono, `var(--text-tertiary)`, `flex-shrink: 0`. Used after both drone names in the feed.
+  - `.feedTrackCell` - inline-flex with `flex-wrap: wrap; gap: 2px 6px;` so a long pill list drops to a second line within the cell.
+  - `.feedTrackCellName` - ellipsis truncate.
+  - `.diffBadge` - 9px mono `var(--text-tertiary)`, same visual weight as `.levelTag`.
+  - `.youName` - reusable accent-colour rule applied to the Recent Results "You" cell. Same colour + semibold weight as `.feedYouName .feedDroneCellName` so the two tables read consistently.
+
+**Not verified by Mercenary:** Captain runs dev / browser at 1440 / 1024 / 768 / 480.
+
+---
+
+## 2026-05-01 - Live Race Feed: muted Time cell
+
+**Captain ask:** Make the Time column on the Live Race Feed table the same grey as the relative-time column on Your Recent Results.
+
+**Files modified (1):**
+
+### `app/dashboard/page.module.css`
+- Added `.feedRow > span:nth-child(1) { color: var(--text-tertiary) }`. The Recent Results time cell already pulls `var(--text-tertiary)` via `.resultsTimeAgo`; this rule mirrors that on the feed without introducing a new class. The `.feedHeader` keeps its existing `#A0A0A0` tone (header colors are scoped to `.feedHeader`, so the row-only selector doesn't touch them).
+
+---
+
+## 2026-05-01 - Dashboard table fixes: undo tablet pairing, fixed-width grid columns
+
+**Captain ask (2 items):**
+1. Undo the tablet feed | results side-by-side pairing. Stack the two tables vertically again at tablet and below. Just give them a shared `max-height: 400px` with internal scroll so they read as equal-height containers without sitting in the same row.
+2. Recent Results columns are misaligned and text wraps badly. Switch to fixed pixel widths for You / Opponent / Result / Volts / Time, leave only Track flexible (allowed to wrap to 2 lines max). Truncate long drone names with ellipsis. Apply the same column treatment to the Live Race Feed.
+
+**Files modified (1):**
+
+### `app/dashboard/page.module.css`
+- **Tablet pairing reverted.** Replaced the `(min-width: 769px) and (max-width: 1023px)` 2-col grid (added in the prior pass) with `(max-width: 1023px) { .grid { display: flex; flex-direction: column } }` again. Both `.resultsTable` and `.feedTable` get `max-height: 400px` inside that block so they're equal-height containers with internal scroll.
+- **Recent Results grid template:** `1fr 1fr 1.2fr 60px 70px 50px` -> `110px 110px minmax(0, 1fr) 56px 56px 44px`. Fixed widths on every column except Track stop drone-name lengths from drifting column edges across rows. Track is the only flexible column.
+- **Live Race Feed grid template:** `60px 1fr 1fr 1.4fr` -> `50px 110px 110px minmax(0, 1fr)`. Same shape: Time, You, Opponent are fixed; Track is the flexible column.
+- **Cell truncation rules** (new): drone-name cells (You / Opponent in both tables) use `overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;`. Track cells use `display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 0; word-break: break-word; line-height: 1.3;` so a long track name caps at 2 lines instead of pushing the row to whatever height the name needs. Selectors target both header and row spans via `nth-child` so column edges line up.
+- **Mobile (`@media (max-width: 768px)`) overrides updated:** the prior 5-col Recent Results override (`1fr 1fr 50px 64px 44px`) silently sent the 6th cell into a second implicit row; replaced with a 6-col `80px 80px minmax(0, 1fr) 50px 50px 38px`. Added a matching Live Race Feed override `44px 80px 80px minmax(0, 1fr)` for consistent column treatment at mobile. Replaced the dead `.feedList { max-height: 250px }` rule (the class no longer exists in JSX, it's `.feedTable` now) with `.resultsTable, .feedTable { max-height: 250px }` so mobile keeps the existing 250 cap (overrides the 400 from the tablet block).
+
+**No JSX changes.** Truncation is applied via `nth-child` selectors so the existing JSX doesn't need new class names per cell.
+
+**Not verified by Mercenary:** Captain runs dev / browser at 1440 / 1024 / 768 / 480 / 360.
+
+---
+
+## 2026-05-01 - Pack opening: longer rumble, rarity-tinted burst, electrical arcs
+
+**Captain ask:** (1) Stretch the rumble by 2s (target 5s total). (2) Recolor the explosion burst so the body is the pack's rarity color, not white (white-hot core is fine, but it should bloom out to the accent). (3) Add electrical arcs radiating from the pack center - subtle/sparse during early rumble, escalating to violent + dense by the explosion moment, then a final outward blast that fades with the fog. (4) Reduced-motion stays a clean swap. (5) Push the card-reveal delay so cards land after the explosion, not during the rumble.
+
+**Files modified (2):**
+
+### `app/marketplace/page.module.css`
+- **Rumble: 1000ms -> 5000ms** on `.flowExplodingPack` and `.flowOrb`. Same shape (slow gentle drift, ramping to a violent ±6px shudder by 5s); rebuilt the `flowRumble` keyframe with finer steps and a back-loaded ramp so the early seconds read as quiet build, not constant shake. Bumped peak amplitude from ±5px to ±6px.
+- **Orb grow: 1000ms -> 5000ms.** Rebuilt `flowOrbGrow` with eased ramp (0.18 alpha by 20%, 0.42 by 45%, 0.7 by 70%, 1.0 by 100%) so the orb sits dim/small for the early shake and surges through the violent final second.
+- **Explosion delays: 1000ms -> 5000ms** on `.flowExplodingPack` (flowExplode), `.flowOrb` (flowOrbExplode), `.flowBurst`, `.flowFog`. All four trigger together at the 5s mark, exactly as before but later.
+- **Burst recolor.** `.flowBurst` radial gradient: tightened the white-hot core from 10% to 4% radius, then bumped the body of the burst to be rarity-color-dominant (22% pure --glow-color, 45% 70% glow + transparent, 70% 25% glow + transparent). The burst now expands outward as a rarity-tinted bloom rather than a white disc.
+- **New `.flowArcs` element + 2 keyframes.** A conic-gradient draws 12 thin spokes (every 30deg) in the rarity color, each spoke being a 2.4deg slice with a tiny rgba-white core between two color slices for the white-hot center Captain asked for. A radial mask trims to an annulus (transparent 0-18%, black 40-75%, transparent 100%) so the spokes read as discharges shooting outward from a clear central zone, not solid spokes touching dead center. `drop-shadow(0 0 4px var(--glow-color))` adds outer electrical glow. Two animations:
+  - `flowArcsRumble` (5000ms linear): 22 stair-step keyframes that strobe opacity in escalating brightness/density (0 -> 0.12 -> 0 -> 0.18 -> 0 ... -> 0.85 -> 1) while rotating from 0deg to 410deg. The escalation is uneven so it reads as random electrical pulses, not metronome ticks.
+  - `flowArcsBurst` (800ms ease-out, delay 5000ms): arcs blast outward to scale 3.6, rotation continues to 560deg so spokes streak through the burst, opacity fades to 0 in lockstep with fog dispersal. Brightness peaks at 2.8 mid-burst then drops to 1 at end.
+- **Mobile sizing** for `.flowArcs`: 220x220 at <=600px, 180x180 at <=480px (matches the orb's mobile shrink ratio).
+- **Reduced-motion** block now lists `.flowArcs` in both the `animation: none` group and the `display: none` group, so the new element honors prefers-reduced-motion the same way the others do.
+- **Updated stale comments**: stage-3 header banner now says "rumbles 5s with escalating electrical arcs"; the card-stagger comment now reads "5600 + i*140ms" with the full 0-6.5s timeline (rumble 0-5s, explode 5-5.6s, burst 5-6.1s, fog 5-6.3s, cards 5.6-6.5s).
+
+### `app/marketplace/page.jsx`
+- **Added `<span className={styles.flowArcs} aria-hidden="true" />`** between `.flowOrb` and `.flowBurst` inside the `.flowReveal` paint stack. Z-index 3 (same as orb), painted under the burst and fog.
+- **Card animationDelay base 1300 -> 5600.** `${5600 + index * 140}ms` so cards land 600ms after the explosion fires (right as the burst peak passes), not during the rumble. Three cards stagger 5600 / 5740 / 5880ms; fog still running until ~6300ms so cards reveal into the dispersing energy.
+
+**Out of scope:** no JS-side timers depend on the animation duration (the `setTimeout` at page.jsx:600 is the unrelated buy-modal close). The pack flow stays open until the user closes it; only the visual timing changed.
+
+**Not run:** dev / lint / build / browser per standing instruction.
+
+---
+
+## 2026-05-01 - Unify weather + time-of-day rendering behind a shared ConditionPill primitive
+
+**Captain ask:** Audit every surface that renders weather (rain, heavy rain, wind, fog, haze, clouds) or time-of-day (dawn, day, dusk, night), then collapse them all onto one styled badge matching the colored pill style from the Live Race Feed. No plain text conditions anywhere.
+
+**Audit found 8 surfaces across 5 pages, in 3 different visual styles** (colored pill on dashboard; neutral grey pill on race detail x2; icon-only span on races list; raw text on tracks detail x2 + drone detail). The WEATHER/TIME icon + label maps were duplicated across dashboard, races list, and race detail. One coherent refactor; escalated to 11 files and Captain approved Option A (one-shot).
+
+**Files modified (11):**
+
+### New shared primitive
+- **`components/ui/ConditionPill/index.jsx`** (new): default export `<ConditionPill kind="weather|time" value={...} />`; named export `<ConditionPillRow weather={...} timeOfDay={...} />` for the common case where both pills appear together. Lifts the WEATHER_ICONS / TIME_ICONS / WEATHER_LABELS / TIME_LABELS maps from the three pages where they were duplicated.
+- **`components/ui/ConditionPill/ConditionPill.module.css`** (new): copied the colored-tint rules from the dashboard (rain/heavy_rain blue, wind grey, clear teal, night purple, day teal). Default is neutral white-on-grey 4% tint - covers clouds/haze/fog/dawn/dusk. Added `.row` for the inline pair-wrapper.
+- **`components/ui/index.js`**: barrel export added.
+
+### Call-site swaps
+- **`app/dashboard/page.jsx`**: dropped local `ConditionPill` function (lines 829-849), dropped WEATHER_ICONS / TIME_ICONS / WEATHER_LABEL / TIME_LABEL constant blocks (lines 45-74), dropped lucide weather/time imports (Sun, Cloud, CloudRain, CloudDrizzle, Wind, CloudFog, Sunrise, Sunset, Moon - kept ChevronLeft/Right + Bot). Added `import ConditionPill from '@/components/ui/ConditionPill'`. Live Race Feed + Next Race container call sites bind to the import automatically since the local declaration was removed.
+- **`app/dashboard/page.module.css`**: stripped `.conditionPill` + all 5 `.conditionPill_*` color variants (lines 1186-1224). Kept `.conditionPills` wrapper - it positions the cluster (`margin-left: auto` push to far right of the track-strip).
+- **`app/races/page.jsx`**: dropped WEATHER_ICONS / TIME_ICONS local maps + lucide weather imports. Replaced both `iconCell` render fns (Weather + Time of Day columns) with the shared component. WEATHER_OPTIONS / TIME_OF_DAY_OPTIONS retained - still feed the FilterBar dropdowns.
+- **`app/races/[raceId]/page.jsx`**: dropped WEATHER_ICONS / WEATHER_LABELS / TIME_ICONS / TIME_LABELS local consts + lucide weather imports + the four `WeatherIcon` / `TimeIcon` local bindings. Two surfaces collapsed: the Track card conditions row inside the result view and the `RaceTrackCard` bottom-of-page preview.
+- **`app/races/[raceId]/page.module.css`**: stripped `.trackConditionPill` (+ svg child) and `.raceConditionPill` (+ icon child). Wrappers `.trackConditionsRow` and `.raceTrackPills` kept - they position the pair, not the pill chrome.
+- **`app/tracks/[trackId]/page.jsx`**: import `{ ConditionPillRow }`. The "Most Common" StatCell on the track stats card now renders a `<ConditionPillRow>` inside its value slot. Recent Races table "Conditions" column got a `render` fn doing the same. Dropped `formatCondition`, `formatWeather`, `capitalize` helpers (no other consumers).
+- **`app/tracks/[trackId]/page.module.css`**: dropped `.conditions` rule (the plain mono-text style is no longer rendered anywhere).
+- **`app/drones/[droneId]/page.jsx`**: import `{ ConditionPillRow }`. Changed the per-row `conditions` field from a joined string `${weather} / ${timeOfDay}` to a structured object `{ weather, timeOfDay }`. Conditions column got a `render` fn pointing at `<ConditionPillRow>`.
+
+**Out of scope (intentional):** `.conditionChip` in `races/[raceId]/page.module.css` ("LEAD CHANGED 3x" / "MAX GAP 1.42s" race-result chips - confusingly named, unrelated to weather/time). `RacingStatusPill` (LIVE / RACING PAUSED engine state). `CONDITION_ICONS` map in `app/drones/[droneId]/page.jsx` (drone trait labels like "Heavy Wind", "Long Tracks" - distinct concept).
+
+**Orphaned CSS left in place** (one-line cleanup, deferred for file-cap discipline):
+- `app/races/page.module.css:176` `.iconCell` - no longer referenced after the table-cell swap. Standalone delete is a tiny follow-up if Captain wants it.
+
+**Not run:** dev / lint / build / browser per standing instruction.
+
+---
+
+## 2026-05-01 - Sticky footer separator: pipe -> dot
+
+**Captain ask:** The sticky footer had `·` between Next Round and Strategy Lock but a `|` pipe between Strategy Lock and Races. Make all three sections share the same dot separator.
+
+**Files modified (1):**
+
+### `components/ui/NavShell/index.jsx`
+- Swapped the `|` character to `·` and the `countdownSepPipe` class to `countdownSep` on the separator span before `.countdownRacesGroup` (around line 480). The `countdownSepRaces` modifier stays so the existing `@media (max-width: 480px)` hide rule still drops the dot at the smallest breakpoint (matching prior behavior). Comment updated.
+
+**Not modified:** the `.countdownSepPipe` CSS rule in `NavShell.module.css` is now orphaned. Left in place pending Captain's call on whether to delete (no other component currently consumes it).
+
+**Not run:** dev / lint / build / browser per standing instruction.
+
+---
+
+## 2026-05-01 - Sticky footer slot stability + leaderboard rewards icon-only at 640px
+
+**Captain ask (2 items):**
+1. Footer sections (Next Round / Racing status, Strategy Lock, Races) shifted position when content changed (e.g. "Next Round in 01:34" -> "RACING IN PROGRESS" pushed everything right). Each section needs a fixed width allocation; content swaps inside a stable box.
+2. Leaderboard at <=640px: confirm podium carousel (already on at 768px, cascades fine). Move reward-icon text-hide from 480px up to 640px so the rewards row reads as icons-only across mid-mobile too.
+
+**Files modified (2):**
+
+### `components/ui/NavShell/NavShell.module.css`
+- **Item 1 (timer slots):** moved the `min-width: 11em; justify-content: flex-start;` block from the lone `.countdownItemStrategyLock` override onto the base `.countdownItem` rule. Both timer slots (Next Round AND Strategy Lock) now carry the same 11em fixed width with left-aligned content. The `.countdownItemStrategyLock` override stays as-is for symmetry / belt-and-suspenders. "Next Round in MM:SS" and "RACING IN PROGRESS" both fit inside 11em at --text-xs; the slot doesn't change width when the inner content swaps. Comment updated to reflect the new shared semantics. Units in em so the slot scales with the existing 560px/480px font-size shrinks; desktop is unaffected.
+- **Item 1 (Races slot):** added `min-width: 7em; justify-content: flex-start;` to `.countdownRacesGroup`. Worst case "Races: 1 2 3" fits comfortably; "Races: --" shows the same width. Stops the centered cluster from reflowing left/right when the user's race count changes 0 -> 3.
+
+### `app/leaderboard/page.module.css`
+- **Item 2 (rewards icon-only at 640px):** lifted `.rewardText { display: none; }` and `.rewardInline { gap: 0; }` out of the existing `@media (max-width: 480px)` block. Added a new `@media (max-width: 640px)` block (placed between the 768px and 480px blocks) holding the same two rules. Net behavior: text labels disappear at 640px and below instead of 480px and below.
+- Podium scroll carousel: confirmed already active at `@media (max-width: 768px)` (page.module.css:728-789). Cascades through 640px untouched. No change needed.
+
+**Verification:**
+- Confirmed via Read: `.countdownItem` now carries `min-width: 11em; justify-content: flex-start;` (line 306-307); `.countdownRacesGroup` now carries `min-width: 7em; justify-content: flex-start;` (line 407-408); new `@media (max-width: 640px)` block at leaderboard line 844 with both rules; the duplicate rules removed cleanly from the 480px block.
+- **Not run:** dev server / lint / build / browser - per Captain's standing instruction (and "skip lint" on this task).
+
+**Not verified by Mercenary:**
+- Whether 11em is exactly tight enough at desktop (--text-xs ~12px so 11em ~132px). "RACING IN PROGRESS" with letter-spacing 0.06em is the widest state; should fit comfortably but Captain may want to nudge to 11.5em or 12em if it crowds. Same for the 7em on Races - if a future change adds a 4th numbered link the slot widens via min-width's "min" semantics, not a hard cap.
+- Nothing else inside NavShell or leaderboard at 640px should be visually disturbed; the change is strictly additive (one new media block, no existing rules shifted).
+
+---
+
+## 2026-05-01 - Dashboard layout fixes: 1200 break, 1024 equal-height tables, Next Race header, 768 matchup
+
+**Captain ask (4 items):**
+1. Layout breaking between ~1200px and ~1024px. Desktop look should hold from 1440 down to 1024 with no compound `(min-width: 769px) and (max-width: 1200px)` interfering.
+2. At the 1024 reorganize, Live Race Feed and Your Recent Results should be the same height with internal scroll on overflow.
+3. Remove the `RACE QUEUED` badge from the Next Race panel header. Header is just "Next Race" + cycling arrows.
+4. At 768px the Next Race container: keep drone images and radial charts at desktop sizes (don't shrink), keep the track info row from stacking column-style (1-2 row wrap is fine), hide the `VS` text.
+
+**Files modified (2):**
+
+### `app/dashboard/page.module.css`
+- Deleted both `(min-width: 769px) and (max-width: 1200px)` blocks (the 2-col tablet grid override and the quickStats font/padding tweak). Both were the source of the 1024-1200 break: they kicked in well above the 1024 tablet boundary.
+- Replaced the broad `(max-width: 1023px) { .grid { display: flex; flex-direction: column } }` rule with a tablet-only `(min-width: 769px) and (max-width: 1023px)` 2-col grid: rows are `spotlight | spotlight`, `nextrace | nextrace`, `quickStats | quickStats`, `feed | results`. Pairing feed and results in the same grid row gives equal height via default `align-items: stretch`. Both `.resultsTable` and `.feedTable` get `max-height: 480px` inside this breakpoint so neither balloons; existing `flex: 1; min-height: 0; overflow-y: auto` keeps internal scroll.
+- Added `display: flex; flex-direction: column` to the existing `(max-width: 768px) .grid` rule so mobile keeps the previous flex stack now that the 1023 flex-column rule is narrowed. Mobile order = DOM order: spotlight, nextrace, feed, results, quickStats. Same as before.
+- Reworked the `(max-width: 768px)` block inside the Next Race section: dropped the `matchupImageFrame { max-width: 100px }` and `matchupRadar { 80x80 }` shrinks (drones and radars stay at desktop 130px / 120px), dropped the `trackStrip { flex-direction: column; align-items: flex-start }` override (track strip wraps as 1-2 row instead of stacking), set `.vsDivider { display: none }` and `.matchupRow { grid-template-columns: 1fr 1fr }` so the two drone sides fill cleanly without an empty middle column. The 480px overrides (image 70px, radar 88px, etc.) are untouched.
+- Removed `.locksIn` and `.locksInExpired` (now dead after the badge removal in JSX).
+
+### `app/dashboard/page.jsx`
+- Removed the `<RaceQueuedBadge>` block from `NextRacePanel`'s `sectionHeadingRow`. Header now contains the heading and the cycling cluster only.
+- Removed the `RaceQueuedBadge` function definition and its surrounding doc comment. `useState` and `useEffect` imports stay (still used by the page body).
+
+**Not verified by Mercenary:** Captain runs dev / browser at 1440 / 1024 / 768 / 480 / 360.
+
+---
+
 ## 2026-05-01 - Dashboard overhaul: Recent Results + Live Feed tables, Next Race cycling, mobile matchup
 
 **Captain ask (5 items):**

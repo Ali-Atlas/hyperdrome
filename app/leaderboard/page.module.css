@@ -837,6 +837,19 @@
   }
 }
 
+/* Mid-mobile: drop reward category labels and rely on the icon tiles
+   alone so the rewards row fits without wrapping. Activated at 640px
+   (was 480px) so phones in the 480-640px range also get the icon-only
+   treatment. */
+@media (max-width: 640px) {
+  .rewardText {
+    display: none;
+  }
+  .rewardInline {
+    gap: 0;
+  }
+}
+
 /* Smallest mobile: tighter podium-card chrome inside the carousel.
    Same flex / scroll-snap / mask behavior from the 768px block; just
    shrinks padding + font sizes + image height + level chip so the
@@ -865,15 +878,6 @@
   .podiumStatRow dt,
   .podiumStatRow dd {
     font-size: 10px;
-  }
-
-  /* Mobile: drop the reward category labels and rely on icon tooltips
-     so the rewards row fits without wrapping. */
-  .rewardText {
-    display: none;
-  }
-  .rewardInline {
-    gap: 0;
   }
 }
 

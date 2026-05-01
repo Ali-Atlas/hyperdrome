@@ -5,6 +5,7 @@ import Card from '@/components/ui/Card';
 import DataTable from '@/components/ui/DataTable';
 import Badge from '@/components/ui/Badge';
 import EmptyState from '@/components/ui/EmptyState';
+import { ConditionPillRow } from '@/components/ui/ConditionPill';
 import {
   getTrackById,
   getTrackStats,
@@ -89,7 +90,16 @@ export default async function TrackDetailPage({ params }) {
                 />
                 <StatCell
                   label="Most Common"
-                  value={formatCondition(trackStats.topCondition)}
+                  value={
+                    trackStats.topCondition ? (
+                      <ConditionPillRow
+                        weather={trackStats.topCondition.weather}
+                        timeOfDay={trackStats.topCondition.timeOfDay}
+                      />
+                    ) : (
+                      '-'
+                    )
+                  }
                 />
               </div>
             )}
@@ -227,9 +237,10 @@ export default async function TrackDetailPage({ params }) {
                     label: 'Conditions',
                     shortLabel: 'Cond.',
                     render: (r) => (
-                      <span className={styles.conditions}>
-                        {capitalize(r.timeOfDay)} · {formatWeather(r.weather)}
-                      </span>
+                      <ConditionPillRow
+                        weather={r.weather}
+                        timeOfDay={r.timeOfDay}
+                      />
                     ),
                   },
                   {
@@ -340,20 +351,3 @@ function formatDate(iso) {
   });
 }
 
-function formatCondition(c) {
-  if (!c) return '-';
-  return `${capitalize(c.timeOfDay)} · ${formatWeather(c.weather)}`;
-}
-
-function formatWeather(w) {
-  if (!w) return '';
-  return w
-    .split('_')
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(' ');
-}
-
-function capitalize(s) {
-  if (!s) return '';
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}

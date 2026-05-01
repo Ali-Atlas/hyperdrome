@@ -407,17 +407,6 @@
   opacity: 1;
 }
 
-/* Public viewer with nothing equipped: no chip frame at all. The
-   "None" label + the prism / hex shape stand on their own, matching
-   the surrounding card surface so the empty state reads as absent
-   rather than as a clickable affordance. */
-.modSelector.modSelectorBare {
-  background: transparent;
-  border-color: transparent;
-  padding-left: 0;
-  padding-right: 0;
-}
-
 /* Per-rarity trigger background. Matches the dropdown row tints exactly
    so the equipped item reads with the same rarity color whether it's
    shown collapsed (trigger) or open (dropdown row). Chained .modSelector
@@ -1485,10 +1474,11 @@
  * Breakpoints
  * ========================================================================== */
 
-/* Small mobile - radar and stats stay side-by-side per Captain.
-   Skin / mod blocks stack one over the other so the cramped width
-   stays readable. */
-@media (max-width: 600px) {
+/* Very narrow mobile - skin / mod blocks stack one over the other.
+   Above this width the two blocks sit side-by-side as flex children
+   (`flex: 1 1 0; min-width: 0;` on the base rule keeps them fitting
+   on a phone). */
+@media (max-width: 400px) {
   .collectibleRow {
     flex-direction: column;
   }

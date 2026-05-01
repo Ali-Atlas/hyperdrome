@@ -1,0 +1,88 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  letter-spacing: 0.06em;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.pill svg {
+  flex-shrink: 0;
+}
+
+/* Weather variants. Each gets a low-alpha tinted background plus a
+   matching foreground so the pill reads distinctively without
+   shouting. Heavy rain shifts hue + lifts opacity vs. rain so the two
+   are visibly different. */
+.pill_weather_clear {
+  background: rgba(3, 218, 198, 0.15);
+  color: var(--accent-primary);
+}
+
+.pill_weather_clouds {
+  background: rgba(148, 163, 184, 0.14);
+  color: #B0C2D6;
+}
+
+.pill_weather_rain {
+  background: rgba(74, 158, 255, 0.18);
+  color: var(--rarity-rare);
+}
+
+.pill_weather_heavy_rain {
+  background: rgba(56, 132, 255, 0.24);
+  color: #8AB4FF;
+}
+
+.pill_weather_wind {
+  background: rgba(138, 155, 168, 0.16);
+  color: var(--level-steel);
+}
+
+.pill_weather_haze {
+  background: rgba(168, 152, 132, 0.16);
+  color: #C9B89E;
+}
+
+.pill_weather_fog {
+  background: rgba(94, 156, 142, 0.16);
+  color: #92C7B5;
+}
+
+/* Time-of-day variants. Dawn/dusk pull warm hues so the daily arc
+   reads at a glance: dawn warm amber, day teal, dusk warm mauve,
+   night purple. */
+.pill_time_dawn {
+  background: rgba(255, 140, 66, 0.14);
+  color: var(--level-orange);
+}
+
+.pill_time_day {
+  background: rgba(3, 218, 198, 0.15);
+  color: var(--accent-primary);
+}
+
+.pill_time_dusk {
+  background: rgba(217, 134, 197, 0.16);
+  color: #E0A6CE;
+}
+
+.pill_time_night {
+  background: rgba(187, 134, 252, 0.18);
+  color: var(--accent-secondary);
+}
+
+.row {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}

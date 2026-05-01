@@ -37,6 +37,7 @@ import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import SkinThumb from '@/components/ui/SkinThumb';
+import { ConditionPillRow } from '@/components/ui/ConditionPill';
 import {
   STAT_KEYS,
   calculateStatUpgradeCost,
@@ -500,7 +501,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
       id: r.id,
       opponent: isDrone1 ? r.drone2Id : r.drone1Id,
       trackName: r.track?.name ?? '-',
-      conditions: `${r.weather} / ${r.timeOfDay}`,
+      conditions: { weather: r.weather, timeOfDay: r.timeOfDay },
       result: won ? 'WIN' : 'LOSS',
       pointsEarned: won ? r.pointsAwarded : 0,
     };
@@ -664,9 +665,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                         styles.modSelector,
                         drone.appliedSkin?.rarity &&
                           styles[`modSelector_${drone.appliedSkin.rarity}`],
-                        !isOwner &&
-                          !drone.appliedSkin &&
-                          styles.modSelectorBare,
                       )}
                       onClick={() => setShowSwapSkinList((v) => !v)}
                       disabled={
@@ -806,9 +804,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                         styles.modSelector,
                         drone.appliedMod?.rarity &&
                           styles[`modSelector_${drone.appliedMod.rarity}`],
-                        !isOwner &&
-                          !drone.appliedMod &&
-                          styles.modSelectorBare,
                       )}
                       onClick={() => setShowSwapList((v) => !v)}
                       disabled={
@@ -1106,7 +1101,16 @@ function RaceHistoryTable({ rows }) {
           ),
         },
         { key: 'trackName', label: 'Track' },
-        { key: 'conditions', label: 'Conditions' },
+        {
+          key: 'conditions',
+          label: 'Conditions',
+          render: (r) => (
+            <ConditionPillRow
+              weather={r.conditions?.weather}
+              timeOfDay={r.conditions?.timeOfDay}
+            />
+          ),
+        },
         {
           key: 'result',
           label: 'Result',
