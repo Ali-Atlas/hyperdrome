@@ -350,6 +350,24 @@
     "gap    track";
 }
 
+/* Slots stretch to the grid row height (default `align-items:
+   stretch`); making them flex columns + flex-growing the inner
+   `.droneCard` forces both cards to share the row's actual height
+   even when their natural content heights differ (e.g. the YOU
+   badge on the winner adds a ~4px line vs the challenger's plain
+   "Owner:" text). Without this the cards size to content and a
+   small height mismatch shows up. */
+.drone1Slot,
+.drone2Slot {
+  display: flex;
+  flex-direction: column;
+}
+
+.drone1Slot > *,
+.drone2Slot > * {
+  flex: 1;
+}
+
 .drone1Slot {
   grid-area: drone1;
 }
