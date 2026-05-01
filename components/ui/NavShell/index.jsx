@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -278,32 +278,68 @@ function CountdownBar() {
   const [paused, setPaused] = useState(readCachedPaused);
   const [now, setNow] = useState(() => Date.now());
   /* User's pending/upcoming races - rendered as numbered links to the
-   * right of the timers. Polled on a 15s cadence (independent of the
-   * main next-batch poll above). The parent NavShell only mounts this
-   * component when the user is authenticated, so we don't read the
-   * session here - that would subscribe the bar to session updates
-   * and force unnecessary re-renders. */
+   * right of the timers. The parent NavShell only mounts this component
+   * when the user is authenticated, so we don't read the session here -
+   * that would subscribe the bar to session updates and force
+   * unnecessary re-renders.
+   *
+   * Polling is adaptive (15s steady, 3s when partial). The cron creates
+   * races sequentially per pair, so a 15s poll can catch the cycle
+   * mid-insert and return e.g. 1 race before the full set of 3 lands.
+   * To avoid the "Races: 1" → "Races: 1 2 3" stutter, we hold the
+   * displayed list until either:
+   *   (a) the count matches the user's active drone count returned
+   *       alongside the races (full set has landed), or
+   *   (b) the count is stable across two consecutive polls (covers the
+   *       edge case of an unpaired drone that won't be in the round, so
+   *       races.length < activeDroneCount permanently).
+   * During (a) is unmet we fast-poll at 3s instead of 15s so the
+   * stable-or-complete state is reached within a few seconds, not the
+   * worst-case 30s of the slow cadence. */
   const [upcomingRaces, setUpcomingRaces] = useState(readCachedUpcoming);
+  const lastFetchedCountRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
+    let timerId = null;
+    const SLOW_MS = 15_000;
+    const FAST_MS = 3_000;
     const load = async () => {
+      let nextDelay = SLOW_MS;
       try {
         const res = await fetch('/api/races/upcoming');
         const body = await res.json();
-        if (!cancelled && res.ok && body?.data?.races) {
-          setUpcomingRaces(body.data.races);
-          writeCache(CB_STORAGE.upcoming, body.data.races);
+        if (!cancelled && res.ok && body?.data) {
+          const races = body.data.races ?? [];
+          const expected = body.data.activeDroneCount ?? null;
+          const prevCount = lastFetchedCountRef.current;
+          lastFetchedCountRef.current = races.length;
+          // Always commit when the round is empty (transitioning to '--'),
+          // when the full expected set has landed, or when the count has
+          // stabilized across two polls. Otherwise we're catching the
+          // cron mid-creation - hold the prior display and re-poll soon.
+          const shouldCommit =
+            races.length === 0 ||
+            (expected != null && races.length >= expected) ||
+            races.length === prevCount;
+          if (shouldCommit) {
+            setUpcomingRaces(races);
+            writeCache(CB_STORAGE.upcoming, races);
+          } else {
+            nextDelay = FAST_MS;
+          }
         }
       } catch {
         /* keep stale list */
       }
+      if (!cancelled) {
+        timerId = setTimeout(load, nextDelay);
+      }
     };
     load();
-    const id = setInterval(load, 15_000);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      if (timerId) clearTimeout(timerId);
     };
   }, []);
 
