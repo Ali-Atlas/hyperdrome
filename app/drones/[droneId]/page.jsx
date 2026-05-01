@@ -586,6 +586,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   labels={radarLabels}
                   className={styles.radar}
                   maxValue={100}
+                  tone={drone.isBot ? 'bot' : isOwner ? 'own' : 'other'}
                 />
 
                 <div className={styles.droneMeta}>

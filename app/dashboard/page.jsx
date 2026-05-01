@@ -805,7 +805,6 @@ function NextRaceMatchup({ race }) {
         <NextRaceDroneSide
           drone={userDrone}
           opponent={opponent}
-          tone="own"
           isOwn
           radarMax={radarMax}
         />
@@ -813,7 +812,6 @@ function NextRaceMatchup({ race }) {
         <NextRaceDroneSide
           drone={opponent}
           opponent={userDrone}
-          tone="opponent"
           radarMax={radarMax}
         />
       </div>
@@ -833,18 +831,15 @@ function NextRaceMatchup({ race }) {
 
 
 /** One side of the dashboard NEXT RACE matchup - drone image, name +
- *  level badge, and a compact stat-shape radar. The radar tone shifts
- *  to grey for the opponent so the user's own drone stays the visual
- *  anchor when both charts sit side-by-side. `radarMax` is shared
- *  between the two sides so polygon size = absolute strength. */
-function NextRaceDroneSide({
-  drone,
-  opponent,
-  tone = 'own',
-  isOwn = false,
-  radarMax,
-}) {
+ *  level badge, and a compact stat-shape radar. Radar color is driven
+ *  by ownership: own (teal) for the viewer's drone, bot (orange) for
+ *  matchmaker bots, other (purple) for any other human player. The
+ *  `isOwn` flag pre-resolves the viewer-vs-this-side question; the
+ *  bot check is on the drone itself. `radarMax` is shared between
+ *  the two sides so polygon size = absolute strength. */
+function NextRaceDroneSide({ drone, opponent, isOwn = false, radarMax }) {
   if (!drone) return <div className={styles.matchupSide} aria-hidden="true" />;
+  const tone = drone.isBot ? 'bot' : isOwn ? 'own' : 'other';
   return (
     <div className={styles.matchupSide}>
       {isOwn && <span className={styles.youBadge}>YOU</span>}

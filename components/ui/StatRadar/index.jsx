@@ -58,10 +58,11 @@ function displayFor(axis) {
  * tooltip values: teal when own > compare, red when own < compare,
  * default text color when equal or compare is unset.
  *
- * `tone` controls the data polygon's color treatment:
- *   'own'      - teal accent (default; current drone-management visual)
- *   'opponent' - desaturated grey for matchup comparisons where a
- *                second radar shouldn't compete with the primary one.
+ * `tone` controls the data polygon's color treatment based on
+ * drone ownership relative to the viewer:
+ *   'own'   - teal accent (the viewer's own drone; default)
+ *   'other' - secondary purple (another player's drone)
+ *   'bot'   - warm orange (matchmaker bot)
  *
  * @param {object} props
  * @param {string[]} props.axes
@@ -70,7 +71,7 @@ function displayFor(axis) {
  * @param {number} [props.maxValue]
  * @param {string[]} [props.labels]
  * @param {string} [props.className]
- * @param {'own'|'opponent'} [props.tone='own']
+ * @param {'own'|'other'|'bot'} [props.tone='own']
  */
 export default function StatRadar({
   axes,
@@ -142,16 +143,19 @@ export default function StatRadar({
   );
 
   const wrapperClass = [styles.wrapper, className].filter(Boolean).join(' ');
-  const radarClass = [
-    styles.radar,
-    tone === 'opponent' ? styles.radarOpponent : null,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const radarClass = styles.radar;
   const fillClass =
-    tone === 'opponent' ? styles.dataFillOpponent : styles.dataFill;
+    tone === 'bot'
+      ? styles.dataFillBot
+      : tone === 'other'
+        ? styles.dataFillOther
+        : styles.dataFill;
   const dotClass =
-    tone === 'opponent' ? styles.dataDotOpponent : styles.dataDot;
+    tone === 'bot'
+      ? styles.dataDotBot
+      : tone === 'other'
+        ? styles.dataDotOther
+        : styles.dataDot;
 
   return (
     <div

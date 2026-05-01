@@ -39,21 +39,36 @@
   fill: var(--accent-primary);
 }
 
-/* Opponent variant - desaturated grey so two radars can sit side-by-side
-   in a matchup view without the secondary one competing visually with
-   the primary (own) chart. */
-.dataFillOpponent {
-  fill: rgba(160, 160, 160, 0.1);
-  stroke: var(--text-secondary);
+/* Other-player variant - secondary purple. Used when the radar is
+   plotting another human player's drone (not the viewer's). */
+.dataFillOther {
+  fill: rgba(187, 134, 252, 0.18);
+  stroke: var(--accent-secondary);
   stroke-width: 1.5;
-  filter: drop-shadow(0 0 4px rgba(160, 160, 160, 0.25));
+  filter: drop-shadow(0 0 6px rgba(187, 134, 252, 0.4));
   transition:
     points var(--duration-normal) var(--ease-out),
     fill var(--duration-normal) var(--ease-out);
 }
 
-.dataDotOpponent {
-  fill: var(--text-secondary);
+.dataDotOther {
+  fill: var(--accent-secondary);
+}
+
+/* Bot variant - warm orange. Used when the radar is plotting a
+   matchmaker bot drone (`drone.isBot === true`). */
+.dataFillBot {
+  fill: rgba(255, 152, 0, 0.18);
+  stroke: #FF9800;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 6px rgba(255, 152, 0, 0.4));
+  transition:
+    points var(--duration-normal) var(--ease-out),
+    fill var(--duration-normal) var(--ease-out);
+}
+
+.dataDotBot {
+  fill: #FF9800;
 }
 
 .label {

@@ -1812,6 +1812,7 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId, slotLabel }
             labels={radarLabels}
             maxValue={radarMax}
             className={styles.matchupRadar}
+            tone={drone.isBot ? 'bot' : isViewerDrone ? 'own' : 'other'}
           />
         </div>
 
