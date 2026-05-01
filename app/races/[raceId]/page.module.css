@@ -2388,7 +2388,7 @@
      inline label+value row layout itself is already in the base
      `.raceEdgeWinHead` rule). */
   .raceEdgeWinValue {
-    font-size: var(--text-base);
+    font-size: var(--text-sm);
   }
 }
 
@@ -2787,7 +2787,7 @@
    weight when sat next to each other in `.raceBottomGrid`. */
 .raceEdgeHeaderTitle {
   font-family: var(--font-heading);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   font-weight: var(--font-bold);
   color: var(--header-bar-text);
   text-transform: uppercase;
@@ -2797,7 +2797,7 @@
 
 .raceEdgeHeaderDrone {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: var(--font-bold);
   color: var(--text-secondary);
   letter-spacing: 0.06em;
@@ -2841,7 +2841,7 @@
 
 .raceEdgeSectionLabel {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: var(--font-bold);
   color: var(--text-tertiary);
   text-transform: uppercase;
@@ -2863,7 +2863,7 @@
   justify-content: space-between;
   gap: 6px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .raceEdgeStat {
@@ -2876,7 +2876,7 @@
 .raceEdgeDelta {
   font-weight: var(--font-bold);
   letter-spacing: 0.04em;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .raceEdgeDeltaPos {
@@ -2889,7 +2889,7 @@
 
 .raceEdgeNone {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-tertiary);
   font-style: italic;
 }
@@ -2909,10 +2909,10 @@
 
 .raceEdgeWinValue {
   font-family: var(--font-heading);
-  /* Stepped down from --text-2xl so the win-probability number sits
-     inline next to the WIN PROBABILITY label without dominating the
-     row. The 768 override below shrinks it one more step for mobile. */
-  font-size: var(--text-lg);
+  /* Compact number that reads as a peer of the WIN PROBABILITY label
+     rather than a billboard. The 768 override below shrinks it one
+     more step for mobile. */
+  font-size: var(--text-base);
   font-weight: var(--font-bold);
   color: var(--accent-primary);
   letter-spacing: 0.02em;
@@ -2940,7 +2940,7 @@
 
 .raceEdgeWinCaption {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 8px;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.06em;

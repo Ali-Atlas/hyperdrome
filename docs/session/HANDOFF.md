@@ -453,6 +453,31 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-01 - Race Edge: 1-decimal win prob, all values smaller across the card
+
+**Captain ask (2):**
+1. Win probability needs one decimal of precision so a slim ELO edge actually reads as 50.3% instead of rounding to a dead-heat 50%.
+2. Every value in the Race Edge card should shrink across all breakpoints - the card should feel like a dense scouting report, not a billboard.
+
+**Files modified (2):**
+
+### `app/races/[raceId]/page.jsx`
+- `RaceEdgeCard`: `const pct = Math.round(prob * 100)` -> `const pct = (prob * 100).toFixed(1)`. The pct string is used both in the displayed number and as the bar fill width (`width: ${pct}%` accepts "50.3%" as a valid CSS length).
+
+### `app/races/[raceId]/page.module.css`
+- `.raceEdgeHeaderTitle`: `var(--text-base)` -> `var(--text-sm)` (16 -> 14).
+- `.raceEdgeHeaderDrone`: 11 -> 10.
+- `.raceEdgeSectionLabel` (STRENGTHS / GAPS / WIN PROBABILITY): 9 -> 8.
+- `.raceEdgeRow` (parent font-size for stat label + delta): 11 -> 10.
+- `.raceEdgeDelta` (the +12 / -8 numbers): 12 -> 11.
+- `.raceEdgeWinValue` (the percentage): `var(--text-lg)` -> `var(--text-base)` at desktop; the 768 override drops to `var(--text-sm)` (was `var(--text-base)`) so mobile shrinks one more step.
+- `.raceEdgeWinCaption` (ELO X vs Y): 9 -> 8.
+- `.raceEdgeNone`: 10 -> 9.
+
+Net: every text size in the card stepped down by ~1 size token, including the mobile override, so the proportions hold across breakpoints.
+
+---
+
 ## 2026-05-01 - Spotlight->Next Race sync: move from useEffect to direct call in arrow handlers
 
 **Captain ask:** the prior `useEffect`-based sync had a bug - first spotlight cycle drove Next Race correctly, then a manual Next Race cycle would persist, then the next spotlight cycle did not update Next Race. The sync should be unconditional: every spotlight arrow click checks the new drone's pending race and jumps Next Race to it (no flags, no stale-state checks).

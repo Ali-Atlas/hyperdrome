@@ -2108,7 +2108,11 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
     .filter((d) => d.delta < 0)
     .sort((a, b) => a.delta - b.delta);
 
-  const pct = Math.round(prob * 100);
+  // One decimal of precision so a slim ELO edge actually reads as an
+  // edge ("50.3%") instead of rounding to a dead heat ("50%"). The
+  // string also drives the bar fill via `width: ${pct}%` - "50.3%" is
+  // a valid CSS length.
+  const pct = (prob * 100).toFixed(1);
 
   return (
     <section className={styles.raceEdgeCard}>
