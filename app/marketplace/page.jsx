@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, ChevronDown, ChevronRight, X, Check } from 'lucide-react';
+import { Search, Plus, ChevronDown, ChevronUp, ChevronRight, X, Check } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -1581,7 +1581,65 @@ function getVisiblePages(current, total) {
 /* Reads as a market pulse: type pill + item name · time · seller → price.    */
 /* -------------------------------------------------------------------------- */
 
+/* Sort keys map 1:1 to the column labels in the tape header. Each
+   resolver pulls the raw value out of a transaction; rarity is mapped
+   through TAPE_RARITY_RANK so the sort follows tier order, not
+   alphabetical. The comparator below normalises strings (case-fold)
+   and treats nulls as the "low" end on either direction. */
+const TAPE_RARITY_RANK = { common: 1, rare: 2, epic: 3, legendary: 4 };
+
+const TAPE_SORT_GETTERS = {
+  type: (t) => t.itemType ?? '',
+  item: (t) =>
+    (t.drone?.name ?? t.skin?.name ?? t.mod?.name ?? '').toLowerCase(),
+  rarity: (t) =>
+    TAPE_RARITY_RANK[
+      t.skin?.rarity ?? t.mod?.rarity ?? t.drone?.rarity
+    ] ?? 0,
+  seller: (t) => (t.seller?.username ?? '').toLowerCase(),
+  buyer: (t) => (t.buyer?.username ?? '').toLowerCase(),
+  time: (t) => {
+    const v = t.soldAt ?? t.createdAt;
+    return v ? new Date(v).getTime() : 0;
+  },
+  price: (t) => Number(t.price) || 0,
+};
+
 function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
+  // Default sort: most-recent sale first. Clicking the active column's
+  // header toggles dir; clicking a different column switches to it
+  // (initial dir picked per column type — string cols start asc to
+  // read alphabetically, numeric/time cols start desc to surface the
+  // big values / latest entries first).
+  const [sort, setSort] = useState({ key: 'time', dir: 'desc' });
+
+  const handleSortClick = useCallback((key) => {
+    setSort((s) => {
+      if (s.key === key) {
+        return { key, dir: s.dir === 'asc' ? 'desc' : 'asc' };
+      }
+      const numericOrTime = key === 'price' || key === 'time' || key === 'rarity';
+      return { key, dir: numericOrTime ? 'desc' : 'asc' };
+    });
+  }, []);
+
+  const sortedTransactions = useMemo(() => {
+    const getter = TAPE_SORT_GETTERS[sort.key] ?? TAPE_SORT_GETTERS.time;
+    const mult = sort.dir === 'asc' ? 1 : -1;
+    const priceGetter = TAPE_SORT_GETTERS.price;
+    // Ties fall back to price desc so equal-on-primary rows surface
+    // the bigger sale first. Skipped when price IS the primary sort
+    // (tied prices have nothing to disambiguate).
+    return [...transactions].sort((a, b) => {
+      const av = getter(a);
+      const bv = getter(b);
+      if (av < bv) return -1 * mult;
+      if (av > bv) return 1 * mult;
+      if (sort.key === 'price') return 0;
+      return priceGetter(b) - priceGetter(a);
+    });
+  }, [transactions, sort.key, sort.dir]);
+
   const stats = useMemo(() => {
     const count = transactions.length;
     if (!count) return { count: 0, volume: 0, avg: 0 };
@@ -1626,47 +1684,87 @@ function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
           {page > 1 ? 'No more completed sales.' : 'No completed sales yet.'}
         </div>
       ) : (
-        <ul className={styles.tapeList}>
-          {transactions.map((t) => {
-            const name =
-              t.drone?.name ??
-              t.skin?.name ??
-              t.mod?.name ??
-              (t.itemType === 'drone'
-                ? 'Drone'
-                : t.itemType === 'mod'
-                  ? 'Mod'
-                  : 'Skin');
-            const typePill =
-              t.itemType === 'skin'
-                ? t.skin?.rarity
-                : t.itemType === 'mod'
-                  ? t.mod?.rarity
-                  : null;
-            return (
-              <li key={t.id} className={styles.tapeRow}>
-                <span
-                  className={cn(
-                    styles.tapeTypePill,
-                    typePill && styles[`rarity_${typePill}`],
-                    t.itemType === 'drone' && styles.tapePillDrone,
-                  )}
-                >
-                  {t.itemType}
-                </span>
-                <span className={styles.tapeName}>{name}</span>
-                <span className={styles.tapeMeta}>
-                  {formatRelativeTime(t.soldAt)}
-                  {t.buyer?.username ? ` · by ${t.buyer.username}` : ''}
-                </span>
-                <span className={styles.tapePrice}>
-                  <VoltIcon size={11} />
-                  {Number(t.price).toLocaleString()}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <div className={styles.tapeHeaderRow} role="row">
+            <SortLabel sort={sort} colKey="type" onClick={handleSortClick}>
+              Type
+            </SortLabel>
+            <SortLabel sort={sort} colKey="item" onClick={handleSortClick}>
+              Item
+            </SortLabel>
+            <SortLabel sort={sort} colKey="rarity" onClick={handleSortClick}>
+              Rarity
+            </SortLabel>
+            <SortLabel sort={sort} colKey="seller" onClick={handleSortClick}>
+              Seller
+            </SortLabel>
+            <SortLabel sort={sort} colKey="buyer" onClick={handleSortClick}>
+              Buyer
+            </SortLabel>
+            <SortLabel sort={sort} colKey="time" onClick={handleSortClick}>
+              Time
+            </SortLabel>
+            <SortLabel
+              sort={sort}
+              colKey="price"
+              onClick={handleSortClick}
+              alignEnd
+            >
+              Price
+            </SortLabel>
+          </div>
+          <ul className={styles.tapeList}>
+            {sortedTransactions.map((t) => {
+              const name =
+                t.drone?.name ??
+                t.skin?.name ??
+                t.mod?.name ??
+                (t.itemType === 'drone'
+                  ? 'Drone'
+                  : t.itemType === 'mod'
+                    ? 'Mod'
+                    : 'Skin');
+              const rarity =
+                t.itemType === 'skin'
+                  ? t.skin?.rarity
+                  : t.itemType === 'mod'
+                    ? t.mod?.rarity
+                    : t.drone?.rarity ?? null;
+              const sellerName = t.seller?.username ?? '-';
+              const buyerName = t.buyer?.username ?? '-';
+              const when = formatRelativeTime(t.soldAt ?? t.createdAt);
+              return (
+                <li key={t.id} className={styles.tapeRow}>
+                  <span
+                    className={cn(
+                      styles.tapeTypePill,
+                      rarity && styles[`rarity_${rarity}`],
+                      t.itemType === 'drone' && styles.tapePillDrone,
+                    )}
+                  >
+                    {t.itemType}
+                  </span>
+                  <span className={styles.tapeName}>{name}</span>
+                  <span
+                    className={cn(
+                      styles.tapeRarity,
+                      rarity && styles[`tapeRarity_${rarity}`],
+                    )}
+                  >
+                    {rarity ?? '-'}
+                  </span>
+                  <span className={styles.tapeSeller}>{sellerName}</span>
+                  <span className={styles.tapeBuyer}>{buyerName}</span>
+                  <span className={styles.tapeWhen}>{when}</span>
+                  <span className={styles.tapePrice}>
+                    <VoltIcon size={10} />
+                    {Number(t.price).toLocaleString()}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
 
       {(page > 1 || hasMore || transactions.length > 0) && (
@@ -1691,6 +1789,41 @@ function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
         </div>
       )}
     </section>
+  );
+}
+
+/* Sortable header cell for the SalesTape. Renders the column label as a
+   <button> so the click target inherits the proper a11y semantics; the
+   currently active column shows a chevron in its sort direction. */
+function SortLabel({ sort, colKey, onClick, alignEnd, children }) {
+  const isActive = sort.key === colKey;
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(colKey)}
+      className={cn(
+        styles.tapeColLabel,
+        styles.tapeColLabelBtn,
+        isActive && styles.tapeColLabelActive,
+        alignEnd && styles.tapeColLabelEnd,
+      )}
+      aria-sort={
+        isActive
+          ? sort.dir === 'asc'
+            ? 'ascending'
+            : 'descending'
+          : 'none'
+      }
+    >
+      <span>{children}</span>
+      {isActive && (
+        sort.dir === 'asc' ? (
+          <ChevronUp size={9} aria-hidden="true" />
+        ) : (
+          <ChevronDown size={9} aria-hidden="true" />
+        )
+      )}
+    </button>
   );
 }
 

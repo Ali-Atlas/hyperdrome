@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useId, useState } from 'react';
+import { use, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Trophy,
@@ -21,6 +21,7 @@ import {
   getDifficultyColor,
 } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
+import { useToast } from '@/components/ui/Toast';
 import DroneImage from '@/components/ui/DroneImage';
 import SkinThumb from '@/components/ui/SkinThumb';
 import VoltIcon from '@/components/ui/VoltIcon';
@@ -185,6 +186,7 @@ function generateCommentary(log, winnerIsDrone1, winnerName) {
 export default function RaceDetailPage({ params }) {
   const { raceId } = use(params);
   const { user } = useSession();
+  const { showToast } = useToast();
   const viewerUserId = user?.id ?? null;
   /* `currentRaceId` is the race the page is *displaying* and may diverge
    * from the URL `raceId` after the user clicks a prev/next arrow. We
@@ -241,15 +243,25 @@ export default function RaceDetailPage({ params }) {
         const res = await fetch(`/api/races/${currentRaceId}`);
         const body = await res.json();
         if (cancelled) return;
+        if (res.status === 429) {
+          /* Rate limit must never replace page content. Toast and keep
+           * loading=true on first load so the error branch below
+           * doesn't render "Race not found"; on refetch the existing
+           * race already covers the page. */
+          showToast(body?.error || 'Too many requests', 'error');
+          return;
+        }
         if (!res.ok) {
           setError(body?.error || 'Failed to load race');
         } else {
           setRace(body.data);
         }
+        setLoading(false);
       } catch (err) {
-        if (!cancelled) setError(String(err));
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setError(String(err));
+          setLoading(false);
+        }
       }
     }
     load();
@@ -585,7 +597,13 @@ export default function RaceDetailPage({ params }) {
             </div>
             {gaps.length > 1 ? (
               <div className={styles.sparklineWrap}>
-                <GapSparkline gaps={gaps} segmentTimes={segmentTimes} />
+                <GapSparkline
+                  gaps={gaps}
+                  segmentTimes={segmentTimes}
+                  log={race.raceLog ?? []}
+                  drone1={race.drone1}
+                  drone2={race.drone2}
+                />
               </div>
             ) : (
               <div className={styles.gapEmpty}>Gap data unavailable</div>
@@ -696,7 +714,7 @@ export default function RaceDetailPage({ params }) {
                     key: 'drone1Time',
                     label: race.drone1?.name ?? 'Drone 1',
                     shortLabel: 'D1',
-                    align: 'right',
+                    align: 'left',
                     sortable: true,
                     render: (r) => (
                       <span className={styles.logMono}>
@@ -708,7 +726,7 @@ export default function RaceDetailPage({ params }) {
                     key: 'drone2Time',
                     label: race.drone2?.name ?? 'Drone 2',
                     shortLabel: 'D2',
-                    align: 'right',
+                    align: 'left',
                     sortable: true,
                     render: (r) => (
                       <span className={styles.logMono}>
@@ -774,7 +792,9 @@ function formatGapSeconds(s) {
  *   used to label the x-axis. Same length as `gaps`. Optional: when
  *   absent, the x-axis labels are suppressed.
  */
-function GapSparkline({ gaps, segmentTimes }) {
+function GapSparkline({ gaps, segmentTimes, log, drone1, drone2 }) {
+  const drone1Name = drone1?.name ?? 'Drone 1';
+  const drone2Name = drone2?.name ?? 'Drone 2';
   // useId is called unconditionally so the rules-of-hooks early-return
   // guard below is safe. Colons are stripped because they break
   // url(#...) references in some specs.
@@ -784,6 +804,8 @@ function GapSparkline({ gaps, segmentTimes }) {
   const gradNegId = `gap-neg-${idSafe}`;
   const clipPosId = `gap-clip-pos-${idSafe}`;
   const clipNegId = `gap-clip-neg-${idSafe}`;
+  const wrapRef = useRef(null);
+  const [hoverIdx, setHoverIdx] = useState(null);
   if (!gaps || gaps.length < 2) return null;
 
   const W = 300;
@@ -890,6 +912,155 @@ function GapSparkline({ gaps, segmentTimes }) {
     }));
   })();
 
+  const handleHoverMove = (e) => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const relX = e.clientX - rect.left;
+    const targetX = Math.max(0, Math.min(W, (relX / rect.width) * W));
+    let nearest = 0;
+    let minDist = Infinity;
+    for (let i = 0; i < xs.length; i += 1) {
+      const d = Math.abs(xs[i] - targetX);
+      if (d < minDist) {
+        minDist = d;
+        nearest = i;
+      }
+    }
+    setHoverIdx(nearest);
+  };
+  const handleHoverLeave = () => setHoverIdx(null);
+
+  // Tooltip derivatives - all dynamic per-segment, sourced from the
+  // raceLog at hoverIdx plus drone stats for the contextual reason.
+  const hoverSeg = hoverIdx != null && log ? log[hoverIdx] : null;
+  const hoverGap = hoverIdx != null ? gaps[hoverIdx] : null;
+  const hoverPrevGap =
+    hoverIdx != null && hoverIdx > 0 ? gaps[hoverIdx - 1] : null;
+  const hoverType = hoverSeg?.type
+    ? String(hoverSeg.type).toLowerCase()
+    : null;
+  const hoverTypeLabel = hoverType
+    ? hoverType.charAt(0).toUpperCase() + hoverType.slice(1)
+    : 'Segment';
+
+  // Lap-relative segment number ("Lap 2, Turn 4" - 4th segment of
+  // lap 2). Counts segments through the current index whose `lap`
+  // matches the hovered segment's lap.
+  let segInLap = 0;
+  if (hoverSeg && Array.isArray(log)) {
+    for (let i = 0; i <= hoverIdx; i += 1) {
+      if (log[i]?.lap === hoverSeg.lap) segInLap += 1;
+    }
+  }
+
+  // Lead-change flag when the cumulative gap's sign flips between
+  // the previous and current segment (and neither is exactly zero).
+  let hoverIsLeadChange = false;
+  if (hoverPrevGap != null && hoverGap != null) {
+    const sPrev = Math.sign(hoverPrevGap);
+    const sCur = Math.sign(hoverGap);
+    if (sPrev !== 0 && sCur !== 0 && sPrev !== sCur) {
+      hoverIsLeadChange = true;
+    }
+  }
+
+  // Reason line: who won this segment + WHY. Compares the segment
+  // type to the relevant drone stat (straight -> speed, turn ->
+  // turning). If the faster drone has the higher stat the win is
+  // attributed to that stat; if not, it's flagged as a variance
+  // upset. At a lead-change segment the same comparison frames the
+  // overtake explicitly.
+  let reasonLine = null;
+  let reasonIsLeadChange = false;
+  if (hoverSeg) {
+    const t1 = Number(hoverSeg.drone1Time) || 0;
+    const t2 = Number(hoverSeg.drone2Time) || 0;
+    if (t1 !== t2) {
+      const winner1 = t1 < t2;
+      const winnerName = winner1 ? drone1Name : drone2Name;
+      const margin = Math.abs(t1 - t2);
+      const statKey = hoverType === 'turn' ? 'turning' : 'speed';
+      const statLabel = hoverType === 'turn' ? 'turning' : 'speed';
+      const edgeWord = hoverType === 'turn' ? 'turning edge' : 'speed advantage';
+      const winnerStat = winner1 ? drone1?.[statKey] : drone2?.[statKey];
+      const loserStat = winner1 ? drone2?.[statKey] : drone1?.[statKey];
+      if (hoverIsLeadChange) {
+        reasonIsLeadChange = true;
+        const stretch = hoverType ?? 'race';
+        if (winnerStat != null && loserStat != null) {
+          reasonLine = `LEAD CHANGE: ${winnerName} overtakes on a ${stretch} stretch. ${statLabel} ${winnerStat} vs ${loserStat}.`;
+        } else {
+          reasonLine = `LEAD CHANGE: ${winnerName} overtakes on a ${stretch} stretch.`;
+        }
+      } else if (winnerStat != null && loserStat != null) {
+        if (winnerStat > loserStat) {
+          reasonLine = `${winnerName} won (+${margin.toFixed(2)}s). ${edgeWord} ${winnerStat} vs ${loserStat}.`;
+        } else if (winnerStat < loserStat) {
+          reasonLine = `${winnerName} won (+${margin.toFixed(2)}s). Variance upset.`;
+        } else {
+          reasonLine = `${winnerName} won (+${margin.toFixed(2)}s).`;
+        }
+      } else {
+        reasonLine = `${winnerName} won (+${margin.toFixed(2)}s).`;
+      }
+    }
+  }
+
+  // Battery slowing: lap >= 2 only. Compare hovered segment time to
+  // each drone's first lap-1 segment of the same type. >5% slower
+  // flags a slowdown; the more-affected drone wins the line. The
+  // suffix shows that drone's batteryCapacity stat so the player
+  // can see why their drone is fading.
+  let batteryNote = null;
+  if (hoverSeg && hoverSeg.lap > 1 && Array.isArray(log)) {
+    let lap1d1 = null;
+    let lap1d2 = null;
+    for (const s of log) {
+      if (s.lap === 1 && s.type === hoverSeg.type) {
+        lap1d1 = Number(s.drone1Time) || 0;
+        lap1d2 = Number(s.drone2Time) || 0;
+        break;
+      }
+    }
+    if (lap1d1 && lap1d2) {
+      const t1 = Number(hoverSeg.drone1Time) || 0;
+      const t2 = Number(hoverSeg.drone2Time) || 0;
+      const fade1 = (t1 - lap1d1) / lap1d1;
+      const fade2 = (t2 - lap1d2) / lap1d2;
+      const FADE_THRESHOLD = 0.05;
+      const slow1 = fade1 > FADE_THRESHOLD;
+      const slow2 = fade2 > FADE_THRESHOLD;
+      const fadingDrone =
+        slow1 && (!slow2 || fade1 > fade2)
+          ? { name: drone1Name, batt: drone1?.batteryCapacity }
+          : slow2 && (!slow1 || fade2 > fade1)
+            ? { name: drone2Name, batt: drone2?.batteryCapacity }
+            : null;
+      if (fadingDrone) {
+        batteryNote = fadingDrone.batt != null
+          ? `${fadingDrone.name} slowing. Battery at ${fadingDrone.batt}.`
+          : `${fadingDrone.name} slowing.`;
+      }
+    }
+  }
+
+  // Tooltip horizontal anchor. The naive `translateX(-50%)` centers
+  // the box on the cursor, which clips against the chart's right
+  // edge near the end of the race (and the left edge near the start).
+  // Switch to right-edge / left-edge anchoring when the cursor is in
+  // the outer thirds so the tooltip stays inside the chart bounds.
+  const hoverPctRaw =
+    hoverIdx != null ? (xs[hoverIdx] / W) * 100 : 0;
+  const hoverPct = Math.max(0, Math.min(100, hoverPctRaw));
+  const tooltipTransform =
+    hoverPctRaw < 25
+      ? 'translateX(0)'
+      : hoverPctRaw > 75
+        ? 'translateX(-100%)'
+        : 'translateX(-50%)';
+
   return (
     <div className={styles.sparklineFigure}>
     <div className={styles.sparklineChart}>
@@ -917,6 +1088,12 @@ function GapSparkline({ gaps, segmentTimes }) {
           </span>
         )}
       </div>
+      <div
+        ref={wrapRef}
+        className={styles.sparklineSvgWrap}
+        onMouseMove={handleHoverMove}
+        onMouseLeave={handleHoverLeave}
+      >
       <svg
         className={styles.sparkline}
         viewBox={`0 0 ${W} ${H}`}
@@ -987,7 +1164,63 @@ function GapSparkline({ gaps, segmentTimes }) {
           clipPath={`url(#${clipNegId})`}
           className={cn(styles.sparklineLine, styles.sparklineLineNeg)}
         />
+        {hoverIdx != null && (
+          <line
+            x1={xs[hoverIdx]}
+            y1={padTop}
+            x2={xs[hoverIdx]}
+            y2={H - padBottom}
+            className={styles.sparklineCrosshair}
+          />
+        )}
       </svg>
+      {hoverIdx != null && hoverSeg && (
+        <div
+          className={styles.sparklineTooltip}
+          style={{ left: `${hoverPct}%`, transform: tooltipTransform }}
+        >
+          <div className={styles.sparklineTooltipHead}>
+            Lap {hoverSeg.lap ?? '-'}
+            {hoverTypeLabel ? `, ${hoverTypeLabel} ${segInLap}` : ''}
+          </div>
+          <div className={styles.sparklineTooltipRow}>
+            <span className={styles.sparklineTooltipDrone}>
+              {drone1Name}
+            </span>
+            <span className={styles.sparklineTooltipTime}>
+              {Number(hoverSeg.drone1Time ?? 0).toFixed(2)}s
+            </span>
+          </div>
+          <div className={styles.sparklineTooltipRow}>
+            <span className={styles.sparklineTooltipDrone}>
+              {drone2Name}
+            </span>
+            <span className={styles.sparklineTooltipTime}>
+              {Number(hoverSeg.drone2Time ?? 0).toFixed(2)}s
+            </span>
+          </div>
+          {reasonLine && (
+            <div
+              className={cn(
+                styles.sparklineTooltipReason,
+                reasonIsLeadChange &&
+                  styles.sparklineTooltipReasonLeadChange,
+              )}
+            >
+              {reasonLine}
+            </div>
+          )}
+          <div className={styles.sparklineTooltipGap}>
+            Cumulative {formatGapSeconds(hoverGap ?? 0)}
+          </div>
+          {batteryNote && (
+            <div className={styles.sparklineTooltipNote}>
+              {batteryNote}
+            </div>
+          )}
+        </div>
+      )}
+      </div>
     </div>
       {hasXAxis && xLabels.length > 0 && (
         <div className={styles.sparklineXAxis} aria-hidden="true">

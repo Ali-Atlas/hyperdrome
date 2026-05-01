@@ -407,12 +407,14 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
   const skinIds = rows.map((r) => r.skinId).filter(Boolean);
   const modIds = rows.map((r) => r.modId).filter(Boolean);
   const sellerIds = [...new Set(rows.map((r) => r.sellerId))];
+  const buyerIds = [...new Set(rows.map((r) => r.buyerId).filter(Boolean))];
+  const userIds = [...new Set([...sellerIds, ...buyerIds])];
 
   const [
     droneRows,
     skinRows,
     modRows,
-    sellerRows,
+    userRows,
     droneSkinCounts,
     droneModCounts,
   ] = await Promise.all([
@@ -429,10 +431,12 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
     modIds.length
       ? db.select().from(mods).where(inArray(mods.id, modIds))
       : Promise.resolve([]),
-    db
-      .select({ id: users.id, username: users.username })
-      .from(users)
-      .where(inArray(users.id, sellerIds)),
+    userIds.length
+      ? db
+          .select({ id: users.id, username: users.username })
+          .from(users)
+          .where(inArray(users.id, userIds))
+      : Promise.resolve([]),
     droneIds.length
       ? db
           .select({
@@ -475,14 +479,15 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
   );
   const skinMap = Object.fromEntries(skinRows.map((s) => [s.id, s]));
   const modMap = Object.fromEntries(modRows.map((m) => [m.id, m]));
-  const sellerMap = Object.fromEntries(sellerRows.map((s) => [s.id, s]));
+  const userMap = Object.fromEntries(userRows.map((u) => [u.id, u]));
 
   const enriched = rows.map((r) => ({
     ...r,
     drone: r.droneId ? droneMap[r.droneId] : null,
     skin: r.skinId ? skinMap[r.skinId] : null,
     mod: r.modId ? modMap[r.modId] : null,
-    seller: sellerMap[r.sellerId] ?? null,
+    seller: userMap[r.sellerId] ?? null,
+    buyer: r.buyerId ? userMap[r.buyerId] ?? null : null,
   }));
 
   if (!usePostFetchSort) return enriched;

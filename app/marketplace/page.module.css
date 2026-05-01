@@ -3295,7 +3295,7 @@
 
 .tapeTitle {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: 12px;
   font-weight: var(--font-semibold);
   color: var(--header-bar-text, #F0F0F0);
   letter-spacing: 0.02em;
@@ -3317,13 +3317,13 @@
 }
 
 .tapeStatValue {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: var(--font-bold);
   color: var(--text-primary);
 }
 
 .tapeStatLabel {
-  font-size: 9px;
+  font-size: 8px;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -3331,7 +3331,7 @@
 
 .tapeStatSep {
   width: 1px;
-  height: 12px;
+  height: 10px;
   background: var(--border-subtle);
 }
 
@@ -3356,8 +3356,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  gap: 8px;
+  padding: 6px 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -3365,15 +3365,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 84px;
-  min-height: 32px;
-  padding: 0 var(--space-3);
+  min-width: 56px;
+  min-height: 22px;
+  padding: 0 8px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 9px;
   font-weight: var(--font-semibold);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -3395,21 +3395,78 @@
 
 .tapePageLabel {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 9px;
   font-weight: var(--font-semibold);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
+/* Shared 7-col grid: Type pill | Item | Rarity | Seller | Buyer | When | Price.
+   Header row + every body row share the template so column edges line up.
+   Item / Seller / Buyer flex; the rest are fixed widths so the row reads
+   as a proper table. */
+.tapeHeaderRow,
 .tapeRow {
   display: grid;
-  grid-template-columns: 68px 1fr auto auto;
+  grid-template-columns:
+    52px minmax(0, 1.3fr) 56px minmax(0, 0.9fr) minmax(0, 0.9fr) 60px 80px;
   align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  gap: 10px;
+  padding: 6px 14px;
   font-family: var(--font-mono);
+}
+
+.tapeHeaderRow {
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.tapeColLabel {
+  font-size: 8px;
+  font-weight: var(--font-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Sortable header cell. The whole column label is a <button> so the
+   click target spans the cell width; align-items: center keeps the
+   chevron icon vertically centered with the label text. */
+.tapeColLabelBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  text-align: left;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.tapeColLabelBtn:hover {
+  color: var(--text-secondary);
+}
+
+.tapeColLabelActive {
+  color: var(--accent-primary);
+}
+
+.tapeColLabelActive:hover {
+  color: var(--accent-primary);
+  filter: brightness(1.15);
+}
+
+.tapeColLabelEnd {
+  text-align: right;
+  justify-content: flex-end;
+}
+
+.tapeRow {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   transition: background var(--duration-fast) var(--ease-out);
 }
 
@@ -3422,15 +3479,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 8px;
-  font-size: 9px;
+  padding: 1px 6px;
+  font-size: 8px;
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-secondary);
-  min-width: 52px;
+  min-width: 44px;
 }
 
 .tapePillDrone {
@@ -3454,7 +3511,7 @@
 
 .tapeName {
   font-family: var(--font-heading);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: var(--font-bold);
   color: var(--text-primary);
   text-transform: uppercase;
@@ -3465,8 +3522,43 @@
   min-width: 0;
 }
 
-.tapeMeta {
-  font-size: 10px;
+.tapeRarity {
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+/* Per-rarity tint for the rarity column text. Picks up the same hues
+   as the type pill backgrounds so the row reads as colour-coded. */
+.tapeRarity_common {
+  color: #B0B0B0;
+}
+.tapeRarity_rare {
+  color: #4A9EFF;
+}
+.tapeRarity_epic {
+  color: #BB86FC;
+}
+.tapeRarity_legendary {
+  color: #FFD700;
+}
+
+.tapeSeller,
+.tapeBuyer {
+  font-size: 9px;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.tapeWhen {
+  font-size: 9px;
   color: var(--text-tertiary);
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -3474,9 +3566,9 @@
 
 .tapePrice {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0;
-  font-size: 12px;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
   font-weight: var(--font-bold);
   color: var(--accent-primary);
   text-shadow: 0 0 6px rgba(3, 218, 198, 0.3);
@@ -3484,7 +3576,7 @@
 }
 
 .tapePriceUnit {
-  font-size: 9px;
+  font-size: 8px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -3493,19 +3585,6 @@
 }
 
 @media (max-width: 600px) {
-  .tapeRow {
-    grid-template-columns: 54px 1fr auto;
-    gap: 8px;
-  }
-  .tapeMeta {
-    grid-column: 2 / 4;
-    grid-row: 2;
-    justify-self: start;
-  }
-  .tapePrice {
-    grid-column: 3;
-    grid-row: 1;
-  }
   .tapeHeader {
     align-items: flex-start;
     flex-direction: column;
@@ -5807,9 +5886,16 @@
       "topRow      topRow"
       "filters     search"
       "viewToggle  viewToggle"
-      "content     content";
+      "content     content"
+      "salesTape   salesTape";
     column-gap: var(--space-3);
     row-gap: var(--space-4);
+  }
+  /* Recent Sales sits below the listings grid as its own full-width row
+     so it doesn't get squeezed into a single column by implicit grid
+     auto-flow at this breakpoint. */
+  .tapeSection {
+    grid-area: salesTape;
   }
   .topRow {
     grid-area: topRow;

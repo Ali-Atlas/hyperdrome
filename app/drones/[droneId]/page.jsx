@@ -106,6 +106,7 @@ function pickStats(drone) {
 export default function DroneDetailPage({ params }) {
   const { droneId } = use(params);
   const { user, status } = useSession();
+  const { showToast } = useToast();
   const [drone, setDrone] = useState(null);
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -115,17 +116,25 @@ export default function DroneDetailPage({ params }) {
     try {
       const res = await fetch(`/api/drones/${droneId}`);
       const body = await res.json();
+      if (res.status === 429) {
+        /* Rate limit must never block page rendering. Toast and keep
+         * the skeleton on first load (loading stays true so the
+         * error/!drone redirect branch below doesn't fire), or keep
+         * the existing drone on refetch. */
+        showToast(body?.error || 'Too many requests', 'error');
+        return;
+      }
       if (!res.ok) {
         setError(body?.error || 'Failed to load drone');
       } else {
         setDrone(body.data);
       }
+      setLoading(false);
     } catch (err) {
       setError(String(err));
-    } finally {
       setLoading(false);
     }
-  }, [droneId]);
+  }, [droneId, showToast]);
 
   const loadListing = useCallback(async () => {
     try {

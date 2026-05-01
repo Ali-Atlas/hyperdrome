@@ -4,6 +4,186 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-01 - Marketplace Recent Sales: click-to-sort headers w/ chevron arrows, default time desc
+
+**Captain ask:** Make every column in the Recent Sales table sortable — click the column title to toggle asc/desc, with little mini arrows showing the current state. Default to most-recent sales first (Time desc). Skip lint.
+
+**Files modified (2):** `app/marketplace/page.jsx`, `app/marketplace/page.module.css`
+
+### `app/marketplace/page.jsx`
+- Added `ChevronUp` to the lucide import (was `ChevronDown` only).
+- **Sort getter map** at module scope above `SalesTape`:
+  - `TAPE_RARITY_RANK = { common: 1, rare: 2, epic: 3, legendary: 4 }` so the rarity column sorts by tier order, not alphabetical (otherwise `epic < legendary < rare` would surface).
+  - `TAPE_SORT_GETTERS` — one per column (`type / item / rarity / seller / buyer / time / price`). String getters case-fold via `.toLowerCase()`; `time` resolves to `t.soldAt ?? t.createdAt → epoch ms` (mirrors what the cell renders); `price` coerces to `Number`. Null/missing values resolve to `''` or `0` so they cluster at the low end on either direction.
+- **Inside `SalesTape`:**
+  - `useState({ key: 'time', dir: 'desc' })` for the active sort. Default produces "newest sale first" on first render — exactly Captain's requested default.
+  - `handleSortClick(key)` (memoised via `useCallback`): if the clicked column is already active, flip `asc ↔ desc`; otherwise activate the column with a sensible initial direction — `time / price / rarity` start `desc` (latest / most expensive / highest tier first), text columns start `asc` (alphabetical reads naturally).
+  - `sortedTransactions = useMemo(...)` clones `transactions` and sorts via the getter for the current key, multiplying the comparison result by `+1 / -1` based on direction. The `<ul>` body now maps over `sortedTransactions` instead of `transactions`. Aggregate stats (`stats`) still derive from the unsorted source — sort doesn't change the count/volume/avg.
+- **`SortLabel` component** (defined just above `formatRelativeTime`) — replaces the seven static `<span className=tapeColLabel>` header cells. Each label is now a `<button type=button>` with:
+  - Click handler firing `onClick(colKey)` → drives the sort state.
+  - `aria-sort` set to `'ascending'` / `'descending'` / `'none'` for screen readers.
+  - Active-column tint via `.tapeColLabelActive` (accent-primary).
+  - Trailing `<ChevronUp size={9}>` (asc) or `<ChevronDown size={9}>` (desc) icon — only rendered for the active column. Inactive columns show no arrow so the header stays uncluttered. Captain's "little mini arrows" — 9px lucide chevrons matching the 8px label text scale.
+  - `alignEnd` prop for the rightmost column (Price), passing through `.tapeColLabelEnd` so the label + chevron right-align in their cell.
+- The 7 header cells kept their grid-cell positions — the button replaces the span but sits in the same grid track, so column edges still line up with the body rows.
+
+### `app/marketplace/page.module.css`
+- **`.tapeColLabelBtn`** — new rule reseting button defaults (transparent bg, no border, zero padding/margin) and turning the cell into an `inline-flex` row with `gap: 3px` between label text and chevron, `cursor: pointer`, `text-align: left`, color transition on hover.
+- **`.tapeColLabelBtn:hover`** — bumps color from tertiary to secondary so inactive headers glow slightly on hover, signalling clickability.
+- **`.tapeColLabelActive`** — color: `var(--accent-primary)` so the currently-sorted column reads in the brand accent.
+- **`.tapeColLabelActive:hover`** — keeps accent color but adds `filter: brightness(1.15)` so the active column still has a hover affordance.
+- **`.tapeColLabelEnd`** — kept the existing `text-align: right` rule and added `justify-content: flex-end` so the inline-flex button content (label + chevron) right-aligns in the Price column.
+
+**Behaviour summary:**
+- Default render = Time desc (most recent sales at top).
+- Click any column header → sort by that column. First click on a fresh column applies the column's "natural" direction (desc for numeric/time/rarity, asc for text). Re-clicking the active column flips direction.
+- The sort is **client-side over the visible page** — `transactions` is a paginated subset from `/api/marketplace?page=N&limit=100`. Sorting reorders the current page only; the API doesn't know about sort. Server-side sort would require a `?sort=` parameter in the marketplace route — flagged here in case Captain wants whole-dataset ordering later.
+
+**Not run:** dev / lint / build / browser per standing instruction (Captain explicitly: "Skip lint").
+
+---
+
+## 2026-05-01 - Rate limit: bump to 500/min, toast (not page content) on 429
+
+**Captain ask:** Two fixes. (1) Rate limit must NEVER block page rendering - 429 returns `{ error: 'Too many requests' }` and the client surfaces it as a toast, page stays visible underneath. Find any page rendering the error string directly. (2) Bump global rate limit to 500/min. Keep demo endpoint strict at 5/hour. Skip lint.
+
+**Files modified (4):**
+
+### `lib/api/rate-limit.js`
+- Default `limit` raised from 200 to 500.
+
+### `lib/api/response.js`
+- The actual cap-determining call inside `withApiHandler` was `rateLimit(ip, { limit: 60, windowMs: 60000 })` - the 200 default in the rate-limit module was never reached. Bumped this explicit override to 500 to match Captain's intent.
+- Error message simplified from `'Too many requests. Please slow down.'` to `'Too many requests'` per ask.
+- `app/api/auth/demo/route.js` left untouched - it has its own 5/hour ceiling (`RATE_LIMIT_MAX = 5`, `RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000`) and doesn't go through `withApiHandler`, so the global bump doesn't loosen it.
+
+### `app/races/[raceId]/page.jsx`
+- This was the page rendering rate-limit text directly: the error branch at the bottom of the loading-state block returns `<p className={styles.error}>{error || 'Race not found'}</p>` inside `<NavShell>`, which is exactly what Captain doesn't want.
+- Added `useToast` import + `const { showToast } = useToast()` at the top of `RaceDetailPage`.
+- Inside the `load()` fetch handler in the `[currentRaceId]` effect, added a `res.status === 429` branch that fires `showToast(body?.error || 'Too many requests', 'error')` and `return`s without flipping `loading=false`. Critical: leaving `loading=true` keeps the page on the skeleton (the existing `if (loading)` block above the error branch) so the 429 never falls through to the "Race not found" render. On refetch (race already loaded) the existing `race` state stays and the page is unchanged.
+- Restructured the try/catch: `setLoading(false)` moved out of `finally` and into the success and error paths individually so the 429 early-return doesn't accidentally flip loading off via finally.
+
+### `app/drones/[droneId]/page.jsx`
+- This page wasn't rendering error text directly - it was doing `if (error || !drone) redirect('/drones')`, which is a different flavor of "rate limit blocks page rendering" (silent redirect away from the route the user is on).
+- Hoisted `useToast` to the page-level component (`DroneDetailPage`); it was already imported and used inside the inner `DroneDetailView` - just needed a second consumer at the outer level.
+- Same 429 branch as the races page: toast + `return` without dropping loading. The `if (loading || ...)` skeleton block above the redirect catches the kept-true loading state, so the rate-limit case stays on skeletons instead of bouncing the user back to /drones.
+- Same try/catch restructure: `setLoading(false)` moved out of `finally` to avoid the 429 early-return clearing it.
+
+**Why "loading stays true on 429" isn't a leak:**
+- Both pages already have polling / re-fetch effects elsewhere that will eventually re-hit the API once the per-IP window resets (60s). On a re-fetch the 429 path won't re-execute (the cap will have rolled over), and the success path will then set the data + flip loading false. Worst case: skeleton sits up to ~60s while a toast surfaces the reason. Massively better than the prior "redirect away" or "Race not found" behavior.
+
+**Verification:**
+- Confirmed the 429 message now reads `'Too many requests'` in `lib/api/response.js:64`. Default limit confirmed 500 in `lib/api/rate-limit.js:3`. Both consumer pages now branch on `res.status === 429` before the existing error path. Demo route's 5/hour cap untouched.
+- **Not run:** dev / lint / build per Captain's standing rule. Captain verifies.
+
+---
+
+## 2026-05-01 - Marketplace Recent Sales: drop the <=720px column-collapse so all 7 columns always render
+
+**Captain ask:** The Recent Sales table is broken — only Type / Item / (no header) / Price showing, columns missing, uneven distribution. Wants all 7 columns rendered at every viewport: Type | Item | Rarity | Seller | Buyer | Time | Price. Header row with all 7 labels visible. Same grid template across all rows: `52px minmax(0, 1.3fr) 56px minmax(0, 0.9fr) minmax(0, 0.9fr) 60px 80px`. Skip lint.
+
+**Root cause:** the `<=720px` media-query block I added in the prior session was hiding `.tapeRarity` / `.tapeSeller` / `.tapeBuyer` body cells AND four of the column labels (`.tapeColLabel:nth-child(3..6)`) and reflowing the grid to a 4-col `50px / 1.6fr / 1fr / 76px`. Captain testing at a viewport ≤720px saw the collapsed 4-cell row and read it (correctly) as "broken / missing columns". JSX was already rendering all 7 cells per row + 7 header labels — the bug was purely in the CSS collapse override.
+
+**Files modified (1):** `app/marketplace/page.module.css`, `app/marketplace/page.jsx`
+
+### `app/marketplace/page.module.css`
+- Deleted the entire `@media (max-width: 720px)` block that overrode `.tapeHeaderRow / .tapeRow grid-template-columns` and `display: none`'d Rarity / Seller / Buyer / column labels. Kept the `@media (max-width: 600px)` block that flips `.tapeHeader` (the section title + aggregate strip) to a flex column at very narrow widths — that's title-strip layout, not table-cell visibility.
+- Verified the base 7-col grid template at line 3412 still matches Captain's spec exactly: `52px minmax(0, 1.3fr) 56px minmax(0, 0.9fr) minmax(0, 0.9fr) 60px 80px`.
+- Verified zero `display: none` declarations remain on `.tapeRarity / .tapeSeller / .tapeBuyer / .tapeWhen / .tapeColLabel` anywhere in the file.
+
+### `app/marketplace/page.jsx`
+- Renamed the 6th header label `When` → `Time` per Captain's "add a 'TIME' header label". Body cell still uses `.tapeWhen` class — only the visible label text changed (CSS uppercase rule renders it as `TIME`).
+
+**Verified by Mercenary:**
+- 7 `.tapeColLabel` references in the JSX header row.
+- 7 body cells per `<li className=tapeRow>`: Type pill / Item / Rarity / Seller / Buyer / Time / Price.
+- `grep -nE "tape(Section|Rarity|Seller|Buyer|When)" page.module.css | grep "display: none"` returns zero matches.
+- No `grid-template-columns` override for tape rows in any remaining media query.
+
+**Side note (no behaviour change):** the 7 columns total `52 + 56 + 60 + 80 = 248px` in fixed widths + 60px in gaps + 28px padding = ~336px floor. Three flex columns each shrink to 0 via `minmax(0, ...fr)`, so the row fits cleanly down to ~336px container width. Below that the parent `.tapeSection { overflow: hidden }` would clip the Price cell — but the existing `<=480` block already hides `.tapeSection` entirely on smallest mobile, so the cramped band only spans roughly 480-720px where flex truncation handles it via ellipsis on Item / Seller / Buyer.
+
+**Not run:** dev / lint / build / browser per standing instruction (Captain explicitly: "Skip lint"). Captain to confirm all 7 columns now render at the previously-broken viewport.
+
+---
+
+## 2026-05-01 - Marketplace Recent Sales: add Buyer column + dramatically smaller pagination + buyer enrichment
+
+**Captain ask:** Follow-up to the prior tape rebuild. Captain wanted more sales-info columns explicitly including **buyer** (the prior rebuild added Rarity / Seller / When but missed Buyer). Also: pagination text at the bottom of the tape container was way too big — make it way smaller. Skip lint.
+
+**Files modified (3):**
+
+### `app/marketplace/page.jsx`
+- Header row: added `<span className=tapeColLabel>Buyer</span>` between Seller and When. Header now has 7 column labels.
+- Body rows: added `const buyerName = t.buyer?.username ?? '-'` and rendered `<span className=tapeBuyer>{buyerName}</span>` between the Seller and When cells.
+
+### `app/marketplace/page.module.css`
+- Updated the shared row grid template from 6 cols to 7: `52px minmax(0, 1.3fr) 56px minmax(0, 0.9fr) minmax(0, 0.9fr) 60px 80px` (Type | Item | Rarity | Seller | Buyer | When | Price). Item / Seller / Buyer all flex; Rarity / When / Price stay fixed-width so column edges align across rows.
+- `.tapeBuyer` selector added alongside `.tapeSeller` (both share the same 9px secondary-text + ellipsis-truncated treatment — no duplicated rule, just extended the comma list).
+- `<=720px` collapse block extended: now also hides `.tapeBuyer` body cells AND the 6th `.tapeColLabel:nth-child` (Buyer header label) so the narrow layout still collapses cleanly to the 4-cell `Type | Name | When | Price` row. The `:nth-child(N)` selector list grew from 3-5 to 3-6 to cover the new Buyer label.
+- **Pagination, way smaller** (Captain's "way smaller"):
+  - `.tapePagination` padding `var(--space-3) var(--space-4)` → `6px 12px`; gap `var(--space-3)` → `8px`.
+  - `.tapePageBtn`: font-size `var(--text-xs)` (12px) → **9px**; min-width 84 → **56px**; min-height 32 → **22px**; padding `0 var(--space-3)` → `0 8px`.
+  - `.tapePageLabel`: font-size `var(--text-xs)` → **9px**.
+
+### `services/marketplace.service.js`
+- **Buyer enrichment in `getListings`** (additive — required for the new column to actually render usernames once the data has a buyer):
+  - Added `buyerIds` derived from `rows.map((r) => r.buyerId).filter(Boolean)` (filtered because active listings have null buyerId).
+  - Merged seller + buyer ids into a single `userIds` set.
+  - Renamed the user query alias `sellerRows → userRows`; the query now selects all needed users in one trip via `inArray(users.id, userIds)` (still one DB hit, just covering both roles).
+  - Renamed `sellerMap → userMap`. `enriched` now sets `seller: userMap[r.sellerId] ?? null` (unchanged behaviour) and adds `buyer: r.buyerId ? userMap[r.buyerId] ?? null : null` (null when no buyer).
+- This is purely additive vs. existing callers — `seller` continues to enrich the same way; `buyer` is a new field that prior consumers ignore. No schema or status-filter changes; the `?status=sold` filter is still ignored by `getListings` (flagged in the prior HANDOFF entry, still out of scope).
+
+**Verified by Mercenary:**
+- New `.tapeBuyer` class resolves to a defined CSS rule (verified via `grep -nE "tapeBuyer"` cross-checked between JSX + CSS).
+- Buyer enrichment block grep-confirms (`buyerIds`, `userIds`, `userMap`, `buyer:` all present in the service file at lines 410-490).
+
+**Not run:** dev / lint / build / browser per standing instruction (Captain explicitly: "Skip lint"). Captain to confirm the row reads cleanly at 1440 / 900 / 720 widths now that there's a 7th column, and that the pagination feels appropriately small.
+
+---
+
+## 2026-05-01 - Marketplace Recent Sales: 900px width fix + 6-col layout w/ header + smaller text
+
+**Captain ask:** Recent Sales table on marketplace shrinks below full-width around ~900px. Add more columns about each sale + a header row with column names. Make the in-table text much smaller in general (including the aggregate sales/volume/avg strip), and shrink the "Recent Sales" title font-size too. Skip lint.
+
+**Files modified (2):**
+
+### `app/marketplace/page.module.css`
+- **Width regression at 481-900px (root cause + fix):** the `(min-width: 481px) and (max-width: 900px)` block at line 5802 turns `.page` into a `display: grid` with `grid-template-columns: 1fr 1fr` and explicit `grid-template-areas`. `.tapeSection` had no grid-area, so implicit auto-flow placed it in a single column → half-width. Added `salesTape salesTape` as a 5th row in the area template and assigned `.tapeSection { grid-area: salesTape }`. Now spans the full row at this breakpoint.
+- **6-col grid template** for `.tapeHeaderRow` + `.tapeRow` (shared so column edges line up): `56px minmax(0, 1.4fr) 60px minmax(0, 1fr) 64px 84px` (Type pill | Item | Rarity | Seller | When | Price). Gap 10px, padding `6px 14px`, mono family.
+- **New `.tapeHeaderRow`** with `.tapeColLabel` cells — 8px tertiary uppercase, 0.08em letter-spacing, semibold; `.tapeColLabelEnd` text-aligns the Price label right. Sits inside the section above `.tapeList` with a subtle `rgba(255,255,255,0.02)` background tint and a `var(--border-default)` bottom rule so it reads as a proper table head, not just another row.
+- **New body cells:**
+  - `.tapeRarity` — 9px semibold uppercase, secondary text. `.tapeRarity_common / _rare / _epic / _legendary` modifier classes tint the text in matched hues (`#B0B0B0 / #4A9EFF / #BB86FC / #FFD700`) so the rarity column reads as colour-coded without competing with the type pill.
+  - `.tapeSeller` — 9px secondary, ellipsis-truncated, `min-width: 0`.
+  - `.tapeWhen` — 9px tertiary mono, no-wrap.
+- **Smaller text everywhere in the section** (Captain's "much smaller in general"):
+  - `.tapeTitle`: `var(--text-sm)` (14px) → **12px**.
+  - `.tapeStatValue`: 13 → **11px**; `.tapeStatLabel`: 9 → **8px**; `.tapeStatSep` height 12 → 10px.
+  - `.tapeTypePill`: font-size 9 → **8px**, padding `2px 8px` → `1px 6px`, min-width 52 → 44px.
+  - `.tapeName`: 12 → **11px**.
+  - `.tapePrice`: 12 → **11px**, `gap: 0` → `gap: 3px` (icon spacing now reads), `align-items: baseline` → `center` so the new smaller VoltIcon visually centers with the digits.
+  - `.tapePriceUnit`: 9 → **8px**.
+- **Old cells deleted:** `.tapeMeta` removed (replaced by per-column `.tapeWhen` + `.tapeSeller`); the prior 4-col grid template (`68px 1fr auto auto`) gone.
+- **Mobile/narrow breakpoints:** added new `<=720px` block that collapses Rarity + Seller cells to `display: none` and reflows the grid to a 4-col `50px / 1.6fr / 1fr / 76px` (Type | Name | When | Price). The header row's Rarity/Seller/When labels also hide via `:nth-child(3..5)` selectors so the visible header matches the visible body. Replaced the prior `<=600px` row-collapse rule (which was for the 4-col layout) with just the now-needed `.tapeHeader { flex-direction: column }` override for the title/aggregate stack at very narrow widths.
+
+### `app/marketplace/page.jsx`
+- **Header row** added via a new `<div className=tapeHeaderRow role="row">` block above the `<ul>`. Six column labels: Type / Item / Rarity / Seller / When / Price (Price gets the `tapeColLabelEnd` modifier).
+- **Row body restructured** from 4 cells to 6 cells per `<li>`:
+  - Type pill — same className stack but the `rarity` lookup is now broader: `t.skin?.rarity ?? t.mod?.rarity ?? t.drone?.rarity ?? null` so drones get rarity-tinted pills too (previously only skins/mods did).
+  - Item name — unchanged (`.tapeName` with the existing fallback chain).
+  - **Rarity** (new): the rarity word itself in `.tapeRarity` + the matching `tapeRarity_<rarity>` tint class. Falls back to `'-'` when no rarity is available.
+  - **Seller** (new): `t.seller?.username ?? '-'` in `.tapeSeller`.
+  - When: split off from the prior merged `.tapeMeta`. Uses `formatRelativeTime(t.soldAt ?? t.createdAt)` so completed sales show the sold time and (currently) active rows fall back to the listed time. Renders in `.tapeWhen`.
+  - Price: VoltIcon shrunk from `size={11}` to `size={10}` to balance against the new 11px text.
+- The empty-state branch is untouched.
+
+**Notes:**
+- The `transactions` request still hits `/api/marketplace?status=sold` but `getListings` in the service hardcodes `status=active` and ignores the query string; the `?status=sold` filter has no effect today. Out of scope for this task — Captain's ask was layout/columns/typography. Flagging here so it doesn't get lost: the "Recent Sales" tape is currently showing active listings, not completed sales. The new "Sold" / "Listed" fallback (`t.soldAt ?? t.createdAt`) means the When column reads sensibly either way; once the API filter lands the column will naturally start showing the actual sold time.
+- All new JSX class names verified to resolve to defined CSS rules.
+
+**Not run:** dev / lint / build / browser per standing instruction (Captain explicitly: "Skip lint"). Captain to confirm the row reads cleanly at 1440 / 900 / 720 / 480 widths and that the new column hierarchy isn't too dense.
+
+---
+
 ## 2026-05-01 - Dashboard tables: full rebuild as a matched-pair Live Race Feed + Recent Results
 
 **Captain ask:** Live Race Feed and Recent Results tables on the dashboard were broken. Delete all `.feedTable / .feedRow / .feedHeader / .feedDroneCell / .feedConditionsCell / .feedTrackCell / .feedConditionPill / .diffBadge / .levelTag / .youName` and `.resultsTable / .resultsHeader / .resultsRow` rules. Start fresh. Both tables share base structure (CSS grid, identical row chrome, font sizes, padding, hover); only the columns differ. Detailed shared + per-table specs provided. Skip lint.
