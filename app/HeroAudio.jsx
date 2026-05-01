@@ -3,14 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import styles from './page.module.css';
 
-/* Shared sessionStorage key with components/ui/NavShell/index.jsx. The
- * landing-page audio writes this on every play/pause; NavShell reads it
- * on first mount so audio that was running on the landing page resumes
- * automatically once the user clicks PLAY DEMO and lands inside the
- * app shell. Keep in lockstep with the AUDIO_PREF_KEY constant in
- * NavShell. */
-const AUDIO_PREF_KEY = 'hyperdrome.audio.playing';
-
 /**
  * Hero background audio + corner mute/unmute toggle.
  *
@@ -25,10 +17,10 @@ const AUDIO_PREF_KEY = 'hyperdrome.audio.playing';
  *   resumes manually. Its own `pointerdown` stops propagation so the
  *   global first-interaction listener doesn't fire-and-immediately-pause
  *   when the user's first interaction IS the toggle.
- * - sessionStorage handoff: every play/pause writes the AUDIO_PREF_KEY
- *   flag synchronously so a navigation triggered by the same gesture
- *   (e.g. PLAY DEMO) carries the playing intent into the next route.
- *   NavShell reads the flag on mount and resumes automatically.
+ * - On unmount (user leaves the landing page) the audio is paused and
+ *   its `src` cleared so the browser drops the media-session indicator
+ *   and releases the resource. Audio is local to the landing page; no
+ *   cross-route handoff.
  *
  * Iconography is inline SVG (no library) so the toggle ships with zero
  * extra runtime dependencies.
@@ -43,11 +35,6 @@ export default function HeroAudio() {
       if (startedRef.current) return;
       const audio = audioRef.current;
       if (!audio) return;
-      // Synchronously stake the playing flag BEFORE play() is called so
-      // that a click which immediately navigates (PLAY DEMO) leaves the
-      // sessionStorage value set by the time NavShell mounts on the
-      // next route. If play() rejects we walk it back in the catch.
-      window.sessionStorage.setItem(AUDIO_PREF_KEY, 'true');
       audio
         .play()
         .then(() => {
@@ -57,33 +44,42 @@ export default function HeroAudio() {
         })
         .catch(() => {
           /* gesture rejected; user can still try via the toggle */
-          window.sessionStorage.setItem(AUDIO_PREF_KEY, 'false');
         });
     };
     document.addEventListener('pointerdown', start);
-    return () => document.removeEventListener('pointerdown', start);
+    return () => {
+      document.removeEventListener('pointerdown', start);
+      // Tear down the media element on unmount so the browser stops
+      // showing a media-session indicator after the user navigates
+      // away. Pausing alone isn't enough on some browsers; clearing
+      // src + load() releases the resource entirely.
+      const audio = audioRef.current;
+      if (audio) {
+        try {
+          audio.pause();
+          audio.removeAttribute('src');
+          audio.load();
+        } catch {
+          /* element may already be detached; nothing to do */
+        }
+      }
+    };
   }, []);
 
   const handleToggle = () => {
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) {
-      // Set the flag eagerly for the same-gesture handoff reason as
-      // start() above. Cleared in the catch on autoplay rejection.
-      window.sessionStorage.setItem(AUDIO_PREF_KEY, 'true');
       audio
         .play()
         .then(() => {
           startedRef.current = true;
           setPlaying(true);
         })
-        .catch(() => {
-          window.sessionStorage.setItem(AUDIO_PREF_KEY, 'false');
-        });
+        .catch(() => {});
     } else {
       audio.pause();
       setPlaying(false);
-      window.sessionStorage.setItem(AUDIO_PREF_KEY, 'false');
     }
   };
 

@@ -2,7 +2,7 @@
  * Single-CTA cluster. PLAY DEMO sits on its own; Login moved to a
  * top-right link in the hero. Error text stays beneath the button.
  * Hero background audio + its corner toggle live in
- * `app/HeroAudio.jsx` (landing) and the persistent NavShell (in-app).
+ * `app/HeroAudio.jsx` and only run on the landing page.
  */
 .cluster {
   display: flex;

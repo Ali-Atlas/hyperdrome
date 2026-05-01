@@ -8,10 +8,8 @@ import styles from './HeroActions.module.css';
  * /api/auth/demo, then redirects to the dashboard. Login moved to a
  * subtle top-right link in the hero (rendered by app/page.jsx).
  *
- * Background audio for the hero is owned by the persistent NavShell
- * (`components/ui/NavShell`); the landing page also mounts a paired
- * `HeroAudio` corner toggle so visitors can opt in before signing in.
- * Neither lives here anymore.
+ * Background audio for the hero is owned by `app/HeroAudio.jsx`
+ * (landing page only); no audio runs inside the app shell.
  */
 export default function HeroActions() {
   const [loading, setLoading] = useState(false);
