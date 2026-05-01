@@ -170,10 +170,19 @@ export default function DroneDetailPage({ params }) {
   const roundTick = useRaceRoundEnd();
   useEffect(() => {
     if (roundTick === 0) return;
+    // Capture the moment this round-end fired. Only clear the
+    // pending entry if it's OLDER than this baseline - a click
+    // that happens during the async load window must persist for
+    // the NEXT round-end, not get blanket-nuked by this one.
+    const baselineMs = Date.now();
     let cancelled = false;
     (async () => {
       await load().catch(() => {});
-      if (!cancelled) clearPendingToggle(droneId);
+      if (cancelled) return;
+      const p = getPendingToggle(droneId);
+      if (p && (p.ts ?? 0) < baselineMs) {
+        clearPendingToggle(droneId);
+      }
     })();
     return () => {
       cancelled = true;

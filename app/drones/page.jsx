@@ -20,6 +20,7 @@ import {
 import DroneImage from '@/components/ui/DroneImage';
 import {
   clearPendingToggle,
+  getPendingToggle,
   usePendingToggle,
 } from '@/lib/pending-toggle';
 import { useRaceRoundEnd } from '@/lib/race-round-clock';
@@ -112,6 +113,13 @@ export default function DronesPage() {
   const roundTick = useRaceRoundEnd();
   useEffect(() => {
     if (roundTick === 0) return; // initial mount handled by useEffect above
+    // Capture the moment this round-end fired. Only pending entries
+    // OLDER than this baseline are cleared - entries created during
+    // the async fetch window (or any time after roundTick fired)
+    // persist for the NEXT round-end. Without this guard, a click
+    // that happens while the effect is in-flight gets its fresh
+    // pending entry blanket-nuked alongside the older ones.
+    const baselineMs = Date.now();
     let cancelled = false;
     (async () => {
       try {
@@ -119,7 +127,12 @@ export default function DronesPage() {
         const body = await res.json();
         if (!cancelled && res.ok && body?.data) {
           setDrones(body.data);
-          for (const d of body.data) clearPendingToggle(d.id);
+          for (const d of body.data) {
+            const p = getPendingToggle(d.id);
+            if (p && (p.ts ?? 0) < baselineMs) {
+              clearPendingToggle(d.id);
+            }
+          }
         }
       } catch {
         /* swallow transient failures - next round-tick retries */
