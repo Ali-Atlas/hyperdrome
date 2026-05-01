@@ -66,8 +66,13 @@ export default function LeaderboardPage() {
     setPage(1);
   }
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  /* `silent: true` skips the loading-skeleton flip - used by the
+     race-round-end auto-sync below so the table doesn't blink to
+     skeleton on every cycle. Filter changes (tab/bracket/bots)
+     still default to silent: false so the user sees the loading
+     state when they actively change views. */
+  const fetchData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({
         type: tab,
@@ -85,7 +90,7 @@ export default function LeaderboardPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [tab, bracket, includeBots]);
 
@@ -116,6 +121,57 @@ export default function LeaderboardPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchMyStats(); }, [fetchMyStats]);
   useEffect(() => { fetchMyDrones(); }, [fetchMyDrones]);
+
+  /* Race-round-end auto-sync. Same chained-one-shot pattern as the
+     My Drones list page: fetch the next race's scheduledAt, schedule
+     ONE setTimeout for that moment + 5s, on fire silent-refresh the
+     leaderboard rows + the user's stats card, then schedule the next
+     one-shot. Not periodic polling. ELO + rank shift every race
+     round so the table self-updates without an F5.
+
+     Silent flag on fetchData keeps the table from blinking to its
+     loading skeleton on each cycle. fetchMyDrones is NOT re-called
+     here - drone IDs don't change per race round (they only change
+     on create / delete / sale). Strictly additive. */
+  useEffect(() => {
+    let cancelled = false;
+    let timer;
+
+    async function scheduleNextSync() {
+      if (cancelled) return;
+      let delayMs;
+      try {
+        const res = await fetch('/api/races/upcoming');
+        const body = await res.json();
+        const races = body?.data?.races ?? [];
+        if (races.length === 0) {
+          delayMs = 60_000;
+        } else {
+          const nextTime = Math.min(
+            ...races.map((r) => new Date(r.scheduledAt).getTime()),
+          );
+          delayMs = Math.max(2_000, nextTime - Date.now() + 5_000);
+        }
+      } catch {
+        delayMs = 60_000;
+      }
+      if (cancelled) return;
+      timer = setTimeout(async () => {
+        if (cancelled) return;
+        await Promise.all([
+          fetchData({ silent: true }).catch(() => {}),
+          fetchMyStats().catch(() => {}),
+        ]);
+        scheduleNextSync();
+      }, delayMs);
+    }
+
+    scheduleNextSync();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [fetchData, fetchMyStats]);
 
   const top3 = items.slice(0, 3);
   const rest = useMemo(
