@@ -105,6 +105,18 @@
   letter-spacing: 0.08em;
 }
 
+/* Sits between the "Active" label and the toggle when the user has
+   just flipped the active flag - mirrors the list page's pending /
+   activating ribbons so both surfaces agree on what's queued. */
+.activePendingNote {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-medium);
+  color: var(--text-tertiary);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+
 /* Toggle never reads as faded - even when functionally disabled (drone
    in a pending race). The Toggle primitive's .disabled rule drops
    opacity to 0.5; this class composes onto the same wrapper element

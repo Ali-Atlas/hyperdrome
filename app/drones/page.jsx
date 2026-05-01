@@ -18,6 +18,7 @@ import {
   getLegendaryTheme,
 } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
+import { usePendingToggle } from '@/lib/pending-toggle';
 import styles from './page.module.css';
 
 /** NPC vendor price + free-drone milestones. Mirror values in
@@ -668,6 +669,19 @@ function DroneCard({ drone }) {
       }
     : undefined;
 
+  // Pending active/inactive toggle: the DB has flipped but matchmaking
+  // only honours the new value at the next race cron tick. Display the
+  // OLD active state with a pending hint until the user reloads (which,
+  // by then, the next cycle has usually run). See lib/pending-toggle.js.
+  // `drone.active` already reflects the DB-flipped (= intended) value,
+  // so when a pending entry exists the OLD state is its inverse.
+  const pendingToggle = usePendingToggle(drone.id);
+  const showAsActive = pendingToggle
+    ? !pendingToggle.intended
+    : drone.active;
+  const isPendingActivating = pendingToggle?.intended === true;
+  const isPendingDeactivating = pendingToggle?.intended === false;
+
   return (
     <Link
       key={drone.id}
@@ -679,11 +693,27 @@ function DroneCard({ drone }) {
           styles.droneCard,
           styles[`level_${tier}`],
           legendaryTheme && styles.skinRarity_legendary,
-          drone.active && styles.active,
+          showAsActive && styles.active,
         )}
         style={legendaryStyle}
       >
-        {drone.active && <span className={styles.activeRibbon}>Active</span>}
+        {showAsActive && !pendingToggle && (
+          <span className={styles.activeRibbon}>Active</span>
+        )}
+        {showAsActive && isPendingDeactivating && (
+          <span
+            className={cn(styles.activeRibbon, styles.activeRibbonPending)}
+          >
+            Active <span className={styles.activeRibbonNote}>(pending)</span>
+          </span>
+        )}
+        {!showAsActive && isPendingActivating && (
+          <span
+            className={cn(styles.activeRibbon, styles.activeRibbonActivating)}
+          >
+            Activating
+          </span>
+        )}
 
         <header className={styles.cardHead}>
           <h3 className={styles.droneName}>{drone.name}</h3>
