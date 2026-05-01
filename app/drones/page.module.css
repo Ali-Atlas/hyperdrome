@@ -757,6 +757,29 @@
   }
 }
 
+/* Small-mobile tier legend: keep all four LV-band entries on a single
+   row beneath the distribution bar. The default 10px font + var(--space-4)
+   inter-item gap pushes the row past the card edge at ~440px and below
+   so the LV bands wrap to a second line. Shrink the font, drop the
+   label letter-spacing, tighten both the inter-item gap and the
+   intra-item gap so the count value sits flush against its "LV X-Y"
+   label, and force nowrap. */
+@media (max-width: 480px) {
+  .tierLegend {
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+    font-size: 8px;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .tierLegendItem {
+    gap: 3px;
+  }
+  .tierLegendLabel {
+    letter-spacing: 0.02em;
+  }
+}
+
 /* Tighter mobile: 4+2 grid layout for the fleet stats (Drones, Active,
    Avg Level, Avg ELO on row 1; Races, Win Rate centered on row 2).
    Stat values shrink a touch so the row fits comfortably at ~360-400px
