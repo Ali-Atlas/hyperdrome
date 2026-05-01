@@ -259,6 +259,26 @@ export default function DashboardPage() {
     ? upcomingByDroneId.get(spotlightDrone.id) ?? null
     : null;
 
+  // Next-race cycling: independent of the spotlight drone now. The header
+  // arrows step through every PENDING race the user is in. Reset to 0
+  // whenever the underlying list changes length so we never index past
+  // the end after a race completes.
+  const [nextRaceIndex, setNextRaceIndex] = useState(0);
+  if (
+    upcomingRaces.length > 0 &&
+    nextRaceIndex >= upcomingRaces.length
+  ) {
+    setNextRaceIndex(0);
+  }
+  const nextRaceForCard = upcomingRaces[nextRaceIndex] ?? null;
+  const nextRaceCanCycle = upcomingRaces.length > 1;
+  const goPrevNextRace = () =>
+    setNextRaceIndex(
+      (i) => (i - 1 + upcomingRaces.length) % upcomingRaces.length,
+    );
+  const goNextNextRace = () =>
+    setNextRaceIndex((i) => (i + 1) % upcomingRaces.length);
+
   return (
     <NavShell>
       <div className={styles.page}>
@@ -380,25 +400,47 @@ export default function DashboardPage() {
           {/* ---- Row 1 col 2: Next Race for selected spotlight drone ---- */}
           <NextRacePanel
             spotlightDrone={spotlightDrone}
-            race={spotlightUpcoming}
+            race={nextRaceForCard}
             totalCount={upcomingRaces.length}
+            currentIndex={nextRaceIndex}
+            canCycle={nextRaceCanCycle}
+            onPrev={goPrevNextRace}
+            onNext={goNextNextRace}
           />
 
           {/* ---- Row 2 col 2 (and below): Live Race Feed ---- */}
           <Card className={cn(styles.liveFeed, styles.areaFeed)}>
             <h2 className={styles.sectionHeading}>Live Race Feed</h2>
             <div className={cn(styles.cardBody, styles.feedBody)}>
-            <div className={styles.feedList}>
-              {loading ? (
-                <Skeleton variant="text" count={6} />
-              ) : liveFeed.length === 0 ? (
-                <p className={styles.empty}>No upcoming races.</p>
-              ) : (
-                liveFeed.map((r) => {
-                  // Pending races have no winner yet - render the
-                  // matchup as `drone1 vs drone2` with the scheduled
-                  // execution time on the left so the row reads as a
-                  // queue counting down toward firing.
+            {loading ? (
+              <Skeleton variant="text" count={6} />
+            ) : liveFeed.length === 0 ? (
+              <p className={styles.empty}>No upcoming races.</p>
+            ) : (
+              <div className={styles.feedTable}>
+                <div className={styles.feedHeader}>
+                  <span>Time</span>
+                  <span>You</span>
+                  <span>Opponent</span>
+                  <span>Track</span>
+                </div>
+                {liveFeed.map((r) => {
+                  const myDroneIds = new Set(myDrones.map((d) => d.id));
+                  const userIsDrone1 = myDroneIds.has(r.drone1Id);
+                  const userIsDrone2 = myDroneIds.has(r.drone2Id);
+                  // Anchor "You" to the user's drone if they have one in
+                  // the matchup; otherwise fall back to drone1 so the row
+                  // still reads two-up.
+                  const userDrone = userIsDrone1
+                    ? r.drone1
+                    : userIsDrone2
+                    ? r.drone2
+                    : r.drone1;
+                  const opp = userIsDrone1
+                    ? r.drone2
+                    : userIsDrone2
+                    ? r.drone1
+                    : r.drone2;
                   const ts = r.scheduledAt
                     ? new Date(r.scheduledAt).toLocaleTimeString([], {
                         hour: '2-digit',
@@ -412,24 +454,15 @@ export default function DashboardPage() {
                       href={`/races/${r.id}`}
                       className={styles.feedRow}
                     >
-                      <span className={styles.feedTime}>{ts}</span>
-                      <span className={styles.feedSep}>|</span>
-                      <span className={styles.feedDrone}>
-                        {r.drone1?.name ?? '-'}
-                      </span>
-                      <span className={styles.feedWord}>vs</span>
-                      <span className={styles.feedDrone}>
-                        {r.drone2?.name ?? '-'}
-                      </span>
-                      <span className={styles.feedWord}>on</span>
-                      <span className={styles.feedTrack}>
-                        {r.track?.name ?? '-'}
-                      </span>
+                      <span className={`${styles.mono}`}>{ts}</span>
+                      <span>{userDrone?.name ?? '-'}</span>
+                      <span>{opp?.name ?? '-'}</span>
+                      <span>{r.track?.name ?? '-'}</span>
                     </Link>
                   );
-                })
-              )}
-            </div>
+                })}
+              </div>
+            )}
             <Link href="/races" className={styles.feedSeeAll}>
               See All Races →
             </Link>
@@ -450,6 +483,7 @@ export default function DashboardPage() {
             ) : (
               <div className={styles.resultsTable}>
                 <div className={styles.resultsHeader}>
+                  <span>You</span>
                   <span>Opponent</span>
                   <span>Track</span>
                   <span>Result</span>
@@ -458,16 +492,23 @@ export default function DashboardPage() {
                 </div>
                 {recentRaces.map((r) => {
                   const myDroneIds = new Set(myDrones.map((d) => d.id));
-                  const opp = myDroneIds.has(r.drone1Id)
-                    ? r.drone2
-                    : r.drone1;
+                  const userIsDrone1 = myDroneIds.has(r.drone1Id);
+                  const userDrone = userIsDrone1 ? r.drone1 : r.drone2;
+                  const opp = userIsDrone1 ? r.drone2 : r.drone1;
                   const won = myDroneIds.has(r.winnerDroneId);
+                  // Loss payout pulled from `loserPointsAwarded` instead of
+                  // dashing out: server already records both winner and
+                  // loser earnings on every race row.
+                  const voltsEarned = won
+                    ? r.pointsAwarded ?? 0
+                    : r.loserPointsAwarded ?? 0;
                   return (
                     <Link
                       key={r.id}
                       href={`/races/${r.id}`}
                       className={styles.resultsRow}
                     >
+                      <span>{userDrone?.name ?? '-'}</span>
                       <span>{opp?.name ?? '-'}</span>
                       <span>{r.track?.name ?? '-'}</span>
                       <span>
@@ -480,7 +521,7 @@ export default function DashboardPage() {
                       <span
                         className={`${styles.mono} ${styles.alignRight}`}
                       >
-                        {won ? `+${r.pointsAwarded}` : '-'}
+                        +{voltsEarned}
                       </span>
                       <span
                         className={`${styles.mono} ${styles.alignRight} ${styles.resultsTimeAgo}`}
@@ -559,7 +600,15 @@ function QuickStat({ label, value }) {
 /* matchup" link. Empty state when the selected drone has no PENDING race.   */
 /* -------------------------------------------------------------------------- */
 
-function NextRacePanel({ spotlightDrone, race, totalCount }) {
+function NextRacePanel({
+  spotlightDrone,
+  race,
+  totalCount,
+  currentIndex,
+  canCycle,
+  onPrev,
+  onNext,
+}) {
   return (
     <Card className={cn(styles.nextRacePanel, styles.areaNextRace)}>
       <div className={styles.sectionHeadingRow}>
@@ -570,10 +619,33 @@ function NextRacePanel({ spotlightDrone, race, totalCount }) {
             status={race.status}
           />
         )}
+        {canCycle && (
+          <div className={styles.navCluster}>
+            <button
+              type="button"
+              className={styles.navBtn}
+              onClick={onPrev}
+              aria-label="Previous race"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span className={styles.navCounter}>
+              {(currentIndex ?? 0) + 1}/{totalCount}
+            </span>
+            <button
+              type="button"
+              className={styles.navBtn}
+              onClick={onNext}
+              aria-label="Next race"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
       </div>
 
       {race ? (
-        <NextRaceMatchup race={race} totalCount={totalCount} />
+        <NextRaceMatchup race={race} />
       ) : (
         <div className={styles.nextRaceEmpty}>
           {spotlightDrone
@@ -586,12 +658,13 @@ function NextRacePanel({ spotlightDrone, race, totalCount }) {
 }
 
 /** The matchup body inside NextRacePanel - shown only when there's a
- *  pending race for the currently spotlighted drone. */
-function NextRaceMatchup({ race, totalCount }) {
+ *  pending race available. The cycling arrows in the panel header
+ *  surface "current of total" so the panel no longer needs to show a
+ *  redundant "MORE UPCOMING" caption inside the body. */
+function NextRaceMatchup({ race }) {
   const isUserDrone1 = race.userDroneId === race.drone1?.id;
   const userDrone = isUserDrone1 ? race.drone1 : race.drone2;
   const opponent = isUserDrone1 ? race.drone2 : race.drone1;
-  const moreCount = Math.max(0, (totalCount ?? 0) - 1);
 
   // Radar axes plot against the absolute stat ceiling (100), NOT the
   // per-level cap. A LV3 drone reads visibly small and a LV20 drone
@@ -648,11 +721,6 @@ function NextRaceMatchup({ race, totalCount }) {
         >
           VIEW FULL MATCHUP →
         </Link>
-        {moreCount > 0 && (
-          <span className={styles.moreUpcomingLink}>
-            {moreCount} MORE UPCOMING
-          </span>
-        )}
       </div>
     </div>
   );
