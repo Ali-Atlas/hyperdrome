@@ -70,26 +70,33 @@
   min-width: 0;
 }
 
-/* Name + level header - matches dashboard spotlight's .droneNameBlock.
-   Two-column: name+meta on the left, ACTIVE toggle control on the far right. */
+/* Name + level header - vertical stack: row 1 holds the drone name +
+   ACTIVE control side-by-side, row 2 holds the level + owner meta
+   below. Captain spec: badge sits on the SAME row as the name (was
+   previously vertically centered against the whole name+meta block,
+   which read as "between" the two). */
 .droneNameBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-self: flex-start;
+  width: 100%;
+}
+
+.droneNameRow {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  align-self: flex-start;
   width: 100%;
 }
 
-.droneNameMeta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
+/* `position: relative` anchors the absolute-positioned pending note
+   (see `.activePendingNote` below) so it can sit under the badge
+   without pushing the name row taller. */
 .activeControl {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -105,17 +112,25 @@
   letter-spacing: 0.08em;
 }
 
-/* Sits between the "Active" label and the toggle when the user has
-   just flipped the active flag - yellow warning tint matches the
-   list page's pending / activating ribbons so both surfaces agree
-   on what's queued. */
+/* Pending status hint that sits BELOW the ACTIVE badge when the user
+   has just flipped the active flag. Absolute-positioned so it doesn't
+   push the name row taller (Captain spec: "small text. Not breaking
+   the layout or pushing content around"). Right-anchored so it tracks
+   the badge's right edge regardless of the badge's own width. */
 .activePendingNote {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 2px;
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: var(--font-bold);
   color: var(--accent-warning);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* Toggle never reads as faded - even when functionally disabled (drone
@@ -171,6 +186,11 @@
 }
 
 .droneName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-heading);
   font-size: var(--text-base);
   font-weight: var(--font-bold);

@@ -554,55 +554,57 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
             <h2 className={styles.sectionHeading}>Drone</h2>
             <div className={styles.leftInner}>
               <div className={styles.droneNameBlock}>
-                <div className={styles.droneNameMeta}>
+                <div className={styles.droneNameRow}>
                   <div className={styles.droneName}>{drone.name}</div>
-                  <div className={styles.droneLevel}>
-                    <span
-                      className={styles.metaLevel}
-                      style={{ color: getLevelColor(drone.level) }}
-                    >
-                      LV {drone.level}
-                    </span>
-                    <span className={styles.metaSep}>|</span>
-                    <span className={styles.metaOwner}>
-                      Owner:{' '}
-                      {drone.owner?.username ? (
-                        !isOwner && drone.owner.id ? (
-                          <Link
-                            href={`/profile/${drone.owner.id}`}
-                            className={styles.ownerLink}
-                          >
-                            {drone.owner.username}
-                          </Link>
-                        ) : (
-                          drone.owner.username
-                        )
-                      ) : drone.isBot ? (
-                        'Bot'
-                      ) : (
-                        '-'
-                      )}
-                    </span>
-                  </div>
-                </div>
-                {isOwner && (
-                  <div className={styles.activeControl}>
-                    <span className={styles.activeControlLabel}>Active</span>
-                    {pendingToggle && (
-                      <span className={styles.activePendingNote}>
-                        {pendingToggle.intended ? '(activating)' : '(pending)'}
+                  {isOwner && (
+                    <div className={styles.activeControl}>
+                      <span className={styles.activeControlLabel}>Active</span>
+                      <span className={styles.activeToggleWrap}>
+                        <Toggle
+                          checked={drone.active}
+                          onChange={toggleActive}
+                          disabled={togglePending}
+                          className={styles.activeToggle}
+                        />
                       </span>
+                      {pendingToggle && (
+                        <span className={styles.activePendingNote}>
+                          {pendingToggle.intended
+                            ? '(activating)'
+                            : '(pending)'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className={styles.droneLevel}>
+                  <span
+                    className={styles.metaLevel}
+                    style={{ color: getLevelColor(drone.level) }}
+                  >
+                    LV {drone.level}
+                  </span>
+                  <span className={styles.metaSep}>|</span>
+                  <span className={styles.metaOwner}>
+                    Owner:{' '}
+                    {drone.owner?.username ? (
+                      !isOwner && drone.owner.id ? (
+                        <Link
+                          href={`/profile/${drone.owner.id}`}
+                          className={styles.ownerLink}
+                        >
+                          {drone.owner.username}
+                        </Link>
+                      ) : (
+                        drone.owner.username
+                      )
+                    ) : drone.isBot ? (
+                      'Bot'
+                    ) : (
+                      '-'
                     )}
-                    <span className={styles.activeToggleWrap}>
-                      <Toggle
-                        checked={drone.active}
-                        onChange={toggleActive}
-                        disabled={togglePending}
-                        className={styles.activeToggle}
-                      />
-                    </span>
-                  </div>
-                )}
+                  </span>
+                </div>
               </div>
 
               <div className={styles.droneImageFrame}>
