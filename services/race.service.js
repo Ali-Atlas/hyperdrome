@@ -808,29 +808,34 @@ export async function getRaceById(raceId) {
   };
 }
 
-/** Calculate when the next race cycle will run.
+/** Calculate when the next race cycle will run. Based on the latest
+ *  completed race + the cron interval; PENDING races are still in
+ *  flight so they don't anchor "next race" time.
  *
- *  Aligned to the wall-clock interval boundary, NOT derived from the
- *  latest race's `createdAt`. The Vercel cron fires on a fixed clock
- *  schedule (every 3rd minute aligned to 0:00, 0:03, 0:06...), so
- *  the next tick is `Math.ceil(now / interval) * interval`. The
- *  interval comes from
- *  `admin_config.race_interval_seconds` so dev/prod stay configurable
- *  - if that value diverges from the vercel.json cron schedule the
- *  countdown will drift, so they must be kept in sync.
- *
- *  Previous implementation added the interval to the latest completed
- *  race's `createdAt` and walked forward until it landed in the
- *  future. That drifted from the actual cron tick by however long the
- *  cron's processing took (15-30s typically), causing the countdown
- *  to target a moment AFTER the cron actually fired - which made
- *  client-side state appear to update "early". */
+ *  Anchoring to `latestRace.createdAt + interval` (rather than a
+ *  wall-clock-aligned tick) keeps the returned value STUCK during
+ *  cron processing - until the cron records a fresh completed race,
+ *  the returned timestamp stays in the past, which is what gives
+ *  the client its visible "RACING IN PROGRESS" window. */
 export async function getNextRaceTime() {
   const cfg = await loadConfig();
-  const intervalSec = cfg.raceIntervalSeconds;
-  const nowSec = Math.floor(Date.now() / 1000);
-  const nextTickSec = Math.ceil(nowSec / intervalSec) * intervalSec;
-  return new Date(nextTickSec * 1000);
+  const [latest] = await db
+    .select({ createdAt: races.createdAt })
+    .from(races)
+    .where(eq(races.status, 'completed'))
+    .orderBy(desc(races.createdAt))
+    .limit(1);
+  const last = latest?.createdAt ?? new Date();
+  let next = new Date(new Date(last).getTime() + cfg.raceIntervalSeconds * 1000);
+  // Advance forward by interval until we land in the future. Handles
+  // dev mode (no cron), prod pauses, and any gap where races stopped
+  // running for a while - without this the formula returns a past
+  // timestamp and the UI clamps to 00:00. No-op during normal cron
+  // operation since `last` is fresh.
+  while (next <= new Date()) {
+    next = new Date(next.getTime() + cfg.raceIntervalSeconds * 1000);
+  }
+  return next;
 }
 
 /**
