@@ -33,6 +33,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { neon } from '@neondatabase/serverless';
 import { randomDroneName } from '../lib/game-engine/drone-names.js';
+import { buildStats } from '../lib/game-engine/drone-stats.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -92,52 +93,6 @@ const NEW_LISTINGS = [
 // share helpers with seed-production.js; the math is small and the
 // duplication is intentional (script is a one-shot fix).
 const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
-
-/* -------------------------------------------------------------------------- */
-/* Stat helpers (mirrored from scripts/seed-production.js)                    */
-/* -------------------------------------------------------------------------- */
-
-const STAT_KEYS = [
-  'speed', 'turning', 'acceleration', 'durability',
-  'nightVision', 'batteryCapacity', 'rainHandling', 'windResistance', 'consistency',
-];
-
-const PROFILES = {
-  speedster:  [3, 1, 3, 1, 1, 1, 1, 3, 1],
-  cornerer:   [1, 4, 1, 2, 1, 1, 1, 1, 2],
-  allrounder: [2, 2, 2, 2, 1, 1, 1, 1, 2],
-};
-
-function buildStats(level, profile) {
-  const tsb = 9 + 20 * level;
-  const cap = Math.min(100, 10 + Math.floor(4.5 * level));
-  const points = tsb - 9;
-  const weights = PROFILES[profile] ?? PROFILES.allrounder;
-  const totalWeight = weights.reduce((a, b) => a + b, 0);
-
-  const stats = Object.fromEntries(STAT_KEYS.map((k) => [k, 1]));
-  let assigned = 0;
-  for (let i = 0; i < STAT_KEYS.length; i++) {
-    const share = Math.floor((points * weights[i]) / totalWeight);
-    stats[STAT_KEYS[i]] = Math.min(cap, 1 + share);
-    assigned += stats[STAT_KEYS[i]] - 1;
-  }
-  let remaining = points - assigned;
-  let guard = 0;
-  while (remaining > 0 && guard < 100) {
-    let placed = 0;
-    for (let k = 0; k < STAT_KEYS.length && remaining > 0; k++) {
-      if (stats[STAT_KEYS[k]] < cap) {
-        stats[STAT_KEYS[k]] += 1;
-        remaining -= 1;
-        placed += 1;
-      }
-    }
-    if (placed === 0) break;
-    guard += 1;
-  }
-  return { stats, tsb };
-}
 
 /**
  * Raw-SQL variant of the drone-names helper. This script uses neon's

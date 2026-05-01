@@ -33,6 +33,7 @@ import readline from 'node:readline';
 import * as schema from '../lib/db/schema.js';
 import { seedDemoAccount } from './seed-demo-player.js';
 import { generateUniqueDroneName } from '../lib/game-engine/drone-names.js';
+import { BOT_PROFILES, buildStats } from '../lib/game-engine/drone-stats.js';
 
 const {
   users,
@@ -128,36 +129,6 @@ async function truncateForFresh() {
 
 const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 
-const STAT_KEYS = [
-  'speed',
-  'turning',
-  'acceleration',
-  'durability',
-  'nightVision',
-  'batteryCapacity',
-  'rainHandling',
-  'windResistance',
-  'consistency',
-];
-
-const TSB_BASE = 9;
-const TSB_PER_LEVEL = 20;
-const STAT_CAP_BASE = 10;
-const STAT_CAP_PER_LEVEL = 4.5;
-
-const BOT_PROFILES = {
-  balanced:    [1, 1, 1, 1, 1, 1, 1, 1, 1],
-  speedster:   [3, 1, 3, 1, 1, 1, 1, 3, 1],
-  cornerer:    [1, 4, 1, 2, 1, 1, 1, 1, 2],
-  tank:        [1, 1, 1, 4, 1, 2, 1, 1, 2],
-  nightHunter: [2, 1, 1, 1, 4, 1, 1, 1, 1],
-  rainRider:   [1, 2, 1, 1, 1, 1, 4, 1, 2],
-  windWalker:  [2, 1, 2, 1, 1, 1, 1, 4, 1],
-  marathoner:  [2, 1, 1, 2, 1, 4, 1, 1, 1],
-  consistent:  [1, 2, 1, 1, 1, 1, 1, 1, 5],
-  allrounder:  [2, 2, 2, 2, 1, 1, 1, 1, 2],
-};
-
 /**
  * Marketplace drone pricing tier table. Price scales linearly with level
  * inside the tier band (4 steps across the 5-level span) plus a ±15%
@@ -195,71 +166,6 @@ function priceForLevel(level) {
   const variance = 0.85 + Math.random() * 0.3;
   const raw = Math.round(linear * variance);
   return Math.max(tier.base, Math.min(tier.top, raw));
-}
-
-function buildStats(level, profileName) {
-  const tsb = TSB_BASE + TSB_PER_LEVEL * level;
-  const cap = Math.min(100, STAT_CAP_BASE + Math.floor(STAT_CAP_PER_LEVEL * level));
-  const points = tsb - 9;
-  const weights = BOT_PROFILES[profileName] ?? BOT_PROFILES.balanced;
-  const totalWeight = weights.reduce((a, b) => a + b, 0);
-
-  const stats = Object.fromEntries(STAT_KEYS.map((k) => [k, 1]));
-  let assigned = 0;
-  for (let i = 0; i < STAT_KEYS.length; i++) {
-    const share = Math.floor((points * weights[i]) / totalWeight);
-    stats[STAT_KEYS[i]] = Math.min(cap, 1 + share);
-    assigned += stats[STAT_KEYS[i]] - 1;
-  }
-  let remaining = points - assigned;
-  let guard = 0;
-  while (remaining > 0 && guard < 100) {
-    let placed = 0;
-    for (let k = 0; k < STAT_KEYS.length && remaining > 0; k++) {
-      if (stats[STAT_KEYS[k]] < cap) {
-        stats[STAT_KEYS[k]] += 1;
-        remaining -= 1;
-        placed += 1;
-      }
-    }
-    if (placed === 0) break;
-    guard += 1;
-  }
-
-  // Per-stat ±15% variance so two same-level same-profile drones share
-  // the archetype shape (cornerer = high turning) but differ on the
-  // exact numbers. Rebalance below restores the TSB total exactly.
-  for (const k of STAT_KEYS) {
-    const v = stats[k];
-    const delta = Math.round(v * (Math.random() * 0.3 - 0.15));
-    stats[k] = Math.max(1, Math.min(cap, v + delta));
-  }
-
-  // Rebalance to the original TSB target. Trim from the highest stat
-  // when over, add to the lowest stat (still under cap) when under.
-  // Re-sorting each pass means the most-extreme stat absorbs the
-  // adjustment first, which preserves the archetype shape instead of
-  // smearing the correction across the whole stat block.
-  const sumStats = () => STAT_KEYS.reduce((a, k) => a + stats[k], 0);
-  let safety = 1000;
-  while (sumStats() !== tsb && safety > 0) {
-    safety -= 1;
-    if (sumStats() > tsb) {
-      const k = [...STAT_KEYS]
-        .sort((a, b) => stats[b] - stats[a])
-        .find((key) => stats[key] > 1);
-      if (!k) break;
-      stats[k] -= 1;
-    } else {
-      const k = [...STAT_KEYS]
-        .sort((a, b) => stats[a] - stats[b])
-        .find((key) => stats[key] < cap);
-      if (!k) break;
-      stats[k] += 1;
-    }
-  }
-
-  return { stats, tsb };
 }
 
 /* -------------------------------------------------------------------------- */

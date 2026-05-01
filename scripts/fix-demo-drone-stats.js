@@ -33,44 +33,9 @@ import { neon } from '@neondatabase/serverless';
 import { and, eq, like } from 'drizzle-orm';
 
 import * as schema from '../lib/db/schema.js';
+import { buildStats } from '../lib/game-engine/drone-stats.js';
 
 const { users, drones } = schema;
-
-/* -------------------------------------------------------------------------- */
-/* Stat-budget constants (mirror lib/db/seed.js + game-engine/economy.js) */
-/* -------------------------------------------------------------------------- */
-
-const TSB_BASE = 9;
-const TSB_PER_LEVEL = 20;
-const STAT_CAP_BASE = 10;
-const STAT_CAP_PER_LEVEL = 4.5;
-
-const ALL_STAT_KEYS = [
-  'speed',
-  'turning',
-  'acceleration',
-  'durability',
-  'nightVision',
-  'batteryCapacity',
-  'rainHandling',
-  'windResistance',
-  'consistency',
-];
-
-/* Profile weight vectors duplicated from scripts/seed-production.js +
- * scripts/seed-demo-player.js. Indexes line up with ALL_STAT_KEYS. */
-const BOT_PROFILES = {
-  balanced:    [1, 1, 1, 1, 1, 1, 1, 1, 1],
-  speedster:   [3, 1, 3, 1, 1, 1, 1, 3, 1],
-  cornerer:    [1, 4, 1, 2, 1, 1, 1, 1, 2],
-  tank:        [1, 1, 1, 4, 1, 2, 1, 1, 2],
-  nightHunter: [2, 1, 1, 1, 4, 1, 1, 1, 1],
-  rainRider:   [1, 2, 1, 1, 1, 1, 4, 1, 2],
-  windWalker:  [2, 1, 2, 1, 1, 1, 1, 4, 1],
-  marathoner:  [2, 1, 1, 2, 1, 4, 1, 1, 1],
-  consistent:  [1, 2, 1, 1, 1, 1, 1, 1, 5],
-  allrounder:  [2, 2, 2, 2, 1, 1, 1, 1, 2],
-};
 
 /* DEMO_DRONES roster from scripts/seed-demo-player.js. Each level appears
  * exactly once, so a single drone's level uniquely identifies its
@@ -85,41 +50,6 @@ const LEVEL_TO_DEMO = {
   5:  { archetype: 'PHANTOM', profile: 'balanced' },
   14: { archetype: 'GHOST',   profile: 'tank' },
 };
-
-/* -------------------------------------------------------------------------- */
-/* buildStats — exact mirror of scripts/seed-production.js#buildStats */
-/* -------------------------------------------------------------------------- */
-
-function buildStats(level, profileName) {
-  const tsb = TSB_BASE + TSB_PER_LEVEL * level;
-  const cap = Math.min(100, STAT_CAP_BASE + Math.floor(STAT_CAP_PER_LEVEL * level));
-  const points = tsb - 9;
-  const weights = BOT_PROFILES[profileName] ?? BOT_PROFILES.balanced;
-  const totalWeight = weights.reduce((a, b) => a + b, 0);
-
-  const stats = Object.fromEntries(ALL_STAT_KEYS.map((k) => [k, 1]));
-  let assigned = 0;
-  for (let i = 0; i < ALL_STAT_KEYS.length; i++) {
-    const share = Math.floor((points * weights[i]) / totalWeight);
-    stats[ALL_STAT_KEYS[i]] = Math.min(cap, 1 + share);
-    assigned += stats[ALL_STAT_KEYS[i]] - 1;
-  }
-  let remaining = points - assigned;
-  let guard = 0;
-  while (remaining > 0 && guard < 100) {
-    let placed = 0;
-    for (let k = 0; k < ALL_STAT_KEYS.length && remaining > 0; k++) {
-      if (stats[ALL_STAT_KEYS[k]] < cap) {
-        stats[ALL_STAT_KEYS[k]] += 1;
-        remaining -= 1;
-        placed += 1;
-      }
-    }
-    if (placed === 0) break;
-    guard += 1;
-  }
-  return { stats, tsb };
-}
 
 /* -------------------------------------------------------------------------- */
 /* Bootstrap                                                                  */

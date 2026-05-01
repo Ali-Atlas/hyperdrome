@@ -4,6 +4,56 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-01 - buildStats: extract to single shared module, kill 5-way drift
+
+**Captain ask:** Earlier audit revealed 5 separate `buildStats` functions across the repo. Only `scripts/seed-production.js` had the +-15% variance; the other 4 were deterministic copies, and the PILOT_D demo pool (which is what Captain queried) ran through `seed-demo-player.js`'s unmodified copy - that's why every LV17 PILOT_D drone had byte-identical stats. Fix: create a single shared module, move the variance-bearing `buildStats` into it, update all 5 call sites to import. One function, one source of truth, no more drift. Skip lint.
+
+**Files modified (6):**
+
+### `lib/game-engine/drone-stats.js` (new)
+- New module. Plain JS, no Next.js imports - safe for both `node --env-file` script invocation and the Next runtime. Imports `STAT_KEYS` from the existing `./economy.js` (already canonical there) so the stat-key list isn't duplicated either.
+- Exports: `buildStats(level, profileName)`, `BOT_PROFILES`, `TSB_BASE`, `TSB_PER_LEVEL`, `STAT_CAP_BASE`, `STAT_CAP_PER_LEVEL`. The constants are exported in case future callers want to read them directly without re-importing the literal numbers.
+- Algorithm is the variance-bearing version from the prior commit: distribute by profile weights -> spillover loop fills to TSB exactly -> per-stat ±15% random nudge clamped to [1, cap] -> rebalance loop trims highest / fills lowest until sum is exactly TSB again. Re-sort each rebalance pass so the most-extreme stat absorbs the correction (preserves archetype shape).
+
+### `scripts/seed-production.js`
+- Added `import { BOT_PROFILES, buildStats } from '../lib/game-engine/drone-stats.js';`.
+- Deleted the 9-key `STAT_KEYS` array, `TSB_BASE`/`TSB_PER_LEVEL`/`STAT_CAP_BASE`/`STAT_CAP_PER_LEVEL` constants, the `BOT_PROFILES` map, and the local 64-line `buildStats` function. `BOT_PROFILES` is still used at line ~1095 (`Object.keys(BOT_PROFILES)` to cycle profiles in the marketplace mint plan) - that ref now resolves to the imported value, no other change needed.
+- `randInt`, `PRICE_TIERS`, and `priceForLevel` (the marketplace pricing helper, unrelated to stats) all kept in place.
+
+### `scripts/seed-demo-player.js`
+- Added `import { buildStats } from '../lib/game-engine/drone-stats.js';`.
+- Deleted the entire `Stat-budget formulas` block (TSB / STAT_CAP constants, ALL_STAT_KEYS, BOT_PROFILES) plus the local 30-line `buildStats`. None of the deleted constants were used outside the function.
+- Kept `randInt` and `pick` (general utilities used elsewhere in the seeder).
+- **This is the file that was the actual cause of the byte-identical PILOT_D problem** - it's the entry point for both the pre-seeded `PILOT_D01..D50` pool (called by `seed-production.js` section H) and the on-demand fresh-create demo accounts (`app/api/auth/demo/route.js` fallback path). With this change, every demo account mint - pre-seed and runtime - gets the variance.
+
+### `scripts/fix-demo-drone-stats.js`
+- Added `import { buildStats } from '../lib/game-engine/drone-stats.js';`.
+- Deleted the TSB / STAT_CAP constants, ALL_STAT_KEYS, BOT_PROFILES, and the local `buildStats` function. `LEVEL_TO_DEMO` map kept (the per-level archetype/profile lookup is specific to this script's "fix existing rows" use case).
+
+### `scripts/fix-marketplace-featured.js`
+- Added `import { buildStats } from '../lib/game-engine/drone-stats.js';`.
+- Deleted the local `STAT_KEYS`, `PROFILES` map (3-entry subset), and `buildStats`. None of the locals were referenced outside the function.
+
+### `lib/db/seed-more-drones.js`
+- Added `import { BOT_PROFILES, buildStats } from '../game-engine/drone-stats.js';` (relative path one level shallower since this file lives in `lib/db/` not `scripts/`).
+- Deleted the local `STAT_KEYS`, `tsbFor`, `capFor`, and the local `buildStats(level, seed)` function. **Behavior change worth flagging:** the old function spent only ~85% of TSB ("lived-in feel") and used a deterministic seeded jitter `((seed * 7 + i * 13) % 5) - 2`. The shared function spends 100% of TSB and uses non-deterministic `Math.random()` variance. So the marketplace top-up drones from this seeder will be slightly stronger (full TSB) and non-reproducible across runs. Captain's ask was explicit about "delete local formula", so this is the intended outcome.
+- Old call site `buildStats(level, i)` had a `seed` arg, not a profile. Replaced with `buildStats(level, profileForIndex(i))` - new local helper `profileForIndex` cycles through `Object.keys(BOT_PROFILES)` so the 30 marketplace drones now get archetype variety (cornerer / speedster / tank / etc.) instead of uniform balanced shape. Matches the production bot pool's profile cycling.
+
+**Why this is the right shape:**
+- The 5 prior copies all started life as "exact mirrors of seed-production.js#buildStats" (literally what the comments said). They drifted because no one had a single place to update. The variance commit (676086e) only landed in one of the five, which is exactly the failure mode the comments were warning about.
+- New module sits next to `economy.js` and `race-simulator.js` in `lib/game-engine/` - the home for pure, side-effect-free game math. STAT_KEYS already lives in `economy.js`, so the imports compose naturally.
+
+**Verification (grep-only, no DB hit):**
+- `grep -rn "function buildStats|const buildStats" --include="*.js"` returns exactly one match: the export in the new module.
+- All 5 call sites import via `from '.../drone-stats.js'`.
+- No orphan refs to `ALL_STAT_KEYS`, `TSB_BASE`, `TSB_PER_LEVEL`, `STAT_CAP_BASE`, `STAT_CAP_PER_LEVEL`, `tsbFor`, or `capFor` anywhere under `scripts/` or `lib/db/`.
+- `BOT_PROFILES` references in `seed-production.js:1095` and `seed-more-drones.js:37` resolve to the imported value (both files import it).
+- **Not run:** dev / lint / build / seed per Captain's standing rule. Captain runs the seed himself when ready to refresh PILOT_D pool.
+
+**Suggested follow-up (not done unless you ask):** truncate-and-reseed the PILOT_D rows so the existing pool picks up the new variance. The current rows in prod are still the byte-identical pre-fix output. A run of `scripts/fix-demo-drone-stats.js` (which now imports the shared `buildStats`) would also re-randomize them in place without disturbing user IDs / drone IDs / claim history.
+
+---
+
 ## 2026-05-01 - buildStats: per-stat ±15% variance + TSB rebalance (bots + marketplace)
 
 **Captain ask:** Two LV17 cornerers should have the same SHAPE (high turning, low speed) but different exact numbers. Add ±15% per-stat variance after the existing weight distribution, then rebalance back to the TSB total - trim highest if over, add to lowest if under. Apply to bot drones too. Don't touch profile weights or the TSB formula. Skip lint.

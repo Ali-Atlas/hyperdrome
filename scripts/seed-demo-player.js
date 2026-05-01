@@ -27,6 +27,7 @@ import {
   calculateRacePoints,
 } from '../lib/game-engine/economy.js';
 import { generateUniqueDroneName } from '../lib/game-engine/drone-names.js';
+import { buildStats } from '../lib/game-engine/drone-stats.js';
 
 const {
   users,
@@ -88,88 +89,12 @@ const UNBOUND_LEGENDARY_ROTATION = ['Apex Predator', 'Kraken', 'Celestial'];
 /** demoIndex % 3 -> which legendary mod sits unbound in the player's vault. */
 const LEGENDARY_MOD_ROTATION = ['Phantom Drive', 'Quantum Sync', 'Storm Rider'];
 
-/* Stat-budget formulas mirror lib/db/seed.js + lib/game-engine/economy.js
- * defaults so demo drones look exactly like organic drones at the same
- * level. */
-const TSB_BASE = 9;
-const TSB_PER_LEVEL = 20;
-const STAT_CAP_BASE = 10;
-const STAT_CAP_PER_LEVEL = 4.5;
-
-const ALL_STAT_KEYS = [
-  'speed',
-  'turning',
-  'acceleration',
-  'durability',
-  'nightVision',
-  'batteryCapacity',
-  'rainHandling',
-  'windResistance',
-  'consistency',
-];
-
-/* Profile weight vectors duplicated from scripts/seed-production.js so the
- * demo seeder can build organic-looking, archetype-flavored drones with
- * the same algorithm prod uses for racing bots. Indexes line up with
- * ALL_STAT_KEYS. Every weight is >=1 so every stat receives points and
- * the full TSB is always consumed. */
-const BOT_PROFILES = {
-  balanced:    [1, 1, 1, 1, 1, 1, 1, 1, 1],
-  speedster:   [3, 1, 3, 1, 1, 1, 1, 3, 1],
-  cornerer:    [1, 4, 1, 2, 1, 1, 1, 1, 2],
-  tank:        [1, 1, 1, 4, 1, 2, 1, 1, 2],
-  nightHunter: [2, 1, 1, 1, 4, 1, 1, 1, 1],
-  rainRider:   [1, 2, 1, 1, 1, 1, 4, 1, 2],
-  windWalker:  [2, 1, 2, 1, 1, 1, 1, 4, 1],
-  marathoner:  [2, 1, 1, 2, 1, 4, 1, 1, 1],
-  consistent:  [1, 2, 1, 1, 1, 1, 1, 1, 5],
-  allrounder:  [2, 2, 2, 2, 1, 1, 1, 1, 2],
-};
-
 /* -------------------------------------------------------------------------- */
 /* RNG / utility                                                              */
 /* -------------------------------------------------------------------------- */
 
 const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
-/**
- * Distribute the full TSB across all 9 stats per the profile's weight
- * vector. Mirrors `buildStats` in scripts/seed-production.js exactly so
- * demo drones use the same algorithm as the racing bots and end up with
- * organic, archetype-flavored stat lines (no more 5 secondaries stuck
- * at 1, no more wasted TSB).
- */
-function buildStats(level, profileName) {
-  const tsb = TSB_BASE + TSB_PER_LEVEL * level;
-  const cap = Math.min(100, STAT_CAP_BASE + Math.floor(STAT_CAP_PER_LEVEL * level));
-  const points = tsb - 9;
-  const weights = BOT_PROFILES[profileName] ?? BOT_PROFILES.balanced;
-  const totalWeight = weights.reduce((a, b) => a + b, 0);
-
-  const stats = Object.fromEntries(ALL_STAT_KEYS.map((k) => [k, 1]));
-  let assigned = 0;
-  for (let i = 0; i < ALL_STAT_KEYS.length; i++) {
-    const share = Math.floor((points * weights[i]) / totalWeight);
-    stats[ALL_STAT_KEYS[i]] = Math.min(cap, 1 + share);
-    assigned += stats[ALL_STAT_KEYS[i]] - 1;
-  }
-  let remaining = points - assigned;
-  let guard = 0;
-  while (remaining > 0 && guard < 100) {
-    let placed = 0;
-    for (let k = 0; k < ALL_STAT_KEYS.length && remaining > 0; k++) {
-      if (stats[ALL_STAT_KEYS[k]] < cap) {
-        stats[ALL_STAT_KEYS[k]] += 1;
-        remaining -= 1;
-        placed += 1;
-      }
-    }
-    if (placed === 0) break;
-    guard += 1;
-  }
-  return { stats, tsb };
-}
 
 /* -------------------------------------------------------------------------- */
 /* Template lookups (operate on userId-NULL vault rows only)                  */
