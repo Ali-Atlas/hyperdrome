@@ -33,6 +33,8 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
 import {
+  clearPendingToggle,
+  getPendingToggle,
   setPendingToggle,
   usePendingToggle,
 } from '@/lib/pending-toggle';
@@ -286,6 +288,14 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
 
   const toggleActive = async (next) => {
     setTogglePending(true);
+    // Snapshot the pending entry BEFORE the API round-trip. If one
+    // exists, this click is a second click on a still-pending drone
+    // and must be treated as an UNDO (cancel the queued change),
+    // not as a fresh toggle in the opposite direction. The backend
+    // already flips `active` back to its original value on the
+    // second call - all we have to do here is clear the pending
+    // overlay instead of writing a new one.
+    const isCancel = !!getPendingToggle(drone.id);
     try {
       const res = await fetch(`/api/drones/${drone.id}/toggle`, {
         method: 'POST',
@@ -298,6 +308,16 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
           ? body?.error || 'Max active drones reached'
           : body?.error || 'Toggle failed';
         showToast(msg, 'error');
+      } else if (isCancel) {
+        // `next` here is the ORIGINAL pre-pending state (the toggle
+        // is going back to it). When next === true, the user had
+        // queued a deactivation and is now undoing it; vice versa.
+        clearPendingToggle(drone.id);
+        showToast(
+          next ? 'Deactivation cancelled.' : 'Activation cancelled.',
+          'info',
+        );
+        await onReload();
       } else {
         // The DB write lands immediately, but matchmaking only runs at
         // each cron tick - so the active-flag change doesn't affect
@@ -308,7 +328,8 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
         showToast('Change takes effect next round.', 'info');
         // Visual-only: track that this toggle hasn't yet been
         // applied by the matchmaking cron. Cleared on full page
-        // reload (by then the next race cycle has usually run).
+        // reload (by then the next race cycle has usually run) or on
+        // the second-click cancel branch above.
         setPendingToggle(drone.id, next);
         await onReload();
       }
