@@ -485,14 +485,17 @@ function CountdownBar() {
           </span>
           <span className={styles.countdownRacesGroup}>
             <span className={styles.countdownLabel}>Races:</span>
-            {upcomingRaces.length === 0 ? (
-              <span className={styles.countdownRacesEmpty}>--</span>
-            ) : (
-              /* No active-state highlighting: the bar deliberately
-                 doesn't subscribe to pathname so it doesn't re-render
-                 on navigation. Every number stays accent-teal; users
-                 still get hover feedback. */
-              upcomingRaces.map((race, i) => (
+            {/* Always render 3 number slots. A slot is an accent-teal
+                link when there's an upcomingRaces entry at that
+                index, otherwise a muted static span. The numbers
+                never disappear / never blink in and out as the
+                pending list churns - only the color + interactivity
+                of each slot changes. The bar deliberately doesn't
+                subscribe to pathname so it doesn't re-render on
+                navigation. */}
+            {[0, 1, 2].map((i) => {
+              const race = upcomingRaces[i];
+              return race ? (
                 <Link
                   key={race.id}
                   href={`/races/${race.id}`}
@@ -500,8 +503,15 @@ function CountdownBar() {
                 >
                   {i + 1}
                 </Link>
-              ))
-            )}
+              ) : (
+                <span
+                  key={`races-slot-${i}`}
+                  className={styles.countdownRaceSlotEmpty}
+                >
+                  {i + 1}
+                </span>
+              );
+            })}
           </span>
         </>
       )}
