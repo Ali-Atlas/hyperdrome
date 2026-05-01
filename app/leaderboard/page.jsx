@@ -9,7 +9,7 @@ import DataTable from '@/components/ui/DataTable';
 import Toggle from '@/components/ui/Toggle';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from '@/hooks/useSession';
-import { useRaceRoundEnd } from '@/lib/race-round-clock';
+import { useRoundStartTick } from '@/lib/race-round-clock';
 import { cn, getLevelColor, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import PlayerAvatar from '@/components/ui/PlayerAvatar';
@@ -122,17 +122,17 @@ export default function LeaderboardPage() {
   useEffect(() => { fetchMyStats(); }, [fetchMyStats]);
   useEffect(() => { fetchMyDrones(); }, [fetchMyDrones]);
 
-  /* Race-round-end auto-refresh. Driven by the global race-round-clock
-     hook - fires only after a race actually completes server-side
-     (status flips pending -> completed). Silent fetchData keeps the
+  /* Round-start auto-refresh. Subscribed to the global race-round
+     clock - tick bumps the moment racing transitions from
+     in-progress -> idle (cron finished). Silent fetchData keeps the
      table from blinking to skeleton each cycle. fetchMyDrones not
      re-called - drone IDs only change on create/delete/sale. */
-  const roundTick = useRaceRoundEnd();
+  const roundStartTick = useRoundStartTick();
   useEffect(() => {
-    if (roundTick === 0) return;
+    if (roundStartTick === 0) return;
     fetchData({ silent: true }).catch(() => {});
     fetchMyStats().catch(() => {});
-  }, [roundTick, fetchData, fetchMyStats]);
+  }, [roundStartTick, fetchData, fetchMyStats]);
 
   const top3 = items.slice(0, 3);
   const rest = useMemo(

@@ -38,7 +38,10 @@ import {
   setPendingToggle,
   usePendingToggle,
 } from '@/lib/pending-toggle';
-import { useRaceRoundEnd } from '@/lib/race-round-clock';
+import {
+  useRacingInProgress,
+  useRoundStartTick,
+} from '@/lib/race-round-clock';
 import { cn, getLevelColor, canEquipSkin, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
@@ -163,31 +166,8 @@ export default function DroneDetailPage({ params }) {
     loadListing();
   }, [load, loadListing]);
 
-  /* Race-round-end auto-refresh. Subscribed to the global race-round
-     clock (lib/race-round-clock.js) which fires only after a race's
-     status flips pending -> completed server-side. On each round-end,
-     refetch this drone's data + clear its pending toggle entry. */
-  const roundTick = useRaceRoundEnd();
-  useEffect(() => {
-    if (roundTick === 0) return;
-    // Capture the moment this round-end fired. Only clear the
-    // pending entry if it's OLDER than this baseline - a click
-    // that happens during the async load window must persist for
-    // the NEXT round-end, not get blanket-nuked by this one.
-    const baselineMs = Date.now();
-    let cancelled = false;
-    (async () => {
-      await load().catch(() => {});
-      if (cancelled) return;
-      const p = getPendingToggle(droneId);
-      if (p && (p.ts ?? 0) < baselineMs) {
-        clearPendingToggle(droneId);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [roundTick, droneId, load]);
+  // Round-start auto-refresh lives inside DroneDetailView (it owns
+  // the roundStartRefreshing flag that gates the Toggle button).
 
   if (loading || status === 'loading') {
     return (
@@ -232,11 +212,40 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   const [editedStats, setEditedStats] = useState(() => pickStats(drone));
   const [saving, setSaving] = useState(false);
   const [togglePending, setTogglePending] = useState(false);
+  // Tracks the brief async window between roundStartTick firing and
+  // the round-start effect (refetch + clear pending) finishing. The
+  // toggle button stays disabled across that window so a click can't
+  // race the in-flight clear and lose its pending entry.
+  const [roundStartRefreshing, setRoundStartRefreshing] = useState(false);
   const pendingToggle = usePendingToggle(drone.id);
+  const racingInProgress = useRacingInProgress();
 
   useEffect(() => {
     setEditedStats(pickStats(drone));
   }, [drone]);
+
+  /* Round-start auto-refresh. Subscribed to the global race-round
+     clock (lib/race-round-clock.js) - tick bumps the moment racing
+     transitions from in-progress -> idle (i.e. the cron just finished
+     processing and the new round is locked in). The refreshing flag
+     gates the Toggle button across the brief async refetch+clear
+     window so a click can't race the in-flight clear. */
+  const roundStartTick = useRoundStartTick();
+  useEffect(() => {
+    if (roundStartTick === 0) return;
+    let cancelled = false;
+    setRoundStartRefreshing(true);
+    (async () => {
+      await onReload().catch(() => {});
+      if (cancelled) return;
+      clearPendingToggle(drone.id);
+      setRoundStartRefreshing(false);
+    })();
+    return () => {
+      cancelled = true;
+      setRoundStartRefreshing(false);
+    };
+  }, [roundStartTick, drone.id, onReload]);
 
   const baseStats = useMemo(() => pickStats(drone), [drone]);
   const level = drone.level ?? 1;
@@ -621,7 +630,11 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                           <Toggle
                             checked={drone.active}
                             onChange={toggleActive}
-                            disabled={togglePending}
+                            disabled={
+                              togglePending ||
+                              racingInProgress ||
+                              roundStartRefreshing
+                            }
                             className={styles.activeToggle}
                           />
                         </span>

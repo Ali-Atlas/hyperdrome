@@ -19,11 +19,10 @@ import {
 } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import {
-  clearPendingToggle,
-  getPendingToggle,
+  clearAllPendingToggles,
   usePendingToggle,
 } from '@/lib/pending-toggle';
-import { useRaceRoundEnd } from '@/lib/race-round-clock';
+import { useRoundStartTick } from '@/lib/race-round-clock';
 import styles from './page.module.css';
 
 /** NPC vendor price + free-drone milestones. Mirror values in
@@ -98,28 +97,18 @@ export default function DronesPage() {
       cancelled = true;
     };
   }, []);
-  /* Race-round-end auto-refresh. Driven by the global race-round-clock
-     hook (lib/race-round-clock.js): it polls /api/races/upcoming once
-     globally and bumps `roundTick` only when at least one race actually
-     LEFT the upcoming list (status flipped pending -> completed
-     server-side, meaning the cron's simulation finished). When that
-     happens we refetch this page's drones once and clear pending
-     entries (their job is done).
+  /* Round-start auto-refresh. Subscribed to the global race-round
+     clock (lib/race-round-clock.js) - tick bumps the moment racing
+     transitions from in-progress -> idle (cron finished, new round
+     locked in). Refetch drones + blanket-clear pending entries.
 
-     The previous chained-setTimeout design fired at scheduledAt + 5s,
-     which is when the race STARTS, not ENDS - so badges flipped while
-     the race was still simulating. This hook only fires after the
-     server confirms a race finished, so the timing is correct. */
-  const roundTick = useRaceRoundEnd();
+     No race-condition guard needed on this page because there's no
+     toggle button here - the user can't generate fresh pending
+     entries from the list. Only the drone manager creates them, and
+     that page has its own roundStartRefreshing lock. */
+  const roundStartTick = useRoundStartTick();
   useEffect(() => {
-    if (roundTick === 0) return; // initial mount handled by useEffect above
-    // Capture the moment this round-end fired. Only pending entries
-    // OLDER than this baseline are cleared - entries created during
-    // the async fetch window (or any time after roundTick fired)
-    // persist for the NEXT round-end. Without this guard, a click
-    // that happens while the effect is in-flight gets its fresh
-    // pending entry blanket-nuked alongside the older ones.
-    const baselineMs = Date.now();
+    if (roundStartTick === 0) return; // initial mount handled by useEffect above
     let cancelled = false;
     (async () => {
       try {
@@ -127,21 +116,16 @@ export default function DronesPage() {
         const body = await res.json();
         if (!cancelled && res.ok && body?.data) {
           setDrones(body.data);
-          for (const d of body.data) {
-            const p = getPendingToggle(d.id);
-            if (p && (p.ts ?? 0) < baselineMs) {
-              clearPendingToggle(d.id);
-            }
-          }
+          clearAllPendingToggles();
         }
       } catch {
-        /* swallow transient failures - next round-tick retries */
+        /* swallow transient failures - next round-start retries */
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [roundTick]);
+  }, [roundStartTick]);
 
   // Milestone toast: when a free drone shows up between page loads (drone
   // count went up while totalRaces crossed a threshold), surface it. State
