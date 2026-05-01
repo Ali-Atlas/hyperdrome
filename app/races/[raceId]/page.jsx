@@ -1331,14 +1331,14 @@ function DroneCard({
   return (
     <Link href={`/drones/${drone.id}`} className={styles.droneLink}>
       <Card className={styles.droneCard}>
-        {isViewerDrone && (
-          <span className={styles.droneOwnerYouBadge}>YOU</span>
-        )}
         <h2 className={styles.sectionHeading}>
           {isWinner ? 'Winner' : 'Challenger'}
         </h2>
 
         <div className={styles.droneImageFrame}>
+          {isViewerDrone && (
+            <span className={styles.droneOwnerYouBadge}>YOU</span>
+          )}
           <DroneImage
             drone={drone}
             alt={drone.name}
@@ -1355,9 +1355,13 @@ function DroneCard({
               className={styles.droneLevelBadge}
             />
           </div>
-          {!isViewerDrone && (
-            <div className={styles.droneOwner}>Owner: {ownerLabel}</div>
-          )}
+          {/* Owner row always renders so both cards have identical
+              vertical structure. For the viewer's own drone the line
+              is an invisible placeholder (NBSP) - the YOU badge in
+              the image-frame corner already flags ownership. */}
+          <div className={styles.droneOwner}>
+            {isViewerDrone ? ' ' : <>Owner: {ownerLabel}</>}
+          </div>
           <div className={styles.droneMeta}>
             <div className={styles.droneMetaSide}>
               <div className={styles.droneMetaItem}>

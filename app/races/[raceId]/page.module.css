@@ -517,7 +517,6 @@
 }
 
 .droneCard {
-  position: relative;
   display: flex;
   flex-direction: column;
   background: var(--bg-card);
@@ -746,15 +745,15 @@
   letter-spacing: 0.05em;
 }
 
-/* YOU badge anchored to the top corner of the COMPLETED race
-   DroneCard. Absolute-positioned so it never adds vertical flow
-   weight (which previously made the viewer's drone card taller
-   than the opponent's). Slot-prefixed rules below pin it to the
+/* YOU badge anchored to the top corner of the drone-image frame
+   (which is `position: relative`). Absolute placement keeps it out
+   of the body flow, so the viewer's card has the exact same row
+   structure as the opponent's. Slot-prefixed rules below pin the
    outer corner: drone1 (left card) -> top-left, drone2 (right card)
    -> top-right. */
 .droneOwnerYouBadge {
   position: absolute;
-  top: var(--space-3);
+  top: var(--space-2);
   z-index: 5;
   display: inline-flex;
   align-items: center;
@@ -770,11 +769,11 @@
 }
 
 .drone1Slot .droneOwnerYouBadge {
-  left: var(--space-3);
+  left: var(--space-2);
 }
 
 .drone2Slot .droneOwnerYouBadge {
-  right: var(--space-3);
+  right: var(--space-2);
 }
 
 .droneMeta {
