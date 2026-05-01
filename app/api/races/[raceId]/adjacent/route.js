@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, lt, or } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, lt, ne, or } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { withApiHandler, ok, ApiError } from '@/lib/api/response.js';
 
@@ -55,6 +55,22 @@ export const GET = withApiHandler(async ({ session, params }) => {
     inArray(races.drone2Id, droneIds),
   );
 
+  /* Anchor-id exclusion is critical here. Postgres timestamptz columns
+   * store microsecond precision, but the JS Date round-trip truncates
+   * to milliseconds. So `races.createdAt > anchor.createdAt` (where
+   * the right side is the ms-truncated round-trip value) returns true
+   * for the anchor row itself whenever its stored time has nonzero
+   * microseconds - the anchor's full µs value really is greater than
+   * its own truncated ms value. The next query was returning the
+   * anchor's own id as the "next race", which made swapToRaceId no-op
+   * (newId === currentRaceId) and the right arrow appeared dead.
+   * The `lt` side wasn't affected by symmetry: anchor's full µs value
+   * is NOT less than its truncated ms value, so it was excluded
+   * naturally. We add `ne(races.id, raceId)` to both sides anyway so
+   * the symmetry is explicit and not an accidental property of the
+   * truncation direction. */
+  const anchorExclusion = ne(races.id, raceId);
+
   const [prev] = await db
     .select({ id: races.id })
     .from(races)
@@ -62,6 +78,7 @@ export const GET = withApiHandler(async ({ session, params }) => {
       and(
         eq(races.status, 'completed'),
         lt(races.createdAt, anchor.createdAt),
+        anchorExclusion,
         userRaceFilter,
       ),
     )
@@ -75,6 +92,7 @@ export const GET = withApiHandler(async ({ session, params }) => {
       and(
         eq(races.status, 'completed'),
         gt(races.createdAt, anchor.createdAt),
+        anchorExclusion,
         userRaceFilter,
       ),
     )
