@@ -1470,14 +1470,18 @@
   margin-left: 2px;
 }
 
-.raceLink {
-  font-family: var(--font-mono);
-  color: var(--accent-primary);
-  transition: filter var(--duration-normal) var(--ease-out);
-}
-
-.raceLink:hover {
-  filter: brightness(1.2);
+/* Muted sub-label sitting next to the "Race History" heading
+   ("(Last 10 races)"). Smaller + tertiary so the heading bar
+   reads as one bold title with a soft caption beside it, not two
+   competing labels. */
+.historySubLabel {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--text-tertiary);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: var(--space-2);
 }
 
 /* ==========================================================================

@@ -2,7 +2,7 @@
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { redirect, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   ChevronDown,
@@ -1058,7 +1058,10 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
         </div>
 
         <Card className={styles.historyCard}>
-          <h2 className={styles.sectionHeading}>Race History (Last 10 races)</h2>
+          <h2 className={styles.sectionHeading}>
+            Race History
+            <span className={styles.historySubLabel}>(Last 10 races)</span>
+          </h2>
           <RaceHistoryTable rows={raceRows} />
         </Card>
       </div>
@@ -1092,17 +1095,19 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
  * ========================================================================== */
 
 function RaceHistoryTable({ rows }) {
+  const router = useRouter();
   return (
     <DataTable
       emptyMessage="No races yet."
+      onRowClick={(r) => router.push(`/races/${r.id}`)}
       columns={[
         {
           key: 'id',
           label: 'Race ID',
           render: (r) => (
-            <Link href={`/races/${r.id}`} className={styles.raceLink}>
+            <span className={styles.mono}>
               {r.id.slice(-8).toUpperCase()}
-            </Link>
+            </span>
           ),
         },
         {
