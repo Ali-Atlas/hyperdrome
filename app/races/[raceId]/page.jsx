@@ -2096,6 +2096,10 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
     leftDrone,
     rightDrone,
   );
+  // All 9 stat deltas (perspective minus opponent). Ties (delta === 0)
+  // get filtered out per Captain spec; everything else lands in
+  // strengths (positive) or gaps (negative), no top-N cap so the user
+  // sees the full picture even on lopsided matchups.
   const deltas = STAT_KEYS.map((k) => ({
     stat: k,
     label: RADAR_LABELS[k] ?? k,
@@ -2103,12 +2107,14 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
   }));
   const advantages = deltas
     .filter((d) => d.delta > 0)
-    .sort((a, b) => b.delta - a.delta)
-    .slice(0, 3);
+    .sort((a, b) => b.delta - a.delta);
   const gaps = deltas
     .filter((d) => d.delta < 0)
-    .sort((a, b) => a.delta - b.delta)
-    .slice(0, 3);
+    .sort((a, b) => a.delta - b.delta);
+  // Edge case: all 9 stats identical between the two drones. The body
+  // collapses both sections into a single "Perfectly matched" line so
+  // we never render an empty Strengths/Gaps placeholder.
+  const allTied = advantages.length === 0 && gaps.length === 0;
 
   const pct = Math.round(prob * 100);
 
@@ -2125,50 +2131,54 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
         )}
       </h3>
       <div className={styles.raceEdgeBody}>
-        <div className={styles.raceEdgeSection}>
-          <span className={styles.raceEdgeSectionLabel}>Strengths</span>
-          {advantages.length === 0 ? (
-            <span className={styles.raceEdgeNone}>None</span>
-          ) : (
-            <ul className={styles.raceEdgeList}>
-              {advantages.map((d) => (
-                <li key={d.stat} className={styles.raceEdgeRow}>
-                  <span className={styles.raceEdgeStat}>{d.label}</span>
-                  <span
-                    className={cn(
-                      styles.raceEdgeDelta,
-                      styles.raceEdgeDeltaPos,
-                    )}
-                  >
-                    +{d.delta}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className={styles.raceEdgeSection}>
-          <span className={styles.raceEdgeSectionLabel}>Gaps</span>
-          {gaps.length === 0 ? (
-            <span className={styles.raceEdgeNone}>None</span>
-          ) : (
-            <ul className={styles.raceEdgeList}>
-              {gaps.map((d) => (
-                <li key={d.stat} className={styles.raceEdgeRow}>
-                  <span className={styles.raceEdgeStat}>{d.label}</span>
-                  <span
-                    className={cn(
-                      styles.raceEdgeDelta,
-                      styles.raceEdgeDeltaNeg,
-                    )}
-                  >
-                    {d.delta}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        {allTied ? (
+          <div className={styles.raceEdgeSection}>
+            <span className={styles.raceEdgeNone}>Perfectly matched</span>
+          </div>
+        ) : (
+          <>
+            <div className={styles.raceEdgeSection}>
+              <span className={styles.raceEdgeSectionLabel}>Strengths</span>
+              {advantages.length > 0 && (
+                <ul className={styles.raceEdgeList}>
+                  {advantages.map((d) => (
+                    <li key={d.stat} className={styles.raceEdgeRow}>
+                      <span className={styles.raceEdgeStat}>{d.label}</span>
+                      <span
+                        className={cn(
+                          styles.raceEdgeDelta,
+                          styles.raceEdgeDeltaPos,
+                        )}
+                      >
+                        +{d.delta}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className={styles.raceEdgeSection}>
+              <span className={styles.raceEdgeSectionLabel}>Gaps</span>
+              {gaps.length > 0 && (
+                <ul className={styles.raceEdgeList}>
+                  {gaps.map((d) => (
+                    <li key={d.stat} className={styles.raceEdgeRow}>
+                      <span className={styles.raceEdgeStat}>{d.label}</span>
+                      <span
+                        className={cn(
+                          styles.raceEdgeDelta,
+                          styles.raceEdgeDeltaNeg,
+                        )}
+                      >
+                        {d.delta}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
         {/* Win Probability. Drone name lives in the card header only -
             the body shows the bare percentage + bar. The label and
             value share a flex row (`.raceEdgeWinHead`) so they sit
