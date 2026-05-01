@@ -4,6 +4,74 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-01 - Demo seed: no duplicate legendaries per user; dynamic-route parity audit
+
+**Captain ask:** (1) Seed must never give a demo user two legendaries with the same name (skin or mod). Before assigning a legendary, check if the user already owns one with that name; if so, pick a different one. (2) Audit the dynamic demo-creation route (`app/api/auth/demo/route.js`) and confirm user #51 gets the same experience as PILOT_D01: 110,000V, 8 drones at the canonical level distribution, same skin/mod assignments, same unbound legendaries, same placeholders, no duplicate legendaries, unique drone names, stats via shared `buildStats(level)`. Skip lint.
+
+**Files modified (3):** `scripts/seed-demo-player.js`, `scripts/seed-production.js`, `docs/session/HANDOFF.md`.
+
+### Where duplicate legendaries were actually coming from
+
+Two separate sources, both fixed:
+
+**(a) Latent bug inside `seedDemoAccount` (`seed-demo-player.js`)**
+- The previous version tracked already-cloned skins via a `usedSkinIds` Set that held the *cloned* row IDs. The picker functions then took an `excludeIds` argument and filtered vault rows by `s.id`. But vault row IDs and cloned row IDs are unrelated - the cloned row is a fresh INSERT with its own UUID. So `excludeIds.has(s.id)` *never matched anything*. The "exclude already-used" filter was a silent no-op for the entire demo seeding history.
+- That meant the placeholder pick (step 7, which picks from any rarity) and the SCOUT-collection pick (step 9, rare) could return a row whose name was already cloned for the user. The placeholder pool in particular includes 4 legendary names (Chimera / Phoenix Reborn / Dragonlord / Onyx Sovereign) - defended only by luck, not by code.
+
+**(b) `seedSoldListings` in `seed-production.js`** - *the bigger source in practice.*
+- That function transfers 4 legendary skins + 2 legendary mods from the vault to a *random* PILOT_D buyer (`randBuyer()`). The vault holds 15 copies of each legendary name. The query was `SELECT ... WHERE rarity='legendary' AND user_id IS NULL LIMIT 1` with no buyer awareness, so any PILOT_D buyer could be handed a Diamond Hands they already own from `seedDemoAccount` step 4a - a guaranteed duplicate whenever the random buyer rolled a Diamond Hands holder. Same path for legendary mods.
+
+### `scripts/seed-demo-player.js`
+- Replaced the `usedSkinIds` Set with `usedSkinNames`. Added a parallel `usedModNames`. Names are the right key: vault stock has many copies sharing one name and the cloned row's id has no relation to the vault row's id.
+- Each clone step (4a Diamond Hands, 4b Ember, 4c VIPER skin, 5 unbound legendary skin, 6 unbound legendary mod, 7 placeholders, 8 unbound common+rare mods, 9 SCOUT rare-skin collection, 10 BOLT common-mod collection) now adds the cloned row's *name* to the appropriate set after a successful insert.
+- Steps 5 and 6 (legendary rotations) changed from a single `rotation[demoIndex % rotation.length]` lookup to a small for-loop that walks the rotation starting at `demoIndex` and picks the first candidate not in the user's `usedSkinNames` / `usedModNames`. Defensive today (Diamond Hands isn't in `UNBOUND_LEGENDARY_ROTATION` and the legendary mod rotation is independent), but it keeps the function safe if those name lists ever grow or overlap.
+- Helper signatures updated:
+  - `pickVaultSkinTemplatesByRarity(db, rarity, n, excludeNames)` - replaces `excludeIds`. Filters vault candidates by `!excludeNames.has(s.name)`.
+  - `pickPlaceholderSkinTemplates(db, n, excludeNames)` - new param. Same name-based filter, plus a distinct-name pass on the shuffled output so two placeholder rows that happen to share a name can't both come back from one call.
+  - `pickVaultModsByRarity(db, rarity, n, excludeNames)` - new param.
+- Step 8 splits the common + rare mod picks. The common pick excludes `usedModNames` (which already contains the legendary mod from step 6); the rare pick excludes `usedModNames` *plus* whatever names the common pick added (the function call propagates the latest set). Step 10 (BOLT collection mod) excludes everything already cloned for the user.
+
+### `scripts/seed-production.js`
+- `sellOneSkinFromVault` and `sellOneModFromVault` gained a buyer-awareness branch *only for `rarity === 'legendary'`*. The branch reads the buyer's currently-owned names (`SELECT name FROM skins/mods WHERE user_id = $buyer`), pulls the full set of available legendary candidates from the vault (no LIMIT), and picks the first row whose name isn't in the buyer's owned set. Lower rarities keep the original `LIMIT 1` path - vault stock is intentionally many copies sharing one name and Captain's spec was scoped to legendaries, so a duplicate "Carbon Fiber" common doesn't matter.
+- The two extra round trips per legendary sale (one for owned-names, one for the wider candidate fetch) only fire for the 4 legendary skins + 2 legendary mods sold per `seedSoldListings` run - total 6 extra queries per full seed, negligible.
+
+### Dynamic demo route (`app/api/auth/demo/route.js`) - parity audit, no edit needed
+
+Comparing the user-row insert in the dynamic fallback (`route.js:172-195`) to the pre-seed insert in `seed-production.js`:
+
+| Field | Pre-seed | Dynamic | Match |
+|---|---|---|---|
+| `name` | `PILOT_D{NN}` | `PILOT_{4chars}` | shape ok |
+| `username` | same as `name` | same as `name` | ok |
+| `email` | `pilot_d{nn}@demo.hyperdrome.gg` | `pilot_{4chars}@demo.hyperdrome.gg` | shape ok |
+| `emailVerified` | `new Date()` | `new Date()` | ok |
+
+Both paths then call `seedDemoAccount({ db, userId, demoIndex })`:
+- Pre-seed loop (`seed-production.js` section H) passes `i` (sequential 0..49).
+- Dynamic uses the `seedDemoPlayer(userId)` wrapper which passes `Math.floor(Math.random() * 50)`.
+
+The seed function is the SAME, so dynamic users automatically get every Captain-listed parity item:
+- Same starting balance (110,000V) - `STARTING_VOLTS` set inside `seedDemoAccount`.
+- Same 8-drone roster at the canonical level distribution (LV18, LV3, LV17, LV12, LV7, LV16, LV5, LV14) - `DEMO_DRONES` array.
+- Same skin assignments (Diamond Hands on STRIKER, Ember on RUNNER, rotated tier-4 epic on VIPER) - steps 4a/4b/4c.
+- Same unbound legendary skin + legendary mod - steps 5/6.
+- Same placeholder skin and mod counts - steps 7/8.
+- **No duplicate legendaries - guaranteed by the changes above.**
+- Unique drone names via `generateUniqueDroneName(db, drones)` - line 420.
+- Stats via the shared `buildStats(level)` from `lib/game-engine/drone-stats.js` - line 419.
+
+**One thing dynamic users *don't* get** that pre-seeded users do: a small batch of `seedSoldListings`-derived skins / mods / drones (the marketplace history items handed to a random PILOT_D buyer for board fill). Captain's parity checklist didn't include those, so leaving the dynamic flow as-is. Flag if you want them too - would mean either inviting the dynamic flow into a fresh `seedSoldListings`-style call after `seedDemoPlayer` finishes, or extracting a per-user version of the helper.
+
+**Verification (grep + read, no DB hit, no seed run):**
+- `grep -n "usedSkinIds\|excludeIds"` in `seed-demo-player.js` returns nothing - full rename complete.
+- The 10 numbered steps inside `seedDemoAccount` each append the cloned name to the right set after a successful insert (verified by line numbers in the grep output).
+- Both `sellOne*FromVault` functions guard the legendary path with the buyer-owned name set; lower rarities preserve the prior `LIMIT 1` codepath.
+- **Not run:** dev / lint / build / seed per Captain's standing rule. Captain runs the seed when ready to refresh the demo pool.
+
+**Suggested follow-up (not done unless you ask):** existing prod rows still carry whatever duplicates the previous seed produced. To clean up without disturbing user IDs / claim history, a one-shot script could iterate over PILOT_D users, find any duplicate-named legendaries on each user, and either delete the extras or substitute them for an unowned legendary name. Quick to write if you want it.
+
+---
+
 ## 2026-05-01 - buildStats: extract to single shared module, kill 5-way drift
 
 **Captain ask:** Earlier audit revealed 5 separate `buildStats` functions across the repo. Only `scripts/seed-production.js` had the +-15% variance; the other 4 were deterministic copies, and the PILOT_D demo pool (which is what Captain queried) ran through `seed-demo-player.js`'s unmodified copy - that's why every LV17 PILOT_D drone had byte-identical stats. Fix: create a single shared module, move the variance-bearing `buildStats` into it, update all 5 call sites to import. One function, one source of truth, no more drift. Skip lint.

@@ -119,8 +119,9 @@ async function findVaultModByName(db, name) {
 }
 
 /** Pick `n` distinct image-backed skin templates of the given rarity from
- *  the vault, optionally excluding ids already used by this account. */
-async function pickVaultSkinTemplatesByRarity(db, rarity, n, excludeIds = new Set()) {
+ *  the vault, optionally excluding skin names already cloned to this user
+ *  (passed by name, not id, since the vault id != the cloned id). */
+async function pickVaultSkinTemplatesByRarity(db, rarity, n, excludeNames = new Set()) {
   const all = await db
     .select()
     .from(skins)
@@ -129,7 +130,7 @@ async function pickVaultSkinTemplatesByRarity(db, rarity, n, excludeIds = new Se
     (s) =>
       s.imageUrl?.startsWith('/skins/') &&
       s.imageUrl?.endsWith('.webp') &&
-      !excludeIds.has(s.id),
+      !excludeNames.has(s.name),
   );
   const seenNames = new Set();
   const distinct = [];
@@ -145,27 +146,40 @@ async function pickVaultSkinTemplatesByRarity(db, rarity, n, excludeIds = new Se
 
 /** Pick `n` placeholder skins (vault rows whose imageUrl isn't a real
  *  /skins/...webp). These are the "no tier render — Not available in
- *  demo on equip" entries Captain wants in every demo inventory. */
-async function pickPlaceholderSkinTemplates(db, n) {
+ *  demo on equip" entries Captain wants in every demo inventory.
+ *  excludeNames keeps the placeholder pool from re-handing a name the
+ *  caller has already cloned (e.g. a legendary placeholder whose name
+ *  matches a previously-assigned legendary). */
+async function pickPlaceholderSkinTemplates(db, n, excludeNames = new Set()) {
   const all = await db
     .select()
     .from(skins)
     .where(isNull(skins.userId));
   const placeholders = all.filter(
     (s) =>
-      !(s.imageUrl?.startsWith('/skins/') && s.imageUrl?.endsWith('.webp')),
+      !(s.imageUrl?.startsWith('/skins/') && s.imageUrl?.endsWith('.webp')) &&
+      !excludeNames.has(s.name),
   );
   const shuffled = [...placeholders].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
+  const seen = new Set();
+  const out = [];
+  for (const s of shuffled) {
+    if (seen.has(s.name)) continue;
+    seen.add(s.name);
+    out.push(s);
+    if (out.length >= n) break;
+  }
+  return out;
 }
 
-async function pickVaultModsByRarity(db, rarity, n) {
+async function pickVaultModsByRarity(db, rarity, n, excludeNames = new Set()) {
   const all = await db
     .select()
     .from(mods)
     .where(and(eq(mods.rarity, rarity), isNull(mods.userId)));
+  const eligible = all.filter((m) => !excludeNames.has(m.name));
   const seenNames = new Set();
-  const shuffled = [...all].sort(() => Math.random() - 0.5);
+  const shuffled = [...eligible].sort(() => Math.random() - 0.5);
   const distinct = [];
   for (const m of shuffled) {
     if (seenNames.has(m.name)) continue;
@@ -398,7 +412,14 @@ async function equipClonedSkin(db, drone, skinRow) {
  */
 export async function seedDemoAccount({ db, userId, demoIndex }) {
   const counts = { drones: 0, skins: 0, mods: 0, races: 0 };
-  const usedSkinIds = new Set();
+  // Track names (not ids) of every skin / mod already cloned for this
+  // user. Used to prevent duplicate legendaries — Captain spec: no demo
+  // account should ever end the seed run owning two skins (or two mods)
+  // with the same name. Name is the right key: vault stock has many
+  // copies sharing one name, and the cloned row's id has no relation to
+  // the vault row's id.
+  const usedSkinNames = new Set();
+  const usedModNames = new Set();
 
   // 1. Volts + slots.
   await db
@@ -452,7 +473,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   const dhClone = await cloneSkin(db, userId, dhTemplate);
   if (dhClone) {
     counts.skins += 1;
-    usedSkinIds.add(dhClone.id);
+    usedSkinNames.add(dhClone.name);
     await equipClonedSkin(db, droneByArchetype.STRIKER, dhClone);
   }
 
@@ -461,7 +482,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   const emberClone = await cloneSkin(db, userId, emberTemplate);
   if (emberClone) {
     counts.skins += 1;
-    usedSkinIds.add(emberClone.id);
+    usedSkinNames.add(emberClone.name);
     if (canEquipSkin(emberClone, droneByArchetype.RUNNER.level)) {
       await equipClonedSkin(db, droneByArchetype.RUNNER, emberClone);
     } else {
@@ -481,7 +502,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   const viperClone = await cloneSkin(db, userId, viperTemplate);
   if (viperClone) {
     counts.skins += 1;
-    usedSkinIds.add(viperClone.id);
+    usedSkinNames.add(viperClone.name);
     if (canEquipSkin(viperClone, droneByArchetype.VIPER.level)) {
       await equipClonedSkin(db, droneByArchetype.VIPER, viperClone);
     } else {
@@ -493,58 +514,95 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
     }
   }
 
-  // 5. Unbound legendary skin (rotated).
-  const unboundLegendaryName =
-    UNBOUND_LEGENDARY_ROTATION[demoIndex % UNBOUND_LEGENDARY_ROTATION.length];
-  const unboundLegendaryTemplate = await findVaultSkinByName(
-    db,
-    unboundLegendaryName,
-  );
-  const unboundLegendaryClone = await cloneSkin(
-    db,
-    userId,
-    unboundLegendaryTemplate,
-  );
-  if (unboundLegendaryClone) {
-    counts.skins += 1;
-    usedSkinIds.add(unboundLegendaryClone.id);
+  // 5. Unbound legendary skin. Walk the rotation starting at demoIndex
+  // and pick the first name the user doesn't already own. Only matters
+  // defensively today (Diamond Hands isn't in this rotation), but keeps
+  // the function safe if either list grows or overlaps.
+  for (let off = 0; off < UNBOUND_LEGENDARY_ROTATION.length; off += 1) {
+    const candidate =
+      UNBOUND_LEGENDARY_ROTATION[(demoIndex + off) % UNBOUND_LEGENDARY_ROTATION.length];
+    if (usedSkinNames.has(candidate)) continue;
+    const tmpl = await findVaultSkinByName(db, candidate);
+    if (!tmpl) continue;
+    const cloned = await cloneSkin(db, userId, tmpl);
+    if (cloned) {
+      counts.skins += 1;
+      usedSkinNames.add(cloned.name);
+    }
+    break;
   }
 
-  // 6. Unbound legendary mod (rotated).
-  const legendaryModName =
-    LEGENDARY_MOD_ROTATION[demoIndex % LEGENDARY_MOD_ROTATION.length];
-  const legendaryModTemplate = await findVaultModByName(db, legendaryModName);
-  if (await cloneMod(db, userId, legendaryModTemplate)) counts.mods += 1;
+  // 6. Unbound legendary mod, same rotation-scan pattern as step 5.
+  for (let off = 0; off < LEGENDARY_MOD_ROTATION.length; off += 1) {
+    const candidate =
+      LEGENDARY_MOD_ROTATION[(demoIndex + off) % LEGENDARY_MOD_ROTATION.length];
+    if (usedModNames.has(candidate)) continue;
+    const tmpl = await findVaultModByName(db, candidate);
+    if (!tmpl) continue;
+    const cloned = await cloneMod(db, userId, tmpl);
+    if (cloned) {
+      counts.mods += 1;
+      usedModNames.add(cloned.name);
+    }
+    break;
+  }
 
-  // 7. 2-3 unbound placeholder skins.
-  const placeholders = await pickPlaceholderSkinTemplates(db, randInt(2, 3));
+  // 7. 2-3 unbound placeholder skins. Excludes any name already cloned
+  // so a legendary placeholder (Chimera / Phoenix Reborn / Dragonlord /
+  // Onyx Sovereign) can't double up with the Diamond Hands or rotation
+  // legendary the user already received.
+  const placeholders = await pickPlaceholderSkinTemplates(
+    db,
+    randInt(2, 3),
+    usedSkinNames,
+  );
   for (const t of placeholders) {
     const cloned = await cloneSkin(db, userId, t);
     if (cloned) {
       counts.skins += 1;
-      usedSkinIds.add(cloned.id);
+      usedSkinNames.add(cloned.name);
     }
   }
 
-  // 8. 2-3 unbound mods (common/rare mix).
-  const unboundCommonMods = await pickVaultModsByRarity(db, 'common', randInt(1, 2));
-  const unboundRareMods = await pickVaultModsByRarity(db, 'rare', 1);
-  for (const t of [...unboundCommonMods, ...unboundRareMods]) {
-    if (await cloneMod(db, userId, t)) counts.mods += 1;
+  // 8. 2-3 unbound mods (common/rare mix). Both picks now exclude the
+  // legendary mod name from step 6, plus any common/rare names already
+  // pulled in this loop.
+  const unboundCommonMods = await pickVaultModsByRarity(
+    db,
+    'common',
+    randInt(1, 2),
+    usedModNames,
+  );
+  for (const t of unboundCommonMods) {
+    const cloned = await cloneMod(db, userId, t);
+    if (cloned) {
+      counts.mods += 1;
+      usedModNames.add(cloned.name);
+    }
+  }
+  const unboundRareMods = await pickVaultModsByRarity(db, 'rare', 1, usedModNames);
+  for (const t of unboundRareMods) {
+    const cloned = await cloneMod(db, userId, t);
+    if (cloned) {
+      counts.mods += 1;
+      usedModNames.add(cloned.name);
+    }
   }
 
-  // 9. SCOUT collection: 1 bound-but-not-equipped skin (different from used).
+  // 9. SCOUT collection: 1 bound-but-not-equipped skin. excludeNames
+  // (was excludeIds, which never matched because vault id != clone id)
+  // now actually filters out names already cloned for this user.
   const scoutTemplates = await pickVaultSkinTemplatesByRarity(
     db,
     'rare',
     1,
-    usedSkinIds,
+    usedSkinNames,
   );
   if (scoutTemplates.length > 0) {
     const cloned = await cloneSkin(db, userId, scoutTemplates[0]);
     if (cloned) {
       counts.skins += 1;
-      usedSkinIds.add(cloned.id);
+      usedSkinNames.add(cloned.name);
       await db.insert(droneSkins).values({
         droneId: droneByArchetype.SCOUT.id,
         skinId: cloned.id,
@@ -554,11 +612,12 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   }
 
   // 10. BOLT collection: 1 bound-but-not-equipped mod.
-  const boltMods = await pickVaultModsByRarity(db, 'common', 1);
+  const boltMods = await pickVaultModsByRarity(db, 'common', 1, usedModNames);
   if (boltMods.length > 0) {
     const cloned = await cloneMod(db, userId, boltMods[0]);
     if (cloned) {
       counts.mods += 1;
+      usedModNames.add(cloned.name);
       await db.insert(droneMods).values({
         droneId: droneByArchetype.BOLT.id,
         modId: cloned.id,

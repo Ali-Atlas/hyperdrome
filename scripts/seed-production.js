@@ -1159,20 +1159,42 @@ async function getDemoUserIds() {
 }
 
 async function sellOneSkinFromVault(sellerId, buyerId, rarity, price, soldAt) {
-  const [available] = await db
-    .select()
-    .from(skins)
-    .where(and(eq(skins.rarity, rarity), isNull(skins.userId)))
-    .limit(1);
-  if (!available) return false;
+  // For legendaries, scan the vault for the first row whose name the
+  // buyer doesn't already own. Each PILOT_D buyer has 2 named legendary
+  // skins from seedDemoAccount (Diamond Hands + 1 rotation pick), so
+  // an unfiltered LIMIT 1 here would happily hand them a third copy of
+  // a name they already have. Captain spec: no duplicate legendaries.
+  // Lower rarities can dupe freely - vault stock is intentionally many
+  // copies sharing one name and the demo doesn't care if a buyer ends
+  // up with two "Carbon Fiber" commons.
+  let target;
+  if (rarity === 'legendary') {
+    const ownedRows = await db
+      .select({ name: skins.name })
+      .from(skins)
+      .where(eq(skins.userId, buyerId));
+    const ownedNames = new Set(ownedRows.map((r) => r.name));
+    const candidates = await db
+      .select()
+      .from(skins)
+      .where(and(eq(skins.rarity, rarity), isNull(skins.userId)));
+    target = candidates.find((s) => !ownedNames.has(s.name));
+  } else {
+    [target] = await db
+      .select()
+      .from(skins)
+      .where(and(eq(skins.rarity, rarity), isNull(skins.userId)))
+      .limit(1);
+  }
+  if (!target) return false;
   await db
     .update(skins)
     .set({ userId: buyerId })
-    .where(eq(skins.id, available.id));
+    .where(eq(skins.id, target.id));
   await db.insert(marketplaceListings).values({
     sellerId,
     itemType: 'skin',
-    skinId: available.id,
+    skinId: target.id,
     price,
     status: 'sold',
     buyerId,
@@ -1183,20 +1205,36 @@ async function sellOneSkinFromVault(sellerId, buyerId, rarity, price, soldAt) {
 }
 
 async function sellOneModFromVault(sellerId, buyerId, rarity, price, soldAt) {
-  const [available] = await db
-    .select()
-    .from(mods)
-    .where(and(eq(mods.rarity, rarity), isNull(mods.userId)))
-    .limit(1);
-  if (!available) return false;
+  // Same rule as sellOneSkinFromVault: legendaries gate on buyer's
+  // existing names, lower rarities don't.
+  let target;
+  if (rarity === 'legendary') {
+    const ownedRows = await db
+      .select({ name: mods.name })
+      .from(mods)
+      .where(eq(mods.userId, buyerId));
+    const ownedNames = new Set(ownedRows.map((r) => r.name));
+    const candidates = await db
+      .select()
+      .from(mods)
+      .where(and(eq(mods.rarity, rarity), isNull(mods.userId)));
+    target = candidates.find((m) => !ownedNames.has(m.name));
+  } else {
+    [target] = await db
+      .select()
+      .from(mods)
+      .where(and(eq(mods.rarity, rarity), isNull(mods.userId)))
+      .limit(1);
+  }
+  if (!target) return false;
   await db
     .update(mods)
     .set({ userId: buyerId })
-    .where(eq(mods.id, available.id));
+    .where(eq(mods.id, target.id));
   await db.insert(marketplaceListings).values({
     sellerId,
     itemType: 'mod',
-    modId: available.id,
+    modId: target.id,
     price,
     status: 'sold',
     buyerId,
