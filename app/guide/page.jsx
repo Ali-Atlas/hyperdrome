@@ -615,6 +615,16 @@ const SECTIONS = [
         text: 'Slot unlocks and milestone spawns check on every race cycle, so the new slot and the new drone both become available the next time the cycle runs after you cross the threshold.',
       },
 
+      { type: 'subheading', text: 'Activating and Deactivating' },
+      {
+        type: 'paragraph',
+        text: 'Toggling a drone\'s active flag goes through a one-cycle pending state. Switching an inactive drone on shows it as Activating: the drone joins matchmaking at the next 3-minute cycle. Switching an active drone off shows it as Deactivating: the drone races out the current matchup, then drops out of matchmaking starting next cycle.',
+      },
+      {
+        type: 'paragraph',
+        text: 'Click the toggle a second time while it\'s still pending to cancel and return the drone to its original state. The strategy lock window does not block these toggles. Only mod and skin swaps lock during that period.',
+      },
+
       { type: 'subheading', text: 'Beyond the milestones' },
       {
         type: 'paragraph',
@@ -671,7 +681,7 @@ const PRE_SECTIONS = [
       },
       {
         type: 'paragraph',
-        text: 'You cannot change your active drone during a pending race. Activate or deactivate drones between race batches.',
+        text: 'Active / inactive toggles are not blocked during the strategy window or the execution lock that follows it. Mod and skin swaps on the queued drone lock once the strategy timer expires. See the Active Drone Slots section for how the pending Activating and Deactivating states resolve.',
       },
       { type: 'subheading', text: 'Race Simulation' },
       {

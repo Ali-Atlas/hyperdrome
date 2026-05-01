@@ -78,6 +78,10 @@ const FAQ_SECTIONS = [
         a: 'Yes. Toggle it off from its detail page. An inactive drone doesn\'t race and doesn\'t earn XP or volts.',
       },
       {
+        q: 'How does activating and deactivating drones work?',
+        a: 'Toggle the active flag from a drone\'s detail page. The change goes through a one-cycle pending state. Switching on shows the drone as Activating and starts racing it at the next 3-minute cycle. Switching off shows it as Deactivating: the drone races out the current matchup, then drops out of matchmaking starting next cycle. Click the toggle a second time while it\'s still pending to cancel and return to the original state. The strategy lock window does not block these toggles. Only mod and skin swaps lock during that period.',
+      },
+      {
         q: 'What if I have more drones than active slots?',
         a: 'Only the ones marked active race each cycle. The rest sit in inventory. Activate / deactivate freely as long as the active count stays at or below your slot count.',
       },

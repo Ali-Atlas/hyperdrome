@@ -4,6 +4,40 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-01 - Guide + FAQ: active drone Activating / Deactivating pending states
+
+**Captain ask:** Document the active-drone state model. Players cap at 3 active slots, unlockable at 3,000 / 10,000 lifetime races. Active drones auto-race every 3-minute cycle. Toggling on/off goes through a one-cycle pending state (Activating / Deactivating). Pending states resolve at the next race round and can be cancelled by clicking the toggle again. The strategy-lock window does NOT block active toggles - only mod and skin swaps lock during that period. Add a Guide section near drone management and an FAQ entry. Skip lint.
+
+**Source-of-truth verification before writing copy:**
+- Slot caps + milestones: `services/race.service.js:469-472` `MILESTONE_THRESHOLDS = [{ races: 10000, droneCap: 3 }, { races: 3000, droneCap: 2 }]`. (Captain initially flagged a 500 / 2,000 mismatch I'd surfaced earlier; that turned out to be the legacy `slot_2_unlock_races` / `slot_3_unlock_races` admin_config keys at lines 59-60, which aren't set in prod and aren't the actual gating logic - the milestone array is.)
+- Race cycle: `admin_config.race_interval_seconds = '180'` confirmed via prod query. 3 minutes.
+- State labels: `app/drones/[droneId]/page.jsx:594-595` renders `'Activating'` / `'Deactivating'` literals.
+- Toggle is unblocked by the lock: `services/drone.service.js:236` `toggleActive` does NOT call `isDroneLockedForRace`. Only `equipMod` (mod.service.js:209) and `equipSkin` (skin.service.js:244) do.
+- Cancel-via-second-click: `app/drones/[droneId]/page.jsx:325` snapshots a pending entry before the API call; if present, the second toggle is treated as an undo and `clearPendingToggle` runs.
+
+**Files modified (3):** `app/guide/page.jsx`, `app/faq/page.jsx`, `docs/session/HANDOFF.md`.
+
+### `app/guide/page.jsx`
+- **Replaced** the existing `how-racing-works` paragraph that wrongly claimed "You cannot change your active drone during a pending race" (line 674 pre-edit). New paragraph clarifies that active toggles are never blocked, mod/skin swaps lock once the strategy timer expires, and points readers at the deeper Active Drone Slots section for the pending-state details. Captain spec was explicit on this contradiction.
+- **Added** a new subheading "Activating and Deactivating" inside the existing `active-drone-slots` SECTION (after the slot-unlocks paragraph, before "Beyond the milestones"). Two short paragraphs: the first defines the Activating / Deactivating UX (a Deactivating drone races out the current matchup, then drops out of matchmaking next cycle; an Activating drone joins matchmaking at the next 3-minute cycle); the second covers cancel-by-double-click and re-states that the strategy lock doesn't gate active toggles, only mod / skin swaps. Used the project's `subheading` + `paragraph` block schema, no new component types.
+
+### `app/faq/page.jsx`
+- **Added** a new entry "How does activating and deactivating drones work?" directly after the existing "Can I deactivate a drone?" Q. The simple yes/no Q is preserved as the entry-level answer; the new Q layers in the full mechanic (pending state, 3-minute cycle, cancel, no strategy-lock block). Six-sentence answer keeps every Captain bullet on one line of intent each.
+
+**Writing-style compliance (PRINCIPLES.md):**
+- Zero em dashes / en dashes anywhere in the new copy. Hyphens only used as compound modifiers (`3-minute cycle`, `one-cycle`, `level-up`-style) or as colons-via-rewrite where contrast was needed.
+- No "X but not Y" / "X, not Y" constructs. Statements are declarative ("Active / inactive toggles are not blocked..." / "Only mod and skin swaps lock during that period.").
+- Numbers as digits (3, 3,000, 10,000).
+- Active voice, present tense throughout.
+- Numbers match source: 3-minute cycle ties to `race_interval_seconds = 180`; 3,000 / 10,000 ties to `MILESTONE_THRESHOLDS`.
+
+**Verification:**
+- `grep "Activating\|Deactivating"` in the two files now matches the new copy plus the existing UI references.
+- The contradicting line in `how-racing-works` is gone (replaced with the corrected paragraph).
+- **Not run:** dev / lint / build per Captain's standing rule.
+
+---
+
 ## 2026-05-01 - Demo seed: no duplicate legendaries per user; dynamic-route parity audit
 
 **Captain ask:** (1) Seed must never give a demo user two legendaries with the same name (skin or mod). Before assigning a legendary, check if the user already owns one with that name; if so, pick a different one. (2) Audit the dynamic demo-creation route (`app/api/auth/demo/route.js`) and confirm user #51 gets the same experience as PILOT_D01: 110,000V, 8 drones at the canonical level distribution, same skin/mod assignments, same unbound legendaries, same placeholders, no duplicate legendaries, unique drone names, stats via shared `buildStats(level)`. Skip lint.
