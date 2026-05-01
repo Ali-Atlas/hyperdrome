@@ -18,11 +18,7 @@ import {
   getLegendaryTheme,
 } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
-import {
-  clearPendingToggle,
-  getPendingToggle,
-  usePendingToggle,
-} from '@/lib/pending-toggle';
+import { usePendingToggle } from '@/lib/pending-toggle';
 import styles from './page.module.css';
 
 /** NPC vendor price + free-drone milestones. Mirror values in
@@ -71,54 +67,20 @@ export default function DronesPage() {
   const [vendorPending, setVendorPending] = useState(false);
   const [vendorError, setVendorError] = useState(null);
 
-  /* Reconcile pending-toggle hints against fresh server data: any drone
-     whose `active` flag now matches the user's intended toggle has had
-     its change land server-side (next race cycle picked it up), so the
-     pending badge can clear automatically. Called after every
-     refresh - manual + interval-driven - so badges drop themselves
-     without a manual reload once the cycle ticks. */
-  /* The DB write lands IMMEDIATELY on toggle (matchmaking is what
-     waits for next race, not the DB itself). So `active === intended`
-     is true the very next refetch - if we cleared on that signal
-     alone the pending overlay would die instantly. The age gate keeps
-     the badge alive for at least one race cycle (~180s), which is
-     when the matchmaking actually consumes the new state. */
-  const PENDING_RACE_CYCLE_MS = 180_000;
-  function reconcilePendingToggles(list) {
-    const now = Date.now();
-    for (const d of list) {
-      const p = getPendingToggle(d.id);
-      if (
-        p &&
-        now - (p.ts ?? 0) >= PENDING_RACE_CYCLE_MS &&
-        d.active === p.intended
-      ) {
-        clearPendingToggle(d.id);
-      }
-    }
-  }
-
   async function refreshDrones() {
-    // Cache-bust so any CDN / browser cache between us and the API
-    // can't return a stale snapshot (would block the post-cycle
-    // pending clear).
-    const res = await fetch(`/api/drones?t=${Date.now()}`);
+    const res = await fetch('/api/drones');
     const body = await res.json();
-    if (res.ok && body?.data) {
-      setDrones(body.data);
-      reconcilePendingToggles(body.data);
-    }
+    if (res.ok && body?.data) setDrones(body.data);
   }
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch(`/api/drones?t=${Date.now()}`);
+        const res = await fetch('/api/drones');
         const body = await res.json();
         if (!cancelled && res.ok && body?.data) {
           setDrones(body.data);
-          reconcilePendingToggles(body.data);
         }
       } catch (err) {
         console.error(err);
@@ -131,19 +93,11 @@ export default function DronesPage() {
       cancelled = true;
     };
   }, []);
-
-  /* Poll every 30s so pending-toggle badges clear themselves once the
-     next race cycle has consumed the new active state server-side.
-     The race cron runs every 180s; a 30s poll lands fresh data within
-     a few ticks of the cycle finishing without hammering the API. */
-  useEffect(() => {
-    const id = setInterval(() => {
-      refreshDrones().catch(() => {
-        /* swallow transient failures; the next tick retries */
-      });
-    }, 30_000);
-    return () => clearInterval(id);
-  }, []);
+  // No drones polling here. Pending toggle badges self-clear via the
+  // setTimeout inside lib/pending-toggle.js (one cycle per toggle);
+  // when the timer fires, listeners re-render and the badge falls
+  // back to drone.active automatically. Drone.active itself was DB-
+  // flipped at toggle time, so the visual converges with no fetch.
 
   // Milestone toast: when a free drone shows up between page loads (drone
   // count went up while totalRaces crossed a threshold), surface it. State
@@ -748,18 +702,10 @@ function DroneCard({ drone }) {
         )}
         style={legendaryStyle}
       >
-        {/* Four mutually exclusive badges keyed off effective state +
-            pending direction. Captain spec: Active / Inactive at rest;
-            Deactivating / Activating while a toggle is queued. */}
+        {/* Three mutually exclusive badges. Inactive renders nothing -
+            the absence of a ribbon is the inactive signal. */}
         {showAsActive && !pendingToggle && (
           <span className={styles.activeRibbon}>Active</span>
-        )}
-        {!showAsActive && !pendingToggle && (
-          <span
-            className={cn(styles.activeRibbon, styles.activeRibbonInactive)}
-          >
-            Inactive
-          </span>
         )}
         {showAsActive && isPendingDeactivating && (
           <span

@@ -355,32 +355,20 @@
   display: inline-flex;
   align-items: center;
   padding: 3px 8px;
-  background: rgba(3, 218, 198, 0.18);
-  border: 1px solid rgba(3, 218, 198, 0.45);
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(34, 197, 94, 0.55);
   border-radius: var(--radius-sm);
-  color: var(--accent-primary);
+  color: #22C55E;
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: var(--font-bold);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   z-index: 2;
-  box-shadow: 0 0 12px rgba(3, 218, 198, 0.25);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
 }
 
-/* Inactive (no pending): muted grey treatment so the badge is
-   present but visually quiet - the user can read fleet state at
-   a glance without ACTIVE / INACTIVE competing for attention. */
-.activeRibbonInactive {
-  background: rgba(160, 160, 160, 0.12);
-  border-color: rgba(160, 160, 160, 0.35);
-  color: var(--text-tertiary);
-  box-shadow: none;
-}
-
-/* Pending deactivation: drone is queued to go inactive next race.
-   Red/error tint so it reads as "removing from rotation" rather
-   than the prior amber "change queued" treatment. */
+/* Pending deactivation: queued to go inactive next race. Red. */
 .activeRibbonDeactivating {
   background: rgba(255, 107, 107, 0.16);
   border-color: rgba(255, 107, 107, 0.55);
@@ -388,8 +376,7 @@
   box-shadow: 0 0 12px rgba(255, 107, 107, 0.22);
 }
 
-/* Pending activation: yellow warning tint signals "change queued,
-   not yet live in matchmaking". */
+/* Pending activation: queued to go active next race. Yellow. */
 .activeRibbonActivating {
   background: rgba(245, 197, 24, 0.16);
   border-color: rgba(245, 197, 24, 0.55);

@@ -120,11 +120,7 @@ export default function DroneDetailPage({ params }) {
 
   const load = useCallback(async () => {
     try {
-      // Cache-bust so any CDN / browser cache between us and the API
-      // can't return a stale snapshot - critical for the
-      // pending-toggle reconcile path which compares the server's
-      // `active` flag to the user's queued intent.
-      const res = await fetch(`/api/drones/${droneId}?t=${Date.now()}`);
+      const res = await fetch(`/api/drones/${droneId}`);
       const body = await res.json();
       if (res.status === 429) {
         /* Rate limit must never block page rendering. Toast and keep
@@ -138,15 +134,6 @@ export default function DroneDetailPage({ params }) {
         setError(body?.error || 'Failed to load drone');
       } else {
         setDrone(body.data);
-        // Reconcile this drone's pending-toggle hint against fresh
-        // server data. If the server-side `active` flag matches the
-        // user's intended toggle, the next race cycle has consumed
-        // it and the badge can clear itself - no manual reload.
-        const fresh = body.data;
-        if (fresh?.id) {
-          const p = getPendingToggle(fresh.id);
-          if (p && fresh.active === p.intended) clearPendingToggle(fresh.id);
-        }
       }
       setLoading(false);
     } catch (err) {
@@ -175,19 +162,10 @@ export default function DroneDetailPage({ params }) {
     loadListing();
   }, [load, loadListing]);
 
-  /* Poll every 30s so the pending-toggle badge clears itself once the
-     next race cycle has consumed the new active state server-side.
-     The race cron runs every 180s; a 30s cadence catches the new
-     state within a few ticks of cycle completion without hammering
-     the API. */
-  useEffect(() => {
-    const id = setInterval(() => {
-      load().catch(() => {
-        /* swallow transient failures; the next tick retries */
-      });
-    }, 30_000);
-    return () => clearInterval(id);
-  }, [load]);
+  // No polling here. Pending toggle badges self-clear via the
+  // setTimeout inside lib/pending-toggle.js (one race cycle per
+  // toggle); badge rendering reacts to the lib's notify() and falls
+  // back to drone.active once the entry expires.
 
   if (loading || status === 'loading') {
     return (
@@ -588,11 +566,14 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     // value (matchmaking still sees it for the current
                     // race cycle); without pending it's just the DB
                     // active flag.
+                    // Effective state: pending overlay shows the OLD
+                    // value; without pending it's just the DB active.
                     const effectiveActive = pendingToggle
                       ? !pendingToggle.intended
                       : drone.active;
-                    let badgeLabel;
-                    let badgeClass;
+                    // Three badge states - inactive renders nothing.
+                    let badgeLabel = null;
+                    let badgeClass = null;
                     if (pendingToggle) {
                       badgeLabel = pendingToggle.intended
                         ? 'Activating'
@@ -603,15 +584,14 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     } else if (effectiveActive) {
                       badgeLabel = 'Active';
                       badgeClass = styles.stateBadgeActive;
-                    } else {
-                      badgeLabel = 'Inactive';
-                      badgeClass = styles.stateBadgeInactive;
                     }
                     return (
                       <div className={styles.activeControl}>
-                        <span className={cn(styles.stateBadge, badgeClass)}>
-                          {badgeLabel}
-                        </span>
+                        {badgeLabel && (
+                          <span className={cn(styles.stateBadge, badgeClass)}>
+                            {badgeLabel}
+                          </span>
+                        )}
                         <span className={styles.activeToggleWrap}>
                           <Toggle
                             checked={drone.active}
