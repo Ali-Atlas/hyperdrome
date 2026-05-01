@@ -416,7 +416,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   // use that map to find each archetype's drone (STRIKER, RUNNER, etc.).
   const droneRows = [];
   for (const d of DEMO_DRONES) {
-    const { stats, tsb } = buildStats(d.level, d.profile);
+    const { stats, tsb } = buildStats(d.level);
     const name = await generateUniqueDroneName(db, drones);
     droneRows.push({
       userId,

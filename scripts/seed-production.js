@@ -33,7 +33,7 @@ import readline from 'node:readline';
 import * as schema from '../lib/db/schema.js';
 import { seedDemoAccount } from './seed-demo-player.js';
 import { generateUniqueDroneName } from '../lib/game-engine/drone-names.js';
-import { BOT_PROFILES, buildStats } from '../lib/game-engine/drone-stats.js';
+import { buildStats } from '../lib/game-engine/drone-stats.js';
 
 const {
   users,
@@ -290,7 +290,7 @@ async function seedRacingBots(botUserMap) {
       .limit(1);
     if (existing) continue;
 
-    const { stats, tsb } = buildStats(def.level, def.profile);
+    const { stats, tsb } = buildStats(def.level);
     await db.insert(drones).values({
       userId: owner.id,
       name: def.name,
@@ -843,9 +843,9 @@ async function listOneModFromVault(sellerId, rarity, price) {
 
 /* Drone listings: fresh-mint a drone owned by the seller and list it.
  * Idempotency is keyed on the (sellerId, drone name) pair. */
-async function mintAndListDrone(sellerId, level, profile, price) {
+async function mintAndListDrone(sellerId, level, price) {
   const droneName = await generateUniqueDroneName(db, drones);
-  const { stats, tsb } = buildStats(level, profile);
+  const { stats, tsb } = buildStats(level);
   const [drone] = await db
     .insert(drones)
     .values({
@@ -957,7 +957,7 @@ async function seedDroneListingsWithSkins(botUserMap) {
 
     const droneName = await generateUniqueDroneName(db, drones);
 
-    const { stats, tsb } = buildStats(def.level, def.profile);
+    const { stats, tsb } = buildStats(def.level);
     const [drone] = await db
       .insert(drones)
       .values({
@@ -1092,16 +1092,13 @@ async function seedMarketplaceListings(botUserMap) {
     { count: 10, level: () => randInt(6, 10) },
     { count: 10, level: () => randInt(1, 5) },
   ];
-  const profiles = Object.keys(BOT_PROFILES);
   let droneIdx = 0;
   for (const plan of droneListPlan) {
     for (let k = 0; k < plan.count; k += 1) {
-      const profile = profiles[droneIdx % profiles.length];
       const lvl = plan.level();
       const { drone } = await mintAndListDrone(
         seller(i++),
         lvl,
-        profile,
         priceForLevel(lvl),
       );
       counts.drones += 1;

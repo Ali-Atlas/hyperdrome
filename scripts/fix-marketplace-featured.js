@@ -242,7 +242,7 @@ async function insertSkinnedListing({ def, sellerId }) {
   // Transfer the vault skin to the seller.
   await sql`UPDATE skins SET user_id = ${sellerId} WHERE id = ${skin.id}`;
 
-  const { stats, tsb } = buildStats(def.level, def.profile);
+  const { stats, tsb } = buildStats(def.level);
   const name = await generateUniqueDroneNameSql();
 
   const [drone] = await sql`

@@ -14,7 +14,7 @@
  *   1. Finds every drone owned by a PILOT_D* user.
  *   2. Looks up the demo profile for that drone's level (each demo
  *      account's 8 drones occupy unique levels: 3/5/7/12/14/16/17/18).
- *   3. Recomputes a full 9-stat allocation via buildStats(level, profile)
+ *   3. Recomputes a full 9-stat allocation via buildStats(level)
  *      — the same algorithm the production seeder uses for racing bots.
  *   4. Updates the drone row's 9 stat columns + total_stat_budget in place.
  *   5. Logs every update in the form:
@@ -98,7 +98,7 @@ async function main() {
       // Level outside the demo roster - falls back to balanced rather
       // than skipping, so drones at non-roster levels still get a
       // proper 9-stat distribution. Logged so Captain can audit.
-      const { stats, tsb } = buildStats(t.level, 'balanced');
+      const { stats, tsb } = buildStats(t.level);
       await db
         .update(drones)
         .set({ ...stats, totalStatBudget: tsb })
@@ -110,7 +110,7 @@ async function main() {
       continue;
     }
 
-    const { stats, tsb } = buildStats(t.level, meta.profile);
+    const { stats, tsb } = buildStats(t.level);
     await db
       .update(drones)
       .set({ ...stats, totalStatBudget: tsb })
