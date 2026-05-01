@@ -9,6 +9,7 @@ import DataTable from '@/components/ui/DataTable';
 import Toggle from '@/components/ui/Toggle';
 import Skeleton from '@/components/ui/Skeleton';
 import { useSession } from '@/hooks/useSession';
+import { useRaceRoundEnd } from '@/lib/race-round-clock';
 import { cn, getLevelColor, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import PlayerAvatar from '@/components/ui/PlayerAvatar';
@@ -66,8 +67,12 @@ export default function LeaderboardPage() {
     setPage(1);
   }
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  /* `silent: true` skips the loading-skeleton flip - used by the
+     race-round-end auto-refresh below so the table doesn't blink to
+     skeleton on every cycle. Filter changes default to silent: false
+     so the user sees the skeleton when they actively change views. */
+  const fetchData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({
         type: tab,
@@ -85,7 +90,7 @@ export default function LeaderboardPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [tab, bracket, includeBots]);
 
@@ -116,6 +121,18 @@ export default function LeaderboardPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchMyStats(); }, [fetchMyStats]);
   useEffect(() => { fetchMyDrones(); }, [fetchMyDrones]);
+
+  /* Race-round-end auto-refresh. Driven by the global race-round-clock
+     hook - fires only after a race actually completes server-side
+     (status flips pending -> completed). Silent fetchData keeps the
+     table from blinking to skeleton each cycle. fetchMyDrones not
+     re-called - drone IDs only change on create/delete/sale. */
+  const roundTick = useRaceRoundEnd();
+  useEffect(() => {
+    if (roundTick === 0) return;
+    fetchData({ silent: true }).catch(() => {});
+    fetchMyStats().catch(() => {});
+  }, [roundTick, fetchData, fetchMyStats]);
 
   const top3 = items.slice(0, 3);
   const rest = useMemo(

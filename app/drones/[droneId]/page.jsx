@@ -38,6 +38,7 @@ import {
   setPendingToggle,
   usePendingToggle,
 } from '@/lib/pending-toggle';
+import { useRaceRoundEnd } from '@/lib/race-round-clock';
 import { cn, getLevelColor, canEquipSkin, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
@@ -162,10 +163,22 @@ export default function DroneDetailPage({ params }) {
     loadListing();
   }, [load, loadListing]);
 
-  // No polling here. Pending toggle badges self-clear via the
-  // setTimeout inside lib/pending-toggle.js (one race cycle per
-  // toggle); badge rendering reacts to the lib's notify() and falls
-  // back to drone.active once the entry expires.
+  /* Race-round-end auto-refresh. Subscribed to the global race-round
+     clock (lib/race-round-clock.js) which fires only after a race's
+     status flips pending -> completed server-side. On each round-end,
+     refetch this drone's data + clear its pending toggle entry. */
+  const roundTick = useRaceRoundEnd();
+  useEffect(() => {
+    if (roundTick === 0) return;
+    let cancelled = false;
+    (async () => {
+      await load().catch(() => {});
+      if (!cancelled) clearPendingToggle(droneId);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [roundTick, droneId, load]);
 
   if (loading || status === 'loading') {
     return (
