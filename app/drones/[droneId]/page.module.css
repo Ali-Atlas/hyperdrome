@@ -106,15 +106,16 @@
 }
 
 /* Sits between the "Active" label and the toggle when the user has
-   just flipped the active flag - mirrors the list page's pending /
-   activating ribbons so both surfaces agree on what's queued. */
+   just flipped the active flag - yellow warning tint matches the
+   list page's pending / activating ribbons so both surfaces agree
+   on what's queued. */
 .activePendingNote {
   font-family: var(--font-mono);
   font-size: 9px;
-  font-weight: var(--font-medium);
-  color: var(--text-tertiary);
-  text-transform: lowercase;
-  letter-spacing: 0.04em;
+  font-weight: var(--font-bold);
+  color: var(--accent-warning);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 /* Toggle never reads as faded - even when functionally disabled (drone

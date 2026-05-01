@@ -1729,7 +1729,7 @@ function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
                   ? t.skin?.rarity
                   : t.itemType === 'mod'
                     ? t.mod?.rarity
-                    : t.drone?.rarity ?? null;
+                    : t.drone?.appliedSkin?.rarity ?? null;
               const sellerName = t.seller?.username ?? '-';
               const buyerName = t.buyer?.username ?? '-';
               const when = formatRelativeTime(t.soldAt ?? t.createdAt);

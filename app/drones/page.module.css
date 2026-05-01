@@ -369,29 +369,24 @@
 }
 
 /* Pending deactivation: drone is still effectively ACTIVE for the
-   current race cycle. Amber tint signals "change is queued but not
-   yet live". */
+   current race cycle. Yellow warning tint signals "change is queued
+   but not yet live". */
 .activeRibbonPending {
-  background: rgba(255, 196, 0, 0.18);
-  border-color: rgba(255, 196, 0, 0.45);
-  color: #FFC400;
-  box-shadow: 0 0 12px rgba(255, 196, 0, 0.2);
+  background: rgba(245, 197, 24, 0.16);
+  border-color: rgba(245, 197, 24, 0.55);
+  color: var(--accent-warning);
+  box-shadow: 0 0 12px rgba(245, 197, 24, 0.22);
 }
 
-.activeRibbonNote {
-  margin-left: 4px;
-  font-weight: var(--font-medium);
-  letter-spacing: 0.06em;
-  opacity: 0.85;
-}
-
-/* Pending activation: drone is not yet effectively active. Subtler
-   desaturated treatment so it doesn't read as "fully active" yet. */
+/* Pending activation: drone is not yet effectively active. Same
+   yellow tint as the deactivation pending ribbon - both pending
+   states share one visual language so the user reads them as the
+   same kind of "queued" affordance. */
 .activeRibbonActivating {
-  background: rgba(160, 160, 160, 0.16);
-  border-color: rgba(160, 160, 160, 0.4);
-  color: var(--text-secondary);
-  box-shadow: none;
+  background: rgba(245, 197, 24, 0.16);
+  border-color: rgba(245, 197, 24, 0.55);
+  color: var(--accent-warning);
+  box-shadow: 0 0 12px rgba(245, 197, 24, 0.22);
 }
 
 .active {

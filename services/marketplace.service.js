@@ -363,43 +363,53 @@ function rarityForRow(row) {
 }
 
 /**
- * Paginated active listings with filters. Joins drone/skin/seller.
- * @param {object} filters - itemType, minPrice, maxPrice, sort ('curated'|'priceHigh'|'priceLow', default 'curated')
+ * Paginated marketplace listings with filters. Joins drone/skin/mod
+ * + seller + (for sold rows) buyer.
+ *
+ * @param {object} filters - itemType, status ('active'|'sold', default 'active'),
+ *                          minPrice, maxPrice, sort ('curated'|'priceHigh'|'priceLow', default 'curated')
  * @param {{ page: number, limit: number }} pagination
  */
 export async function getListings(filters = {}, pagination = { page: 1, limit: 20 }) {
   const { page, limit } = pagination;
   const offset = (page - 1) * limit;
   const sort = filters.sort ?? 'curated';
+  const status = filters.status === 'sold' ? 'sold' : 'active';
 
-  const conditions = [eq(marketplaceListings.status, 'active')];
+  const conditions = [eq(marketplaceListings.status, status)];
   if (filters.itemType) conditions.push(eq(marketplaceListings.itemType, filters.itemType));
   if (filters.minPrice != null) conditions.push(gte(marketplaceListings.price, filters.minPrice));
   if (filters.maxPrice != null) conditions.push(lte(marketplaceListings.price, filters.maxPrice));
 
-  // Post-fetch sorts (curated / rarity) need joined rarity + image data,
-  // so we overfetch up to CURATED_FETCH_CAP and slice after the JS sort.
-  // Pure SQL sorts page directly.
-  const usePostFetchSort = POST_FETCH_SORTS.has(sort);
+  // Sold listings always order by `soldAt` desc (most recent sale first)
+  // - the curated/rarity post-fetch sort is for browsing live inventory,
+  // not the sales-history feed. Active listings keep the original sort
+  // behavior (curated / priceHigh / priceLow / rarity / createdAt).
+  const usePostFetchSort = status === 'active' && POST_FETCH_SORTS.has(sort);
   const baseQuery = db
     .select()
     .from(marketplaceListings)
     .where(and(...conditions));
 
-  const rows = usePostFetchSort
+  const rows = status === 'sold'
     ? await baseQuery
-        .orderBy(desc(marketplaceListings.createdAt))
-        .limit(CURATED_FETCH_CAP)
-    : await baseQuery
-        .orderBy(
-          sort === 'priceLow'
-            ? marketplaceListings.price
-            : sort === 'priceHigh'
-              ? desc(marketplaceListings.price)
-              : desc(marketplaceListings.createdAt),
-        )
+        .orderBy(desc(marketplaceListings.soldAt))
         .limit(limit)
-        .offset(offset);
+        .offset(offset)
+    : usePostFetchSort
+      ? await baseQuery
+          .orderBy(desc(marketplaceListings.createdAt))
+          .limit(CURATED_FETCH_CAP)
+      : await baseQuery
+          .orderBy(
+            sort === 'priceLow'
+              ? marketplaceListings.price
+              : sort === 'priceHigh'
+                ? desc(marketplaceListings.price)
+                : desc(marketplaceListings.createdAt),
+          )
+          .limit(limit)
+          .offset(offset);
 
   if (rows.length === 0) return [];
 

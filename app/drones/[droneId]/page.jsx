@@ -569,7 +569,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     <span className={styles.activeControlLabel}>Active</span>
                     {pendingToggle && (
                       <span className={styles.activePendingNote}>
-                        ({pendingToggle.intended ? 'activating' : 'pending'})
+                        {pendingToggle.intended ? '(activating)' : '(pending)'}
                       </span>
                     )}
                     <span className={styles.activeToggleWrap}>

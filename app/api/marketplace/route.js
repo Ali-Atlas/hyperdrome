@@ -12,8 +12,10 @@ export const GET = withApiHandler(
       Object.fromEntries(url.searchParams),
     );
     const pagination = parsed.success ? parsed.data : { page: 1, limit: 20 };
+    const rawStatus = url.searchParams.get('status') || undefined;
     const filters = {
       itemType: url.searchParams.get('item_type') || undefined,
+      status: rawStatus === 'sold' ? 'sold' : undefined,
       minPrice: url.searchParams.get('min_price')
         ? Number(url.searchParams.get('min_price'))
         : undefined,

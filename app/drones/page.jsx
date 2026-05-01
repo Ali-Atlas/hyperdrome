@@ -704,14 +704,14 @@ function DroneCard({ drone }) {
           <span
             className={cn(styles.activeRibbon, styles.activeRibbonPending)}
           >
-            Active <span className={styles.activeRibbonNote}>(pending)</span>
+            Active
           </span>
         )}
         {!showAsActive && isPendingActivating && (
           <span
             className={cn(styles.activeRibbon, styles.activeRibbonActivating)}
           >
-            Activating
+            (Activating)
           </span>
         )}
 

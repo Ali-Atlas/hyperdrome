@@ -11,6 +11,10 @@ import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import btnStyles from '@/components/ui/Button/Button.module.css';
 import { cn, getLevelColor } from '@/lib/utils';
+import {
+  getPendingToggle,
+  usePendingToggleVersion,
+} from '@/lib/pending-toggle';
 import DroneImage from '@/components/ui/DroneImage';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
@@ -165,13 +169,25 @@ export default function DashboardPage() {
 
   /* Active drones sorted by level descending so the spotlight's
      initial slot (index 0) is always the user's highest-level drone.
-     Stable sort within equal levels via the original myDrones order. */
+     Stable sort within equal levels via the original myDrones order.
+     Pending-aware: a drone with a queued deactivation is still
+     effectively active for THIS race cycle (so it stays in the
+     spotlight); a drone with a queued activation isn't effective yet
+     (excluded). The version dep wakes the memo whenever the pending
+     map mutates. */
+  const pendingVersion = usePendingToggleVersion();
   const activeDrones = useMemo(
     () =>
       myDrones
-        .filter((d) => d.active)
+        .filter((d) => {
+          const p = getPendingToggle(d.id);
+          // When pending exists, the OLD effective state is `!p.intended`
+          // (DB has the new value, but matchmaking still sees the old
+          // until the next race cycle).
+          return p ? !p.intended : d.active;
+        })
         .sort((a, b) => (b.level ?? 0) - (a.level ?? 0)),
-    [myDrones],
+    [myDrones, pendingVersion],
   );
 
   /* Upcoming races sorted by the user's drone level descending (the
