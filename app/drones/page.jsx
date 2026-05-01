@@ -18,7 +18,10 @@ import {
   getLegendaryTheme,
 } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
-import { usePendingToggle } from '@/lib/pending-toggle';
+import {
+  clearPendingToggle,
+  usePendingToggle,
+} from '@/lib/pending-toggle';
 import styles from './page.module.css';
 
 /** NPC vendor price + free-drone milestones. Mirror values in
@@ -93,11 +96,63 @@ export default function DronesPage() {
       cancelled = true;
     };
   }, []);
-  // No drones polling here. Pending toggle badges self-clear via the
-  // setTimeout inside lib/pending-toggle.js (one cycle per toggle);
-  // when the timer fires, listeners re-render and the badge falls
-  // back to drone.active automatically. Drone.active itself was DB-
-  // flipped at toggle time, so the visual converges with no fetch.
+  /* Race-round-end auto-sync. NOT polling - one chained setTimeout
+     per cycle. On mount we fetch the next race's scheduledAt and
+     schedule a single timer for that moment + 5s buffer; when it
+     fires we refetch /api/drones (so card badges reflect the now-
+     consumed active state), clear any pending entries that were
+     waiting for this round, and schedule the next one-shot. The user
+     never has to F5 to see badges update once a race round ends.
+
+     If the user has no upcoming races (no active drones), there's
+     no race clock to align to - we re-poll the upcoming endpoint
+     every 60s in that case so a freshly-activated drone wakes the
+     loop up at the next round. */
+  useEffect(() => {
+    let cancelled = false;
+    let timer;
+
+    async function refreshDronesAndClearPending() {
+      const res = await fetch('/api/drones');
+      const body = await res.json();
+      if (!cancelled && res.ok && body?.data) {
+        setDrones(body.data);
+        for (const d of body.data) clearPendingToggle(d.id);
+      }
+    }
+
+    async function scheduleNextSync() {
+      if (cancelled) return;
+      let delayMs;
+      try {
+        const res = await fetch('/api/races/upcoming');
+        const body = await res.json();
+        const races = body?.data?.races ?? [];
+        if (races.length === 0) {
+          delayMs = 60_000;
+        } else {
+          const nextTime = Math.min(
+            ...races.map((r) => new Date(r.scheduledAt).getTime()),
+          );
+          delayMs = Math.max(2_000, nextTime - Date.now() + 5_000);
+        }
+      } catch {
+        delayMs = 60_000;
+      }
+      if (cancelled) return;
+      timer = setTimeout(async () => {
+        if (cancelled) return;
+        await refreshDronesAndClearPending().catch(() => {});
+        scheduleNextSync();
+      }, delayMs);
+    }
+
+    scheduleNextSync();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
   // Milestone toast: when a free drone shows up between page loads (drone
   // count went up while totalRaces crossed a threshold), surface it. State
