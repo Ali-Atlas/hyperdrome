@@ -98,8 +98,17 @@
   transform: scale(0.93);
 }
 
+/* Disabled state: visually identical to active (Captain spec - no
+   greyed-out look). Re-state every UA-faded property explicitly so the
+   browser default doesn't dim the button. Clicks are blocked by both
+   the `disabled` attribute and `pointer-events: none`. */
 .btn:disabled {
-  cursor: not-allowed;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+  opacity: 1;
+  cursor: default;
+  pointer-events: none;
 }
 
 .btn:focus-visible {

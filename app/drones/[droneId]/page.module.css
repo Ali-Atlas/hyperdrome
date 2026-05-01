@@ -1278,6 +1278,16 @@
   border-top: 1px solid var(--border-default);
 }
 
+/* Footer note shown to the left of Save/Reset when the player has zero
+   unallocated points at the current level. `margin-right: auto` pushes
+   the buttons to the right while the note pins to the left of the row. */
+.levelCapNote {
+  margin-right: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
 /* Stat editor Save / Reset row. Equal-width 50/50 cells; Buttons inside
    use the primitive's standard `size="sm"` preset (matches the rest of
    the app + the bind modal action buttons) and stretch to fill their

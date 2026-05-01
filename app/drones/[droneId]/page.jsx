@@ -992,6 +992,11 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
 
               {isOwner ? (
                 <div className={styles.actions}>
+                  {availablePoints === 0 && (
+                    <span className={styles.levelCapNote}>
+                      Level cap reached
+                    </span>
+                  )}
                   <div className={styles.buttonGroup}>
                     <Button
                       variant="primary"
