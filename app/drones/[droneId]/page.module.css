@@ -127,6 +127,12 @@
   box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
 }
 
+.stateBadgeInactive {
+  background: rgba(160, 160, 160, 0.12);
+  border-color: rgba(160, 160, 160, 0.35);
+  color: var(--text-tertiary);
+}
+
 .stateBadgeDeactivating {
   background: rgba(255, 107, 107, 0.16);
   border-color: rgba(255, 107, 107, 0.55);

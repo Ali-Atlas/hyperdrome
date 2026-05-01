@@ -571,9 +571,11 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     const effectiveActive = pendingToggle
                       ? !pendingToggle.intended
                       : drone.active;
-                    // Three badge states - inactive renders nothing.
-                    let badgeLabel = null;
-                    let badgeClass = null;
+                    // Detail page always shows a state badge - the
+                    // user is staring at the toggle and needs the
+                    // word ("Active" / "Inactive" / pending state).
+                    let badgeLabel;
+                    let badgeClass;
                     if (pendingToggle) {
                       badgeLabel = pendingToggle.intended
                         ? 'Activating'
@@ -584,14 +586,15 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     } else if (effectiveActive) {
                       badgeLabel = 'Active';
                       badgeClass = styles.stateBadgeActive;
+                    } else {
+                      badgeLabel = 'Inactive';
+                      badgeClass = styles.stateBadgeInactive;
                     }
                     return (
                       <div className={styles.activeControl}>
-                        {badgeLabel && (
-                          <span className={cn(styles.stateBadge, badgeClass)}>
-                            {badgeLabel}
-                          </span>
-                        )}
+                        <span className={cn(styles.stateBadge, badgeClass)}>
+                          {badgeLabel}
+                        </span>
                         <span className={styles.activeToggleWrap}>
                           <Toggle
                             checked={drone.active}
