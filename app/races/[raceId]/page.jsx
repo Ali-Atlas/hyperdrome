@@ -2042,25 +2042,22 @@ function RaceTrackCard({ race }) {
  *  always sees whose strengths/gaps they're looking at.
  */
 /**
- * Compute the race-edge perspective and win probability from ELO alone.
- * Higher-prob drone is the favorite. If the prob lands within 0.5% of
- * 50% (i.e. 49.5-50.5%) the matchup is flagged as "even" - the card
- * shows EVEN MATCHUP in the header and the win-probability section
- * splits 50/50 across both drones. Anything outside that band - even
- * 51% - has a real favorite. No ownership / left-side tiebreak: pure
- * ELO math.
+ * Compute the race-edge perspective and win probability from ELO
+ * alone. Higher-prob drone is the favorite and becomes `viewer`; the
+ * other drone is `opponent`. No ownership / left-side tiebreak: pure
+ * ELO math. The card always renders "RACE EDGE" + the favorite's
+ * name in the header, regardless of how close the probability is to
+ * 50% - the prob number speaks for itself in the body.
  *
- * @returns {{ isEven: boolean, viewer: object, opponent: object,
+ * @returns {{ viewer: object, opponent: object,
  *             viewerElo: number, oppElo: number, prob: number }}
  */
 function computeRaceEdge(left, right) {
   const lElo = left?.eloRating ?? 1000;
   const rElo = right?.eloRating ?? 1000;
   const leftProb = 1 / (1 + Math.pow(10, (rElo - lElo) / 400));
-  const isEven = Math.abs(leftProb - 0.5) <= 0.005;
   if (leftProb >= 0.5) {
     return {
-      isEven,
       viewer: left,
       opponent: right,
       viewerElo: lElo,
@@ -2069,7 +2066,6 @@ function computeRaceEdge(left, right) {
     };
   }
   return {
-    isEven,
     viewer: right,
     opponent: left,
     viewerElo: rElo,
@@ -2092,7 +2088,7 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
       </section>
     );
   }
-  const { isEven, viewer, opponent, viewerElo, oppElo, prob } = computeRaceEdge(
+  const { viewer, opponent, viewerElo, oppElo, prob } = computeRaceEdge(
     leftDrone,
     rightDrone,
   );
@@ -2117,14 +2113,8 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
   return (
     <section className={styles.raceEdgeCard}>
       <h3 className={styles.raceEdgeHeader}>
-        {isEven ? (
-          <span className={styles.raceEdgeHeaderTitle}>Even Matchup</span>
-        ) : (
-          <>
-            <span className={styles.raceEdgeHeaderTitle}>Race Edge</span>
-            <span className={styles.raceEdgeHeaderDrone}>{viewer.name}</span>
-          </>
-        )}
+        <span className={styles.raceEdgeHeaderTitle}>Race Edge</span>
+        <span className={styles.raceEdgeHeaderDrone}>{viewer.name}</span>
       </h3>
       <div className={styles.raceEdgeBody}>
         {/* Captain's standing rule: Strengths and Gaps ALWAYS render
@@ -2178,14 +2168,12 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
         <div className={styles.raceEdgeSection}>
           <div className={styles.raceEdgeWinHead}>
             <span className={styles.raceEdgeSectionLabel}>Win Probability</span>
-            <span className={styles.raceEdgeWinValue}>
-              {isEven ? '50%' : `${pct}%`}
-            </span>
+            <span className={styles.raceEdgeWinValue}>{`${pct}%`}</span>
           </div>
           <div className={styles.raceEdgeWinBar}>
             <div
               className={styles.raceEdgeWinBarFill}
-              style={{ width: isEven ? '50%' : `${pct}%` }}
+              style={{ width: `${pct}%` }}
               aria-hidden="true"
             />
           </div>
