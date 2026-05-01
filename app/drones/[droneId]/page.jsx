@@ -162,53 +162,10 @@ export default function DroneDetailPage({ params }) {
     loadListing();
   }, [load, loadListing]);
 
-  /* Race-round-end auto-sync. Mirrors the My Drones list page pattern:
-     one chained setTimeout per cycle, NOT periodic polling. On mount
-     we fetch the next race's scheduledAt, schedule a single timer for
-     that moment + 5s, and on fire we re-call `load` (which refreshes
-     this drone's stats / active flag / recent races) + clear this
-     drone's pending entry, then schedule the next one-shot.
-
-     If the user has no upcoming races, fall back to a 60s re-check
-     so a freshly-activated drone wakes the loop up. Strictly
-     additive - existing toggle/save/equip handlers untouched. */
-  useEffect(() => {
-    let cancelled = false;
-    let timer;
-
-    async function scheduleNextSync() {
-      if (cancelled) return;
-      let delayMs;
-      try {
-        const res = await fetch('/api/races/upcoming');
-        const body = await res.json();
-        const races = body?.data?.races ?? [];
-        if (races.length === 0) {
-          delayMs = 60_000;
-        } else {
-          const nextTime = Math.min(
-            ...races.map((r) => new Date(r.scheduledAt).getTime()),
-          );
-          delayMs = Math.max(2_000, nextTime - Date.now() + 5_000);
-        }
-      } catch {
-        delayMs = 60_000;
-      }
-      if (cancelled) return;
-      timer = setTimeout(async () => {
-        if (cancelled) return;
-        await load().catch(() => {});
-        clearPendingToggle(droneId);
-        scheduleNextSync();
-      }, delayMs);
-    }
-
-    scheduleNextSync();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [droneId, load]);
+  // No polling here. Pending toggle badges self-clear via the
+  // setTimeout inside lib/pending-toggle.js (one race cycle per
+  // toggle); badge rendering reacts to the lib's notify() and falls
+  // back to drone.active once the entry expires.
 
   if (loading || status === 'loading') {
     return (
