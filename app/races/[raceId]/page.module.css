@@ -517,6 +517,7 @@
 }
 
 .droneCard {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: var(--bg-card);
@@ -745,9 +746,16 @@
   letter-spacing: 0.05em;
 }
 
-/* YOU badge for the COMPLETED race DroneCard's owner line. Mirrors the
-   matchup YOU pill so PENDING and COMPLETED views read consistently. */
+/* YOU badge anchored to the top corner of the COMPLETED race
+   DroneCard. Absolute-positioned so it never adds vertical flow
+   weight (which previously made the viewer's drone card taller
+   than the opponent's). Slot-prefixed rules below pin it to the
+   outer corner: drone1 (left card) -> top-left, drone2 (right card)
+   -> top-right. */
 .droneOwnerYouBadge {
+  position: absolute;
+  top: var(--space-3);
+  z-index: 5;
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
@@ -758,6 +766,15 @@
   font-size: var(--text-xs);
   font-weight: var(--font-bold);
   letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+.drone1Slot .droneOwnerYouBadge {
+  left: var(--space-3);
+}
+
+.drone2Slot .droneOwnerYouBadge {
+  right: var(--space-3);
 }
 
 .droneMeta {

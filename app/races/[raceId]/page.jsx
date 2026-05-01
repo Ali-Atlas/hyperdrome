@@ -1331,6 +1331,9 @@ function DroneCard({
   return (
     <Link href={`/drones/${drone.id}`} className={styles.droneLink}>
       <Card className={styles.droneCard}>
+        {isViewerDrone && (
+          <span className={styles.droneOwnerYouBadge}>YOU</span>
+        )}
         <h2 className={styles.sectionHeading}>
           {isWinner ? 'Winner' : 'Challenger'}
         </h2>
@@ -1352,13 +1355,9 @@ function DroneCard({
               className={styles.droneLevelBadge}
             />
           </div>
-          <div className={styles.droneOwner}>
-            {isViewerDrone ? (
-              <span className={styles.droneOwnerYouBadge}>YOU</span>
-            ) : (
-              <>Owner: {ownerLabel}</>
-            )}
-          </div>
+          {!isViewerDrone && (
+            <div className={styles.droneOwner}>Owner: {ownerLabel}</div>
+          )}
           <div className={styles.droneMeta}>
             <div className={styles.droneMetaSide}>
               <div className={styles.droneMetaItem}>
