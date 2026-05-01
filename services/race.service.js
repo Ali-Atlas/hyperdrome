@@ -812,8 +812,9 @@ export async function getRaceById(raceId) {
  *
  *  Aligned to the wall-clock interval boundary, NOT derived from the
  *  latest race's `createdAt`. The Vercel cron fires on a fixed clock
- *  schedule (`*/3 * * * *` = 0:00, 0:03, 0:06...), so the next tick
- *  is `Math.ceil(now / interval) * interval`. The interval comes from
+ *  schedule (every 3rd minute aligned to 0:00, 0:03, 0:06...), so
+ *  the next tick is `Math.ceil(now / interval) * interval`. The
+ *  interval comes from
  *  `admin_config.race_interval_seconds` so dev/prod stay configurable
  *  - if that value diverges from the vercel.json cron schedule the
  *  countdown will drift, so they must be kept in sync.
