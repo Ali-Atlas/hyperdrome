@@ -163,10 +163,28 @@ export default function DashboardPage() {
     return map;
   }, [upcomingRaces]);
 
+  /* Active drones sorted by level descending so the spotlight's
+     initial slot (index 0) is always the user's highest-level drone.
+     Stable sort within equal levels via the original myDrones order. */
   const activeDrones = useMemo(
-    () => myDrones.filter((d) => d.active),
+    () =>
+      myDrones
+        .filter((d) => d.active)
+        .sort((a, b) => (b.level ?? 0) - (a.level ?? 0)),
     [myDrones],
   );
+
+  /* Upcoming races sorted by the user's drone level descending (the
+     same axis the spotlight uses). With both spotlight and Next Race
+     ordered identically, index 0 in each lines up naturally on first
+     render - no separate initial sync needed. The Next-Race arrows
+     also walk this same level-sorted order. */
+  const sortedUpcomingRaces = useMemo(() => {
+    if (myDrones.length === 0) return upcomingRaces;
+    const droneById = new Map(myDrones.map((d) => [d.id, d]));
+    const levelOf = (race) => droneById.get(race.userDroneId)?.level ?? 0;
+    return [...upcomingRaces].sort((a, b) => levelOf(b) - levelOf(a));
+  }, [upcomingRaces, myDrones]);
 
   /* Live feed ordering:
        1. The viewer's own pending races (where one of the user's drones
@@ -219,7 +237,7 @@ export default function DashboardPage() {
   // upcoming race the Next Race index is left alone.
   const syncNextRaceToDrone = (drone) => {
     if (!drone) return;
-    const idx = upcomingRaces.findIndex(
+    const idx = sortedUpcomingRaces.findIndex(
       (r) => r.userDroneId === drone.id,
     );
     if (idx >= 0) setNextRaceIndex(idx);
@@ -272,25 +290,26 @@ export default function DashboardPage() {
     : null;
 
   // Next-race cycling: the header arrows step through every PENDING
-  // race the user is in. Reset to 0 whenever the underlying list
-  // changes length so we never index past the end after a race
-  // completes.
+  // race the user is in (in level-sorted order). Reset to 0 whenever
+  // the underlying list changes length so we never index past the
+  // end after a race completes.
   const [nextRaceIndex, setNextRaceIndex] = useState(0);
   if (
-    upcomingRaces.length > 0 &&
-    nextRaceIndex >= upcomingRaces.length
+    sortedUpcomingRaces.length > 0 &&
+    nextRaceIndex >= sortedUpcomingRaces.length
   ) {
     setNextRaceIndex(0);
   }
 
-  const nextRaceForCard = upcomingRaces[nextRaceIndex] ?? null;
-  const nextRaceCanCycle = upcomingRaces.length > 1;
+  const nextRaceForCard = sortedUpcomingRaces[nextRaceIndex] ?? null;
+  const nextRaceCanCycle = sortedUpcomingRaces.length > 1;
   const goPrevNextRace = () =>
     setNextRaceIndex(
-      (i) => (i - 1 + upcomingRaces.length) % upcomingRaces.length,
+      (i) =>
+        (i - 1 + sortedUpcomingRaces.length) % sortedUpcomingRaces.length,
     );
   const goNextNextRace = () =>
-    setNextRaceIndex((i) => (i + 1) % upcomingRaces.length);
+    setNextRaceIndex((i) => (i + 1) % sortedUpcomingRaces.length);
 
   return (
     <NavShell>
