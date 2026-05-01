@@ -570,6 +570,14 @@
   max-width: 100%;
 }
 
+.cardHeadMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
 .levelChip {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -723,6 +731,18 @@
 @media (max-width: 623px) {
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Narrow cards: the absolute top-right ribbon overlaps long drone
+     names. Drop it into flow inside the level-chip row so it sits
+     opposite the level chip instead of fighting the name. Also shrink
+     the type a touch since the row is tight at this width. */
+  .activeRibbon {
+    position: static;
+    top: auto;
+    right: auto;
+    padding: 2px 6px;
+    font-size: 8px;
+    box-shadow: none;
   }
 }
 

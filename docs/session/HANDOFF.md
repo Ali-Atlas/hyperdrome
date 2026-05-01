@@ -4,6 +4,29 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-01 - My Drones: relocate active badge into level-chip row on small mobile
+
+**Captain ask:** On the My Drones page (`/drones`), small-mobile cards have the "Active" badge intersecting the drone name when the name is long. Move the badge to the right of the level-number row so it can't overlap. Also make the badge text slightly smaller at that breakpoint.
+
+**Why it overlapped:** `.activeRibbon` is `position: absolute; top: 10px; right: 10px;` on the card (`app/drones/page.module.css:351`). At the 2-column grid breakpoint (`max-width: 623px`) cards get narrow enough that long names slide under the absolutely-positioned ribbon. Original design comment ("outside the header row so it never fights the drone name for space") held on desktop but broke once cards shrank.
+
+**Files modified (2):** `app/drones/page.jsx`, `app/drones/page.module.css`.
+
+### `app/drones/page.jsx`
+- Restructured `DroneCard`'s header. The level chip now lives inside a new `cardHeadMeta` flex row, and the three mutually-exclusive active badges (`Active` / `Activating` / `Deactivating`) moved into that same row, after the level chip. Default styling still pins them to the card's top-right corner via `position: absolute`, so desktop layout is unchanged.
+
+### `app/drones/page.module.css`
+- New `.cardHeadMeta` rule: `flex; align-items:center; justify-content:space-between; width:100%;` so the level chip stays left and the badge sits right when in flow.
+- Added an override inside the existing `@media (max-width: 623px)` block: `.activeRibbon { position: static; top:auto; right:auto; padding:2px 6px; font-size:8px; box-shadow:none; }`. The static position lets the badge participate in the meta row's flex layout; the smaller padding + 8px font + dropped glow are Captain's "slightly smaller text" ask.
+
+**Behavior:**
+- Desktop / wide tablet (>623px): visually identical — badge still floats top-right of the card.
+- Small mobile (≤623px, where grid is 2 columns or 1 column): badge sits to the right of `LV X` on the row below the drone name, ~8px font with a tighter pill, no glow.
+
+**Verification:** Not run (Captain verifies). No `npm run dev` / lint / build per standing rule.
+
+---
+
 ## 2026-05-01 - Guide + FAQ: active drone Activating / Deactivating pending states
 
 **Captain ask:** Document the active-drone state model. Players cap at 3 active slots, unlockable at 3,000 / 10,000 lifetime races. Active drones auto-race every 3-minute cycle. Toggling on/off goes through a one-cycle pending state (Activating / Deactivating). Pending states resolve at the next race round and can be cancelled by clicking the toggle again. The strategy-lock window does NOT block active toggles - only mod and skin swaps lock during that period. Add a Guide section near drone management and an FAQ entry. Skip lint.

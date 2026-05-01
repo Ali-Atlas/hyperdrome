@@ -730,34 +730,44 @@ function DroneCard({ drone }) {
         )}
         style={legendaryStyle}
       >
-        {/* Three mutually exclusive badges. Inactive renders nothing -
-            the absence of a ribbon is the inactive signal. */}
-        {showAsActive && !pendingToggle && (
-          <span className={styles.activeRibbon}>Active</span>
-        )}
-        {showAsActive && isPendingDeactivating && (
-          <span
-            className={cn(styles.activeRibbon, styles.activeRibbonDeactivating)}
-          >
-            Deactivating
-          </span>
-        )}
-        {!showAsActive && isPendingActivating && (
-          <span
-            className={cn(styles.activeRibbon, styles.activeRibbonActivating)}
-          >
-            Activating
-          </span>
-        )}
-
         <header className={styles.cardHead}>
           <h3 className={styles.droneName}>{drone.name}</h3>
-          <span
-            className={styles.levelChip}
-            style={{ color: getLevelColor(drone.level) }}
-          >
-            LV {drone.level}
-          </span>
+          <div className={styles.cardHeadMeta}>
+            <span
+              className={styles.levelChip}
+              style={{ color: getLevelColor(drone.level) }}
+            >
+              LV {drone.level}
+            </span>
+            {/* Three mutually exclusive badges. Inactive renders nothing -
+                the absence of a ribbon is the inactive signal. Default
+                styling pins the badge to the card's top-right corner;
+                small-mobile breakpoint flips it to static so it flows
+                into this meta row instead of overlapping a long name. */}
+            {showAsActive && !pendingToggle && (
+              <span className={styles.activeRibbon}>Active</span>
+            )}
+            {showAsActive && isPendingDeactivating && (
+              <span
+                className={cn(
+                  styles.activeRibbon,
+                  styles.activeRibbonDeactivating,
+                )}
+              >
+                Deactivating
+              </span>
+            )}
+            {!showAsActive && isPendingActivating && (
+              <span
+                className={cn(
+                  styles.activeRibbon,
+                  styles.activeRibbonActivating,
+                )}
+              >
+                Activating
+              </span>
+            )}
+          </div>
         </header>
 
         <div className={styles.imageFrame}>
