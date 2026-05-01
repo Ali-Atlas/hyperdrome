@@ -4,6 +4,25 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-01 - buildStats: per-stat ±15% variance + TSB rebalance (bots + marketplace)
+
+**Captain ask:** Two LV17 cornerers should have the same SHAPE (high turning, low speed) but different exact numbers. Add ±15% per-stat variance after the existing weight distribution, then rebalance back to the TSB total - trim highest if over, add to lowest if under. Apply to bot drones too. Don't touch profile weights or the TSB formula. Skip lint.
+
+**Files modified (1):** `scripts/seed-production.js`
+
+- Inside `buildStats()`, after the existing distribution + spillover loop completes (which already brings the stat sum to exactly `tsb`), added two new blocks. Profile weights, `TSB_BASE`, `TSB_PER_LEVEL`, `STAT_CAP_*`, and the share-distribution math are all untouched per ask.
+- **Variance pass:** for each `STAT_KEYS` entry, computes `delta = round(v * (random() * 0.3 - 0.15))` and writes `stats[k] = max(1, min(cap, v + delta))`. The factor is uniform over [-0.15, +0.15]. Stats at value 1 get `delta = round(±0.15) = 0`, so the floor case is naturally a no-op (no clamp work needed there). Stats near cap can roll past it and get clamped down.
+- **Rebalance pass:** loop while `sumStats() !== tsb` (bounded by a 1000-iteration safety counter so a pathological all-at-cap or all-at-1 input can't lock the seed script). When over, sort STAT_KEYS desc by current value and decrement the first one that's still > 1. When under, sort asc and increment the first one still under cap. Re-sorting each pass means the most-extreme stat absorbs the correction, which preserves the archetype shape (a cornerer's high turning takes the trim, not its speed). Smearing across all stats randomly would have flattened the silhouette.
+- **Bot coverage:** `buildStats` is the single shared helper - already called by the `RACING_BOTS` seeder, the marketplace mint path (`mintAndListDrone`, featured drones, demo-player drones). The variance therefore lands on the live matchmaking pool automatically; no separate change needed for `RACING_BOTS`.
+
+**Verification:**
+- Total still equals TSB after the rebalance pass: enforced by the loop condition `sumStats() !== tsb`. Safety counter only kicks in if no stat is reducible (all at 1) or no stat is incrementable (all at cap), which would already mean the input is degenerate.
+- Cap respected: the variance step clamps to `[1, cap]`, and the rebalance increment branch only increments stats `< cap`.
+- Floor respected: rebalance decrement branch only decrements stats `> 1`.
+- **Not run:** no dev / lint / build / seed run per Captain's standing rule. Captain runs the seed himself when he's ready to refresh the bot pool / marketplace listings.
+
+---
+
 ## 2026-05-01 - Marketplace Recent Sales: click-to-sort headers w/ chevron arrows, default time desc
 
 **Captain ask:** Make every column in the Recent Sales table sortable — click the column title to toggle asc/desc, with little mini arrows showing the current state. Default to most-recent sales first (Time desc). Skip lint.

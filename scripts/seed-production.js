@@ -225,6 +225,40 @@ function buildStats(level, profileName) {
     if (placed === 0) break;
     guard += 1;
   }
+
+  // Per-stat ±15% variance so two same-level same-profile drones share
+  // the archetype shape (cornerer = high turning) but differ on the
+  // exact numbers. Rebalance below restores the TSB total exactly.
+  for (const k of STAT_KEYS) {
+    const v = stats[k];
+    const delta = Math.round(v * (Math.random() * 0.3 - 0.15));
+    stats[k] = Math.max(1, Math.min(cap, v + delta));
+  }
+
+  // Rebalance to the original TSB target. Trim from the highest stat
+  // when over, add to the lowest stat (still under cap) when under.
+  // Re-sorting each pass means the most-extreme stat absorbs the
+  // adjustment first, which preserves the archetype shape instead of
+  // smearing the correction across the whole stat block.
+  const sumStats = () => STAT_KEYS.reduce((a, k) => a + stats[k], 0);
+  let safety = 1000;
+  while (sumStats() !== tsb && safety > 0) {
+    safety -= 1;
+    if (sumStats() > tsb) {
+      const k = [...STAT_KEYS]
+        .sort((a, b) => stats[b] - stats[a])
+        .find((key) => stats[key] > 1);
+      if (!k) break;
+      stats[k] -= 1;
+    } else {
+      const k = [...STAT_KEYS]
+        .sort((a, b) => stats[a] - stats[b])
+        .find((key) => stats[key] < cap);
+      if (!k) break;
+      stats[k] += 1;
+    }
+  }
+
   return { stats, tsb };
 }
 
