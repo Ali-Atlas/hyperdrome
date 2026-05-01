@@ -32,6 +32,10 @@ import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
+import {
+  setPendingToggle,
+  usePendingToggle,
+} from '@/lib/pending-toggle';
 import { cn, getLevelColor, canEquipSkin, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
@@ -199,6 +203,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   const [editedStats, setEditedStats] = useState(() => pickStats(drone));
   const [saving, setSaving] = useState(false);
   const [togglePending, setTogglePending] = useState(false);
+  const pendingToggle = usePendingToggle(drone.id);
 
   useEffect(() => {
     setEditedStats(pickStats(drone));
@@ -301,6 +306,10 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
         // delay so the user isn't confused when their just-deactivated
         // drone still races out the current matchup.
         showToast('Change takes effect next round.', 'info');
+        // Visual-only: track that this toggle hasn't yet been
+        // applied by the matchmaking cron. Cleared on full page
+        // reload (by then the next race cycle has usually run).
+        setPendingToggle(drone.id, next);
         await onReload();
       }
     } catch (err) {
@@ -558,6 +567,11 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                 {isOwner && (
                   <div className={styles.activeControl}>
                     <span className={styles.activeControlLabel}>Active</span>
+                    {pendingToggle && (
+                      <span className={styles.activePendingNote}>
+                        ({pendingToggle.intended ? 'activating' : 'pending'})
+                      </span>
+                    )}
                     <span className={styles.activeToggleWrap}>
                       <Toggle
                         checked={drone.active}
