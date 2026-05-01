@@ -994,9 +994,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
               {isOwner ? (
                 <div className={styles.actions}>
                   {currentSum >= tsb && (
-                    <span className={styles.levelCapNote}>
+                    <Link
+                      href="/guide#drone-stats"
+                      className={styles.levelCapNote}
+                    >
                       Level cap reached
-                    </span>
+                    </Link>
                   )}
                   <div className={styles.buttonGroup}>
                     <Button

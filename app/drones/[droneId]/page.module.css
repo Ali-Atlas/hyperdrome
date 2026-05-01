@@ -1236,7 +1236,7 @@
 
 .availablePoints {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 
@@ -1244,14 +1244,14 @@
   font-family: var(--font-mono);
   color: var(--accent-primary);
   font-weight: var(--font-bold);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   margin-left: var(--space-1);
 }
 
 .balanceNote {
   display: block;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1278,14 +1278,26 @@
   border-top: 1px solid var(--border-default);
 }
 
-/* Footer note shown to the left of Save/Reset when the player has zero
-   unallocated points at the current level. `margin-right: auto` pushes
-   the buttons to the right while the note pins to the left of the row. */
+/* Footer note (link to the Guide's TSB explanation) shown to the
+   left of Save/Reset when the drone is at its level cap. `margin-
+   right: auto` pushes the buttons to the right while the note pins
+   to the left. Tiny accent-colored text - reads as a "learn more"
+   hint, not a status banner. */
 .levelCapNote {
   margin-right: auto;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  font-size: 9px;
+  color: var(--accent-primary);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  transition: filter var(--duration-fast) var(--ease-out);
+}
+
+.levelCapNote:hover {
+  text-decoration: underline;
+  filter: brightness(1.15);
 }
 
 /* Stat editor Save / Reset row. Equal-width 50/50 cells; Buttons inside
@@ -1498,20 +1510,14 @@
   }
 }
 
-/* Mobile */
+/* Mobile. NOTE: deliberately do NOT collapse `.actions` to a column
+   here - the level-cap link must always sit on the left and the
+   Save / Reset buttons on the right of the same row, regardless of
+   viewport width. The button group shrinks at <=640 (block below)
+   instead of stacking the row. */
 @media (max-width: 768px) {
   .droneImageFrame {
     max-width: 240px;
-  }
-  .actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .buttonGroup {
-    width: 100%;
-  }
-  .buttonGroup > * {
-    flex: 1;
   }
   .raceProfileGrid {
     grid-template-columns: 1fr;
@@ -1524,6 +1530,21 @@
   .statHeader {
     flex-wrap: wrap;
     gap: var(--space-2);
+  }
+}
+
+/* Tighter Save / Reset row on small mobile so the level-cap link on
+   the left + the two buttons on the right always fit on a single
+   row. Shrinking the button group's max-width drops each cell from
+   ~140px to ~100px while the buttons (size="sm") still hold their
+   labels comfortably. */
+@media (max-width: 640px) {
+  .actions {
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+  .buttonGroup {
+    max-width: 200px;
   }
 }
 
