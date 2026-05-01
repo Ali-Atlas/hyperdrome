@@ -365,6 +365,16 @@ export default function MarketplacePage() {
   const [ownedSkins, setOwnedSkins] = useState([]);
   const [ownedUnboundMods, setOwnedUnboundMods] = useState([]);
 
+  /* Stable Modal close handler. The Modal primitive's open-state effect
+     has `onClose` in its deps and calls `panelRef.current.focus()` every
+     time it runs - so an inline `onClose={() => setListModal(false)}`
+     creates a fresh function reference on every render, makes the
+     effect re-run on every keystroke, and the focus jump kicks the
+     user out of the price input mid-typing. `useCallback` with an
+     empty dep array gives the Modal a reference-stable handler.
+     `setListModal` from `useState` is already stable. */
+  const closeListModal = useCallback(() => setListModal(false), []);
+
   const fetchListings = useCallback(async () => {
     setLoading(true);
     try {
@@ -1360,7 +1370,7 @@ export default function MarketplacePage() {
       {/* ---- List modal ---- */}
       <Modal
         isOpen={listModal}
-        onClose={() => setListModal(false)}
+        onClose={closeListModal}
         size="md"
         chromeless
         className={styles.listModal}
@@ -1594,7 +1604,10 @@ const TAPE_SORT_GETTERS = {
     (t.drone?.name ?? t.skin?.name ?? t.mod?.name ?? '').toLowerCase(),
   rarity: (t) =>
     TAPE_RARITY_RANK[
-      t.skin?.rarity ?? t.mod?.rarity ?? t.drone?.rarity
+      t.skin?.rarity ??
+        t.mod?.rarity ??
+        t.drone?.appliedSkin?.rarity ??
+        droneLevelRarity(t.drone?.level)
     ] ?? 0,
   seller: (t) => (t.seller?.username ?? '').toLowerCase(),
   buyer: (t) => (t.buyer?.username ?? '').toLowerCase(),
@@ -1729,7 +1742,8 @@ function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
                   ? t.skin?.rarity
                   : t.itemType === 'mod'
                     ? t.mod?.rarity
-                    : t.drone?.appliedSkin?.rarity ?? null;
+                    : t.drone?.appliedSkin?.rarity ??
+                      droneLevelRarity(t.drone?.level);
               const sellerName = t.seller?.username ?? '-';
               const buyerName = t.buyer?.username ?? '-';
               const when = formatRelativeTime(t.soldAt ?? t.createdAt);
@@ -1839,6 +1853,19 @@ function formatRelativeTime(iso) {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
   return then.toLocaleDateString();
+}
+
+/* Drone listings don't carry an intrinsic rarity in the schema (only
+   skins + mods do). For the Recent Sales rarity column, fall back to
+   the drone's level-tier band when no applied skin is present. Mirrors
+   the PRICE_TIERS bands used elsewhere (T1-T4 -> common/rare/epic/legendary). */
+function droneLevelRarity(level) {
+  if (level == null) return null;
+  if (level >= 16) return 'legendary';
+  if (level >= 11) return 'epic';
+  if (level >= 6) return 'rare';
+  if (level >= 1) return 'common';
+  return null;
 }
 
 /* -------------------------------------------------------------------------- */

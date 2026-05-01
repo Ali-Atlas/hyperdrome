@@ -18,7 +18,11 @@ import {
   getLegendaryTheme,
 } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
-import { usePendingToggle } from '@/lib/pending-toggle';
+import {
+  clearPendingToggle,
+  getPendingToggle,
+  usePendingToggle,
+} from '@/lib/pending-toggle';
 import styles from './page.module.css';
 
 /** NPC vendor price + free-drone milestones. Mirror values in
@@ -67,10 +71,26 @@ export default function DronesPage() {
   const [vendorPending, setVendorPending] = useState(false);
   const [vendorError, setVendorError] = useState(null);
 
+  /* Reconcile pending-toggle hints against fresh server data: any drone
+     whose `active` flag now matches the user's intended toggle has had
+     its change land server-side (next race cycle picked it up), so the
+     pending badge can clear automatically. Called after every
+     refresh - manual + interval-driven - so badges drop themselves
+     without a manual reload once the cycle ticks. */
+  function reconcilePendingToggles(list) {
+    for (const d of list) {
+      const p = getPendingToggle(d.id);
+      if (p && d.active === p.intended) clearPendingToggle(d.id);
+    }
+  }
+
   async function refreshDrones() {
     const res = await fetch('/api/drones');
     const body = await res.json();
-    if (res.ok && body?.data) setDrones(body.data);
+    if (res.ok && body?.data) {
+      setDrones(body.data);
+      reconcilePendingToggles(body.data);
+    }
   }
 
   useEffect(() => {
@@ -81,6 +101,7 @@ export default function DronesPage() {
         const body = await res.json();
         if (!cancelled && res.ok && body?.data) {
           setDrones(body.data);
+          reconcilePendingToggles(body.data);
         }
       } catch (err) {
         console.error(err);
@@ -92,6 +113,19 @@ export default function DronesPage() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  /* Poll every 30s so pending-toggle badges clear themselves once the
+     next race cycle has consumed the new active state server-side.
+     The race cron runs every 180s; a 30s poll lands fresh data within
+     a few ticks of the cycle finishing without hammering the API. */
+  useEffect(() => {
+    const id = setInterval(() => {
+      refreshDrones().catch(() => {
+        /* swallow transient failures; the next tick retries */
+      });
+    }, 30_000);
+    return () => clearInterval(id);
   }, []);
 
   // Milestone toast: when a free drone shows up between page loads (drone

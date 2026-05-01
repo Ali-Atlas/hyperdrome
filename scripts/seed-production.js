@@ -230,7 +230,7 @@ async function seedBotUsers() {
   return inserted;
 }
 
-async function getBotUserMap() {
+export async function getBotUserMap() {
   const rows = await db
     .select()
     .from(users)
@@ -1115,6 +1115,226 @@ async function seedMarketplaceListings(botUserMap) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* G3. Sold marketplace listings                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * 100 historical sold transactions seeded so the Recent Sales tape on
+ * the marketplace reads as an active market from day one. Each record:
+ *   - mints a fresh skin/mod from vault stock (or mints a new drone),
+ *   - transfers the item to a random PILOT_D demo user (the buyer),
+ *   - inserts a marketplaceListings row with status='sold',
+ *     soldAt within the last 7 days, sellerId pointing at one of the
+ *     three MKT_* market-maker bots and buyerId at the demo user.
+ *
+ * Mix: ~40 skins, ~30 mods, ~30 drones. Rarity distribution across the
+ * 70 skin+mod entries roughly tracks 50/25/15/10
+ * (common/rare/epic/legendary). Drones use the existing PRICE_TIERS
+ * level-bracket pricing, no rarity dimension on the listing itself.
+ *
+ * Idempotency: count existing sold listings owned by MKT_* sellers; if
+ * the floor is already met, skip the whole section.
+ *
+ * Order dependency: must run AFTER `seedDemoAccounts` so the
+ * PILOT_D## users are already in the DB to pick buyer ids from.
+ */
+
+const SOLD_LISTING_TARGET = 100;
+const SOLD_LISTING_FLOOR = 90;
+
+function randomSoldAt() {
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  return new Date(Date.now() - Math.floor(Math.random() * sevenDaysMs));
+}
+
+async function getDemoUserIds() {
+  // `_` is a single-char wildcard in LIKE; safe here because no other
+  // seeded usernames have the shape `PILOT?D##` (claimed accounts keep
+  // the username, only the email is rewritten).
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(sql`${users.username} LIKE 'PILOT_D%'`);
+  return rows.map((r) => r.id);
+}
+
+async function sellOneSkinFromVault(sellerId, buyerId, rarity, price, soldAt) {
+  const [available] = await db
+    .select()
+    .from(skins)
+    .where(and(eq(skins.rarity, rarity), isNull(skins.userId)))
+    .limit(1);
+  if (!available) return false;
+  await db
+    .update(skins)
+    .set({ userId: buyerId })
+    .where(eq(skins.id, available.id));
+  await db.insert(marketplaceListings).values({
+    sellerId,
+    itemType: 'skin',
+    skinId: available.id,
+    price,
+    status: 'sold',
+    buyerId,
+    soldAt,
+    platformFee: Math.floor(price * 0.05),
+  });
+  return true;
+}
+
+async function sellOneModFromVault(sellerId, buyerId, rarity, price, soldAt) {
+  const [available] = await db
+    .select()
+    .from(mods)
+    .where(and(eq(mods.rarity, rarity), isNull(mods.userId)))
+    .limit(1);
+  if (!available) return false;
+  await db
+    .update(mods)
+    .set({ userId: buyerId })
+    .where(eq(mods.id, available.id));
+  await db.insert(marketplaceListings).values({
+    sellerId,
+    itemType: 'mod',
+    modId: available.id,
+    price,
+    status: 'sold',
+    buyerId,
+    soldAt,
+    platformFee: Math.floor(price * 0.05),
+  });
+  return true;
+}
+
+async function mintAndSellDrone(sellerId, buyerId, level, price, soldAt) {
+  const droneName = await generateUniqueDroneName(db, drones);
+  const { stats, tsb } = buildStats(level);
+  const [drone] = await db
+    .insert(drones)
+    .values({
+      userId: buyerId,
+      name: droneName,
+      level,
+      xp: 0,
+      xpToNextLevel: 300 * level * level,
+      totalStatBudget: tsb,
+      ...stats,
+      active: false,
+      isBot: false,
+      eloRating: 1000,
+      imageUrl: '/drones/default.png',
+    })
+    .returning();
+  await db.insert(marketplaceListings).values({
+    sellerId,
+    itemType: 'drone',
+    droneId: drone.id,
+    price,
+    status: 'sold',
+    buyerId,
+    soldAt,
+    platformFee: Math.floor(price * 0.05),
+  });
+  return drone;
+}
+
+export async function seedSoldListings(botUserMap) {
+  const counts = { skins: 0, mods: 0, drones: 0, skipped: 0 };
+
+  const sellerIds = ['MKT_PULSE', 'MKT_NEXUS', 'MKT_ORBIT']
+    .map((name) => botUserMap[name]?.id)
+    .filter(Boolean);
+  if (sellerIds.length === 0) return counts;
+
+  // Idempotency: count existing sold listings owned by MKT_* sellers.
+  const existing = await db
+    .select({ id: marketplaceListings.id })
+    .from(marketplaceListings)
+    .where(
+      and(
+        eq(marketplaceListings.status, 'sold'),
+        inArray(marketplaceListings.sellerId, sellerIds),
+      ),
+    );
+  if (existing.length >= SOLD_LISTING_FLOOR) return counts;
+
+  const buyerIds = await getDemoUserIds();
+  if (buyerIds.length === 0) return counts;
+
+  const seller = (i) => sellerIds[i % sellerIds.length];
+  const randBuyer = () => buyerIds[Math.floor(Math.random() * buyerIds.length)];
+  let i = 0;
+
+  /* --- 40 skins (rarity ratio ~50/25/15/10 across skin+mod) --- */
+  const skinPlan = [
+    { rarity: 'common',    count: 20, range: [800,    1_500] },
+    { rarity: 'rare',      count: 10, range: [4_000,  8_000] },
+    { rarity: 'epic',      count: 6,  range: [18_000, 25_000] },
+    { rarity: 'legendary', count: 4,  range: [100_000, 145_000] },
+  ];
+  for (const plan of skinPlan) {
+    for (let k = 0; k < plan.count; k += 1) {
+      const price = randInt(plan.range[0], plan.range[1]);
+      const ok = await sellOneSkinFromVault(
+        seller(i++),
+        randBuyer(),
+        plan.rarity,
+        price,
+        randomSoldAt(),
+      );
+      if (ok) counts.skins += 1;
+      else counts.skipped += 1;
+    }
+  }
+
+  /* --- 30 mods (matching rarity ratio) --- */
+  const modPlan = [
+    { rarity: 'common',    count: 15, range: [200,    700] },
+    { rarity: 'rare',      count: 8,  range: [1_500,  4_000] },
+    { rarity: 'epic',      count: 5,  range: [8_000,  15_000] },
+    { rarity: 'legendary', count: 2,  range: [50_000, 70_000] },
+  ];
+  for (const plan of modPlan) {
+    for (let k = 0; k < plan.count; k += 1) {
+      const price = randInt(plan.range[0], plan.range[1]);
+      const ok = await sellOneModFromVault(
+        seller(i++),
+        randBuyer(),
+        plan.rarity,
+        price,
+        randomSoldAt(),
+      );
+      if (ok) counts.mods += 1;
+      else counts.skipped += 1;
+    }
+  }
+
+  /* --- 30 drones (level-bracket distribution + PRICE_TIERS pricing) --- */
+  const dronePlan = [
+    { count: 4,  level: () => randInt(16, 20) },
+    { count: 6,  level: () => randInt(11, 15) },
+    { count: 10, level: () => randInt(6, 10) },
+    { count: 10, level: () => randInt(1, 5) },
+  ];
+  for (const plan of dronePlan) {
+    for (let k = 0; k < plan.count; k += 1) {
+      const lvl = plan.level();
+      await mintAndSellDrone(
+        seller(i++),
+        randBuyer(),
+        lvl,
+        priceForLevel(lvl),
+        randomSoldAt(),
+      );
+      counts.drones += 1;
+    }
+  }
+
+  counts.target = SOLD_LISTING_TARGET;
+  return counts;
+}
+
+/* -------------------------------------------------------------------------- */
 /* H. demo accounts                                                           */
 /* -------------------------------------------------------------------------- */
 
@@ -1242,6 +1462,12 @@ export async function runSeed({ skipConfirm = false, fresh = false } = {}) {
   console.log('\n  Seeding 50 demo accounts (real race simulation)...');
   const demo = await seedDemoAccounts();
   fmt('H. demo_accounts', demo);
+
+  // G3 (sold history) runs LAST because it picks buyer ids out of the
+  // PILOT_D## demo users seeded by H above. The Recent Sales tape on
+  // the marketplace reads from this 100-row baseline.
+  const sold = await seedSoldListings(botUserMap);
+  fmt('G3. sold_listings', sold);
 
   const dt = Math.round((Date.now() - t0) / 100) / 10;
   console.log(`\nDone in ${dt}s.`);

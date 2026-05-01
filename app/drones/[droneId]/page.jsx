@@ -134,6 +134,15 @@ export default function DroneDetailPage({ params }) {
         setError(body?.error || 'Failed to load drone');
       } else {
         setDrone(body.data);
+        // Reconcile this drone's pending-toggle hint against fresh
+        // server data. If the server-side `active` flag matches the
+        // user's intended toggle, the next race cycle has consumed
+        // it and the badge can clear itself - no manual reload.
+        const fresh = body.data;
+        if (fresh?.id) {
+          const p = getPendingToggle(fresh.id);
+          if (p && fresh.active === p.intended) clearPendingToggle(fresh.id);
+        }
       }
       setLoading(false);
     } catch (err) {
@@ -161,6 +170,20 @@ export default function DroneDetailPage({ params }) {
     load();
     loadListing();
   }, [load, loadListing]);
+
+  /* Poll every 30s so the pending-toggle badge clears itself once the
+     next race cycle has consumed the new active state server-side.
+     The race cron runs every 180s; a 30s cadence catches the new
+     state within a few ticks of cycle completion without hammering
+     the API. */
+  useEffect(() => {
+    const id = setInterval(() => {
+      load().catch(() => {
+        /* swallow transient failures; the next tick retries */
+      });
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [load]);
 
   if (loading || status === 'loading') {
     return (

@@ -453,6 +453,22 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-01 - Marketplace List Item: stop the price input from losing focus per keystroke
+
+**Captain ask:** in the "List Item" modal, typing in the Price input drops focus after every digit - the user clicks, types one number, cursor leaves the input.
+
+**Root cause:** the `Modal` primitive's open-state `useEffect` (`components/ui/Modal/index.jsx:53`) has `[isOpen, onClose]` as deps and calls `panelRef.current?.focus()` every time it runs. Marketplace was passing `onClose={() => setListModal(false)}` - a fresh arrow each render - so every keystroke created a new `onClose` reference, the effect re-fired, and the panel-focus call stole focus from the input.
+
+**Files modified (1):**
+
+### `app/marketplace/page.jsx`
+- Added `const closeListModal = useCallback(() => setListModal(false), [])` near the listing state. `useCallback` with an empty dep array gives the Modal a reference-stable handler (`setListModal` from `useState` is already stable, so the empty-deps closure is safe).
+- Switched the `<Modal>` for `listModal` from `onClose={() => setListModal(false)}` to `onClose={closeListModal}`. The Modal's effect deps no longer churn on each keystroke, so the panel-focus side-effect no longer fires per render and the price input keeps focus while the user types.
+
+**Note:** The other `<Modal>` calls in this file still pass inline arrow `onClose` handlers, but those modals don't host text inputs, so the focus-steal isn't user-visible there. If we ever add inputs to them, the same pattern applies. A more durable fix would live inside `components/ui/Modal/index.jsx` (only call `panelRef.focus()` once on `isOpen` true -> guard with a ref, or split the effect so the focus call doesn't run when only `onClose` changes), but Captain scoped this task to `page.jsx`.
+
+---
+
 ## 2026-05-01 - Race Edge: 1-decimal win prob, all values smaller across the card
 
 **Captain ask (2):**
