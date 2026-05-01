@@ -92,45 +92,59 @@
   width: 100%;
 }
 
-/* `position: relative` anchors the absolute-positioned pending note
-   (see `.activePendingNote` below) so it can sit under the badge
-   without pushing the name row taller. */
+/* Wraps the dynamic state badge + the toggle actuator. Sits on the
+   right of the name row at all widths; flex-shrink: 0 keeps the
+   badge fully visible when a long drone name truncates. */
 .activeControl {
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
 }
 
-.activeControlLabel {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: var(--font-bold);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-/* Pending status hint that sits BELOW the ACTIVE badge when the user
-   has just flipped the active flag. Absolute-positioned so it doesn't
-   push the name row taller (Captain spec: "small text. Not breaking
-   the layout or pushing content around"). Right-anchored so it tracks
-   the badge's right edge regardless of the badge's own width. */
-.activePendingNote {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 2px;
+/* Dynamic 4-state badge that replaces the prior static "Active"
+   field label. Word + color reflect the drone's effective state and
+   any queued toggle - mirrors the My Drones card ribbon colors so
+   both surfaces agree at a glance. */
+.stateBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: var(--font-bold);
-  color: var(--accent-warning);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  line-height: 1;
+  letter-spacing: 0.1em;
   white-space: nowrap;
-  pointer-events: none;
+}
+
+.stateBadgeActive {
+  background: rgba(3, 218, 198, 0.18);
+  border-color: rgba(3, 218, 198, 0.45);
+  color: var(--accent-primary);
+  box-shadow: 0 0 12px rgba(3, 218, 198, 0.25);
+}
+
+.stateBadgeInactive {
+  background: rgba(160, 160, 160, 0.12);
+  border-color: rgba(160, 160, 160, 0.35);
+  color: var(--text-tertiary);
+}
+
+.stateBadgeDeactivating {
+  background: rgba(255, 107, 107, 0.16);
+  border-color: rgba(255, 107, 107, 0.55);
+  color: var(--accent-error);
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.22);
+}
+
+.stateBadgeActivating {
+  background: rgba(245, 197, 24, 0.16);
+  border-color: rgba(245, 197, 24, 0.55);
+  color: var(--accent-warning);
+  box-shadow: 0 0 12px rgba(245, 197, 24, 0.22);
 }
 
 /* Toggle never reads as faded - even when functionally disabled (drone

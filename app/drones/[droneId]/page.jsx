@@ -120,7 +120,11 @@ export default function DroneDetailPage({ params }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/drones/${droneId}`);
+      // Cache-bust so any CDN / browser cache between us and the API
+      // can't return a stale snapshot - critical for the
+      // pending-toggle reconcile path which compares the server's
+      // `active` flag to the user's queued intent.
+      const res = await fetch(`/api/drones/${droneId}?t=${Date.now()}`);
       const body = await res.json();
       if (res.status === 429) {
         /* Rate limit must never block page rendering. Toast and keep
@@ -579,26 +583,46 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
               <div className={styles.droneNameBlock}>
                 <div className={styles.droneNameRow}>
                   <div className={styles.droneName}>{drone.name}</div>
-                  {isOwner && (
-                    <div className={styles.activeControl}>
-                      <span className={styles.activeControlLabel}>Active</span>
-                      <span className={styles.activeToggleWrap}>
-                        <Toggle
-                          checked={drone.active}
-                          onChange={toggleActive}
-                          disabled={togglePending}
-                          className={styles.activeToggle}
-                        />
-                      </span>
-                      {pendingToggle && (
-                        <span className={styles.activePendingNote}>
-                          {pendingToggle.intended
-                            ? '(activating)'
-                            : '(pending)'}
+                  {isOwner && (() => {
+                    // Effective state: pending overlay shows the OLD
+                    // value (matchmaking still sees it for the current
+                    // race cycle); without pending it's just the DB
+                    // active flag.
+                    const effectiveActive = pendingToggle
+                      ? !pendingToggle.intended
+                      : drone.active;
+                    let badgeLabel;
+                    let badgeClass;
+                    if (pendingToggle) {
+                      badgeLabel = pendingToggle.intended
+                        ? 'Activating'
+                        : 'Deactivating';
+                      badgeClass = pendingToggle.intended
+                        ? styles.stateBadgeActivating
+                        : styles.stateBadgeDeactivating;
+                    } else if (effectiveActive) {
+                      badgeLabel = 'Active';
+                      badgeClass = styles.stateBadgeActive;
+                    } else {
+                      badgeLabel = 'Inactive';
+                      badgeClass = styles.stateBadgeInactive;
+                    }
+                    return (
+                      <div className={styles.activeControl}>
+                        <span className={cn(styles.stateBadge, badgeClass)}>
+                          {badgeLabel}
                         </span>
-                      )}
-                    </div>
-                  )}
+                        <span className={styles.activeToggleWrap}>
+                          <Toggle
+                            checked={drone.active}
+                            onChange={toggleActive}
+                            disabled={togglePending}
+                            className={styles.activeToggle}
+                          />
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className={styles.droneLevel}>
                   <span

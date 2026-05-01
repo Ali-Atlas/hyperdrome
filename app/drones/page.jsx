@@ -77,15 +77,32 @@ export default function DronesPage() {
      pending badge can clear automatically. Called after every
      refresh - manual + interval-driven - so badges drop themselves
      without a manual reload once the cycle ticks. */
+  /* The DB write lands IMMEDIATELY on toggle (matchmaking is what
+     waits for next race, not the DB itself). So `active === intended`
+     is true the very next refetch - if we cleared on that signal
+     alone the pending overlay would die instantly. The age gate keeps
+     the badge alive for at least one race cycle (~180s), which is
+     when the matchmaking actually consumes the new state. */
+  const PENDING_RACE_CYCLE_MS = 180_000;
   function reconcilePendingToggles(list) {
+    const now = Date.now();
     for (const d of list) {
       const p = getPendingToggle(d.id);
-      if (p && d.active === p.intended) clearPendingToggle(d.id);
+      if (
+        p &&
+        now - (p.ts ?? 0) >= PENDING_RACE_CYCLE_MS &&
+        d.active === p.intended
+      ) {
+        clearPendingToggle(d.id);
+      }
     }
   }
 
   async function refreshDrones() {
-    const res = await fetch('/api/drones');
+    // Cache-bust so any CDN / browser cache between us and the API
+    // can't return a stale snapshot (would block the post-cycle
+    // pending clear).
+    const res = await fetch(`/api/drones?t=${Date.now()}`);
     const body = await res.json();
     if (res.ok && body?.data) {
       setDrones(body.data);
@@ -97,7 +114,7 @@ export default function DronesPage() {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch('/api/drones');
+        const res = await fetch(`/api/drones?t=${Date.now()}`);
         const body = await res.json();
         if (!cancelled && res.ok && body?.data) {
           setDrones(body.data);
@@ -731,21 +748,31 @@ function DroneCard({ drone }) {
         )}
         style={legendaryStyle}
       >
+        {/* Four mutually exclusive badges keyed off effective state +
+            pending direction. Captain spec: Active / Inactive at rest;
+            Deactivating / Activating while a toggle is queued. */}
         {showAsActive && !pendingToggle && (
           <span className={styles.activeRibbon}>Active</span>
         )}
+        {!showAsActive && !pendingToggle && (
+          <span
+            className={cn(styles.activeRibbon, styles.activeRibbonInactive)}
+          >
+            Inactive
+          </span>
+        )}
         {showAsActive && isPendingDeactivating && (
           <span
-            className={cn(styles.activeRibbon, styles.activeRibbonPending)}
+            className={cn(styles.activeRibbon, styles.activeRibbonDeactivating)}
           >
-            Active
+            Deactivating
           </span>
         )}
         {!showAsActive && isPendingActivating && (
           <span
             className={cn(styles.activeRibbon, styles.activeRibbonActivating)}
           >
-            (Activating)
+            Activating
           </span>
         )}
 
