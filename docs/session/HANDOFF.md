@@ -4,6 +4,22 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-02 - Hero footer: drop Dendrite Games attribution
+
+**Captain ask:** Remove the "Dendrite Games" reference from the landing-page hero footer; leave just Hyperdrome.
+
+**Files modified (2):** `app/page.jsx`, `app/page.module.css`.
+
+### `app/page.jsx`
+- Footer copy collapsed from `Hyperdrome is a Dendrite Games title. © 2026` (with the studio name as an external X-profile link) to `Hyperdrome © 2026`. The wrapping `<p className={styles.footerCopy}>` and the `<span className={styles.footerBrand}>` callout stayed put so existing layout/typography rules still apply.
+
+### `app/page.module.css`
+- Deleted the now-unused `.footerCopyLink` / `.footerCopyLink:hover` rules and the explanatory comment block above them. No other selectors referenced this class.
+
+**Verification:** Not run (Captain verifies).
+
+---
+
 ## 2026-05-01 - My Drones: relocate active badge into level-chip row on small mobile
 
 **Captain ask:** On the My Drones page (`/drones`), small-mobile cards have the "Active" badge intersecting the drone name when the name is long. Move the badge to the right of the level-number row so it can't overlap. Also make the badge text slightly smaller at that breakpoint.

@@ -525,20 +525,6 @@
   color: var(--text-secondary);
 }
 
-/* Inline link inside .footerCopy (e.g. "Dendrite Games" -> X profile).
-   Inherits the body-font sizing of the surrounding sentence; tinted in
-   the teal accent so the studio name reads as a brand callout, not just
-   another body-text fragment. */
-.footerCopyLink {
-  color: var(--accent-primary);
-  text-decoration: none;
-  transition: color var(--duration-fast) var(--ease-out);
-}
-
-.footerCopyLink:hover {
-  color: var(--text-primary);
-}
-
 /* ==========================================================================
  * Breakpoints. Captain: standardize on 1024 (tablet) and 768 (mobile).
  * Hero font scaling keeps the existing 1024/1440 desktop scale plus a
