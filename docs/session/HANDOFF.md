@@ -4,6 +4,29 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-02 - Guide: move Season 2 Preview from top to bottom
+
+**Captain ask:** The Season 2 Preview block currently leads the Game Guide. Move it to the very end so the conceptual primers and deep-dive sections come first.
+
+**Files modified (2):** `app/guide/page.jsx`, `app/guide/page.module.css`.
+
+### `app/guide/page.jsx`
+- `TOC_ENTRIES` reordered from `[SEASON_2_PREVIEW, ...PRE_SECTIONS, ...SECTIONS]` to `[...PRE_SECTIONS, ...SECTIONS, SEASON_2_PREVIEW]`. Both desktop and mobile TOCs render from this single source, so the sidebar/dropdown follow the new ordering automatically. The IntersectionObserver `activeId` default also resolves to the first primer section now (the initial `useState(TOC_ENTRIES[0].id)` keeps working without code change).
+- Render order: the `[...PRE_SECTIONS, ...SECTIONS].map(...)` block now comes first inside `.content`, and the `<section id={SEASON_2_PREVIEW.id}>` (with `.s2Pill` / `.s2Section` styling) is appended after it. The Season 2 markup itself was not touched - same Card, same headings, same copy.
+- Updated the comment block above `SEASON_2_PREVIEW` from "Rendered at the end of the guide" (which was already aspirationally correct) to spell out "after the conceptual primers and deep-dives" so the placement intent is unambiguous to the next reader.
+
+### `app/guide/page.module.css`
+- Header comment for the `.s2Section` / `.s2Pill` rules: "prepended above the regular guide content" → "appended after the regular guide content". No selector or property changes; `.s2Section` still owns its own `margin-bottom` + `scroll-margin-top` and doesn't need any spacing rebalance because the existing `.section { margin-bottom }` rule already gives the preceding deep-dive room before it.
+
+**Behavior:**
+- Guide page now opens on the first primer section (Glossary / What is Hyperdrome / etc.) instead of Season 2 Preview.
+- TOC (desktop sidebar + mobile dropdown) lists Season 2 Preview as the last entry; clicking it scrolls to the bottom of the content column, which still has the teal pill header.
+- No FAQ-page changes - this was Guide-only.
+
+**Verification:** Not run (Captain verifies).
+
+---
+
 ## 2026-05-02 - Hero footer: drop Dendrite Games attribution
 
 **Captain ask:** Remove the "Dendrite Games" reference from the landing-page hero footer; leave just Hyperdrome.

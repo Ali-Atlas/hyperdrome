@@ -306,7 +306,7 @@
 }
 
 /* ==========================================================================
- * Season 2 preview - prepended above the regular guide content. The pill
+ * Season 2 preview - appended after the regular guide content. The pill
  * is the only differentiator. NEVER add a left-border (or any border)
  * accent to this block or any other section in the Guide / FAQ.
  * ========================================================================== */
