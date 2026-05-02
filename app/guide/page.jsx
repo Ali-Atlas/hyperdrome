@@ -841,6 +841,7 @@ export default function GuidePage() {
                     className={cn(
                       styles.tocLink,
                       activeId === id && styles.tocLinkActive,
+                      id === SEASON_2_PREVIEW.id && styles.tocLinkS2,
                     )}
                   >
                     <Icon size={14} aria-hidden="true" />
@@ -864,6 +865,7 @@ export default function GuidePage() {
                     className={cn(
                       styles.tocLink,
                       activeId === id && styles.tocLinkActive,
+                      id === SEASON_2_PREVIEW.id && styles.tocLinkS2,
                     )}
                   >
                     <Icon size={14} aria-hidden="true" />
