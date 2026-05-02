@@ -4,6 +4,46 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-02 - Hero footer: restore Dendrite Games text as plain copy
+
+**Captain ask:** Re-add the "Dendrite Games" mention in the landing-page hero footer as plain text — no link, no accent colour, since it's no longer interactive.
+
+**Files modified (2):** `app/page.jsx`, `app/page.module.css`.
+
+### `app/page.jsx`
+- Footer copy now reads `<span class="footerBrand">Hyperdrome</span> is a Dendrite Games title. © 2026`. `Dendrite Games` is unstyled inline text; no wrapping span and no accent class.
+
+### `app/page.module.css`
+- No CSS changes versus the post-removal state. The brief `.footerStudio` accent rule introduced moments earlier was removed in the same edit cycle, so the file ends up identical to the state after commit 7276555.
+
+**Behavior:**
+- Hero footer reads: "Hyperdrome is a Dendrite Games title. © 2026", with `Dendrite Games` inheriting the same `var(--text-secondary)` colour as the surrounding copy.
+- No other footer rows or pages touched.
+
+**Verification:** Not run (Captain verifies).
+
+---
+
+## 2026-05-02 - Guide TOC: tint Season 2 Preview link with accent colour
+
+**Captain ask:** Keep the Season 2 Preview link in the guide nav, but render it in the accent (teal) colour so it reads as a forward-look item.
+
+**Files modified (2):** `app/guide/page.jsx`, `app/guide/page.module.css`.
+
+### `app/guide/page.module.css`
+- Added a new `.tocLinkS2` rule directly after `.tocLinkActive` that sets `color: var(--accent-primary)`. Placed adjacent to the existing TOC active rule so future edits keep the active/preview accent colours in sync.
+
+### `app/guide/page.jsx`
+- Both the desktop sidebar TOC list and the mobile dropdown TOC list pass an extra conditional class to the link `cn(...)` call: `id === SEASON_2_PREVIEW.id && styles.tocLinkS2`. The class composes alongside `.tocLink` and the optional `.tocLinkActive`, so the Season 2 Preview row stays accent-coloured at rest, on hover (already accent), and when active.
+
+**Behavior:**
+- The Season 2 Preview entry in the Guide TOC (desktop + mobile) is now teal at all times, while every other section keeps the default secondary text colour and only flips to teal on hover/active.
+- No changes to the Season 2 section markup, the s2Pill, the section ordering, or the FAQ page.
+
+**Verification:** Not run (Captain verifies).
+
+---
+
 ## 2026-05-02 - Guide: move Season 2 Preview from top to bottom
 
 **Captain ask:** The Season 2 Preview block currently leads the Game Guide. Move it to the very end so the conceptual primers and deep-dive sections come first.
