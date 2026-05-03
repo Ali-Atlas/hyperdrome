@@ -609,7 +609,11 @@ function PodiumCard({ rank, entry, tab }) {
   const wins = entry ? (tab === 'players' ? entry.totalWins : entry.wins) : 0;
   const totalRaces = entry?.totalRaces ?? 0;
   const winRate = computeWinRate(wins, totalRaces);
-  const seasonPts = tab === 'players' ? entry?.seasonPoints : null;
+  // Season volts: players use the per-user `seasonPoints` column;
+  // drones use `seasonEarned` (sum of race payouts since the active
+  // season's start date - drone analogue, computed by the service).
+  const seasonPts =
+    tab === 'players' ? entry?.seasonPoints : entry?.seasonEarned;
 
   const rankClass =
     rank === 1 ? styles.gold : rank === 2 ? styles.silver : styles.bronze;
@@ -668,21 +672,19 @@ function PodiumCard({ rank, entry, tab }) {
         />
         <PodiumStat label="Wins" value={empty ? '-' : wins} />
         <PodiumStat label="ELO" value={empty ? '-' : entry.eloRating} />
-        {tab === 'players' && (
-          <PodiumStat
-            label="Season"
-            value={
-              empty ? (
-                '-'
-              ) : (
-                <>
-                  <VoltIcon size={12} />
-                  {seasonPts ?? 0}
-                </>
-              )
-            }
-          />
-        )}
+        <PodiumStat
+          label="Season"
+          value={
+            empty ? (
+              '-'
+            ) : (
+              <>
+                <VoltIcon size={12} />
+                {seasonPts ?? 0}
+              </>
+            )
+          }
+        />
       </dl>
     </>
   );

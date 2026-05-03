@@ -124,6 +124,30 @@ const DRONE_EARNED_VOLTS_SQL = sql`COALESCE((
     AND (${races.drone1Id} = ${drones.id} OR ${races.drone2Id} = ${drones.id})
 ), 0)::int`;
 
+/* Same shape as DRONE_EARNED_VOLTS_SQL but gated to races created
+   on/after the active season's start date. Mirrors the player-side
+   `users.season_points` semantics (volts won this season only) so the
+   drone podium can render a "Season" stat alongside the player podium.
+   When no season is active the inner SELECT returns NULL, the
+   `created_at >= NULL` predicate evaluates to UNKNOWN (no rows match),
+   and the SUM coalesces to 0 - which is the right fallback. */
+const DRONE_SEASON_EARNED_VOLTS_SQL = sql`COALESCE((
+  SELECT SUM(
+    CASE
+      WHEN ${races.winnerDroneId} = ${drones.id} THEN ${races.pointsAwarded}
+      ELSE COALESCE(${races.loserPointsAwarded}, 0)
+    END
+  )
+  FROM ${races}
+  WHERE ${races.status} = 'completed'
+    AND (${races.drone1Id} = ${drones.id} OR ${races.drone2Id} = ${drones.id})
+    AND ${races.createdAt} >= (
+      SELECT ${seasons.startDate} FROM ${seasons}
+      WHERE ${seasons.isActive} = true
+      LIMIT 1
+    )
+), 0)::int`;
+
 /* Bracket bucket: 1 = LV1-5, 2 = LV6-10, 3 = LV11-15, 4 = LV16-20.
    Used as the window-function partition key when computing the per-
    bracket average ELO. */
@@ -182,23 +206,26 @@ export async function getDroneLeaderboard(
   // Common select shape with the equipped-skin join. The join lets the
   // podium card pick up the legendary frame + getDroneImage render the
   // legendary artwork (when applicable) without an extra round trip.
-  // `rating` (bracket-relative dominance × experience) and `earned`
-  // (lifetime volts won across completed races) are computed in every
-  // variant so the leaderboard table renders both columns without an
-  // extra round trip.
+  // `rating` (bracket-relative dominance × experience), `earned`
+  // (lifetime volts won across completed races), and `seasonEarned`
+  // (volts won since the active season started - drone analogue of
+  // `users.seasonPoints`) are computed in every variant so the
+  // leaderboard table + podium render those without extra round trips.
   const baseSelect = {
     drone: drones,
     appliedSkin: skins,
     rating: RATING_SQL,
     earned: DRONE_EARNED_VOLTS_SQL,
+    seasonEarned: DRONE_SEASON_EARNED_VOLTS_SQL,
   };
 
   const shape = (rows) =>
-    rows.map(({ drone, appliedSkin, rating, earned }) => ({
+    rows.map(({ drone, appliedSkin, rating, earned, seasonEarned }) => ({
       ...drone,
       appliedSkin,
       rating: rating != null ? Number(rating) : null,
       earned: earned != null ? Number(earned) : 0,
+      seasonEarned: seasonEarned != null ? Number(seasonEarned) : 0,
     }));
 
   if (sortBy === 'win_rate') {
@@ -220,6 +247,7 @@ export async function getDroneLeaderboard(
       appliedSkin: r.appliedSkin,
       rating: r.rating != null ? Number(r.rating) : null,
       earned: r.earned != null ? Number(r.earned) : 0,
+      seasonEarned: r.seasonEarned != null ? Number(r.seasonEarned) : 0,
       winRate: r.winRate,
     }));
   }
