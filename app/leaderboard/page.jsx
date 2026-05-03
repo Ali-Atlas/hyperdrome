@@ -16,7 +16,11 @@ import PlayerAvatar from '@/components/ui/PlayerAvatar';
 import VoltIcon from '@/components/ui/VoltIcon';
 import styles from './page.module.css';
 
-const PAGE_SIZE = 25;
+// Page 1 holds 47 rows so the table's first page covers ranks #4-#50
+// (top 3 already render in the podium cards above the table → "top 50"
+// across podium + page 1). Every page after holds the full 50.
+const FIRST_PAGE_SIZE = 47;
+const PAGE_SIZE = 50;
 
 const BRACKETS = [
   { value: 'all',   label: 'All Levels' },
@@ -181,9 +185,17 @@ export default function LeaderboardPage() {
     () => items.slice(3).map((row, i) => ({ ...row, __rank: i + 4 })),
     [items],
   );
-  const totalPages = Math.max(1, Math.ceil(rest.length / PAGE_SIZE));
-  const pageStart = (page - 1) * PAGE_SIZE;
-  const pageRows = rest.slice(pageStart, pageStart + PAGE_SIZE);
+  // Two-size pagination: page 1 = FIRST_PAGE_SIZE rows, every page after
+  // = PAGE_SIZE rows. totalPages: 1 if everything fits on page 1; else
+  // 1 + ceil(remaining / PAGE_SIZE). pageStart skips page 1's slot
+  // (FIRST_PAGE_SIZE) and then advances by PAGE_SIZE per subsequent page.
+  const totalPages =
+    rest.length <= FIRST_PAGE_SIZE
+      ? 1
+      : 1 + Math.ceil((rest.length - FIRST_PAGE_SIZE) / PAGE_SIZE);
+  const pageStart = page === 1 ? 0 : FIRST_PAGE_SIZE + (page - 2) * PAGE_SIZE;
+  const pageEnd = page === 1 ? FIRST_PAGE_SIZE : pageStart + PAGE_SIZE;
+  const pageRows = rest.slice(pageStart, pageEnd);
 
   const handleRowClick = (row) => {
     if (!row?.id) return;
@@ -247,8 +259,11 @@ export default function LeaderboardPage() {
       },
       {
         key: 'earned',
-        label: 'Earned',
-        shortLabel: 'V',
+        label: (
+          <span title="Volts" aria-label="Volts">
+            <VoltIcon size={14} />
+          </span>
+        ),
         sortable: true,
         align: 'right',
         render: (r) => (
@@ -328,8 +343,11 @@ export default function LeaderboardPage() {
       },
       {
         key: 'earned',
-        label: 'Earned',
-        shortLabel: 'V',
+        label: (
+          <span title="Volts" aria-label="Volts">
+            <VoltIcon size={14} />
+          </span>
+        ),
         sortable: true,
         align: 'right',
         render: (r) => (

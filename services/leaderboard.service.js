@@ -57,6 +57,11 @@ export async function getPlayerLeaderboard(
     earned: PLAYER_EARNED_VOLTS_SQL,
   };
 
+  // `id ASC` tiebreaker on every sort variant guarantees a stable, total
+  // ordering — without it, rows that tie on the primary sort key can
+  // shuffle between pages and the user's footer rank (computed by
+  // getUserRank, which counts everyone strictly ahead under the same
+  // tiebreaker) drifts away from their actual table row.
   if (sortBy === 'win_rate') {
     const winRateExpr = sql`(CASE WHEN ${users.totalRaces} > 0 THEN (${users.totalWins}::float / ${users.totalRaces}::float) ELSE 0 END)`;
     return db
@@ -66,7 +71,10 @@ export async function getPlayerLeaderboard(
       })
       .from(users)
       .where(gte(users.totalRaces, 1))
-      .orderBy(sortOrder === 'asc' ? sql`${winRateExpr} ASC` : sql`${winRateExpr} DESC`)
+      .orderBy(
+        sortOrder === 'asc' ? sql`${winRateExpr} ASC` : sql`${winRateExpr} DESC`,
+        asc(users.id),
+      )
       .limit(limit)
       .offset(offset);
   }
@@ -81,7 +89,7 @@ export async function getPlayerLeaderboard(
   return db
     .select(baseSelect)
     .from(users)
-    .orderBy(orderClause)
+    .orderBy(orderClause, asc(users.id))
     .limit(limit)
     .offset(offset);
 }
@@ -247,7 +255,14 @@ export async function getDroneLeaderboard(
 /* -------------------------------------------------------------------------- */
 
 /**
- * Current user's player rank (1-indexed), sorted by ELO.
+ * Current user's player rank (1-indexed), sorted by ELO with `id ASC`
+ * as the tiebreaker — matches the player leaderboard table's
+ * `ORDER BY eloRating DESC, id ASC`. A user is "ahead" if their ELO is
+ * strictly higher, OR their ELO is equal and their id sorts earlier;
+ * the rank is the count of users ahead, plus one. Without the id
+ * tiebreaker, ELO-tied rows can land on either side of the current user
+ * across pages, so the footer "Your Rank" would not match the row's
+ * actual position in the table.
  * @param {string} userId
  */
 export async function getUserRank(userId) {
@@ -260,7 +275,10 @@ export async function getUserRank(userId) {
   const [count] = await db
     .select({ count: sql`count(*)::int` })
     .from(users)
-    .where(sql`${users.eloRating} > ${row.eloRating}`);
+    .where(
+      sql`${users.eloRating} > ${row.eloRating}
+        OR (${users.eloRating} = ${row.eloRating} AND ${users.id} < ${userId})`,
+    );
   return (count?.count ?? 0) + 1;
 }
 

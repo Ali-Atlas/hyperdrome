@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -20,6 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
 import VoltIcon from '@/components/ui/VoltIcon';
+import { useUpcomingRaces } from '@/lib/upcoming-races-store';
 import styles from './NavShell.module.css';
 
 const NAV_LINKS = [
@@ -210,13 +211,14 @@ const STRATEGY_LOCK_LEAD_MS = 60 * 1000;
 /* sessionStorage keys for the countdown bar. These let a remount (every
  * SPA-style page navigation) hydrate from the last known values
  * instantly, before the first poll returns. Without this, the footer
- * flickers '--:--' / empty races every time the user changes pages
- * because NavShell remounts and the countdown's state resets to its
- * initial empty values. */
+ * flickers '--:--' every time the user changes pages because NavShell
+ * remounts and the countdown's state resets to its initial empty
+ * values. The upcoming-races list lives in `lib/upcoming-races-store.js`
+ * (module-scoped, survives remounts) so it doesn't need a cache key
+ * here. */
 const CB_STORAGE = {
   batchAt: 'nav.countdown.batchAt',
   paused:  'nav.countdown.paused',
-  upcoming: 'nav.countdown.upcomingRaces',
 };
 
 /* Drop a cached batchAt that's more than 5 minutes old. The race cycle
@@ -244,16 +246,6 @@ function readCachedPaused() {
   } catch { return false; }
 }
 
-function readCachedUpcoming() {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = sessionStorage.getItem(CB_STORAGE.upcoming);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
-}
-
 function writeCache(key, value) {
   if (typeof window === 'undefined') return;
   try {
@@ -269,79 +261,22 @@ function writeCache(key, value) {
 }
 
 function CountdownBar() {
-  /* All three state slots hydrate from sessionStorage on mount via lazy
+  /* batchAt + paused hydrate from sessionStorage on mount via lazy
    * initializers. Server-side render (and the matching first hydration
-   * frame) get null/false/[] because window is undefined; subsequent
+   * frame) get null/false because window is undefined; subsequent
    * client mounts (SPA navigation) read the last successful poll's
    * values and render them instantly while the new poll is in flight. */
   const [batchAt, setBatchAt] = useState(readCachedBatchAt);
   const [paused, setPaused] = useState(readCachedPaused);
   const [now, setNow] = useState(() => Date.now());
-  /* User's pending/upcoming races - rendered as numbered links to the
-   * right of the timers. The parent NavShell only mounts this component
-   * when the user is authenticated, so we don't read the session here -
-   * that would subscribe the bar to session updates and force
-   * unnecessary re-renders.
-   *
-   * Polling is adaptive (15s steady, 3s when partial). The cron creates
-   * races sequentially per pair, so a 15s poll can catch the cycle
-   * mid-insert and return e.g. 1 race before the full set of 3 lands.
-   * To avoid the "Races: 1" → "Races: 1 2 3" stutter, we hold the
-   * displayed list until either:
-   *   (a) the count matches the user's active drone count returned
-   *       alongside the races (full set has landed), or
-   *   (b) the count is stable across two consecutive polls (covers the
-   *       edge case of an unpaired drone that won't be in the round, so
-   *       races.length < activeDroneCount permanently).
-   * During (a) is unmet we fast-poll at 3s instead of 15s so the
-   * stable-or-complete state is reached within a few seconds, not the
-   * worst-case 30s of the slow cadence. */
-  const [upcomingRaces, setUpcomingRaces] = useState(readCachedUpcoming);
-  const lastFetchedCountRef = useRef(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    let timerId = null;
-    const SLOW_MS = 15_000;
-    const FAST_MS = 3_000;
-    const load = async () => {
-      let nextDelay = SLOW_MS;
-      try {
-        const res = await fetch('/api/races/upcoming');
-        const body = await res.json();
-        if (!cancelled && res.ok && body?.data) {
-          const races = body.data.races ?? [];
-          const expected = body.data.activeDroneCount ?? null;
-          const prevCount = lastFetchedCountRef.current;
-          lastFetchedCountRef.current = races.length;
-          // Always commit when the round is empty (transitioning to '--'),
-          // when the full expected set has landed, or when the count has
-          // stabilized across two polls. Otherwise we're catching the
-          // cron mid-creation - hold the prior display and re-poll soon.
-          const shouldCommit =
-            races.length === 0 ||
-            (expected != null && races.length >= expected) ||
-            races.length === prevCount;
-          if (shouldCommit) {
-            setUpcomingRaces(races);
-            writeCache(CB_STORAGE.upcoming, races);
-          } else {
-            nextDelay = FAST_MS;
-          }
-        }
-      } catch {
-        /* keep stale list */
-      }
-      if (!cancelled) {
-        timerId = setTimeout(load, nextDelay);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-      if (timerId) clearTimeout(timerId);
-    };
-  }, []);
+  /* Upcoming races come from the shared store in
+   * `lib/upcoming-races-store.js` - same source the dashboard's Live
+   * Race Feed reads, so the footer's number chips and the dashboard's
+   * "your upcoming" rows are guaranteed to agree. The store handles
+   * adaptive polling (15s steady, 3s when partial) and the
+   * hold-until-full-set logic that prevents the "Races: 1" -> "Races:
+   * 1 2 3" stutter as the cron creates matchups sequentially. */
+  const { races: upcomingRaces } = useUpcomingRaces();
 
   // Adaptive poll for /api/races/next. The cadence flips between 30s
   // (the next-batch timestamp is comfortably in the future) and 2s

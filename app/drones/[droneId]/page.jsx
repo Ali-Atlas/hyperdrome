@@ -1256,7 +1256,11 @@ function RaceHistoryTable({ rows }) {
         },
         {
           key: 'pointsEarned',
-          label: 'Volts Earned',
+          label: (
+            <span title="Volts" aria-label="Volts">
+              <VoltIcon size={14} />
+            </span>
+          ),
           align: 'right',
           render: (r) => <span className={styles.mono}>{r.pointsEarned}</span>,
         },

@@ -9,6 +9,7 @@ import DataTable from '@/components/ui/DataTable';
 import FilterBar from '@/components/ui/FilterBar';
 import Toggle from '@/components/ui/Toggle';
 import ConditionPill from '@/components/ui/ConditionPill';
+import VoltIcon from '@/components/ui/VoltIcon';
 import { useSession } from '@/hooks/useSession';
 import { cn, getLevelColor } from '@/lib/utils';
 import styles from './page.module.css';
@@ -277,8 +278,11 @@ function RacesPageInner() {
       },
       {
         key: 'pointsAwarded',
-        label: 'Volts Awarded',
-        shortLabel: 'V',
+        label: (
+          <span title="Volts Awarded" aria-label="Volts Awarded">
+            <VoltIcon size={14} />
+          </span>
+        ),
         sortable: true,
         render: (row) => (
           <span className={styles.mono}>{row.pointsAwarded}</span>

@@ -4,6 +4,59 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-03 - Leaderboard: footer rank matches table row + page size 50
+
+**Captain ask:** Two fixes on the leaderboard.
+1. The footer "Your Rank" number doesn't match the user's actual row position in the player table when ELOs tie. Make `getUserRank()` count users that are strictly ahead under the same tiebreaker the table uses (`eloRating > myElo` OR `eloRating = myElo AND id < myId`, +1), and ensure the player-leaderboard table query orders by `eloRating DESC, id ASC` so ELO ties resolve identically on both sides.
+2. Bump leaderboard page size from 25 to 50 (applies to both Players and Drones tabs — single PAGE_SIZE constant drives the slice).
+
+**Files modified (2):** `services/leaderboard.service.js`, `app/leaderboard/page.jsx`.
+
+### `services/leaderboard.service.js`
+- `getUserRank(userId)`: WHERE clause changed from `eloRating > row.eloRating` to `eloRating > row.eloRating OR (eloRating = row.eloRating AND id < userId)`. Now counts every user strictly ahead under the same `(eloRating DESC, id ASC)` ordering the table uses, so the rank lines up with the row number 1-for-1 even on ties. Doc-block expanded to spell out the tiebreaker contract.
+- `getPlayerLeaderboard()`: appended `asc(users.id)` as the second `orderBy` argument on every sort branch (the win_rate branch and the unified `elo` / `wins` / `season_points` / `total_races` / `earned` branch). Stable secondary sort means ELO-tied rows can't migrate between pages between requests, which is what made the footer rank drift in the first place. The branch that sorts by win_rate / earned uses raw SQL fragments for the primary key — drizzle's `orderBy` accepts mixed SQL + column args so the second arg `asc(users.id)` slots in cleanly.
+- A short comment above the win_rate branch explains why the tiebreaker is on every variant (not just elo): without it, any tied primary key produces non-deterministic row order, which breaks the footer-rank ↔ row-number invariant for non-elo sorts too.
+- No changes to `getDroneLeaderboard()`, `getSeasonInfo()`, or any earlier helper SQL — drone-side ranks are not surfaced in a footer right now, so the drone query was left alone per the captain's scope.
+
+### `app/leaderboard/page.jsx`
+- Replaced the single `PAGE_SIZE = 25` constant with two: `FIRST_PAGE_SIZE = 47` and `PAGE_SIZE = 50`. Page 1 carries 47 rows so the table's first page covers ranks #4-#50 — combined with the podium's top 3 it's a clean "top 50" view; pages 2+ carry the full 50 rows each. Comment above the constants spells this out.
+- Updated the pagination math (around line 188 in the component) to handle the two-size scheme:
+  - `totalPages`: `1` when `rest.length <= FIRST_PAGE_SIZE`; otherwise `1 + ceil((rest.length - FIRST_PAGE_SIZE) / PAGE_SIZE)`.
+  - `pageStart`: `0` on page 1, else `FIRST_PAGE_SIZE + (page - 2) * PAGE_SIZE`.
+  - `pageEnd`: `FIRST_PAGE_SIZE` on page 1, else `pageStart + PAGE_SIZE`.
+  - `pageRows = rest.slice(pageStart, pageEnd)`.
+- Inline comment on the math block explains the two-size partition so future edits don't accidentally collapse it back to a single PAGE_SIZE divisor.
+- Both Players and Drones tabs share this paging path. Server still fetches `limit: '100'`, so `rest` (post-podium) holds at most 97 entries → 2 pages: page 1 = #4-#50 (47 rows), page 2 = #51-#100 (50 rows). The Pagination component's `getVisiblePages()` is unaffected (it only consumes `page` + `totalPages`).
+
+**Behavior:**
+- Footer "Your Rank" now matches the user's actual row position in the Players table even when ELO is tied (consistent `id ASC` tiebreaker on both sides).
+- Sort by Wins / Win Rate / Volts / Races on the Players tab now produces identical row ordering across requests for tied rows.
+- Players & Drones tabs paginate at 50 rows per page (down from 25 → 50 means fewer page flips for typical-sized leaderboards).
+
+**Verification:** Not run (Captain verifies). Lint skipped per ask.
+
+---
+
+## 2026-05-03 - Leaderboard "Your Rank" footer: match countdown bar height + font sizing
+
+**Captain ask:** Make the leaderboard's sticky "Your Rank" bar the same height as the global countdown bar (the bottom strip showing Next Round / Strategy Lock / races) and make the fonts the same size as in the countdown bar so the two stacked footer strips read as one chrome unit.
+
+**Files modified (1):** `app/leaderboard/page.module.css`.
+
+### `app/leaderboard/page.module.css`
+- `.yourRankBar`: removed vertical padding (was `padding: 10px var(--space-4)`) and pinned `height: 34px` with `padding: 0 var(--space-4)`. 34px matches `.countdownBar` exactly. Existing `align-items: center` continues to keep the labels/values centered now that the bar is height-driven.
+- `.yourRankValue`: dropped `font-size` from `var(--text-sm)` to `var(--text-xs)` so it matches `.countdownLabel` / `.countdownValue` (which both use `--text-xs`). The label was already `--text-xs`, so both segment children now render at the same scale as the countdown bar's text.
+- `@media (max-width: 1024px)` block: kept the `gap: var(--space-3)` shrink, switched padding to `0 var(--space-3)` (no vertical padding now that the bar is height-pinned), and removed the per-element font-size overrides (`.yourRankLabel: 10px` / `.yourRankValue: var(--text-xs)`) — they're redundant now that the desktop defaults already line up with the countdown bar at every breakpoint above 560px.
+- New `@media (max-width: 560px)` block: drops both `.yourRankLabel` and `.yourRankValue` to `font-size: 10px`, mirroring the countdown bar's own 560px shrink so the two stacked bars keep matching font sizes on small mobile.
+
+**Behavior:**
+- The "Your Rank" bar now sits flush atop the countdown bar at the same 34px height, with the label/value text rendering at the same `--text-xs` (or 10px on ≤560px) scale as the timers below it.
+- No JSX changes; structure + segments + dividers unchanged.
+
+**Verification:** Not run (Captain verifies).
+
+---
+
 ## 2026-05-02 - Hero footer: restore Dendrite Games text as plain copy
 
 **Captain ask:** Re-add the "Dendrite Games" mention in the landing-page hero footer as plain text — no link, no accent colour, since it's no longer interactive.

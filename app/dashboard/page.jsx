@@ -21,7 +21,9 @@ import Skeleton from '@/components/ui/Skeleton';
 import StatRadar from '@/components/ui/StatRadar';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import ConditionPill from '@/components/ui/ConditionPill';
+import VoltIcon from '@/components/ui/VoltIcon';
 import { useSession } from '@/hooks/useSession';
+import { useUpcomingRaces } from '@/lib/upcoming-races-store';
 import styles from './page.module.css';
 
 const RADAR_AXES = [
@@ -79,7 +81,13 @@ export default function DashboardPage() {
   const [recentRaces, setRecentRaces] = useState([]);
   const [myStats, setMyStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [upcomingRaces, setUpcomingRaces] = useState([]);
+  /* Shared upcoming-races store - same source NavShell's countdown
+   * footer reads, so the dashboard's "your upcoming" feed rows and
+   * the footer's number chips can never disagree about how many
+   * races the cron has just created. Handles the partial-set timing
+   * (cron writes pending rows sequentially; a 15s poll can land
+   * mid-insert) so we don't have to. */
+  const { races: upcomingRaces } = useUpcomingRaces();
 
   const fetchAll = useCallback(async () => {
     try {
@@ -125,35 +133,11 @@ export default function DashboardPage() {
     }
   }, [user?.id]);
 
-  // Upcoming PENDING races for the current user. Polled separately on a
-  // tighter 15s cadence than fetchAll so the countdown stays accurate.
-  const fetchUpcoming = useCallback(async () => {
-    if (!user?.id) {
-      setUpcomingRaces([]);
-      return;
-    }
-    try {
-      const res = await fetch('/api/races/upcoming');
-      const body = await res.json();
-      if (res.ok && body?.data?.races) {
-        setUpcomingRaces(body.data.races);
-      }
-    } catch {
-      /* keep stale list on transient failure */
-    }
-  }, [user?.id]);
-
   useEffect(() => {
     fetchAll();
     const id = setInterval(fetchAll, 30_000);
     return () => clearInterval(id);
   }, [fetchAll]);
-
-  useEffect(() => {
-    fetchUpcoming();
-    const id = setInterval(fetchUpcoming, 15_000);
-    return () => clearInterval(id);
-  }, [fetchUpcoming]);
 
   /* Map: userDroneId -> upcoming race. Built from the cached
      /api/races/upcoming list so cycling drones in the spotlight is
@@ -203,15 +187,37 @@ export default function DashboardPage() {
   }, [upcomingRaces, myDrones]);
 
   /* Live feed ordering:
-       1. The viewer's own pending races (where one of the user's drones
-          is in the matchup) sit at the top, in API order (scheduledAt
-          ascending - the next race the user has fires first).
-       2. Everything else is sorted by the higher-level drone in the
-          matchup, descending - so the most prestigious races bubble up.
+       1. The viewer's own pending races sit at the top, sourced from
+          the shared upcoming-races store (NOT from the global pending
+          fetch) so the hold-until-full-set logic prevents the feed
+          from showing only 1 of the user's 3 races during the brief
+          mid-cron creation window. API order = scheduledAt ascending.
+       2. Everything else (other players' / bots' pending races) comes
+          from the global pending fetch, filtered to exclude the
+          viewer's own drones, then sorted by the higher-level drone
+          in the matchup descending.
      The level sort applies to the no-drones-yet case too so guest
      viewers also see top-tier matchups first. */
   const maxMatchupLevel = (race) =>
     Math.max(race.drone1?.level ?? 0, race.drone2?.level ?? 0);
+
+  /* The /api/races endpoint returns flat race rows with `weather` and
+     `timeOfDay` at the top level and `drone1Id` / `drone2Id` as scalar
+     id fields. The /api/races/upcoming endpoint nests conditions under
+     `conditions` and the drone ids inside `drone1` / `drone2`. Project
+     the upcoming-shape rows into the live-feed shape so a single
+     render pass reads both seamlessly. */
+  const normaliseUpcomingForFeed = (r) => ({
+    id: r.id,
+    drone1Id: r.drone1?.id,
+    drone2Id: r.drone2?.id,
+    drone1: r.drone1,
+    drone2: r.drone2,
+    track: r.track,
+    weather: r.conditions?.weather,
+    timeOfDay: r.conditions?.timeOfDay,
+  });
+
   const sortedLiveFeed = useMemo(() => {
     if (myDrones.length === 0) {
       return [...liveFeed].sort(
@@ -219,18 +225,16 @@ export default function DashboardPage() {
       );
     }
     const myDroneIds = new Set(myDrones.map((d) => d.id));
-    const mine = [];
-    const others = [];
-    for (const r of liveFeed) {
-      if (myDroneIds.has(r.drone1Id) || myDroneIds.has(r.drone2Id)) {
-        mine.push(r);
-      } else {
-        others.push(r);
-      }
-    }
+    // Other players' races: filter out anything involving one of the
+    // viewer's drones - those rows might be a partial set during cron
+    // creation, and the upcoming store already covers them.
+    const others = liveFeed.filter(
+      (r) => !myDroneIds.has(r.drone1Id) && !myDroneIds.has(r.drone2Id),
+    );
     others.sort((a, b) => maxMatchupLevel(b) - maxMatchupLevel(a));
+    const mine = upcomingRaces.map(normaliseUpcomingForFeed);
     return [...mine, ...others];
-  }, [liveFeed, myDrones]);
+  }, [liveFeed, myDrones, upcomingRaces]);
 
   useEffect(() => {
     if (activeDrones.length === 0) {
@@ -586,7 +590,9 @@ export default function DashboardPage() {
                     <span>Opponent</span>
                     <span>Track</span>
                     <span>Result</span>
-                    <span>Volts</span>
+                    <span title="Volts" aria-label="Volts">
+                      <VoltIcon size={13} />
+                    </span>
                     <span>Time</span>
                   </div>
                   {recentRaces.map((r) => {
