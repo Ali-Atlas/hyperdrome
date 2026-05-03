@@ -9,6 +9,7 @@ import {
   STAT_KEYS,
 } from '@/lib/game-engine/economy.js';
 import { ApiError } from '@/lib/api/response.js';
+import { RACE_LIST_COLUMNS } from '@/services/race.service.js';
 
 /** Hard cap on drone level. Levels beyond this are not awarded; XP can
  *  accumulate but the drone stays at level 20 with no further TSB or
@@ -60,9 +61,13 @@ export async function getDroneById(droneId) {
   if (!row) throw new ApiError('Drone not found', 404);
 
   const [recentRaces, modRows, skinRows] = await Promise.all([
+    // Exclude `raceLog` from the bulk select - the drone detail page's
+    // history table doesn't read it, and pulling 10 jsonb blobs per
+    // drone-detail load is wasted bandwidth. RACE_LIST_COLUMNS is the
+    // shared projection used by `getRaces` for the same reason.
     db
       .select({
-        race: races,
+        race: RACE_LIST_COLUMNS,
         track: tracks,
       })
       .from(races)

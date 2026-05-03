@@ -1023,6 +1023,27 @@
   letter-spacing: 0.06em;
 }
 
+.opponentBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100px;
+  padding: 2px 6px;
+  background: rgba(187, 134, 252, 0.18);
+  color: var(--accent-secondary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  letter-spacing: 0.06em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .matchupName {
   font-family: var(--font-heading);
   font-size: var(--text-sm);

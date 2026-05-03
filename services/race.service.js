@@ -32,6 +32,37 @@ const {
   droneOwnershipHistory,
 } = schema;
 
+/**
+ * Every column on the `races` table EXCEPT `raceLog`. List-view consumers
+ * (paginated races index, dashboard feeds, drone race history, upcoming
+ * races) never read raceLog; selecting it inflates payload size on every
+ * read. The race-detail query in `getRaceById` keeps the full `races` row
+ * because its Lead Tracker chart needs raceLog. Exported so the matching
+ * recentRaces subquery in `drone.service.js` stays in sync.
+ */
+export const RACE_LIST_COLUMNS = {
+  id: races.id,
+  createdAt: races.createdAt,
+  status: races.status,
+  scheduledAt: races.scheduledAt,
+  drone1Id: races.drone1Id,
+  drone2Id: races.drone2Id,
+  trackId: races.trackId,
+  winnerDroneId: races.winnerDroneId,
+  pointsAwarded: races.pointsAwarded,
+  loserPointsAwarded: races.loserPointsAwarded,
+  xpWinner: races.xpWinner,
+  xpLoser: races.xpLoser,
+  timeOfDay: races.timeOfDay,
+  weather: races.weather,
+  drone1Time: races.drone1Time,
+  drone2Time: races.drone2Time,
+  drone1EloBefore: races.drone1EloBefore,
+  drone2EloBefore: races.drone2EloBefore,
+  drone1EloChange: races.drone1EloChange,
+  drone2EloChange: races.drone2EloChange,
+};
+
 /* -------------------------------------------------------------------------- */
 /* Config loader                                                              */
 /* -------------------------------------------------------------------------- */
@@ -647,8 +678,13 @@ export async function getRaces(filters = {}, pagination = {}) {
       ? races.scheduledAt
       : desc(races.createdAt);
 
+  // Explicit column list excludes `race_log` (jsonb) - none of the
+  // list-view consumers (dashboard feed, recent results, races index,
+  // drone history) read it, and including it inflates payload size on
+  // every paginated read. The detail-page query in `getRaceById` keeps
+  // raceLog because the Lead Tracker chart needs it.
   const rows = await db
-    .select({ race: races, track: tracks })
+    .select({ race: RACE_LIST_COLUMNS, track: tracks })
     .from(races)
     .leftJoin(tracks, eq(races.trackId, tracks.id))
     .where(whereClause)

@@ -656,15 +656,19 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       !isOwner && drone.owner.id ? (
                         <Link
                           href={`/profile/${drone.owner.id}`}
-                          className={styles.ownerLink}
+                          className={styles.ownerBadgePlayer}
                         >
                           {drone.owner.username}
                         </Link>
-                      ) : (
+                      ) : isOwner ? (
                         drone.owner.username
+                      ) : (
+                        <span className={styles.ownerBadgePlayer}>
+                          {drone.owner.username}
+                        </span>
                       )
                     ) : drone.isBot ? (
-                      'Bot'
+                      <span className={styles.ownerBadgeBot}>Bot</span>
                     ) : (
                       '-'
                     )}
@@ -696,7 +700,11 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     <span className={styles.formLabel}>Form</span>
                     <div className={styles.formDots}>
                       {formInfo.dots.length > 0 ? (
-                        formInfo.dots.map((won, i) => (
+                        // Reversed: oldest on the left, most recent on the
+                        // right. Streak detection still keys off `dots[0]`
+                        // (newest) which lives in formInfo - we only flip
+                        // the visual order here.
+                        [...formInfo.dots].reverse().map((won, i) => (
                           <span
                             key={i}
                             className={cn(

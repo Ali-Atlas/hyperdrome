@@ -525,8 +525,6 @@ function computeFleetStats(drones) {
 }
 
 function FleetOverview({ fleet }) {
-  // Active cap is 3 (enforced server-side). Tint the chip when maxed.
-  const atCap = fleet.active >= 3;
   return (
     <section className={styles.fleet}>
       <div className={styles.fleetLabel}>Fleet</div>
@@ -536,7 +534,7 @@ function FleetOverview({ fleet }) {
           <FleetStat
             label="Active"
             value={`${fleet.active}/3`}
-            tone={atCap ? 'warn' : fleet.active > 0 ? 'accent' : undefined}
+            tone={fleet.active > 0 ? 'accent' : undefined}
           />
           <FleetStat label="Avg Level" value={fleet.avgLevel} />
           <FleetStat label="Avg ELO" value={fleet.avgElo.toLocaleString()} />

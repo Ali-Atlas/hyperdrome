@@ -238,6 +238,42 @@
   color: var(--text-secondary);
 }
 
+/* Coloured ownership badges, matching the radar tone for the same drone:
+   purple for any other player, orange for matchmaker bots. The viewer's
+   own drone keeps plain text - the active/inactive toggle on the same
+   row is the ownership signal. */
+.ownerBadgePlayer {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  background: rgba(187, 134, 252, 0.18);
+  color: var(--accent-secondary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  transition: filter var(--duration-normal) var(--ease-out);
+}
+
+.ownerBadgePlayer:hover {
+  filter: brightness(1.2);
+}
+
+.ownerBadgeBot {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  background: rgba(255, 140, 66, 0.18);
+  color: var(--level-orange);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  letter-spacing: 0.06em;
+}
+
 /* Image frame - matches dashboard .spotlightImage (no border, no radial bg) */
 .droneImageFrame {
   position: relative;

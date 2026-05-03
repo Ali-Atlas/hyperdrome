@@ -51,7 +51,11 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const { user } = useSession();
   const [tab, setTab] = useState('players');
-  const [bracket, setBracket] = useState('all');
+  // Default bracket = highest LV band. `'all'` is still selectable and
+  // is the only view that sorts by weighted ELO (level-scaled rating
+  // that rewards competing in harder brackets); everything else uses
+  // raw ELO so within-bracket ordering stays meaningful.
+  const [bracket, setBracket] = useState('16-20');
   const [includeBots, setIncludeBots] = useState(false);
   const [items, setItems] = useState([]);
   const [season, setSeason] = useState(null);
@@ -67,6 +71,40 @@ export default function LeaderboardPage() {
     setPage(1);
   }
 
+  /* Sort is controlled (by us) and round-tripped to the server every
+     time the user clicks a column header - the table never sorts
+     locally. Default depends on the view:
+       - drones tab + all-levels  -> bracket-relative `rating`
+       - drones tab + a bracket   -> raw ELO
+       - players tab              -> raw ELO */
+  const computeDefaultSort = (t, b) =>
+    t === 'drones' && b === 'all'
+      ? { key: 'rating', order: 'desc' }
+      : { key: 'eloRating', order: 'desc' };
+
+  const [sort, setSort] = useState(() => computeDefaultSort(tab, bracket));
+
+  // Reset to the per-view default whenever the tab or bracket changes,
+  // so flipping views doesn't carry a stale sort key (e.g. `rating`
+  // applied to a player tab where the column doesn't exist).
+  useEffect(() => {
+    setSort(computeDefaultSort(tab, bracket));
+  }, [tab, bracket]);
+
+  /* Map UI column keys (camelCase, used as DataTable column ids) to
+     server sort_by values (snake_case, the service's switch keys).
+     Anything missing falls back to 'elo'. */
+  const SORT_KEY_TO_SERVER = {
+    eloRating:    'elo',
+    totalRaces:   'total_races',
+    totalWins:    'wins',
+    wins:         'wins',
+    winRate:      'win_rate',
+    rating:       'rating',
+    earned:       'earned',
+    seasonPoints: 'season_points',
+  };
+
   /* `silent: true` skips the loading-skeleton flip - used by the
      race-round-end auto-refresh below so the table doesn't blink to
      skeleton on every cycle. Filter changes default to silent: false
@@ -76,7 +114,8 @@ export default function LeaderboardPage() {
     try {
       const params = new URLSearchParams({
         type: tab,
-        sort_by: 'elo',
+        sort_by: SORT_KEY_TO_SERVER[sort.key] ?? 'elo',
+        sort_order: sort.order,
         limit: '100',
       });
       if (tab === 'drones' && bracket !== 'all') params.set('bracket', bracket);
@@ -92,7 +131,10 @@ export default function LeaderboardPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [tab, bracket, includeBots]);
+    // SORT_KEY_TO_SERVER is module-stable; sort.key/sort.order are the
+    // axes that matter for refetching.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, bracket, includeBots, sort.key, sort.order]);
 
   const fetchMyStats = useCallback(async () => {
     if (!user?.id) return;
@@ -161,12 +203,14 @@ export default function LeaderboardPage() {
         label: 'Rank',
         shortLabel: '#',
         align: 'left',
+        width: '64px',
         render: (r) => <span className={styles.rankCell}>#{r.__rank}</span>,
       },
       {
         key: 'username',
         label: 'Player Name',
         shortLabel: 'Player',
+        width: '22%',
         render: (r) => (
           <span className={styles.nameCell}>{r.username || '-'}</span>
         ),
@@ -202,12 +246,14 @@ export default function LeaderboardPage() {
         render: (r) => <span className={styles.mono}>{r.eloRating}</span>,
       },
       {
-        key: 'seasonPoints',
-        label: 'Volts Earned',
+        key: 'earned',
+        label: 'Earned',
         shortLabel: 'V',
         sortable: true,
         align: 'right',
-        render: (r) => <span className={styles.mono}>{r.seasonPoints}</span>,
+        render: (r) => (
+          <span className={styles.mono}>{r.earned ?? 0}</span>
+        ),
       },
     ],
     [],
@@ -220,19 +266,21 @@ export default function LeaderboardPage() {
         label: 'Rank',
         shortLabel: '#',
         align: 'left',
+        width: '64px',
         render: (r) => <span className={styles.rankCell}>#{r.__rank}</span>,
       },
       {
         key: 'name',
         label: 'Drone',
+        width: '22%',
         render: (r) => (
           <span className={styles.nameCell}>
-            {r.name}
+            <span className={styles.nameText}>{r.name}</span>
             <span
               className={styles.levelSuffix}
               style={{ color: getLevelColor(r.level) }}
             >
-              {' '}| LV {r.level}
+              {' '}LV {r.level}
             </span>
           </span>
         ),
@@ -266,6 +314,27 @@ export default function LeaderboardPage() {
         sortable: true,
         align: 'right',
         render: (r) => <span className={styles.mono}>{r.eloRating}</span>,
+      },
+      {
+        key: 'rating',
+        label: 'Rating',
+        sortable: true,
+        align: 'right',
+        render: (r) => (
+          <span className={styles.mono}>
+            {r.rating != null ? r.rating : '-'}
+          </span>
+        ),
+      },
+      {
+        key: 'earned',
+        label: 'Earned',
+        shortLabel: 'V',
+        sortable: true,
+        align: 'right',
+        render: (r) => (
+          <span className={styles.mono}>{r.earned ?? 0}</span>
+        ),
       },
     ],
     [],
@@ -428,6 +497,12 @@ export default function LeaderboardPage() {
           rowClassName={(row) => (rowIsMine(row) ? styles.myRow : null)}
           onRowClick={handleRowClick}
           className={styles.rankingsTable}
+          sortKey={sort.key}
+          sortOrder={sort.order}
+          onSortChange={(key, order) => {
+            setSort({ key, order });
+            setPage(1);
+          }}
         />
 
         {totalPages > 1 && (

@@ -859,9 +859,14 @@ function NextRaceDroneSide({ drone, opponent, isOwn = false, radarMax }) {
   return (
     <div className={styles.matchupSide}>
       {isOwn && <span className={styles.youBadge}>YOU</span>}
-      {drone.isBot && (
+      {!isOwn && drone.isBot && (
         <span className={styles.botBadge} title="Bot drone">
           <Bot size={10} aria-hidden="true" /> BOT
+        </span>
+      )}
+      {!isOwn && !drone.isBot && drone.ownerName && (
+        <span className={styles.opponentBadge} title={drone.ownerName}>
+          {drone.ownerName}
         </span>
       )}
       <div className={styles.matchupImageFrame}>

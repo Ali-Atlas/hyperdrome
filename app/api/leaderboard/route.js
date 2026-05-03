@@ -20,6 +20,8 @@ export const GET = withApiHandler(
     const url = new URL(request.url);
     const type = url.searchParams.get('type') ?? 'players';
     const sortBy = url.searchParams.get('sort_by') ?? 'elo';
+    const sortOrder =
+      url.searchParams.get('sort_order') === 'asc' ? 'asc' : 'desc';
     const limit = Number(url.searchParams.get('limit') ?? 50);
     const offset = Number(url.searchParams.get('offset') ?? 0);
     const includeBots = url.searchParams.get('include_bots') === 'true';
@@ -30,11 +32,12 @@ export const GET = withApiHandler(
         ? await getDroneLeaderboard(sortBy, limit, offset, {
             includeBots,
             bracket,
+            sortOrder,
           })
-        : await getPlayerLeaderboard(sortBy, limit, offset);
+        : await getPlayerLeaderboard(sortBy, limit, offset, { sortOrder });
     const season = await getSeasonInfo();
 
-    return ok({ type, sortBy, items, season });
+    return ok({ type, sortBy, sortOrder, items, season });
   },
   { requireAuth: false },
 );

@@ -1855,8 +1855,8 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 7px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
+  background: rgba(187, 134, 252, 0.18);
+  color: var(--accent-secondary);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   font-size: 9px;

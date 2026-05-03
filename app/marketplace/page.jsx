@@ -3439,19 +3439,12 @@ function PurchaseModalBody({
     ? Math.round(((drone?.wins ?? 0) / totalRaces) * 100)
     : 0;
 
-  // CTA themed to match the item being purchased. Drone level tier color,
-  // legendary-skin drone uses the legendary glow1, mods/skins use rarity
-  // tokens. Common (low-contrast grey) takes white text; everything else
-  // takes black. Threaded into .purchaseCta via --cta-bg / --cta-text.
-  const ctaBg = isDrone
-    ? drone?.appliedSkin?.rarity === 'legendary'
-      ? getLegendaryTheme(drone.appliedSkin?.name).glow1
-      : `var(--level-${getLevelTier(drone?.level ?? 1)})`
-    : isSkin || isMod
-      ? `var(--rarity-${rarity})`
-      : 'var(--accent-primary)';
-  const ctaText =
-    !isDrone && (isMod || isSkin) && rarity === 'common' ? '#fff' : '#000';
+  // CTA is always the accent teal across drone / skin / mod purchases -
+  // it's the universal "confirm" colour and stays consistent with every
+  // other modal CTA in the app. The hero glow above still tints to the
+  // item rarity / level tier; only the action button is fixed.
+  const ctaBg = 'var(--accent-primary)';
+  const ctaText = '#000';
 
   const showClose = !pending && !success;
 

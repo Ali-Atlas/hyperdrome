@@ -1821,7 +1821,10 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId, slotLabel }
             <span className={styles.matchupFormLabel}>Form</span>
             <div className={styles.matchupFormDots}>
               {dots.length > 0 ? (
-                dots.map((won, i) => (
+                // Reversed for display: oldest on the left, newest on
+                // the right. Streak detection above still reads
+                // `dots[0]` (newest) - we only flip the visual order.
+                [...dots].reverse().map((won, i) => (
                   <span
                     key={i}
                     className={cn(

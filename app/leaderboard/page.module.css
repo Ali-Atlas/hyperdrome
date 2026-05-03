@@ -524,17 +524,11 @@
   font-size: var(--text-base);
 }
 
-/* Level indicator on podium cards. Bumped from 10px text to a chip with
-   real vertical presence (text size + padding) so the level reads as a
-   proper badge, not a footnote. Width is content-driven so the name
-   row's layout isn't disturbed. */
+/* Level indicator on podium cards. Plain text, no chip - colour comes
+   from the inline style set in the JSX (getLevelColor). */
 .podiumLevel {
   display: inline-block;
-  padding: 3px 8px;
   margin-left: 2px;
-  border: 1px solid currentColor;
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.03);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   letter-spacing: 0.06em;
@@ -588,6 +582,15 @@
   margin-top: var(--space-5);
 }
 
+/* Force fixed table layout so the per-column `width` props the page
+   passes to DataTable actually constrain - auto layout otherwise lets
+   long drone names blow out the name column at the expense of the
+   numeric stats. Columns without an explicit width split remaining
+   space equally. */
+.rankingsTable :global(table) {
+  table-layout: fixed;
+}
+
 /* Table cells - consistent typography with races/drones tables */
 
 .rankCell {
@@ -601,6 +604,22 @@
   font-family: var(--font-body);
   color: var(--text-primary);
   font-weight: var(--font-semibold);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Drone name body inside .nameCell - the LV suffix sits next to it via
+   gap. Without an inner wrapper a long name pushes the LV chip off the
+   row; setting overflow + ellipsis on the inner span keeps the level
+   visible no matter how long the name. */
+.nameText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .levelSuffix {
@@ -716,7 +735,6 @@
     font-size: var(--text-sm);
   }
   .podiumLevel {
-    padding: 2px 6px;
     font-size: 10px;
   }
   .podiumStatRow dt,
@@ -872,7 +890,6 @@
     font-size: var(--text-sm);
   }
   .podiumLevel {
-    padding: 2px 6px;
     font-size: 10px;
   }
   .podiumStatRow dt,
