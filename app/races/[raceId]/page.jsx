@@ -189,7 +189,7 @@ function generateCommentary(
     for (let i = 0; i <= lastIdx; i += 1) {
       if (log[i]?.lap === lastSeg?.lap) segInLap += 1;
     }
-    base = `Back-and-forth battle — ${winnerName} took the lead for the final time on lap ${lap}, segment ${segInLap}`;
+    base = `Back-and-forth battle. ${winnerName} took the lead for the final time on lap ${lap}, segment ${segInLap}`;
   }
 
   const conditions = [];
