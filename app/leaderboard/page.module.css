@@ -297,11 +297,14 @@
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-2);
-  padding: var(--space-3);
+  /* Horizontal padding deliberately wider than vertical so the card
+     content (name, image, stat dl) gets visible left/right breathing
+     room without making the card taller. Reduces at narrow breakpoints
+     to keep carousel tiles compact. */
+  padding: var(--space-3) var(--space-5);
   background: var(--bg-card);
   border: 2px solid var(--border-default);
   border-radius: var(--radius-md);
-  transition: transform var(--duration-normal) var(--ease-out);
 }
 
 .podiumCardLink {
@@ -309,15 +312,11 @@
   color: inherit;
 }
 
-.podiumCardLink:hover {
-  transform: translateY(-2px);
-}
-
 /* 1st-place card sits taller than 2nd/3rd via extra vertical padding.
    Horizontal padding stays the same so the card width is unchanged
    (grid still drives column width via `.podium`'s 1fr 1.12fr 1fr). */
 .podiumFirst {
-  padding: var(--space-5) var(--space-3);
+  padding: var(--space-5);
 }
 
 /* Tier treatments. Captain: backgrounds must be identical across all
@@ -721,11 +720,11 @@
     gap: var(--space-2);
   }
   .podiumCard {
-    padding: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     gap: 6px;
   }
   .podiumFirst {
-    padding: var(--space-3) var(--space-2);
+    padding: var(--space-3);
   }
   .podiumImageFrame {
     max-height: 90px;
@@ -817,9 +816,6 @@
     max-width: 180px;
     scroll-snap-align: center;
   }
-  .podiumFirst {
-    transform: none;
-  }
 
   .filterRow {
     flex-direction: column;
@@ -879,11 +875,11 @@
    card content fits comfortably at ~360px viewports. */
 @media (max-width: 480px) {
   .podiumCard {
-    padding: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     gap: 6px;
   }
   .podiumFirst {
-    padding: var(--space-3) var(--space-2);
+    padding: var(--space-3);
   }
   .podiumImageFrame {
     max-height: 86px;
