@@ -241,8 +241,8 @@ export default function LeaderboardPage() {
       },
       {
         key: 'winRate',
-        label: 'Win Rate',
-        shortLabel: 'Rate',
+        label: 'WR',
+        shortLabel: 'WR',
         sortable: true,
         align: 'right',
         render: (r) => {
@@ -318,8 +318,8 @@ export default function LeaderboardPage() {
       },
       {
         key: 'winRate',
-        label: 'Win Rate',
-        shortLabel: 'Rate',
+        label: 'WR',
+        shortLabel: 'WR',
         sortable: true,
         align: 'right',
         render: (r) => {
