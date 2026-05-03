@@ -158,11 +158,23 @@ const BRACKET_BUCKET_SQL = sql`(CASE
   ELSE 4
 END)`;
 
-/* Rating = dominance × experience, rounded.
-   - dominance  = drone.elo - AVG(elo) over the same level bracket
-                  (positive = above the bracket mean, negative = below)
-   - experience = 1 + log10(GREATEST(total_races, 1)) / 3
-                  (1.0× at <=1 races, 1.33× at 10, 1.67× at 100, 2.0× at 1k)
+/* Bracket weight applied to the rating so higher tiers can outrank lower
+   tiers on the all-levels board even when bracket-relative dominance is
+   comparable. Captain spec: T1=1.0, T2=1.3, T3=1.7, T4=2.0. */
+const BRACKET_WEIGHT_SQL = sql`(CASE
+  WHEN ${drones.level} BETWEEN 1 AND 5 THEN 1.0
+  WHEN ${drones.level} BETWEEN 6 AND 10 THEN 1.3
+  WHEN ${drones.level} BETWEEN 11 AND 15 THEN 1.7
+  WHEN ${drones.level} BETWEEN 16 AND 20 THEN 2.0
+END)`;
+
+/* Rating = dominance × experience × bracketWeight, rounded.
+   - dominance    = drone.elo - AVG(elo) over the same level bracket
+                    (positive = above the bracket mean, negative = below)
+   - experience   = 1 + log10(GREATEST(total_races, 1)) / 3
+                    (1.0× at <=1 races, 1.33× at 10, 1.67× at 100, 2.0× at 1k)
+   - bracketWeight = 1.0 / 1.3 / 1.7 / 2.0 across T1..T4 so a strong
+                     T4 drone outranks a strong T1 drone on the merged board.
    Computed in a single SQL expression with a window function so the DB
    can produce + sort the column without us pulling everything into JS.
    PostgreSQL's `LOG()` defaults to base 10, matching JS Math.log10. */
@@ -170,6 +182,7 @@ const RATING_SQL = sql`ROUND(
   (${drones.eloRating}::float
     - AVG(${drones.eloRating}::float) OVER (PARTITION BY ${BRACKET_BUCKET_SQL}))
   * (1 + LOG(GREATEST(${drones.totalRaces}, 1)::numeric) / 3)
+  * ${BRACKET_WEIGHT_SQL}
 )::int`;
 
 /**

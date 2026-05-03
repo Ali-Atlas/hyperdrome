@@ -4,6 +4,134 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-03 - Race engine v2: revert to 3 laps, soften bracket weights, fix synopsis margin guard
+
+**Captain ask (remote):** Roll back the 5-lap experiment. (1) `FORCED_LAPS` back to 3 (matches `track.laps` default). (2) Bracket weights `1.0 / 1.5 / 2.0 / 2.5` → `1.0 / 1.3 / 1.7 / 2.0`. (3) Race-detail synopsis: margin <0.5s + 0 lead changes should read "edged out" / "won by a hair", not "dominated"; only use "dominated" when margin > 3s. (4) Commit on the branch. Don't merge. Don't push. Skip lint.
+
+**Verdict from the 10K runs:** 3 laps was the sweet spot. 68% of races landed in the satisfying 0.1-2s middle band, lead changes stayed healthy, battery fade was visible without overwhelming. 5 laps tripled the blowout rate (4.4% → 12.8%) and shrank photo-finishes (13.6% → 8.2%) for only +0.18 lead changes per race - not worth the longer races (~1.66× longer at every difficulty).
+
+**Branch:** `experiment/race-engine-v2` (now committed to local; not merged, not pushed).
+
+**Files modified (3):**
+
+### `lib/game-engine/race-simulator.js`
+- `let FORCED_LAPS = 5` → `let FORCED_LAPS = 3`. Doc-block updated: "3 laps is the production default (matches `track.laps` for every seeded track)."
+- `__setForcedLaps`'s `Number(n) || 5` fallback also flipped to `|| 3` so the harness default reflects the new production default.
+- The override mechanism is preserved (the test-only `__setForcedLaps` setter and `FORCED_LAPS` constant) so the engine harness can still sweep alternate lap counts for offline experiments. Kept on purpose - rebuilding it costs more than the few lines it costs to keep.
+
+### `services/leaderboard.service.js`
+- `BRACKET_WEIGHT_SQL` softened: T2 `1.5 → 1.3`, T3 `2.0 → 1.7`, T4 `2.5 → 2.0`. T1 unchanged at `1.0`. The doc-blocks above the constant and above `RATING_SQL` updated to spell out the new ratios.
+- The 10K experiment showed the steeper `1.5 / 2.0 / 2.5` ladder shut T2 and T3 completely out of the merged top-20 (T1=3, T2=0, T3=0, T4=17). Softening should still let T4 outrank a comparable T1 but leave more daylight for T2/T3 strong-drones to break through.
+
+### `app/races/[raceId]/page.jsx`
+- `generateCommentary` 0-lead-change branch: was unconditionally `${winnerName} dominated wire to wire, leading every segment`. Now reads the cumulative margin from the last gap entry and forks: margin <0.5s → "edged out [loser] by a hair"; 0.5s ≤ margin ≤ 3s → "led wire to wire" (no "dominated" language); margin >3s → existing "dominated wire to wire, leading every segment".
+- One short comment above the new branch explains why the split exists ("Tight starts-to-finish wins read as photo finishes, not blowouts; the middle band is just a clean wire-to-wire lead.").
+- The 1-lead-change and ≥2-lead-change branches are untouched. Weather/time-of-day suffixes and the final-lap-fade rider continue to apply on top of the chosen base sentence.
+
+### `docs/session/HANDOFF.md`
+- This entry, plus the prior 5-lap experiment entry directly below it - the two together describe the round-trip (forced 5 laps, ran the 10K analysis, rolled back to 3 with softer weights and a tightened synopsis).
+
+**Verification:** Not run (Captain verifies). Lint skipped per ask.
+
+**Not done:** no merge, no push. `experiment/race-engine-v2` lives only locally.
+
+---
+
+## 2026-05-03 - Race engine v2: forced 5 laps + bracket-weighted rating + 10K comparison
+
+**Captain ask (remote):** (1) Default laps to 5 in `lib/game-engine/race-simulator.js`, overriding whatever the DB or track object says. (2) Add bracket weight (1.0 / 1.5 / 2.0 / 2.5 across T1-T4) to RATING_SQL in `services/leaderboard.service.js`. (3) Run 10K races at 5 laps with full A-M analysis plus a side-by-side 3-lap vs 5-lap comparison table. (4) Query the PROD leaderboard with the new rating formula and report the top 20. Branch `experiment/race-engine-v2`. Skip lint. Don't touch main. Don't push. Read-only against PROD.
+
+**Branch:** `experiment/race-engine-v2` (no commits, no push).
+
+**Files modified (3):** `lib/game-engine/race-simulator.js`, `services/leaderboard.service.js`, `scripts/test-engine-v2-full.js`.
+
+### `lib/game-engine/race-simulator.js`
+- Added module-level `let FORCED_LAPS = 5` plus an exported `__setForcedLaps(n)` setter (test-only escape hatch). Production never calls the setter, so `simulateRace` always runs 5 laps regardless of `track.laps`.
+- `simulateRace` body: replaced `const totalLaps = Math.max(1, Number(track.laps) || 3)` with `const totalLaps = FORCED_LAPS`. Track input (which still includes `.laps` from the DB) is ignored on purpose - all races run 5 laps now.
+- JSDoc above `simulateRace` updated: "The race runs FORCED_LAPS laps (default 5; `track.laps` is ignored per Captain spec)."
+
+### `services/leaderboard.service.js`
+- Added `BRACKET_WEIGHT_SQL` adjacent to the existing `BRACKET_BUCKET_SQL`: `CASE WHEN level BETWEEN 1 AND 5 THEN 1.0 WHEN level BETWEEN 6 AND 10 THEN 1.5 WHEN level BETWEEN 11 AND 15 THEN 2.0 WHEN level BETWEEN 16 AND 20 THEN 2.5 END`.
+- `RATING_SQL` extended: `ROUND((elo - AVG(elo) OVER bracket) * (1 + LOG(GREATEST(total_races,1))/3) * bracketWeight)::int`. Doc-block bumped to spell out the three terms (dominance × experience × bracketWeight) and why the weight exists.
+- `getDroneLeaderboard()`'s `RATING_SQL` reference is unchanged (same constant, new value), so `sortBy='rating'` and the `rating` column in the table now use the weighted formula automatically.
+
+### `scripts/test-engine-v2-full.js`
+- Refactored to run TWO 10K passes back-to-back (3-lap baseline, then 5-lap main) so the report can show real side-by-side numbers without needing prior recorded baseline data. Uses the simulator's `__setForcedLaps` setter to flip the override before each pass.
+- Extracted `runPass(laps)` (returns `{ races, ms }`) and `summarize(pass)` (returns `{ avgMargin, perBracket, timeByDiff, photoFinishPct, blowoutPct, ... }`). The full A-M analysis runs on the 5-lap pass; the comparison block (section N) consumes both summaries.
+- Section E (battery fade) generalized from hardcoded lap1/lap2/lap3 to lap1..lapN (currently 1-5). Section D (lead-change events by lap) generalized to enumerate every lap up to `totalLaps`. Section J (race time by difficulty) gains a `vs_3lap` column showing baseline → 5-lap.
+- Added section N: 3-lap vs 5-lap comparison covering avg margin per bracket, lead-change rate per bracket, battery fade per bracket, upset rate per bracket, avg race time per difficulty, photo-finish overall, blowout overall.
+- Added Part 3: a single direct SELECT against PROD that re-implements the new RATING_SQL formula inline and returns the top 20 drones (rank, name, level, bracket, ELO, races, rating). Read-only.
+
+### Run
+
+`node --env-file=.env.local scripts/test-engine-v2-full.js`
+
+Two passes ran in 0.4s and 0.6s (10K races each) against 555 prod drones / 16 prod tracks. Read-only — every `await sql` in the script starts with `SELECT`.
+
+### Headline results (5-lap pass, 10K races)
+
+- **Avg margin doubled.** 1.215s (3-lap) → 2.157s (5-lap), +0.942s. Median 0.922s. Stddev 3.064s. Max 29.85s.
+- **Photo-finishes (<0.1s) compressed.** 13.61% → 8.22% (-5.39pp). Blowouts (≥5s) inflated 4.40% → 12.82% (+8.42pp). The added laps mostly pull races out of the photo-finish bucket and push them rightward into the 1-5s and 5-10s zones.
+- **Lead changes barely moved.** Avg lc/race 1.06 → 1.24 (+0.18). The "more laps = more drama" hypothesis is weak — 52.4% of races still have zero lead changes, and the per-lap event distribution remains heavily front-loaded (lap 1 = 48.4% of all events, lap 5 = 7.7%).
+- **Battery fade is amplified at low-bat tiers.** L1→L5 fade in T4: low-battery quartile +6.25%, high-battery quartile +0.42%. T3 splits +5.27% vs +1.49%. T1/T2 sit ~+1-2% across the board (their bat is universally low so the contrast collapses).
+- **Final-lap battery-driven lead changes are real but rare.** 293 races (2.9%) showed a final-lap lead change with the loser >5% slower than their lap-1 pace.
+- **Bracket margins fan out hard at higher tiers.** T1 avg 0.466s, T2 0.865s, T3 2.471s, T4 4.824s. T4's 37.4% blowout rate vs T1's 0.0% says the engine produces dominant wins in the high tier (where ELO and TSB spread is widest) and never in the low tier (cramped stat budgets).
+- **ELO predictive accuracy held.** T1 82.7% / T2 58.8% / T3 68.4% / T4 67.6% higher-elo wins among matchups where both drones have >10 prod races.
+- **Weather signal preserved.** Disadvantaged drone loses 60.3% of applicable matchups (n=7120). Heavy rain pulls margins down (1.943s vs clear/clouds ~2.25s) — rain-handling acts as the leveler the spec intends.
+
+### Headline results (Part 3: leaderboard top-20 with bracket weights)
+
+The board is now T4-dominated, with three T1 spikes (SCAR-N5, QUARTZ-R2, ARGON-I6 — all at level 5 with 1097-1098 races and ELOs 2549-3041) breaking into the top 20. Rank 1 is BANDIT-B0 (T4, level 17, ELO 2275, rating 6316). Bracket distribution among top 20: **T1=3, T2=0, T3=0, T4=17**.
+
+This is a clear shift from the unweighted version: previously bracket-relative dominance × experience let any high-ELO T1 walk away with the top spots (since T1 mean ELO is much lower than T4 mean ELO, but T1 strong-drones reach higher absolute ELO than T4 strong-drones). The 2.5× weight on T4 closes that gap and tilts the merged board back toward higher-tier drones, with T1 outliers still poking through if their bracket-relative dominance is extreme.
+
+T2 / T3 are completely absent from top 20 — both their bracket means are too close to the strong-drones in those brackets to produce a high-enough dominance term, even after the 1.5× / 2.0× weight. This suggests the merged board now reads as "best of T4 with a few T1 ringers" rather than a balanced tier-mix. If Captain wants T2/T3 representation, the bracket weights would need to be steeper (e.g. 1.0 / 2.0 / 3.5 / 5.0) or the formula would need a different bracket-relative term (raw ELO instead of dominance).
+
+**Full report:** captured at `/tmp/engine-v2-5lap-report.txt` (478 lines) on Captain's machine.
+
+**Not done:** no commit, no push, no merge. Main branch untouched. Lint not run per ask.
+
+---
+
+## 2026-05-03 - Race engine v2 experiment (branch `experiment/race-engine-v2`)
+
+**Captain ask:** After a full audit of `race-simulator.js` + 100k-race prod data showed 48% of races finishing within 0.1s and adjacent same-type segments reading nearly identically, prototype 5 changes on a branch (NOT main): (1) additive time-noise instead of multiplicative score-variance, (2) per-type base times, (3) per-segment-instance difficulty jitter, (4) quadratic battery fade with 0.7 cap, (5) fair coin-flip tiebreaker. Build a 100-race test harness and report margin distribution, per-track stats, upset rate, lead-change count, sample logs, battery fade, and weather impact.
+
+**Branch:** `experiment/race-engine-v2` (no commits, no push).
+
+**Files modified (1):**
+
+- `lib/game-engine/race-simulator.js`
+  - New `baseTimeFor(type, difficulty)`: straight = `1.0 + 0.20*difficulty`, turn = `1.8 + 0.40*difficulty`. Replaces the single `1.6 + 0.33*difficulty`.
+  - `scoreToTime(score, difficulty, type, segmentDifficulty)`: now takes type and a per-instance multiplier; `baseTime = baseTimeFor(type, difficulty) * segmentDifficulty`, then the existing `clamp(baseTime - SCORE_TIME_SLOPE * score, MIN, MAX)`.
+  - `scoreSegment`: removed the multiplicative `score *= variance` block. Battery degradation now `0.7 * lapFraction² * (1 - batteryCapacity/100) * lengthMultiplier` where `lapFraction = currentLap / totalLaps` (lap 1 already drains, no longer pristine).
+  - `simulateRace` inner loop: rolls `segmentDifficulty = 1.0 + (random - 0.5) * 0.15` per segment (shared across both drones), passes it to `scoreToTime`, then adds per-drone additive noise to the returned segment time: `(random - 0.5) * 2 * baseNoise * (1 - consistency/100)` where `baseNoise = 0.06` for turns / `0.03` for straights, re-clamps to `[MIN_SEGMENT_TIME, MAX_SEGMENT_TIME]`.
+  - `raceLog` entries gain a `segmentDifficulty` field (rounded to 4dp).
+  - Tiebreaker: when `time1 === time2`, winner is `Math.random() < 0.5 ? drone1.id : drone2.id` instead of always drone1.
+
+**Files added (1):**
+
+- `scripts/test-engine-v2.js`
+  - Standalone Node ESM script. No DB. Hardcodes 4 representative tracks (Keyhole diff 2 short, Crossfire diff 4 medium, Voltage Loop diff 8 long, Tempest Run diff 10 long). Builds 20 random drones via `buildStats` (5 each at LV3/LV7/LV12/LV17). Runs 100 races with random pairings + `randomWeather()` + `randomTimeOfDay()`. Reports margin histogram, per-track stats, TSB-based upset rate, lead-change distribution, lap1-vs-lap3 segment time fade (overall + by track length), weather/time-of-day rollups, and 3 sample race logs (closest race, median, biggest blowout) with cumulative gap per segment.
+
+**Run:** `node scripts/test-engine-v2.js`
+
+**Headline results vs prod baseline (114k races):**
+- **Margin distribution rebuilt.** Photo-finishes (<0.1s) collapsed from 48.4% → 10%. Mid-range 0.5-2s grew from 23% → 52%. Avg margin 1.06s, median 0.76s.
+- **Adjacent same-type segments now visibly different.** Sample logs show segmentDifficulty rolls 0.93-1.07 per segment producing 0.05-0.5s per-segment swings within the same stretch.
+- **Lead changes happen.** 31% of races have ≥1 lead change (avg 0.61, max 5). Used to be effectively 0.
+- **Battery fade is real but subtle.** Overall +1.25% lap-1 → lap-3 (short tracks +0.31%, medium +1.56%, long +1.32%). Fade is happening but the score-to-time slope (0.005) softens the visible effect; possible follow-up is to push baseNoise harder on late laps or steepen the slope.
+- **Upset rate** (lower-TSB wins): 13% across 77 different-TSB races. Skill differentiates more cleanly than the prod 38.8% ELO-based upset rate.
+- **Weather signal preserved**, but with N=100 the 28-bucket weather × time matrix is too sparse to read cleanly (clear/day got 1 sample).
+
+**Concerns:**
+- 69% of races still have 0 lead changes — driven by mismatched TSB pairings (LV3 vs LV17 pool), not engine flatness. The engine now CAN swing leads (sample 1 shows it) but mismatched races correctly stay one-sided.
+- Battery fade visibility is on the gentle side; if Captain wants a sharper "running on fumes" feeling, options are pushing the 0.7 coefficient higher or steepening `SCORE_TIME_SLOPE` for late-lap segments.
+
+**Not done:** no commit, no push, no merge. Main branch untouched.
+
+---
+
 ## 2026-05-03 - Leaderboard: footer rank matches table row + page size 50
 
 **Captain ask:** Two fixes on the leaderboard.

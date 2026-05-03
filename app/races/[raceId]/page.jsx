@@ -138,46 +138,89 @@ function computeWinnerGaps(log, winnerIsDrone1) {
 }
 
 /**
- * Single-sentence auto commentary derived from the race log. Lead-change
- * counting and "seized the lead at" detection both run off the cumulative
- * winner gap (positive = winner ahead) so the commentary stays consistent
- * with the LEAD CHANGED badge count.
+ * Multi-clause auto commentary derived from the race log. v2 generates a
+ * base sentence based on lead-change count, optional weather/time-of-day
+ * context, and an optional final-lap-fade callout when the loser was
+ * meaningfully slower in the final lap (>3% vs lap 1).
  */
-function generateCommentary(log, winnerIsDrone1, winnerName) {
+function generateCommentary(
+  log,
+  winnerIsDrone1,
+  winnerName,
+  loserName,
+  weather,
+  timeOfDay,
+) {
   if (!log || log.length === 0 || !winnerName) return null;
   const gaps = computeWinnerGaps(log, winnerIsDrone1);
-  let changes = 0;
+
+  // Indices where the cumulative winner gap flips sign (lead changes).
+  const leadChangeIdxs = [];
   let prevSign = 0;
-  for (const g of gaps) {
-    const sign = g > 0 ? 1 : g < 0 ? -1 : 0;
+  for (let i = 0; i < gaps.length; i += 1) {
+    const sign = gaps[i] > 0 ? 1 : gaps[i] < 0 ? -1 : 0;
     if (sign !== 0) {
-      if (prevSign !== 0 && sign !== prevSign) changes += 1;
+      if (prevSign !== 0 && sign !== prevSign) leadChangeIdxs.push(i);
       prevSign = sign;
     }
   }
-  const ledFromStart = gaps[0] > 0;
-  // Last segment where the winner was cumulatively trailing (gap < 0).
-  // The next segment is where they took the lead for good.
-  let permanentLeadAt = -1;
-  for (let i = gaps.length - 1; i >= 0; i -= 1) {
-    if (gaps[i] < 0) {
-      permanentLeadAt = i + 1;
-      break;
+
+  let base;
+  if (leadChangeIdxs.length === 0) {
+    // "Dominated" only fits when the gap is decisive. Tight starts-to-finish
+    // wins read as photo finishes, not blowouts; the middle band is just a
+    // clean wire-to-wire lead.
+    const margin = Math.abs(gaps[gaps.length - 1] ?? 0);
+    if (margin < 0.5) {
+      base = `${winnerName} edged out ${loserName ?? 'their opponent'} by a hair`;
+    } else if (margin > 3) {
+      base = `${winnerName} dominated wire to wire, leading every segment`;
+    } else {
+      base = `${winnerName} led wire to wire`;
+    }
+  } else if (leadChangeIdxs.length === 1) {
+    const lap = log[leadChangeIdxs[0]]?.lap ?? '-';
+    base = `${winnerName} overtook ${loserName ?? 'their opponent'} on lap ${lap} and held on`;
+  } else {
+    const lastIdx = leadChangeIdxs[leadChangeIdxs.length - 1];
+    const lastSeg = log[lastIdx];
+    const lap = lastSeg?.lap ?? '-';
+    let segInLap = 0;
+    for (let i = 0; i <= lastIdx; i += 1) {
+      if (log[i]?.lap === lastSeg?.lap) segInLap += 1;
+    }
+    base = `Back-and-forth battle — ${winnerName} took the lead for the final time on lap ${lap}, segment ${segInLap}`;
+  }
+
+  const conditions = [];
+  if (weather === 'rain') conditions.push('in rain');
+  else if (weather === 'heavy_rain') conditions.push('in heavy rain');
+  else if (weather === 'wind') conditions.push('in windy conditions');
+  else if (weather === 'fog') conditions.push('in fog');
+  else if (weather === 'haze') conditions.push('in hazy conditions');
+  if (timeOfDay === 'night') conditions.push('under night conditions');
+  else if (timeOfDay === 'dawn') conditions.push('at dawn');
+  else if (timeOfDay === 'dusk') conditions.push('at dusk');
+
+  let result = conditions.length > 0 ? `${base} ${conditions.join(' ')}.` : `${base}.`;
+
+  // Final-lap fade: did the loser slow >3% on the final lap vs lap 1?
+  const totalLaps = log.reduce((m, s) => Math.max(m, s.lap || 1), 1);
+  if (totalLaps >= 3 && loserName) {
+    const loserKey = winnerIsDrone1 ? 'drone2Time' : 'drone1Time';
+    const lap1 = log.filter((s) => s.lap === 1);
+    const lapLast = log.filter((s) => s.lap === totalLaps);
+    if (lap1.length > 0 && lapLast.length > 0) {
+      const avg1 = lap1.reduce((a, s) => a + Number(s[loserKey]), 0) / lap1.length;
+      const avgLast =
+        lapLast.reduce((a, s) => a + Number(s[loserKey]), 0) / lapLast.length;
+      if (avg1 > 0 && (avgLast - avg1) / avg1 > 0.03) {
+        result += ` ${loserName} faded in the final lap.`;
+      }
     }
   }
-  if (ledFromStart && changes === 0) {
-    return `${winnerName} led from start to finish.`;
-  }
-  if (changes === 0) {
-    return `${winnerName} closed strong to take the win.`;
-  }
-  if (changes === 1 && permanentLeadAt >= 0) {
-    return `${winnerName} seized the lead at segment ${permanentLeadAt + 1} and never let go.`;
-  }
-  if (changes >= 4) {
-    return `Lead traded ${changes} times - ${winnerName} prevailed.`;
-  }
-  return `${winnerName} edged ahead in the closing segments.`;
+
+  return result;
 }
 
 /**
