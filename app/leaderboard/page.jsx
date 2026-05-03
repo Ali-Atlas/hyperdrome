@@ -258,16 +258,20 @@ export default function LeaderboardPage() {
         render: (r) => <span className={styles.mono}>{r.eloRating}</span>,
       },
       {
-        key: 'earned',
+        // Player Volts = season points (matches the podium "Season"
+        // stat). Resets each season, only accumulates from race
+        // payouts - excludes seeded starting balance, pack/marketplace
+        // activity, and pre-season lifetime totals.
+        key: 'seasonPoints',
         label: (
-          <span title="Volts" aria-label="Volts">
+          <span title="Volts (this season)" aria-label="Volts (this season)">
             <VoltIcon size={14} />
           </span>
         ),
         sortable: true,
         align: 'right',
         render: (r) => (
-          <span className={styles.mono}>{r.earned ?? 0}</span>
+          <span className={styles.mono}>{r.seasonPoints ?? 0}</span>
         ),
       },
     ],
