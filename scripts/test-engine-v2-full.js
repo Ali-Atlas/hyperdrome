@@ -753,7 +753,7 @@ function generateSynopsis(race) {
     const lap = log[lastIdx]?.lap ?? '-';
     let segInLap = 0;
     for (let i = 0; i <= lastIdx; i++) if (log[i]?.lap === log[lastIdx]?.lap) segInLap += 1;
-    base = `Back-and-forth battle — ${winnerName} took the lead for the final time on lap ${lap}, segment ${segInLap}`;
+    base = `Back-and-forth battle. ${winnerName} took the lead for the final time on lap ${lap}, segment ${segInLap}`;
   }
   const conds = [];
   if (weather === 'rain') conds.push('in rain');
