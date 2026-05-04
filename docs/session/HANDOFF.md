@@ -4,6 +4,35 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-04 - Marketplace fee 5% → 10%
+
+**Captain ask:** Bump the marketplace platform fee from 5% to 10%. Seller now receives 90% (was 95%). Search "rake / fee / 0.05 / marketplace" for all references. Don't touch guide / FAQ (handled separately). Don't touch other service or game-engine files. Skip lint.
+
+**Files modified (6):**
+
+### `services/marketplace.service.js`
+- L146: `Math.floor(listing.price * 0.05)` → `Math.floor(listing.price * 0.10)`. The seller payout on L147 (`listing.price - platformFee`) is derived from `platformFee`, so seller now automatically receives 90% with no second edit. This is the only live transaction-path change.
+
+### `app/marketplace/page.jsx`
+- L708: list-modal preview `Math.floor(Number(listingPrice) * 0.05)` → `0.10`. Drives the real-time fee + payout numbers shown to the seller before they confirm a listing.
+- L1469: list-modal label `5% (...)` → `10% (...)`.
+- L3611: purchase-modal footer `5% marketplace fee included` → `10% marketplace fee included`.
+
+### `lib/db/seed.js`
+- L44: admin_config seed `marketplace_fee_percent = '5'` → `'10'`. Note this row is documentary - `marketplace.service.js` uses the hardcoded literal and does not load this config value at runtime, but kept consistent so a fresh DB doesn't show a stale 5% in admin_config.
+
+### `lib/db/seed-marketplace.js`
+- L299: mock historical sold-listings seed `Math.floor(spec.price * 0.05)` → `0.10`. So future re-seeds of the historical marketplace fixture record the 10% fee on those mock rows.
+
+### `docs/session/HANDOFF.md`
+- This entry.
+
+**Not touched (per ask):** `app/guide/page.jsx`, `app/faq/page.jsx`. Both still describe the 5% rake; Captain is rewriting those separately.
+
+**Verification:** Not run (Captain verifies). Lint skipped per ask.
+
+---
+
 ## 2026-05-04 - Wire up Vercel Analytics in root layout
 
 **Captain ask:** Install `@vercel/analytics` and mount `<Analytics />` in `app/layout.jsx` as the last child of `<body>`, after `{children}`. Don't touch anything else. Skip lint.

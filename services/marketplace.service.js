@@ -143,7 +143,7 @@ export async function buyListing(buyerId, listingId) {
     throw new ApiError('Insufficient volts', 400);
   }
 
-  const platformFee = Math.floor(listing.price * 0.05);
+  const platformFee = Math.floor(listing.price * 0.10);
   const sellerPayout = listing.price - platformFee;
 
   // Atomic claim: only the first UPDATE with status='active' succeeds

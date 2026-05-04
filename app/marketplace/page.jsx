@@ -705,7 +705,7 @@ export default function MarketplacePage() {
     }
   };
 
-  const fee = listingPrice ? Math.floor(Number(listingPrice) * 0.05) : 0;
+  const fee = listingPrice ? Math.floor(Number(listingPrice) * 0.10) : 0;
   const payout = listingPrice ? Number(listingPrice) - fee : 0;
 
   const userPoints = pointsOverride ?? user?.points ?? 0;
@@ -1466,7 +1466,7 @@ export default function MarketplacePage() {
             <div className={styles.listFormFee}>
               Platform fee:{' '}
               <strong>
-                5% (<VoltIcon size={11} />
+                10% (<VoltIcon size={11} />
                 {fee})
               </strong>{' '}
               · You receive:{' '}
@@ -3608,7 +3608,7 @@ function PurchaseModalBody({
 
           {error && <div className={styles.purchaseError}>{error}</div>}
 
-          <p className={styles.purchaseFee}>5% marketplace fee included</p>
+          <p className={styles.purchaseFee}>10% marketplace fee included</p>
         </>
       )}
     </div>
