@@ -4,6 +4,23 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-04 - Wire up Vercel Analytics in root layout
+
+**Captain ask:** Install `@vercel/analytics` and mount `<Analytics />` in `app/layout.jsx` as the last child of `<body>`, after `{children}`. Don't touch anything else. Skip lint.
+
+**Files modified (2):**
+
+### `package.json` / `package-lock.json`
+- `npm install @vercel/analytics` added the package as a dependency.
+
+### `app/layout.jsx`
+- Added `import { Analytics } from '@vercel/analytics/next';` at the top, above the existing imports. Existing imports unchanged.
+- Inserted `<Analytics />` inside `<body>` directly after the `<SessionProvider>...</SessionProvider>` block, making it the last child of `<body>`. No other JSX touched.
+
+**Verification:** Not run (Captain verifies). Lint skipped per ask.
+
+---
+
 ## 2026-05-03 - Race engine v2: revert to 3 laps, soften bracket weights, fix synopsis margin guard
 
 **Captain ask (remote):** Roll back the 5-lap experiment. (1) `FORCED_LAPS` back to 3 (matches `track.laps` default). (2) Bracket weights `1.0 / 1.5 / 2.0 / 2.5` → `1.0 / 1.3 / 1.7 / 2.0`. (3) Race-detail synopsis: margin <0.5s + 0 lead changes should read "edged out" / "won by a hair", not "dominated"; only use "dominated" when margin > 3s. (4) Commit on the branch. Don't merge. Don't push. Skip lint.
