@@ -278,8 +278,7 @@ export default async function LandingPage() {
 
       <footer className={styles.footer}>
         <p className={styles.footerCopy}>
-          <span className={styles.footerBrand}>Hyperdrome</span> is a Dendrite
-          Games title. © 2026
+          <span className={styles.footerBrand}>Hyperdrome</span> © 2026
         </p>
         <p className={styles.footerLinks}>
           <Link href="/guide" className={styles.footerLink}>
