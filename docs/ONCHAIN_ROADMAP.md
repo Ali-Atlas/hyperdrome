@@ -38,7 +38,7 @@ Hyperdrome is a competitive drone racing strategy game integrating with MegaETH.
 - Contract updates ELO ratings on-chain, distributes VOLT rewards, and records race outcomes
 - One batch transaction per epoch containing all race results
 - Events emitted for each settled race, enabling real-time frontends
-- Estimated gas cost: pennies per epoch on MegaETH L2 pricing
+- Estimated gas cost: minimal gas per epoch on MegaETH's L2 pricing
 - This generates sustained, recurring transaction volume on MegaETH: every 3 minutes, permanently
 
 ## Phase 5: Real-Time Push Layer
@@ -65,7 +65,7 @@ Hyperdrome is a competitive drone racing strategy game integrating with MegaETH.
 ## Why MegaETH
 
 - 10ms block times make on-chain race settlement feel instant
-- Sub-cent gas costs make batch settlement every 3 minutes economically viable
+- L2-tier gas costs make batch settlement every 3 minutes economically viable
 - Real-time event streaming enables live game state updates from chain
 - MegaETH's thesis is that real-time blockchain enables consumer apps that weren't possible before. Hyperdrome proves that thesis with a game loop that settles on-chain 480 times per day.
 
