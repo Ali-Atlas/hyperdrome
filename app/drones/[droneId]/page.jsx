@@ -19,6 +19,7 @@ import {
   ShoppingCart,
   Check,
   X,
+  ExternalLink,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
@@ -32,7 +33,6 @@ import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
-import { useAccount } from 'wagmi';
 import {
   clearPendingToggle,
   getPendingToggle,
@@ -544,33 +544,14 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
     }
   };
 
-  // Wagmi connection state gates the mint button: the bind API on
-  // /api/user/wallet runs auto-on-connect (Phase 2), so a connected
-  // wallet generally implies a linked wallet by the time the user clicks.
-  const { isConnected: walletConnected } = useAccount();
-  const [minting, setMinting] = useState(false);
+  // On-chain mint surface lives at /api/drones/[droneId]/mint (server-side
+  // mint from the deployer wallet). The drone detail page only needs to
+  // know whether this drone has been minted so the meta row can render
+  // a "View on MegaETH" link out to the block explorer.
   const isMinted = drone.tokenId != null;
   const explorerUrl = isMinted
     ? `https://megaeth-testnet-v2.blockscout.com/token/${process.env.NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS}/instance/${drone.tokenId}`
     : null;
-
-  const mint = async () => {
-    setMinting(true);
-    try {
-      const res = await fetch(`/api/drones/${drone.id}/mint`, { method: 'POST' });
-      const body = await res.json();
-      if (!res.ok) {
-        showToast(body?.error || 'Mint failed', 'error');
-      } else {
-        showToast(`Minted as token #${body.data.tokenId}`, 'success');
-        await onReload();
-      }
-    } catch (err) {
-      showToast(String(err), 'error');
-    } finally {
-      setMinting(false);
-    }
-  };
 
   const performance = useMemo(
     () => analyzeDronePerformance(editedStats, drone.level),
@@ -705,6 +686,21 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       '-'
                     )}
                   </span>
+                  {isMinted && (
+                    <>
+                      <span className={styles.metaSep}>|</span>
+                      <a
+                        href={explorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.nftMetaLink}
+                        title={`Token #${drone.tokenId} on MegaETH`}
+                      >
+                        <ExternalLink size={11} aria-hidden="true" />
+                        View on MegaETH
+                      </a>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1093,33 +1089,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                 </div>
               </div>
 
-              {isOwner && (
-                <div className={styles.mintRow}>
-                  {isMinted ? (
-                    <a
-                      href={explorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.mintLink}
-                    >
-                      View on MegaETH
-                    </a>
-                  ) : !walletConnected ? (
-                    <span className={styles.mintHint}>
-                      Connect a wallet to mint this drone as an NFT.
-                    </span>
-                  ) : (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={mint}
-                      loading={minting}
-                    >
-                      Mint as NFT on MegaETH
-                    </Button>
-                  )}
-                </div>
-              )}
             </div>
           </Card>
 

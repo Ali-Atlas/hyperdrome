@@ -136,9 +136,12 @@ export default function NavShell({ children }) {
         <div className={styles.username}>
           {user.username ?? user.email}
         </div>
-        <div className={styles.points}>
-          <VoltIcon size={14} style={{ marginRight: 4 }} />
-          {displayBalance.toLocaleString()}
+        <div className={styles.pointsRow}>
+          <div className={styles.points}>
+            <VoltIcon size={14} style={{ marginRight: 4 }} />
+            {displayBalance.toLocaleString()}
+          </div>
+          <WalletButton />
         </div>
         <button
           type="button"
@@ -148,7 +151,6 @@ export default function NavShell({ children }) {
           <LogOut size={14} aria-hidden="true" />
           <span>Sign Out</span>
         </button>
-        <WalletButton />
       </div>
     ) : (
       <Link href="/login" className={styles.signIn}>
@@ -194,6 +196,7 @@ export default function NavShell({ children }) {
               <VoltIcon size={13} style={{ marginRight: 4 }} />
               {displayBalance.toLocaleString()}
             </span>
+            <WalletButton />
           </div>
         )}
       </header>

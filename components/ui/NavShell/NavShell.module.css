@@ -145,29 +145,39 @@
   background: rgba(3, 218, 198, 0.08);
 }
 
-/* Connect Wallet button. Mirrors the .signOut visual treatment so the auth
-   block reads as one consistent button group, with a slight margin tweak
-   so it sits below the sign-out without doubling vertical rhythm. The
-   connected variant (.walletBtnConnected) swaps to mono + sentence-case
-   so a hex address renders cleanly. */
+/* Inline row that pairs the volts balance with the Connect Wallet
+   button in the sidebar / drawer user area. The wallet sits to the
+   right of the volts so both read as a single "wallet status" line. */
+.pointsRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* Connect Wallet button. Compact header-style variant: lives inline
+   next to the volts balance in the sidebar/drawer user area and inside
+   the mobile top bar's mobileUser group. The connected state
+   (.walletBtnConnected) swaps to mono + sentence case so a hex address
+   renders cleanly. */
 .walletBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 14px;
-  margin-top: var(--space-2);
+  gap: 4px;
+  padding: 2px 7px;
   background: transparent;
   color: var(--text-secondary);
   font-family: var(--font-body);
-  font-size: var(--text-xs);
+  font-size: 10px;
   font-weight: var(--font-medium);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   cursor: pointer;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  width: fit-content;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition:
     border-color var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out),
@@ -183,7 +193,8 @@
 .walletBtnConnected {
   font-family: var(--font-mono);
   text-transform: none;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+  font-size: 10px;
   color: var(--accent-primary);
   border-color: var(--accent-primary);
 }
