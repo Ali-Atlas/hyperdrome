@@ -147,10 +147,13 @@
 
 /* Inline row that pairs the volts balance with the Connect Wallet
    button in the sidebar / drawer user area. The wallet sits to the
-   right of the volts so both read as a single "wallet status" line. */
+   right of the volts so both read as a single "wallet status" line.
+   flex-end so the button's bottom edge aligns with the volts text
+   bottom (the volts text is taller; centering would lift the button
+   above the volts baseline). */
 .pointsRow {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--space-3);
   flex-wrap: wrap;
 }
@@ -184,10 +187,11 @@
     background var(--duration-fast) var(--ease-out);
 }
 
+/* Hover keeps the button's own (transparent) background so it reads
+   against the parent surface. Only color + border lift to teal. */
 .walletBtn:hover {
   color: var(--accent-primary);
   border-color: var(--accent-primary);
-  background: rgba(3, 218, 198, 0.08);
 }
 
 .walletBtnConnected {

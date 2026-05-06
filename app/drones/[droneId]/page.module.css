@@ -1629,19 +1629,22 @@
   }
 }
 
-/* Subtle on-chain indicator. Sits inline in the droneLevel meta row
-   alongside LV / Owner. Reads as metadata, not a CTA: small body font,
-   muted gray color, lifts to teal on hover. */
+/* Subtle on-chain indicator. Sits inline in the droneNameRow next to
+   the drone name. Reads as metadata, not a CTA: small body font, muted
+   gray, lifts to teal on hover. flex-shrink: 0 so the drone name
+   ellipsizes first when space is tight; the link stays whole. */
 .nftMetaLink {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   font-family: var(--font-body);
-  font-size: var(--text-xs);
+  font-size: 10px;
   font-weight: var(--font-medium);
   color: var(--text-secondary);
   text-decoration: none;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: color var(--duration-fast) var(--ease-out);
 }
 

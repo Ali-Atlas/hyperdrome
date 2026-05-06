@@ -605,6 +605,18 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
               <div className={styles.droneNameBlock}>
                 <div className={styles.droneNameRow}>
                   <div className={styles.droneName}>{drone.name}</div>
+                  {isMinted && (
+                    <a
+                      href={explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.nftMetaLink}
+                      title={`Token #${drone.tokenId} on MegaETH`}
+                    >
+                      <ExternalLink size={10} aria-hidden="true" />
+                      View on MegaETH
+                    </a>
+                  )}
                   {isOwner && (() => {
                     // Effective state: pending overlay shows the OLD
                     // value (matchmaking still sees it for the current
@@ -686,21 +698,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       '-'
                     )}
                   </span>
-                  {isMinted && (
-                    <>
-                      <span className={styles.metaSep}>|</span>
-                      <a
-                        href={explorerUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.nftMetaLink}
-                        title={`Token #${drone.tokenId} on MegaETH`}
-                      >
-                        <ExternalLink size={11} aria-hidden="true" />
-                        View on MegaETH
-                      </a>
-                    </>
-                  )}
                 </div>
               </div>
 
