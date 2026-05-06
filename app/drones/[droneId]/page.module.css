@@ -87,19 +87,20 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
   width: 100%;
 }
 
 /* Wraps the dynamic state badge + the toggle actuator. Sits on the
    right of the name row at all widths; flex-shrink: 0 keeps the
-   badge fully visible when a long drone name truncates. */
+   badge fully visible when a long drone name truncates. margin-left:
+   auto pushes it past the name + NFT link group to the far right. */
 .activeControl {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* Dynamic 4-state badge that replaces the prior static "Active"
@@ -200,7 +201,12 @@
 }
 
 .droneName {
-  flex: 1;
+  /* 0 grow / 1 shrink / auto basis: takes natural width up to the row,
+     shrinks (ellipsizing via min-width:0 + overflow + nowrap) when
+     siblings need space. The previous `flex: 1` made the name grow to
+     fill the row, pushing the NFT link to the far right; this keeps
+     the link snug to the name. */
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
