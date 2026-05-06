@@ -1635,9 +1635,9 @@
   }
 }
 
-/* Subtle on-chain indicator. Sits inline in the droneNameRow next to
-   the drone name. Reads as metadata, not a CTA: small body font, muted
-   gray, lifts to teal on hover. flex-shrink: 0 so the drone name
+/* On-chain indicator. Sits inline in the droneNameRow next to the
+   drone name. Accent teal so the on-chain provenance reads at a glance;
+   brightens to white on hover. flex-shrink: 0 so the drone name
    ellipsizes first when space is tight; the link stays whole. */
 .nftMetaLink {
   display: inline-flex;
@@ -1646,7 +1646,7 @@
   font-family: var(--font-body);
   font-size: 10px;
   font-weight: var(--font-medium);
-  color: var(--text-secondary);
+  color: var(--accent-primary);
   text-decoration: none;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -1655,6 +1655,6 @@
 }
 
 .nftMetaLink:hover {
-  color: var(--accent-primary);
+  color: var(--text-primary);
 }
 
