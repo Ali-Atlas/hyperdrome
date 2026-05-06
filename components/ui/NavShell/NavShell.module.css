@@ -145,6 +145,49 @@
   background: rgba(3, 218, 198, 0.08);
 }
 
+/* Connect Wallet button. Mirrors the .signOut visual treatment so the auth
+   block reads as one consistent button group, with a slight margin tweak
+   so it sits below the sign-out without doubling vertical rhythm. The
+   connected variant (.walletBtnConnected) swaps to mono + sentence-case
+   so a hex address renders cleanly. */
+.walletBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  margin-top: var(--space-2);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  width: fit-content;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.walletBtn:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  background: rgba(3, 218, 198, 0.08);
+}
+
+.walletBtnConnected {
+  font-family: var(--font-mono);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
 
 /* ---- Mobile top bar ---- */
 

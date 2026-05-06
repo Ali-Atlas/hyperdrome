@@ -21,6 +21,8 @@ import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
 import VoltIcon from '@/components/ui/VoltIcon';
 import { useUpcomingRaces } from '@/lib/upcoming-races-store';
+import { useAccount, useDisconnect } from 'wagmi';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 import styles from './NavShell.module.css';
 
 const NAV_LINKS = [
@@ -33,6 +35,54 @@ const NAV_LINKS = [
   { href: '/guide',       label: 'Guide',       Icon: BookOpen },
   { href: '/faq',         label: 'FAQ',         Icon: HelpCircle },
 ];
+
+/**
+ * Wallet connect / disconnect button. Only renders for authenticated users
+ * since the bind API requires a session. On connect, fires a fire-and-forget
+ * POST to /api/user/wallet so the address is persisted against the user
+ * record (server-side write is idempotent on the same address).
+ */
+function WalletButton() {
+  const { user } = useSession();
+  const { address, isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const { disconnect } = useDisconnect();
+
+  useEffect(() => {
+    if (!user || !isConnected || !address) return;
+    fetch('/api/user/wallet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ walletAddress: address }),
+    }).catch((err) => console.error('[wallet] bind failed:', err));
+  }, [user, isConnected, address]);
+
+  if (!user) return null;
+
+  if (!isConnected) {
+    return (
+      <button
+        type="button"
+        className={styles.walletBtn}
+        onClick={openConnectModal}
+      >
+        Connect Wallet
+      </button>
+    );
+  }
+
+  const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
+  return (
+    <button
+      type="button"
+      className={`${styles.walletBtn} ${styles.walletBtnConnected}`}
+      onClick={() => disconnect()}
+      title="Click to disconnect"
+    >
+      {truncated}
+    </button>
+  );
+}
 
 /**
  * Application layout shell with desktop sidebar + mobile drawer nav.
@@ -98,6 +148,7 @@ export default function NavShell({ children }) {
           <LogOut size={14} aria-hidden="true" />
           <span>Sign Out</span>
         </button>
+        <WalletButton />
       </div>
     ) : (
       <Link href="/login" className={styles.signIn}>

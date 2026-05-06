@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { SessionProvider } from '@/hooks/useSession';
 import { ToastProvider } from '@/components/ui/Toast';
+import WalletProvider from '@/components/providers/WalletProvider';
 
 export const metadata = {
   title: 'Hyperdrome | Drone Racing Strategy Game',
@@ -50,7 +51,9 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <SessionProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <WalletProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </WalletProvider>
         </SessionProvider>
         <Analytics />
       </body>
