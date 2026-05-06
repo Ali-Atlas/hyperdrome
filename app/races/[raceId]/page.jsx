@@ -1515,7 +1515,8 @@ function DroneCard({
 function RaceStrategyView({ race, upcomingList, onSwapToRace }) {
   const { user } = useSession();
   // Hydrate each drone with its `recentRaces` (for form dots) + applied skin.
-  // The race endpoint doesn't return recentRaces; /api/drones/[id] does.
+  // The race endpoint doesn't return recentRaces; /api/drones/[id]/full does.
+  // (The bare /api/drones/[id] is now the public ERC-721 metadata endpoint.)
   const [details, setDetails] = useState({ drone1: null, drone2: null });
 
   useEffect(() => {
@@ -1525,7 +1526,7 @@ function RaceStrategyView({ race, upcomingList, onSwapToRace }) {
       if (ids.length < 2) return;
       const results = await Promise.all(
         ids.map((id) =>
-          fetch(`/api/drones/${id}`)
+          fetch(`/api/drones/${id}/full`)
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null),
         ),
