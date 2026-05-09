@@ -3,6 +3,7 @@ import './globals.css';
 import { SessionProvider } from '@/hooks/useSession';
 import { ToastProvider } from '@/components/ui/Toast';
 import WalletProvider from '@/components/providers/WalletProvider';
+import Onboarding from '@/components/ui/Onboarding';
 
 export const metadata = {
   title: 'Hyperdrome | Drone Racing Strategy Game',
@@ -53,6 +54,7 @@ export default function RootLayout({ children }) {
         <SessionProvider>
           <WalletProvider>
             <ToastProvider>{children}</ToastProvider>
+            <Onboarding />
           </WalletProvider>
         </SessionProvider>
         <Analytics />
