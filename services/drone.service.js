@@ -10,6 +10,7 @@ import {
 } from '@/lib/game-engine/economy.js';
 import { ApiError } from '@/lib/api/response.js';
 import { RACE_LIST_COLUMNS } from '@/services/race.service.js';
+import { burnVoltFromWallet } from '@/lib/onchain/volt.js';
 
 /** Hard cap on drone level. Levels beyond this are not awarded; XP can
  *  accumulate but the drone stays at level 20 with no further TSB or
@@ -200,8 +201,42 @@ export async function allocateStats(droneId, userId, statChanges) {
     throw new ApiError('Invalid stat allocation', 400, result.errors);
   }
 
-  // Debit the player's wallet first so a downstream drone-update failure
-  // can't double-spend. Intentionally does not touch drones.unspent_points.
+  // On-chain VOLT burn for wallet-linked users. Per Captain's spec the
+  // burn is the on-chain record of the upgrade; if it fails (e.g.
+  // insufficient on-chain VOLT) the upgrade is rejected outright. Users
+  // without a linked wallet fall back to DB-only points debit so the
+  // existing flow continues to work.
+  let upgradeTxHash = null;
+  const [walletRow] = await db
+    .select({ walletAddress: users.walletAddress })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (result.totalCost > 0 && walletRow?.walletAddress) {
+    try {
+      const burnResult = await burnVoltFromWallet(
+        walletRow.walletAddress,
+        result.totalCost,
+      );
+      upgradeTxHash = burnResult?.txHash ?? null;
+    } catch (err) {
+      console.error('[allocateStats] on-chain VOLT burn failed - upgrade rejected', {
+        droneId,
+        userId,
+        cost: result.totalCost,
+        err,
+      });
+      throw new ApiError(
+        'On-chain VOLT burn failed; upgrade rejected. Check your wallet balance and try again.',
+        402,
+        { reason: err?.shortMessage ?? err?.message ?? 'unknown' },
+      );
+    }
+  }
+
+  // Debit the player's DB-side points mirror. For wallet-linked users
+  // this shadows the on-chain burn; for unwallet users it's the only
+  // record. Intentionally does not touch drones.unspent_points.
   if (result.totalCost > 0) {
     await db
       .update(users)
@@ -228,7 +263,12 @@ export async function allocateStats(droneId, userId, statChanges) {
     .where(eq(drones.id, droneId))
     .returning();
 
-  return updated;
+  // Surface the upgrade tx hash alongside the drone fields the route
+  // already returns so the client can render an explorer link without
+  // an extra round-trip. Spread keeps the existing response shape
+  // backward-compatible - consumers that only read drone columns are
+  // unaffected.
+  return { ...updated, upgradeTxHash };
 }
 
 /**
