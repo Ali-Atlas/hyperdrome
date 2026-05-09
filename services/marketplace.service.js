@@ -1,6 +1,11 @@
 import { and, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { ApiError } from '@/lib/api/response.js';
+import {
+  listItemOnchain,
+  buyItemOnchain,
+  cancelListingOnchain,
+} from '@/lib/onchain/marketplace.js';
 
 const {
   marketplaceListings,
@@ -12,6 +17,22 @@ const {
   users,
   droneOwnershipHistory,
 } = schema;
+
+/**
+ * Look up the on-chain tokenId for the item this listing references.
+ * Returns null when the item exists but has not been minted yet (legacy
+ * rows or pre-Phase-A items). The marketplace service uses this to gate
+ * whether to fire on-chain listItem after the DB insert.
+ */
+async function lookupItemTokenId(itemType, itemId) {
+  const table = itemType === 'drone' ? drones : itemType === 'skin' ? skins : mods;
+  const [row] = await db
+    .select({ tokenId: table.tokenId })
+    .from(table)
+    .where(eq(table.id, itemId))
+    .limit(1);
+  return row?.tokenId ?? null;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Create                                                                     */
@@ -104,6 +125,39 @@ export async function createListing(userId, itemType, itemId, price) {
       status: 'active',
     })
     .returning();
+
+  // On-chain mirror: when the item has a tokenId, escrow it in the
+  // marketplace contract. Best-effort - DB row already exists, so a
+  // chain failure leaves the off-chain listing intact and recoverable.
+  // Match the existing drone-mint pattern: log everything needed for
+  // manual reconciliation if the second leg fails.
+  const tokenId = await lookupItemTokenId(itemType, itemId);
+  if (tokenId != null) {
+    try {
+      const onchain = await listItemOnchain({
+        itemType,
+        tokenId,
+        priceInVolts: price,
+      });
+      await db
+        .update(marketplaceListings)
+        .set({
+          onchainListingId: onchain.listingId,
+          listTxHash: onchain.txHash,
+        })
+        .where(eq(marketplaceListings.id, listing.id));
+      listing.onchainListingId = onchain.listingId;
+      listing.listTxHash = onchain.txHash;
+    } catch (err) {
+      console.error('[marketplace] on-chain listItem failed - DB row remains, on-chain not mirrored', {
+        listingId: listing.id,
+        itemType,
+        itemId,
+        tokenId,
+        err,
+      });
+    }
+  }
 
   return listing;
 }
@@ -250,6 +304,25 @@ export async function buyListing(buyerId, listingId) {
       .where(eq(mods.id, listing.modId));
   }
 
+  // On-chain mirror: forward the buy to the marketplace contract when
+  // this listing has an on-chain twin. Best-effort - DB is already
+  // settled and the user has been charged, so a chain failure here is a
+  // reconciliation concern, not a user-facing one.
+  if (listing.onchainListingId != null) {
+    try {
+      await buyItemOnchain({
+        listingId: listing.onchainListingId,
+        priceInVolts: listing.price,
+      });
+    } catch (err) {
+      console.error('[marketplace] on-chain buyItem failed - DB sale recorded, on-chain not mirrored', {
+        listingId,
+        onchainListingId: listing.onchainListingId,
+        err,
+      });
+    }
+  }
+
   // Buyer's post-purchase volts. Returned alongside the listing so the
   // marketplace UI can refresh its displayed balance immediately without a
   // hard reload (matches the openPack / openCapsule contract).
@@ -285,6 +358,19 @@ export async function cancelListing(userId, listingId) {
     .set({ status: 'cancelled' })
     .where(eq(marketplaceListings.id, listingId))
     .returning();
+
+  // On-chain mirror. NFT comes back to the deployer (testnet seller).
+  if (listing.onchainListingId != null) {
+    try {
+      await cancelListingOnchain(listing.onchainListingId);
+    } catch (err) {
+      console.error('[marketplace] on-chain cancelListing failed - DB cancelled, NFT may still be in escrow', {
+        listingId,
+        onchainListingId: listing.onchainListingId,
+        err,
+      });
+    }
+  }
 
   return updated;
 }
