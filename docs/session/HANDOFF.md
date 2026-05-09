@@ -4,6 +4,78 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-04 - Guide + FAQ accuracy + obfuscation pass
+
+**Captain ask:** Combined accuracy fixes (the engine drifted from v1 to v2; the docs still describe v1) and obfuscation (replace exact formulas/constants with qualitative descriptions so a competitor can't reconstruct the engine from the guide). 29 numbered items, applied consistently to both guide and FAQ wherever the same content appears. Specific keep-as-is list (pack prices, NPC vendor price, XP per win/loss, level-up rewards, starting ELO, race interval, season length, level cap, skin count breakdown, slot unlock milestones, bracket ranges, strategy window, weather + time-of-day enumerations, track list). Don't restructure; don't remove sections; don't touch CSS, imports, or component structure. Skip lint.
+
+**Files modified (3):**
+
+### `app/guide/page.jsx`
+- Drone Stats > 9 stats paragraph: dropped the `segment time = baseTime - 0.005 * score` and `baseTime = 1.6 + 0.33 * difficulty` formulas; replaced with qualitative "higher stats produce faster segment times; track difficulty sets baseline pace."
+- 9-stat list (Speed/Turning/Acceleration/Durability): swapped per-segment-type % weights for plain "dominant on straights, especially long ones" / "helps on every segment type" prose.
+- Consistency: dropped the explicit `+/- 7%` swing.
+- Battery Capacity: dropped the explicit "60% by final lap" / "100 = zero drain" mapping.
+- Night Vision / Rain Handling / Wind Resistance: dropped all `0.5x / 1.0x / 1.5x` and divisor numbers; kept qualitative "low value gets punished, high value gives an edge."
+- Wind Resistance: dropped the `20% on every straight` weight.
+- TSB paragraph: dropped `TSB = 9 + 20 * level` and the L1/L5/L10/L15/L20 lookup table; kept "+20 per level" since that's keep-as-is.
+- Per-Stat Cap paragraph: dropped `cap = min(100, 10 + floor(4.5 * level))` and the level-by-level table; kept the "by level 20 any stat can reach 100" anchor.
+- Stat upgrade costs paragraph: dropped `1 + floor(currentValue / 10)`; the entire 10-row `costTable` block was removed from the SECTIONS data (Block renderer's `costTable` branch is now dead code but left alone per "don't touch component structure").
+- 460-volts max-out sentence: replaced with "fully maxing a stat costs hundreds of volts."
+- Race simulation paragraph: dropped the second `segment time = ...` formula; reused the qualitative version.
+- New paragraph inserted in Racing section about segment subtypes (short bursts, long straights, gentle curves, sharp hairpins, chicanes) — players need to understand subtype variety exists so they don't think the engine is just straights vs turns.
+- Laps paragraph: dropped the `0.8 / 1.0 / 1.2` length multiplier numbers and the `(100 - battery) / 100 * 0.5 * length` formula; kept qualitative "gentle early, ramps aggressively in later laps."
+- Tracks > Difficulty: dropped the `floor(difficulty / 2)` table.
+- Tracks > Length: dropped `0.8x / 1.0x / 1.2x`.
+- Leveling > XP curve: dropped `200 * level^2` and the explicit XP-needed values (200, 800, ..., 72,200).
+- ELO > How it moves: dropped K-factor 32 and the `+/- 16 / +/- 24 / +/- 8` swing examples.
+- ELO > Upsets: dropped the upset bonus formula and the +1/+2/+5 worked values.
+- Volts > Race rewards: dropped the full `Winner payout = 3 base + ...` and `Loser payout = 1 base + ...` formulas.
+- Race rewards list items (Winner level / difficulty / upset / dominance / Loser level): dropped each `floor(...)` formula and worked LV value, replaced with one-line qualitative descriptions.
+- Worked examples block (LV1 / LV8 / LV16 / LV20 worked totals): removed entirely.
+- Marketplace sale + Platform fee list items: 95% → 90%, 5% → 10%.
+- Skins > Skin drops paragraph: dropped the 5% / 2% / 0.5% / 0.1% per-rarity per-race chances.
+- Pack subsections (Starter / Premium / Legendary): replaced each 3-slot probability list with one qualitative sentence per pack tier. Pack prices kept (keep-as-is).
+- PRE_SECTIONS > How Racing Works > Rewards and Progression paragraph: dropped the `floor(loserLevel / 4)` formula reference (caught on second sweep — was missed in first pass).
+- PRE_SECTIONS > The Economy paragraph: 5% rake → 10% rake.
+- Season 2 Preview JSX text: 5% platform rake → 10%.
+- Getting Started > Your first drone paragraph: dropped "Total Stat Budget of 29" since it directly leaks the now-obfuscated TSB formula.
+
+### `app/faq/page.jsx`
+- Speed-vs-Acceleration Q&A: dropped 50% / 30% / 20% weights.
+- Consistency Q&A: dropped `+/- 7%` swing.
+- Wind Resistance Q&A: dropped `20% on every straight`.
+- Battery-on-short-tracks Q&A: dropped `0.8x / 1.2x` and `60% / 40%` numbers; kept qualitative "heavy / moderate performance loss."
+- Per-stat cap Q&A: same obfuscation as guide.
+- Max-stat-cost Q&A: dropped 460 volts and the per-band cost rates.
+- TSB Q&A: same obfuscation as guide.
+- How-winner-decided Q&A: dropped the segment-time formula.
+- UPSET Q&A: dropped `floor((loserElo - winnerElo) / 100)`.
+- Tie-resolution Q&A: "awards the win to drone 1 by default" → "breaks the tie with a coin flip" (engine actually does a 50/50 coin flip; this was an accuracy fix not just obfuscation).
+- Earn-volts Q&A (Volts category): dropped formula; updated 95% → 90%.
+- Loser-earn-volts Q&A: dropped the LV1-3 / LV4-7 / ... / LV20 lookup table and `floor(loserLevel / 4)` formula.
+- Win-payout Q&A: dropped the full formula and the worked 3 / 28+ range examples.
+- Payout-system-detail Q&A: dropped the (a)/(b)/(c)/(d) breakdown with LV20 caps and dominance %s.
+- ELO-calculated Q&A: dropped K-factor 32 and `+/- 16 / +/- 24 / +/- 8` examples.
+- Lose-20-ELO Q&A: dropped `-16/-20 range` answer.
+- Marketplace-fee Q&A: 5% → 10%, 95% → 90%.
+- Earn-volts Q&A (Economy category): dropped formula; updated 95% → 90% and 5% → 10%.
+- "What is the 5% marketplace rake?" Q&A: question text loses the 5% (now "What is the marketplace rake?"); answer 5% → 10%.
+- Starter / Premium / Legendary pack Q&As: each pack's slot-by-slot probability tables collapsed to a single qualitative sentence. Pack prices kept (keep-as-is).
+- Skin drops Q&A: dropped per-race chances.
+- "What do I start with?" Q&A: dropped "TSB 29" since it directly leaks the now-obfuscated TSB formula.
+
+### `docs/session/HANDOFF.md`
+- This entry.
+
+**Not touched (per ask):**
+- Weather + time-of-day list (guide L155-160 and FAQ L120 "How do the weather multipliers scale?") — these still reveal the `0.5x / 1.0x / 1.5x` etc. multipliers, but Captain explicitly listed "Weather and time of day lists" in the keep-as-is set, so leaving alone. Flag for follow-up if Captain wants those obfuscated too — same pattern would apply.
+- MOD_EXAMPLES table per-mod values (`+2% Speed`, `-1% Turning`, etc.) — these are per-item descriptions, not engine constants. Players need them to compare mods. Out of scope.
+- All section ordering, JSX structure, class names, imports, CSS preserved as instructed.
+
+**Verification:** Not run (Captain verifies). Lint skipped per ask.
+
+---
+
 ## 2026-05-04 - Marketplace fee 5% → 10%
 
 **Captain ask:** Bump the marketplace platform fee from 5% to 10%. Seller now receives 90% (was 95%). Search "rake / fee / 0.05 / marketplace" for all references. Don't touch guide / FAQ (handled separately). Don't touch other service or game-engine files. Skip lint.

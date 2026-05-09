@@ -56,7 +56,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Your first drone' },
       {
         type: 'paragraph',
-        text: 'Level 1, active by default, with all 9 stats randomized in the 1-5 range and trimmed to fit a Level 1 Total Stat Budget of 29. It enters the next race cycle automatically. Every upgrade costs volts from your wallet, so the first wins fund the first upgrades.',
+        text: 'Level 1, active by default, with all 9 stats randomized in a low range and trimmed to fit the Level 1 Total Stat Budget. It enters the next race cycle automatically. Every upgrade costs volts from your wallet, so the first wins fund the first upgrades.',
       },
     ],
   },
@@ -69,58 +69,43 @@ const SECTIONS = [
       { type: 'subheading', text: 'The 9 stats' },
       {
         type: 'paragraph',
-        text: 'On every track segment (a straight or a turn), each drone gets a score from a weighted combination of stats. A higher score is a faster segment. Conversion: segment time = baseTime - 0.005 * score, where baseTime = 1.6 + 0.33 * difficulty. Track difficulty sets the baseline pace. Lowest total time across all segments and laps wins.',
+        text: 'On every track segment (a straight or a turn), each drone gets a score from a weighted combination of stats. A higher score is a faster segment. Higher stats produce faster segment times. Track difficulty sets the baseline pace - harder tracks have longer base segment times. Lowest total time across all segments and laps wins.',
       },
       {
         type: 'list',
         items: [
-          { name: 'Speed', desc: '50% weight on straight segments. 0% on turns. Higher speed lowers your time on straights.' },
-          { name: 'Turning', desc: '50% weight on turn segments. 0% on straights. Higher turning lowers your time on turns.' },
-          { name: 'Acceleration', desc: '30% weight on straights, 20% on turns. Pulls weight on every segment.' },
-          { name: 'Durability', desc: '30% weight on turns, 0% on straights. Reduces turn penalties.' },
-          { name: 'Consistency', desc: 'No segment-scoring weight. Pure variance dampener. At consistency 0 the per-segment swing is +/- 7%. As consistency rises the swing scales toward zero. Higher consistency means more predictable race results.' },
-          { name: 'Battery Capacity', desc: 'No direct segment weight. Reduces battery degradation that ramps from lap 2 to the final lap. At 100 there\'s zero drain. At 0 a long-track segment can lose up to 60% of its score by the final lap.' },
-          { name: 'Night Vision', desc: 'Triggers when time of day is "night" (0.5x at 0, 1.0x at 50, 1.5x cap), and as the visibility stat for "fog" and "haze" weather. At night a 0-NV drone halves its segment score; at 75+ it caps at 1.5x.' },
-          { name: 'Rain Handling', desc: 'Triggers in "rain" weather (0.5x / 1.0x / 1.5x) and "heavy rain" weather (harsher: 0.4x at 0, 1.0x at 60, 1.4x cap). Heavy rain punishes low-rain drones more than regular rain.' },
-          { name: 'Wind Resistance', desc: '20% weight on every straight regardless of weather. In "wind" weather, additionally applies the 0.5x / 1.0x / 1.5x multiplier on every segment.' },
+          { name: 'Speed', desc: 'Dominant on straights, especially long ones.' },
+          { name: 'Turning', desc: 'Dominant on turns, especially sharp ones.' },
+          { name: 'Acceleration', desc: 'Helps on every segment type. The universal contributor.' },
+          { name: 'Durability', desc: 'Reduces penalties on turns. More important on technical tracks.' },
+          { name: 'Consistency', desc: 'No segment-scoring weight. Pure variance dampener. At consistency 0 there is a meaningful per-segment time variance. As consistency rises, variance shrinks toward zero. Higher consistency means more predictable race results.' },
+          { name: 'Battery Capacity', desc: 'No direct segment weight. Reduces battery degradation that ramps in later laps. High battery capacity means minimal drain. Zero battery capacity means severe performance loss in later laps, especially on long tracks.' },
+          { name: 'Night Vision', desc: 'Triggers at night and as the visibility stat in fog and haze weather. Low night vision gets punished hard at night. High night vision gives a significant edge.' },
+          { name: 'Rain Handling', desc: 'Triggers in rain and heavy rain weather. Low rain handling gets punished hard, especially in heavy rain. High rain handling gives a significant edge.' },
+          { name: 'Wind Resistance', desc: 'Contributes on every straight regardless of weather. In wind conditions, becomes a major factor on all segments.' },
         ],
       },
 
       { type: 'subheading', text: 'Total Stat Budget (TSB)' },
       {
         type: 'paragraph',
-        text: 'Your drone\'s 9 stats can sum to at most TSB. Formula: TSB = 9 + 20 * level. Level 1: 29. Level 5: 109. Level 10: 209. Level 15: 309. Level 20: 409.',
+        text: 'Your drone\'s 9 stats can sum to at most TSB. Your total stat budget grows by 20 points per level. Check your drone\'s detail page for your current budget and cap.',
       },
 
       { type: 'subheading', text: 'Per-Stat Cap' },
       {
         type: 'paragraph',
-        text: 'No single stat can exceed the cap for your level. Formula: cap = min(100, 10 + floor(4.5 * level)). Level 1: 14. Level 5: 32. Level 10: 55. Level 15: 77. Level 20: 100. The cap stops you from dumping your entire budget into one stat early.',
+        text: 'No single stat can exceed the cap for your level. Per-stat caps rise with each level. Low-level drones can\'t dump everything into one stat. By level 20, any stat can reach 100.',
       },
 
       { type: 'subheading', text: 'Stat upgrade costs' },
       {
         type: 'paragraph',
-        text: 'Each upgrade is paid in volts from your wallet. Cost depends on the stat\'s current value: 1 + floor(currentValue / 10). Costs scale in 10-step bands.',
-      },
-      {
-        type: 'costTable',
-        rows: [
-          { range: 'Stat 1 -> 9', cost: '1 volt per upgrade' },
-          { range: 'Stat 10 -> 19', cost: '2 volts per upgrade' },
-          { range: 'Stat 20 -> 29', cost: '3 volts per upgrade' },
-          { range: 'Stat 30 -> 39', cost: '4 volts per upgrade' },
-          { range: 'Stat 40 -> 49', cost: '5 volts per upgrade' },
-          { range: 'Stat 50 -> 59', cost: '6 volts per upgrade' },
-          { range: 'Stat 60 -> 69', cost: '7 volts per upgrade' },
-          { range: 'Stat 70 -> 79', cost: '8 volts per upgrade' },
-          { range: 'Stat 80 -> 89', cost: '9 volts per upgrade' },
-          { range: 'Stat 90 -> 99', cost: '10 volts per upgrade' },
-        ],
+        text: 'Each upgrade is paid in volts from your wallet. Upgrade costs scale with the stat\'s current value. Low stats are cheap to raise. High stats get expensive. The exact cost is shown on the upgrade button.',
       },
       {
         type: 'paragraph',
-        text: 'Raising one stat from 1 to 100 costs 460 volts total. The first 9 volts are cheap. Past 50 it gets expensive fast.',
+        text: 'Fully maxing a stat costs hundreds of volts. Early upgrades are cheap. Late ones add up.',
       },
 
       { type: 'subheading', text: 'No respec' },
@@ -151,7 +136,12 @@ const SECTIONS = [
       { type: 'subheading', text: 'Race simulation' },
       {
         type: 'paragraph',
-        text: 'Each track is a fixed count of straights and turns, clustered into stretches of 2-4 same-type segments per lap (e.g. 3 straights, then 2 turns, then 1 straight). Segments are re-shuffled at the start of every lap so the layout varies lap to lap. For each segment, both drones get a score from the weighted stat formula, multiplied by any weather and time-of-day modifiers, multiplied by battery degradation for that lap, multiplied by a small variance dampened by consistency. Score becomes time via segment time = baseTime - 0.005 * score, where baseTime = 1.6 + 0.33 * difficulty. Times accumulate. Lower total time wins. The clustering means a stretch of 3 straights gives a speed build a real chance to open a gap before the next turn cluster lets a turning build claw it back.',
+        text: 'Each track is a fixed count of straights and turns, clustered into stretches of 2-4 same-type segments per lap (e.g. 3 straights, then 2 turns, then 1 straight). Segments are re-shuffled at the start of every lap so the layout varies lap to lap. For each segment, both drones get a score from a weighted stat formula, modified by weather, time of day, battery degradation, and a small consistency-dampened variance. Higher stats produce faster segment times. Track difficulty sets the baseline pace - harder tracks have longer base segment times. Times accumulate. Lower total time wins. The clustering means a stretch of 3 straights gives a speed build a real chance to open a gap before the next turn cluster lets a turning build claw it back.',
+      },
+
+      {
+        type: 'paragraph',
+        text: 'Segments come in multiple subtypes - short bursts, long straights, gentle curves, sharp hairpins, chicanes, and more. Each subtype rewards a different stat mix, so balanced builds have fewer bad matchups while specialists dominate their preferred segments.',
       },
 
       { type: 'subheading', text: 'Weather and time of day' },
@@ -178,7 +168,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Laps' },
       {
         type: 'paragraph',
-        text: 'Every track is 3 laps. Battery degradation is 0 on lap 1, ramps linearly to its peak on the final lap. Peak per-segment hit = (100 - your battery) / 100 * 0.5 * length multiplier. Length multiplier is 0.8 short, 1.0 medium, 1.2 long. So a 0-battery drone on a long track loses up to 60% of its segment scores by lap 3. A 100-battery drone loses nothing.',
+        text: 'Every track is 3 laps. Battery drain is gentle early and ramps aggressively in later laps. Low-battery drones lose serious performance by the final lap, especially on long tracks. A drone with zero battery capacity on a long track can lose most of its segment performance by lap 3. High battery capacity reduces the drain significantly.',
       },
 
       { type: 'subheading', text: 'Track selection' },
@@ -202,13 +192,13 @@ const SECTIONS = [
       { type: 'subheading', text: 'Difficulty' },
       {
         type: 'paragraph',
-        text: 'Difficulty drives the volts payout. Winner gets a bonus of floor(difficulty / 2). Difficulty 1 pays +0. Difficulty 2-3 pays +1. Difficulty 4-5 pays +2. Difficulty 6-7 pays +3. Difficulty 8-9 pays +4. Difficulty 10 pays +5. The difficulty also signals layout intensity: more turns, longer length, tighter angles.',
+        text: 'Difficulty drives the volts payout. Harder tracks pay winners more. The difficulty also signals layout intensity: more turns, longer length, tighter angles.',
       },
 
       { type: 'subheading', text: 'Length' },
       {
         type: 'paragraph',
-        text: 'Length is a multiplier on battery drain: short 0.8x, medium 1.0x, long 1.2x. Long tracks punish low battery builds. Short tracks barely touch battery at all.',
+        text: 'Length affects battery drain. Short tracks barely touch battery. Long tracks punish low-battery builds hard.',
       },
 
       { type: 'subheading', text: 'Level gating' },
@@ -247,7 +237,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Level-up' },
       {
         type: 'paragraph',
-        text: 'XP needed for the next level = 200 * level^2. Level 1 to 2: 200 XP. 2 to 3: 800. 3 to 4: 1,800. 5 to 6: 5,000. 10 to 11: 20,000. 15 to 16: 45,000. 19 to 20: 72,200. Level-ups cascade in one shot if you have the XP banked.',
+        text: 'XP requirements increase steeply with each level. Early levels come fast. High levels take serious grinding. Level-ups cascade in one shot if you have the XP banked.',
       },
 
       { type: 'subheading', text: 'Level benefits' },
@@ -298,7 +288,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'How it moves' },
       {
         type: 'paragraph',
-        text: 'Standard ELO with K-factor 32. Same-rated win swings +/- 16. Beating someone 200 ELO above you swings around +24 to you, -24 to them. Beating someone 200 below swings around +8 / -8.',
+        text: 'Standard ELO rating system. Beating higher-rated opponents moves your rating more. Beating lower-rated opponents moves it less. Upsets swing big.',
       },
 
       { type: 'subheading', text: 'What ELO does' },
@@ -310,7 +300,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Upsets' },
       {
         type: 'paragraph',
-        text: 'When a lower-rated drone beats a higher-rated one, the race is flagged UPSET in the log. The winner gets a volts bonus on top of the base payout: floor((loserElo - winnerElo) / 100). 100 ELO underdog: +1 volt. 250 underdog: +2. 500 underdog: +5.',
+        text: 'When a lower-rated drone beats a higher-rated one, the race is flagged UPSET in the log. The winner gets a volts bonus on top of the base payout. The bigger the ELO gap you overcome, the bigger the upset bonus.',
       },
     ],
   },
@@ -328,31 +318,26 @@ const SECTIONS = [
       { type: 'subheading', text: 'Race rewards' },
       {
         type: 'paragraph',
-        text: 'Winner payout = 3 base + floor(winnerLevel / 2) + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)) + dominance bonus. Loser payout = 1 base + floor(loserLevel / 4). Every active drone earns something every cycle.',
+        text: 'Winners earn volts based on their level, track difficulty, whether it was an upset, and how dominant the win was. Higher-level wins on harder tracks pay significantly more. Losers always earn volts. The payout scales with level so high-level losses still feel worthwhile. Every active drone earns something every cycle.',
       },
       {
         type: 'list',
         items: [
           { name: 'Winner base', desc: '3 volts. Always.' },
-          { name: 'Winner level bonus', desc: 'floor(winnerLevel / 2). LV1: +0. LV8: +4. LV20: +10.' },
-          { name: 'Winner difficulty bonus', desc: 'floor(track difficulty / 2). Difficulty 1: +0. Difficulty 5: +2. Difficulty 10: +5.' },
-          { name: 'Winner upset bonus', desc: 'floor((loserElo - winnerElo) / 100) when negative. 100 ELO underdog: +1. 500 underdog: +5.' },
-          { name: 'Winner dominance bonus', desc: 'Margin = |drone1Time - drone2Time| / minTime * 100. Margin > 40%: +5 volts. Margin > 20%: +2 volts. Otherwise: +0.' },
+          { name: 'Winner level bonus', desc: 'Scales with your drone\'s level.' },
+          { name: 'Winner difficulty bonus', desc: 'Harder tracks pay more.' },
+          { name: 'Winner upset bonus', desc: 'The bigger the ELO gap you overcome, the bigger the upset bonus.' },
+          { name: 'Winner dominance bonus', desc: 'Dominant wins - where you crush the opponent by a wide margin - pay a bonus. The bigger the gap, the bigger the reward.' },
           { name: 'Loser base', desc: '1 volt. Always.' },
-          { name: 'Loser level bonus', desc: 'floor(loserLevel / 4). LV1-3: +0. LV4-7: +1. LV20: +5.' },
+          { name: 'Loser level bonus', desc: 'Scales with the loser\'s level so high-level losses still feel worthwhile.' },
         ],
       },
-      {
-        type: 'paragraph',
-        text: 'Worked examples. LV1 winner on a difficulty-1 track in a narrow win against an even-rated opponent: 3 + 0 + 0 + 0 + 0 = 3 volts. LV8 winner on a difficulty-5 track, narrow win, even matchup: 3 + 4 + 2 + 0 + 0 = 9 volts. LV16 winner on a difficulty-9 track, dominant win (margin > 20%) against an even-rated opponent: 3 + 8 + 4 + 0 + 2 = 17 volts. LV20 winner on a difficulty-10 track, dominant win (margin > 40%) over a 500-ELO favorite: 3 + 10 + 5 + 5 + 5 = 28 volts.',
-      },
-
       { type: 'subheading', text: 'Other volt income' },
       {
         type: 'list',
         items: [
           { name: 'Level-up bonus', desc: '+20 volts per level. Paid into your wallet on the level-up.' },
-          { name: 'Marketplace sale', desc: '95% of the sale price (5% platform fee).' },
+          { name: 'Marketplace sale', desc: '90% of the sale price (10% platform fee).' },
           { name: 'Skin drops', desc: 'Random per-race chance lands an unbound skin in your inventory you can list for volts.' },
         ],
       },
@@ -391,7 +376,7 @@ const SECTIONS = [
       {
         type: 'list',
         items: [
-          { name: 'Platform fee', desc: '5% of the sale price (the rake). The seller gets the remaining 95%.' },
+          { name: 'Platform fee', desc: '10% of the sale price (the rake). The seller gets the remaining 90%.' },
           { name: 'Minimum listing price', desc: '10 volts. Below that, the listing is rejected.' },
           { name: 'Active drones', desc: 'You can list a drone while it\'s racing. Listing doesn\'t deactivate it. The drone keeps racing for you until it sells.' },
           { name: 'Drone transfer', desc: 'A purchased drone arrives with its level, XP, full stat sheet, ELO rating, race history, and its bound skin and mod collections intact.' },
@@ -443,7 +428,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Skin drops' },
       {
         type: 'paragraph',
-        text: 'Skins drop randomly per race. Per-race chance: 5% common, 2% rare, 0.5% epic, 0.1% legendary. Drops land unbound in your inventory.',
+        text: 'Skins drop randomly after races. Commons drop most often. Legendaries are extremely rare. Drops land unbound in your inventory.',
       },
 
       {
@@ -465,32 +450,20 @@ const SECTIONS = [
 
       { type: 'subheading', text: 'Starter Pack - 2,000 volts' },
       {
-        type: 'list',
-        items: [
-          { name: 'Slot 1', desc: 'Common (guaranteed).' },
-          { name: 'Slot 2', desc: 'Common 80% / Rare 17% / Epic 2.5% / Legendary 0.5%.' },
-          { name: 'Slot 3', desc: 'Common 80% / Rare 17% / Epic 2.5% / Legendary 0.5%.' },
-        ],
+        type: 'paragraph',
+        text: '3 items. Mostly commons, with a small chance at rares or better.',
       },
 
       { type: 'subheading', text: 'Premium Pack - 12,000 volts' },
       {
-        type: 'list',
-        items: [
-          { name: 'Slot 1', desc: 'Rare (guaranteed).' },
-          { name: 'Slot 2', desc: 'Common 40% / Rare 35% / Epic 20% / Legendary 5%.' },
-          { name: 'Slot 3', desc: 'Common 40% / Rare 35% / Epic 20% / Legendary 5%.' },
-        ],
+        type: 'paragraph',
+        text: '3 items. Guaranteed at least one rare. Real chances at epics.',
       },
 
       { type: 'subheading', text: 'Legendary Pack - 60,000 volts' },
       {
-        type: 'list',
-        items: [
-          { name: 'Slot 1', desc: 'Legendary 45% / Epic 55%.' },
-          { name: 'Slot 2', desc: 'Rare 55% / Epic 40% / Legendary 5%.' },
-          { name: 'Slot 3', desc: 'Rare 55% / Epic 40% / Legendary 5%.' },
-        ],
+        type: 'paragraph',
+        text: '3 items. Strong odds at legendaries and epics. The best chance at top-tier items.',
       },
 
       { type: 'subheading', text: 'Skin packs vs mod capsules' },
@@ -691,7 +664,7 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'Rewards and Progression' },
       {
         type: 'paragraph',
-        text: 'Winners earn 10 XP plus tiered volts: 3 base, plus level / difficulty / upset / dominance bonuses. Losers earn 4 XP plus 1 base volt scaled by their level (floor(loserLevel / 4) bonus). ELO ratings adjust based on the outcome. Upsets (a lower-rated drone beating a higher-rated one) flag in the log and pay a volts bonus to the winner. XP drives leveling, which unlocks higher stat caps and access to harder tracks. Volts fund the rest of the economy: stat upgrades, packs, NPC vendor purchases, and Marketplace buys. You cannot buy XP - leveling only happens by racing.',
+        text: 'Winners earn 10 XP plus tiered volts: a base payout plus level, difficulty, upset, and dominance bonuses. Losers earn 4 XP plus a base volt scaled by their level. ELO ratings adjust based on the outcome. Upsets (a lower-rated drone beating a higher-rated one) flag in the log and pay a volts bonus to the winner. XP drives leveling, which unlocks higher stat caps and access to harder tracks. Volts fund the rest of the economy: stat upgrades, packs, NPC vendor purchases, and Marketplace buys. You cannot buy XP - leveling only happens by racing.',
       },
       { type: 'subheading', text: 'Active Drone Slots' },
       {
@@ -713,7 +686,7 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'The Marketplace' },
       {
         type: 'paragraph',
-        text: 'The Marketplace is where players trade drones, skins, and mods with each other. All listings are priced in volts. A 5% rake is applied to every sale - the platform\'s only fee. Active drones can be listed and keep racing until they sell. A drone\'s entire bound skin and mod collection transfers with it.',
+        text: 'The Marketplace is where players trade drones, skins, and mods with each other. All listings are priced in volts. A 10% rake is applied to every sale - the platform\'s only fee. Active drones can be listed and keep racing until they sell. A drone\'s entire bound skin and mod collection transfers with it.',
       },
       { type: 'subheading', text: 'Packs' },
       {
@@ -943,7 +916,7 @@ export default function GuidePage() {
                   <p className={styles.paragraph}>
                     Drones, skins, and mods become on-chain assets (ERC-721) on
                     MegaETH. Ownership is verifiable and transferable.
-                    Marketplace transactions settle on-chain with the same 5%
+                    Marketplace transactions settle on-chain with the same 10%
                     platform rake.
                   </p>
 

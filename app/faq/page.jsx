@@ -91,7 +91,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What do I start with?',
-        a: 'A Level 1 drone (active, ELO 1000, TSB 29, all 9 stats randomized in the 1-5 range and trimmed to fit TSB), 500 volts in your wallet, one unbound common skin, one unbound common mod, and 1 active drone slot.',
+        a: 'A Level 1 drone (active, ELO 1000, all 9 stats randomized in a low range and trimmed to fit the Level 1 stat budget), 500 volts in your wallet, one unbound common skin, one unbound common mod, and 1 active drone slot.',
       },
     ],
   },
@@ -101,15 +101,15 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'What\'s the difference between Speed and Acceleration?',
-        a: 'Speed weights 50% on straights, 0% on turns. Acceleration weights 30% on straights and 20% on turns. Speed is a pure straight-line bonus. Acceleration helps everywhere.',
+        a: 'Speed is dominant on straights, especially long ones. Acceleration helps on every segment type - the universal contributor.',
       },
       {
         q: 'Does Consistency do anything besides reduce variance?',
-        a: 'No. Consistency is a pure variance dampener. It does not contribute to segment scoring. At consistency 0 the per-segment swing is +/- 7%; the swing scales toward zero as consistency rises. Higher consistency means more predictable race results.',
+        a: 'No. Consistency is a pure variance dampener. It does not contribute to segment scoring. At consistency 0 there is a meaningful per-segment time variance. As consistency rises, variance shrinks toward zero. Higher consistency means more predictable race results.',
       },
       {
         q: 'Does Wind Resistance only matter when it\'s windy?',
-        a: 'No. Wind Resistance weights 20% on every straight regardless of weather. In "wind" weather it additionally applies a multiplier to every segment score.',
+        a: 'No. Wind Resistance contributes on every straight regardless of weather. In wind conditions, it becomes a major factor on all segments.',
       },
       {
         q: 'Why isn\'t my Night Vision helping?',
@@ -125,19 +125,19 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Does Battery Capacity matter on short tracks?',
-        a: 'Less. Short tracks apply a 0.8x length multiplier to battery drain. Long tracks apply 1.2x. Across 3 laps on a long track, 0 battery can lose up to 60% of segment score by lap 3. On a short track, the same drone loses about 40%.',
+        a: 'Less. Short tracks barely touch battery. Long tracks punish battery more. Across 3 laps on a long track, 0 battery loses heavy performance by lap 3. On a short track, the same drone loses moderate performance.',
       },
       {
         q: 'What\'s the per-stat cap at each level?',
-        a: 'cap = min(100, 10 + floor(4.5 * level)). L1: 14. L5: 32. L10: 55. L15: 77. L20: 100.',
+        a: 'Per-stat caps rise with each level. Low-level drones can\'t dump everything into one stat. By level 20, any stat can reach 100.',
       },
       {
         q: 'How much does it cost to fully max a stat?',
-        a: '460 volts to raise one stat from 1 to 100. Costs are 1 per upgrade in the 1-9 band, 2 in 10-19, 3 in 20-29, all the way to 10 per upgrade in 90-99.',
+        a: 'Fully maxing a stat costs hundreds of volts. Early upgrades are cheap. Late ones add up.',
       },
       {
         q: 'What\'s TSB?',
-        a: 'Total Stat Budget. The maximum sum of your 9 stats. Formula: 9 + 20 * level. L1: 29. L20: 409.',
+        a: 'Total Stat Budget. The maximum sum of your 9 stats. Your total stat budget grows by 20 points per level. Check your drone\'s detail page for your current budget and cap.',
       },
     ],
   },
@@ -147,7 +147,7 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How is the winner decided?',
-        a: 'Each track is a fixed count of straights and turns, clustered into stretches of 2-4 same-type segments and re-shuffled at the start of every lap. For each segment, both drones get a score from a weighted stat formula, modified by weather, time of day, battery degradation, and a small consistency-dampened variance. Score becomes time via segment time = baseTime - 0.005 * score, where baseTime = 1.6 + 0.33 * difficulty. Times accumulate over 3 laps. Lower total time wins.',
+        a: 'Each track is a fixed count of straights and turns, clustered into stretches of 2-4 same-type segments and re-shuffled at the start of every lap. For each segment, both drones get a score from a weighted stat formula, modified by weather, time of day, battery degradation, and a small consistency-dampened variance. Higher stats produce faster segment times. Track difficulty sets the baseline pace - harder tracks have longer base segment times. Times accumulate over 3 laps. Lower total time wins.',
       },
       {
         q: 'What stats matter most?',
@@ -159,7 +159,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What is an UPSET?',
-        a: 'A win by a lower-rated drone over a higher-rated one. The race is flagged UPSET in the log. The winner gets a volts bonus = floor((loserElo - winnerElo) / 100).',
+        a: 'A win by a lower-rated drone over a higher-rated one. The race is flagged UPSET in the log. The winner gets a volts bonus. The bigger the ELO gap you overcome, the bigger the upset bonus.',
       },
       {
         q: 'Why did my drone race a bot?',
@@ -179,7 +179,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Can a race tie?',
-        a: 'No. If the totals come out equal (very rare with floating-point times), the simulator awards the win to drone 1 by default. In practice variance keeps ties from happening.',
+        a: 'No. If the totals come out equal (very rare with floating-point times), the simulator breaks the tie with a coin flip. In practice variance keeps ties from happening.',
       },
       {
         q: 'Where do I see how my drone performed?',
@@ -209,19 +209,19 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I earn volts?',
-        a: 'Race. Winners take 3 base plus level, difficulty, upset, and dominance bonuses; losers take 1 base plus a level bonus. Also: marketplace sales (95% of sale price), and a +20 wallet bonus on every level-up.',
+        a: 'Race. Winners earn volts based on their level, track difficulty, whether it was an upset, and how dominant the win was. Losers always earn volts; the payout scales with level so high-level losses still feel worthwhile. Also: marketplace sales (90% of sale price), and a +20 wallet bonus on every level-up.',
       },
       {
         q: 'Do losers earn volts?',
-        a: 'Yes. 1 base volt plus floor(loserLevel / 4) every race. LV1-3: 1V. LV4-7: 2V. LV8-11: 3V. LV12-15: 4V. LV16-19: 5V. LV20: 6V. The level bonus means high-level losses still pay enough to feel non-zero. Plus 4 XP every loss.',
+        a: 'Yes. Losers always earn volts. The payout scales with level so high-level losses still feel worthwhile. Plus 4 XP every loss.',
       },
       {
         q: 'How much does a win pay?',
-        a: '3 base + floor(winnerLevel / 2) + floor(track difficulty / 2) + max(0, floor((loserElo - winnerElo) / 100)) + dominance bonus. Range: 3 volts (LV1 winner, difficulty-1 track, narrow win, even matchup) up to 28+ for a LV20 winner on a difficulty-10 track dominantly beating a 500-ELO favorite.',
+        a: 'Winners earn volts based on their level, track difficulty, whether it was an upset, and how dominant the win was. Higher-level wins on harder tracks pay significantly more.',
       },
       {
         q: 'How does the payout system work?',
-        a: 'Wins are tiered. Base 3V + (a) level bonus floor(winnerLevel/2) up to +10 at LV20, (b) difficulty bonus floor(track.difficulty/2) up to +5 on the hardest track, (c) upset bonus floor((loserElo-winnerElo)/100) when positive: +1 per 100 ELO underdog, (d) dominance bonus +2V if your win margin is above 20% of the loser\'s time, +5V if above 40% (margin is computed from the actual race times). Losses pay 1V base + floor(loserLevel/4) up to +5 at LV20. The intent is that losing a tight race at high level still earns meaningful volts, while crushing wins on hard tracks against higher-ranked opponents pay out big.',
+        a: 'Wins are tiered. Level, track difficulty, upsets (beating higher-rated opponents), and dominant wins all add bonuses on top of the base payout. Losses also pay - the loser payout scales with level. The intent is that losing a tight race at high level still earns meaningful volts, while crushing wins on hard tracks against higher-ranked opponents pay out big.',
       },
       {
         q: 'Are volts shared between my drones?',
@@ -247,11 +247,11 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'How is ELO calculated?',
-        a: 'Standard ELO with K-factor 32. Expected score from rating diff, K * (actual - expected) gets added to the winner and subtracted from the loser. Same-rated win swings +/- 16. 200 ELO underdog win swings around +/- 24. 200 ELO favorite win swings around +/- 8.',
+        a: 'Standard ELO rating system. Beating higher-rated opponents moves your rating more. Beating lower-rated opponents moves it less. Upsets swing big.',
       },
       {
         q: 'Why did I lose 20 ELO from one race?',
-        a: 'You lost to a drone rated below you. Expected loss is small, actual loss is 0, so the K-factor delta lands closer to the full -16/-20 range.',
+        a: 'You lost to a lower-rated drone. The bigger the rating gap, the more you lose.',
       },
       {
         q: 'Does selling a drone reset its ELO?',
@@ -273,7 +273,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What\'s the marketplace fee?',
-        a: '5% of the sale price goes to the platform. Seller gets 95%.',
+        a: '10% of the sale price goes to the platform. Seller gets 90%.',
       },
       {
         q: 'What\'s the minimum listing price?',
@@ -307,15 +307,15 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I earn volts?',
-        a: 'By racing. Winners earn 3 base + level + difficulty + upset + dominance bonuses. Losers earn 1 base + a level bonus. Plus level-up bonuses (+20 volts each level) and marketplace sales (95% of price after the 5% rake).',
+        a: 'By racing. Winners earn volts based on their level, track difficulty, whether it was an upset, and how dominant the win was. Losers always earn volts; the payout scales with level. Plus level-up bonuses (+20 volts each level) and marketplace sales (90% of price after the 10% rake).',
       },
       {
         q: 'Is this pay-to-win?',
         a: 'No. Buying volts speeds up stat allocation on a drone you already own, but it doesn\'t buy XP, levels, or wins. Levels come only from racing. A well-built cheap drone beats a badly-built expensive one.',
       },
       {
-        q: 'What is the 5% marketplace rake?',
-        a: 'Every sale on the Marketplace has a 5% fee deducted from the sale price. This is the platform\'s only fee and helps control volt supply in the economy.',
+        q: 'What is the marketplace rake?',
+        a: 'Every sale on the Marketplace has a 10% fee deducted from the sale price. This is the platform\'s only fee and helps control volt supply in the economy.',
       },
     ],
   },
@@ -349,15 +349,15 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What\'s in the Starter Pack (2,000 volts)?',
-        a: '3 skins. Slot 1: Common guaranteed. Slots 2-3: Common 80% / Rare 17% / Epic 2.5% / Legendary 0.5% each.',
+        a: '3 skins. Mostly commons, with a small chance at rares or better.',
       },
       {
         q: 'What\'s in the Premium Pack (12,000 volts)?',
-        a: '3 skins. Slot 1: Rare guaranteed. Slots 2-3: Common 40% / Rare 35% / Epic 20% / Legendary 5% each.',
+        a: '3 skins. Guaranteed at least one rare. Real chances at epics.',
       },
       {
         q: 'What\'s in the Legendary Pack (60,000 volts)?',
-        a: '3 skins. Slot 1: Legendary 45% / Epic 55%. Slots 2-3: Rare 55% / Epic 40% / Legendary 5% each.',
+        a: '3 skins. Strong odds at legendaries and epics. The best chance at top-tier items.',
       },
       {
         q: 'Are skins pay-to-win?',
@@ -365,7 +365,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Do skins drop in races?',
-        a: 'Yes. Per-race chance: 5% common, 2% rare, 0.5% epic, 0.1% legendary. Drops land unbound in your inventory.',
+        a: 'Yes. Skins drop randomly after races. Commons drop most often. Legendaries are extremely rare. Drops land unbound in your inventory.',
       },
       {
         q: 'What if a pack rolls a rarity that\'s sold out?',
