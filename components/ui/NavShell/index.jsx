@@ -112,7 +112,49 @@ export default function NavShell({ children }) {
     window.addEventListener('volts:update', handler);
     return () => window.removeEventListener('volts:update', handler);
   }, []);
-  const displayBalance = balanceOverride ?? user?.points ?? 0;
+  const dbBalance = balanceOverride ?? user?.points ?? 0;
+
+  // On-chain VOLT for wallet-connected users. When connected, replace the
+  // DB volt display with the on-chain ERC-20 balance (server-cached 30s
+  // via /api/volt/balance). Falls back to dbBalance when no wallet is
+  // linked, the fetch fails, or the user disconnects. Polls every 30s to
+  // match the server cache TTL - no point reading more often than the
+  // upstream refreshes.
+  const { isConnected: walletConnected } = useAccount();
+  const [onchainVolts, setOnchainVolts] = useState(null);
+  useEffect(() => {
+    if (!user || !walletConnected) {
+      setOnchainVolts(null);
+      return;
+    }
+    let cancelled = false;
+    const fetchBalance = async () => {
+      try {
+        const res = await fetch('/api/volt/balance');
+        if (!res.ok) {
+          if (!cancelled) setOnchainVolts(null);
+          return;
+        }
+        const body = await res.json();
+        const formatted = body?.data?.formatted;
+        if (formatted == null) return;
+        const asFloat = Number.parseFloat(formatted);
+        if (!cancelled && Number.isFinite(asFloat)) {
+          setOnchainVolts(Math.floor(asFloat));
+        }
+      } catch {
+        if (!cancelled) setOnchainVolts(null);
+      }
+    };
+    fetchBalance();
+    const id = setInterval(fetchBalance, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [user, walletConnected]);
+
+  const displayBalance = onchainVolts ?? dbBalance;
 
   const renderLinks = () =>
     NAV_LINKS.map(({ href, label, Icon }) => {
