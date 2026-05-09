@@ -15,13 +15,31 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract HyperdromeSkin is ERC721, ERC721URIStorage, Ownable {
     string private _baseTokenURI;
 
+    /// @notice Addresses authorized to mint in addition to the owner.
+    ///         Used to grant the packs contract minter rights so it can
+    ///         issue new skin NFTs on pack reveal.
+    mapping(address => bool) public minters;
+
+    event MinterUpdated(address indexed account, bool enabled);
+
+    modifier onlyMinter() {
+        require(msg.sender == owner() || minters[msg.sender], "not minter");
+        _;
+    }
+
     constructor()
         ERC721("Hyperdrome Skin", "HSKIN")
         Ownable(msg.sender)
     {}
 
-    /// @notice Mint `tokenId` to `to`. Only the contract owner may call.
-    function mint(address to, uint256 tokenId) external onlyOwner {
+    /// @notice Authorize / revoke `account` as an additional minter.
+    function setMinter(address account, bool enabled) external onlyOwner {
+        minters[account] = enabled;
+        emit MinterUpdated(account, enabled);
+    }
+
+    /// @notice Mint `tokenId` to `to`. Owner or any authorized minter.
+    function mint(address to, uint256 tokenId) external onlyMinter {
         _safeMint(to, tokenId);
     }
 
