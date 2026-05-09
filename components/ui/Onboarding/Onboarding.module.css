@@ -1,0 +1,145 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+}
+
+/* Single SVG layer that dims the page everywhere except the spotlight
+ * cutouts. Replaces the old per-spotlight 9999px box-shadow technique,
+ * which only worked for a single spotlight - with two spotlights the
+ * outer shadow of each one re-dimmed the other, leaving both lit
+ * regions visibly darkened. The SVG mask punches all holes in the
+ * same dim rectangle so multiple spotlights don't shadow each other. */
+.maskOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Per-spotlight teal ring + glow drawn on top of the masked dim layer.
+ * Border (not box-shadow spread) gives the 2px accent ring; the outer
+ * 32px glow is decorative and bleeds into the surrounding dim area. */
+.spotlightRing {
+  position: absolute;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--accent-primary);
+  box-shadow: 0 0 32px rgba(3, 218, 198, 0.45);
+  background: transparent;
+  pointer-events: none;
+}
+
+.tip {
+  position: absolute;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated), var(--glow-teal);
+  padding: var(--space-5);
+  animation: tipIn var(--duration-normal) var(--ease-out);
+}
+
+.tipMeta {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: var(--space-3);
+}
+
+.tipStep {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  letter-spacing: 0.12em;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+}
+
+.tipText {
+  margin: 0 0 var(--space-5);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.tipActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.skipBtn,
+.nextBtn {
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.skipBtn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+}
+
+.skipBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+.nextBtn {
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  border: 1px solid var(--accent-primary);
+}
+
+.nextBtn:hover {
+  filter: brightness(1.08);
+  box-shadow: var(--glow-teal);
+}
+
+.skipBtn:focus-visible,
+.nextBtn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tipIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 720px) {
+  /* On phones the JS-computed top/left are overridden so the tip
+     docks at the bottom edge regardless of where the spotlight sits.
+     Keeps the readable area wide and stops the card from drifting
+     off-screen on small heights. */
+  .tip {
+    left: var(--space-4) !important;
+    right: var(--space-4) !important;
+    top: auto !important;
+    bottom: var(--space-4) !important;
+    width: auto !important;
+    transform: none !important;
+    max-width: none;
+  }
+}

@@ -4,6 +4,377 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-09 - Onboarding: drop fleetRow step (now 8 steps)
+
+**Captain ask:** Remove the previous step 5 (drones fleetRow / active-toggle copy). The cardLink step that was at index 5 in the spec (highlighting a single drone card) takes the slot.
+
+**File:** `components/ui/Onboarding/index.jsx`. Single delete of the fleetRow STEPS entry. Tour is now 8 steps. Final-step packs-activation effect still works since it gates on `step !== STEPS.length - 1` (relative).
+
+Updated step / path summary:
+
+| # | Path | Target |
+|---|------|--------|
+| 1 | `/dashboard` | active-drone + next-race panels |
+| 2 | `/dashboard` | volts |
+| 3 | `/dashboard` | countdownBar |
+| 4 | `/races` | upcomingBanner / topStrip |
+| 5 | `/drones` | cardLink (single drone), nextHref reads drone URL |
+| 6 | `/drones/<id>` | rightPanel + collectibleRow |
+| 7 | `/marketplace` | tabs / topRow |
+| 8 | `/marketplace` | packsShowcase / topRow (auto-clicks Packs) |
+
+### Verification
+Not run (Captain verifies). Lint skipped per ask.
+
+---
+
+## 2026-05-09 - Onboarding: drone-manager step + dynamic-href nav
+
+**Captain ask:** Add a step that follows the "click any drone" step. Clicking Next on the drone-card step should auto-navigate to the Drone Manager (drone detail page), introduce that page, and spotlight both the stats container and the skins / mods row. Tooltip says you can modify stats and equip skins / mods.
+
+**Branch:** `feature/progressive-disclosure`.
+
+### Files modified (1)
+
+#### `components/ui/Onboarding/index.jsx`
+
+**STEPS array now has 9 entries** (indices 0..8). The new entry sits between the previous cardLink step and the marketplace tabs step:
+
+```
+6: pathPrefix: '/drones/'
+   targets: [[ 'rightPanel' ], [ 'collectibleRow' ]]
+   text: 'This is the Drone Manager. Modify the drone's stats here.
+          Equip skins and mods to customize how it races.'
+```
+
+`pathPrefix` is a new field. The drone-manager URL contains a dynamic UUID (`/drones/<id>`), so the existing `path` equality matcher couldn't be used. A `pathMatches(stepDef, pathname)` helper checks `pathPrefix` if present and falls back to exact `path` equality otherwise. Used in the pendingStep commit effect so any pathname starting with `/drones/` triggers the step transition.
+
+**Step 5 (cardLink) now declares `nextHref()`.** It reads the first `.cardLink` element's `href` attribute (the rendered Next.js Link is an `<a>` with the per-drone URL) and returns it. `handleNext` consults the current step's `nextHref` first when computing the destination URL, then falls back to the next step's static `path`. This is the only path-resolution change needed for dynamic destinations - everything downstream still works because the matcher takes pathPrefix into account.
+
+**Copy update on step 5** (cardLink): "Click any drone to open the Drone Manager. Click Next to jump straight there." Old copy mentioned upgrade/skin/mod actions, which are now the responsibility of the new step.
+
+**Retry-until-found polling on the measure effect.** The drone manager page renders a Skeleton while `/api/drones/[id]` is in flight; only after the fetch resolves do `rightPanel` and `collectibleRow` mount. Rather than guess a longer SETTLE_MS, the measure effect now polls every 250ms for up to 8 retries, stopping as soon as every expected target has resolved. Partial measurements still update rects so the first found target paints immediately - the second one fades in once it mounts. Same retry mechanism is harmless for steps whose targets exist on first paint (the first attempt finds everything, no retries fire).
+
+### Step / selector reference
+
+| # | Path | Targets | Source |
+|---|------|---------|--------|
+| 1 | `/dashboard` | `areaSpotlight` + `areaNextRace` | `app/dashboard/page.jsx:339`, `:754` |
+| 2 | `/dashboard` | `points` | `components/ui/NavShell/index.jsx:89` / `:142` |
+| 3 | `/dashboard` | `countdownBar` | `components/ui/NavShell/index.jsx:369` |
+| 4 | `/races` | `upcomingBanner` -> `topStrip` | `app/races/page.jsx:336` / `:374` |
+| 5 | `/drones` | `fleetRow` | `app/drones/page.jsx:238` |
+| 6 | `/drones` | `cardLink` (+ `nextHref` reads its href) | `app/drones/page.jsx:720` |
+| 7 | `/drones/<id>` | `rightPanel` + `collectibleRow` | `app/drones/[droneId]/page.jsx:1067`, `:778` |
+| 8 | `/marketplace` | `tabs` -> `topRow` | `app/marketplace/page.jsx:894` / `:835` / `:834` |
+| 9 | `/marketplace` | `packsShowcase` -> `topRow` (auto-clicks Packs tab on entry) | `app/marketplace/page.jsx:1956` / `:834` |
+
+### External assumptions verified
+- `app/drones/[droneId]/page.jsx:1067` declares `<Card className={styles.rightPanel}>` containing the Stat Editor. Single instance per page. Confirmed.
+- `app/drones/[droneId]/page.jsx:778` declares `<div className={styles.collectibleRow}>` containing the skin block + mod selectors. Single instance per page. Confirmed.
+- The drones index page renders each drone via `<Link href={`/drones/${drone.id}`} className={styles.cardLink}>` (`app/drones/page.jsx:716-721`). The Link renders as an `<a>` whose `href` attribute is the route destination - readable via `getAttribute('href')` in the DOM. Confirmed.
+- `pathname.startsWith('/drones/')` correctly excludes the bare `/drones` route (no trailing slash) while matching every drone-manager URL. NavShell's existing nav-active logic uses the same pattern (`components/ui/NavShell/index.jsx:69`: `pathname?.startsWith(\`${href}/\`)`), so the My Drones nav link stays highlighted on the drone manager too.
+- Drone manager page mounts a `<Skeleton>` view (`app/drones/[droneId]/page.jsx:172-184`) while `loading || status === 'loading'`. The retry-until-found polling covers this gap without needing a step-specific SETTLE_MS bump.
+
+### Not touched
+Step content for any step other than #5 and the new #6, navigation logic shape, tip placement, programmatic Packs tab activation, all paths and selectors elsewhere. NavShell, marketplace, layout.jsx, dashboard, drones index page, drone manager page, services, route handlers. Per ask.
+
+### Verification
+Not run (Captain verifies). Lint skipped per ask.
+
+---
+
+## 2026-05-09 - Onboarding multi-spotlight fix: SVG mask cutout
+
+**Captain ask:** On the dashboard step (step 1) both the active-drone container and the next-race container had teal borders but their content stayed dimmed - the spotlights weren't lit. Get them visible.
+
+**Branch:** `feature/progressive-disclosure`.
+
+### Root cause
+The dim-the-page-around-the-spotlight effect was implemented per spotlight via `box-shadow: 0 0 0 9999px rgba(0,0,0,0.85)` on each `.spotlight` element. The shadow extends from each element's bounds outward across everything else. Works fine for a single spotlight - the shadow dims everywhere except the one rect. With **two** spotlights (step 1: areaSpotlight + areaNextRace), each spotlight's giant outer shadow covered the **other** spotlight's rect. So both lit areas were re-darkened by their neighbour. The teal border rings stayed visible (they sit on the element's edge, not under its shadow), but the contents underneath were dimmed - which is exactly what Captain saw in the screenshot.
+
+The previous overlap-related fixes were addressing real bugs but not this one; the per-spotlight cutout technique is fundamentally incompatible with multiple simultaneous spotlights.
+
+### Files modified (2)
+
+#### `components/ui/Onboarding/index.jsx`
+- Replaced the per-rect `<div className={styles.spotlight}>` (which carried both the dim and the ring) with two separate concerns:
+  1. **One** `<svg className={styles.maskOverlay}>` element that draws a single full-coverage `rect` filled with `rgba(0,0,0,0.85)` and masked by an SVG `<mask>` containing all of the spotlight cutouts. The mask uses `maskUnits="userSpaceOnUse"` so the cutout rects are interpreted in pixel-space - matching the `getBoundingClientRect()` coordinates the rest of the component uses. The full-coverage rects use `width="100%" height="100%"` so the mask covers the whole overlay regardless of viewport state.
+  2. **N** `<div className={styles.spotlightRing}>` elements, one per spotlight rect, that draw only the teal border + outer glow on top of the masked dim layer.
+- Added `MASK_ID = 'hyperdrome-onboarding-mask'` constant and `SPOTLIGHT_RX = 12` for the cutout corner radius (matches the existing `--radius-lg` rounding the previous `.spotlight` had).
+- Render guard switched to `rects.length > 0 && viewport.w > 0` so the SVG doesn't paint a zero-sized mask on the very first frame after a step change before measure runs.
+
+#### `components/ui/Onboarding/Onboarding.module.css`
+- Removed the old `.spotlight` rule (with its 9999px box-shadow) entirely.
+- Added `.maskOverlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }` for the SVG layer.
+- Added `.spotlightRing` with just the 2px accent border, `var(--radius-lg)` rounding, and the 32px outer teal glow. No spread shadow, no big box-shadow, so multiple rings can coexist without dimming each other.
+- Mobile dock rule unchanged.
+
+### External assumptions verified
+- SVG `<mask>` with `maskUnits="userSpaceOnUse"` is W3C SVG 1.1 / SVG 2 standard and is supported across every major browser (Chrome, Firefox, Safari, Edge). No polyfill needed in Hyperdrome's stack.
+- React JSX renders SVG namespaces correctly for `<svg>`, `<defs>`, `<mask>`, `<rect>` and the camelCase attribute `maskUnits`. The component is `'use client'`, so no SSR rendering concerns - hydration paints the SVG via the same React renderer as in dev. Cross-checked against React 19 docs in `node_modules/react/index.d.ts` (no breakage from the React 18 SVG handling).
+- Without an explicit `viewBox`, the SVG's user coordinate system is 1:1 with the rendered pixel dimensions, so `getBoundingClientRect()` pixel coords on the cutout rects line up with the rendered DOM positions on the page. Tested mentally for step 1 (areaSpotlight at top-left ~80,80 + areaNextRace at top-right ~80, vw-560).
+- `<rect width="100%">` inside a `<mask maskUnits="userSpaceOnUse">` resolves against the SVG's own pixel dimensions, not against the masked element's bounding box, so the full-coverage rects always span the whole overlay.
+
+### Per-step impact
+- **Step 1** (dashboard, two spotlights): both areas now show their content unobstructed. The mask punches both holes in the same dim rect, so neither hole is dimmed by the other.
+- **Steps 2-8** (single spotlight each): identical visual to before - one cutout in the dim rect, ring on top. No regression.
+
+### Not touched
+Step content, navigation logic, tip placement / `computeTipStyle`, programmatic Packs-tab activation, all paths and selectors. NavShell, marketplace, layout.jsx, dashboard, services, route handlers. Per ask.
+
+### Verification
+Not run (Captain verifies). Lint skipped per ask.
+
+---
+
+## 2026-05-09 - Onboarding tip-overlap fix: border-box height + simpler placement
+
+**Captain ask:** The tooltip card keeps covering the spotlighted elements across multiple steps. Rule: pick the side (above / below) with more space, tie -> below, 16px gap, never overlap. If preferred side doesn't fit, switch sides. Don't change step content or navigation behaviour.
+
+**Branch:** `feature/progressive-disclosure`.
+
+### Files modified (1)
+
+#### `components/ui/Onboarding/index.jsx`
+
+**Root cause of the overlap.** The previous build measured the tip via `ResizeObserver` and read `entry.contentRect.height`. `contentRect` is the W3C content box - padding and border excluded. The tip card has `padding: var(--space-5)` on every side (`Onboarding.module.css:39`), so the actual rendered (border-box) height is roughly 48px taller than `contentRect.height`. The placement math used the under-reported height, computed `top = footer.top - tipH - TIP_MARGIN`, and landed the tip's real bottom edge ~48px past the footer's top edge. Same bug penalised every step where the tip was placed against a target with limited space on the chosen side.
+
+**Three changes pin this down:**
+
+1. **`offsetHeight` everywhere.** Both the initial measure and the ongoing `ResizeObserver` callback now read `el.offsetHeight`, which returns the border-box height. The position math no longer under-counts.
+2. **`useLayoutEffect` for the initial measure.** The previous async `useEffect` + `ResizeObserver` ran the first measure callback after a paint, so the very first frame after a step change was painted with the previous step's `tipH` value. `useLayoutEffect` runs after DOM commit but before paint, so the resulting `setTipH` triggers a synchronous re-render with the correct height before the user sees any frame. Deps `[active, step, tipH]`; the inner `h !== tipH` guard prevents loops while still letting subsequent renders converge if the height ever drifts.
+3. **`ResizeObserver` retained for ongoing reflow.** Browser zoom, devtools open, font-loading shifts. Same `offsetHeight` semantics, no `contentRect`.
+
+**Placement rule simplified per Captain spec.** `computeTipStyle` (bottom of file) now reads as the spec requires:
+
+```
+if spaceAbove > spaceBelow: prefer above
+else (tie or spaceBelow >= spaceAbove): prefer below
+if preferred side doesn't fit (spaceX < tipH + TIP_MARGIN): try the other side
+if neither fits: pick the side with more space, clamp to viewport edge
+```
+
+The previous heuristic (`spaceBelow < tipH + margin && spaceAbove > spaceBelow`) was a single-branch hybrid that didn't explicitly switch sides when the preferred side fit poorly. The new code makes the side switch explicit. The place-below branch also clamps `top` against `viewport.h - tipH - TIP_MARGIN`, which the place-above branch already did, so a tall tip can't spill past the bottom of the viewport.
+
+**Per-step verification (1440 / 1024 viewport math, tipH from after-fix offsetHeight):**
+
+- **Step 1** (dashboard top: areaSpotlight + areaNextRace, bbox top~80 bottom~360). spaceAbove=80, spaceBelow=540. spaceBelow > spaceAbove. Prefer below. Tip top = 376. End ~516. Bbox bottom = 360. Gap = 16. No overlap.
+- **Step 2 desktop** (sidebar `.points` near vh-100). spaceAbove=800, spaceBelow=76. Prefer above (more space). Fits above. Tip top = 800 - tipH - 16. End = bbox.top - 16 = 784. Box top=800. Gap = 16. No overlap.
+- **Step 2 mobile** (`mobilePoints` in top bar at y~12-42). Mobile dock CSS pins tip to bottom edge regardless of computed `top/left`. No overlap with top-bar volts.
+- **Step 3** (footer `countdownBar`, fixed at vh-34 to vh). spaceAbove = vh-34, spaceBelow = 0. Prefer above. Fits above. For tipH=280, vh=900: top = 866 - 280 - 16 = 570. End = 850. Footer top = 866. Gap = 16. **This is the case the contentRect bug was breaking; offsetHeight fixes it.**
+- **Step 4** (races banner, scrollIntoView centred). spaceAbove ~= spaceBelow. Tie -> below. Gap = 16.
+- **Step 5** (drones fleetRow, scrollIntoView centred). Same as step 4: tie -> below.
+- **Step 6** (single drone card, scrollIntoView centred). Tie -> below.
+- **Step 7** (marketplace tabs, near top after scrollIntoView). Tie or below has more -> below.
+- **Step 8** (packsShowcase after auto-clicking the Packs tab, centred). Tie -> below.
+
+### External assumptions verified
+- `Element.offsetHeight` returns the border-box height (content + padding + border, margin excluded). MDN-standard semantics, supported in every browser this app targets. Cross-checked against the project's existing usage of `offsetHeight` patterns - same pattern is used elsewhere in the codebase without polyfill.
+- `useLayoutEffect` with state updates runs synchronously before paint in React 19 (verified vs `node_modules/react/index.d.ts` and React docs - this hook's contract is unchanged from React 18). The state update inside fires a synchronous commit-phase re-render before the browser paint, so the corrected `tipH` lands on the first visible frame.
+- The tip's CSS padding remains `var(--space-5)` on all four sides (`components/ui/Onboarding/Onboarding.module.css:39`), so the offsetHeight - contentRect.height delta is exactly `2 * space-5 + 2 * 1px` border = ~50px. Matches the symptoms Captain reported.
+- All step / selector mappings unchanged from the previous log; no targets moved.
+
+### Not touched
+Step content, navigation logic, pendingStep auto-advance, programmatic Packs-tab activation, all step paths and selectors. NavShell, marketplace, layout.jsx, dashboard, all services and route handlers. Per ask.
+
+### Verification
+Not run (Captain verifies). Lint skipped per ask.
+
+---
+
+## 2026-05-09 - Onboarding: auto-nav, multi-spotlight, programmatic Packs activation
+
+**Captain ask:** Fix several issues from testing. (1) Remove all "Go to {page}" intermediate cards; clicking Next on a step that crosses pages should `router.push` immediately and bind the new spotlight after a brief delay. (2) Step 1 spotlights two areas together (active drones + upcoming races) and ensures the dashboard nav stays highlighted. (3) Step 3 footer tip must not cover the footer - position above. (4) Step 4 races spotlight must capture the full top bar without being cut off. (5) Step 5/6 drones - auto-nav from step 4. (6) Step 7 marketplace - auto-nav from step 6. (7) Step 8 packs - programmatically activate the Packs tab if possible, otherwise spotlight the Packs button. Tooltip must never cover the spotlight; flip side based on space.
+
+**Branch:** `feature/progressive-disclosure`.
+
+### Files modified (2)
+
+#### `components/ui/Onboarding/index.jsx`
+Substantial rewrite. The behavioural changes:
+
+- **Auto-navigation on Next.** `handleNext` compares the next step's `path` to the current `pathname`. Same path: advance step in place. Different path: stash the next index in a new `pendingStep` state, fire `router.push(nextDef.path)`, and let a pathname-watching effect commit `setStep(pendingStep)` only once the destination route mounts. This keeps the user on a coherent "current step" view during the navigation gap instead of flashing the next step's copy on the old page.
+- **Removed the off-page nav-hint UI variant entirely.** There is now a single tip card layout (counter + body copy + Skip / Next or Got it). The CSS class `.tipNavHint` was deleted from the module.
+- **Multi-spotlight per step.** Schema changed from `selectors: string[]` to `targets: string[][]`. Each entry in `targets` is itself a priority list (the existing fallback mechanism). The render loop maps over every resolved rect to draw multiple spotlight cutouts. Step 1 uses this to light up `[class*="areaSpotlight"]` and `[class*="areaNextRace"]` together.
+- **`boundingBox(rects)` helper.** When several spotlights are active, the tip is positioned against the smallest enclosing rect of all of them, not just the first - so the card doesn't end up sitting on top of a second spotlight that the first-target placement didn't know about.
+- **Tip height measured at runtime via `ResizeObserver`.** Replaces the `TIP_HEIGHT_EST = 200` constant. The estimate was too low for the multi-line footer copy in step 3, which was the root cause of the "tooltip covers the footer" report. The observer is attached to the tip ref and fires on every step change because step text length varies. Falls back to `TIP_HEIGHT_FALLBACK = 220` for the first paint before the observer fires (one-frame jitter at most).
+- **Programmatic Packs tab activation on step 8.** Marketplace's tab is local React state, no URL param, no exposed ref. Component instead queries `button[role="tab"]` (the desktop tablist; rendered at all viewports though hidden via CSS on mobile), finds the one whose `textContent` is `"Packs"`, and calls `.click()` on it. React's synthetic-event handler picks the native click up and runs `setTab('packs')`, which mounts `.packsShowcase`. The effect schedules a re-measure at `+SETTLE_MS` so the spotlight rebinds to the new content. Idempotent if already on the Packs tab.
+- **`SETTLE_MS = 500`** centralised constant. Was hard-coded `320` in two places before; the longer settle covers App-Router push + destination-page client mount + Drizzle/store hydration without feeling laggy.
+- **Pathname-decoupled measurement.** The measure effects no longer gate on `onCorrectPage`. Targets that don't exist on the current page just resolve to no rect (silent backdrop). This is what lets a NavShell-anchored spotlight (e.g. `countdownBar`) keep its glow during the dashboard → races navigation gap, instead of flashing into a backdrop and back to a spotlight 500ms later.
+- **Step-change rect clear.** A separate effect with `[step]` dep sets `rects = []` on every step change so a stale spotlight from the previous step doesn't sit under the new step's tip text during the settle. Pathname-only changes (manual nav, or the gap before pendingStep commits) deliberately don't clear, for the NavShell-anchor reason above.
+- **Tip placement math** (`computeTipStyle`) takes the measured `tipH` instead of the constant. Place-above branch now also clamps `top` against `viewport.h - tipH - TIP_MARGIN`, so a placement-below decision can't push a tall tip past the bottom of the viewport.
+
+#### `components/ui/Onboarding/Onboarding.module.css`
+- Removed `.tipNavHint` and its `strong` rule. The off-page nav-hint UI variant no longer exists, so the styles were dead.
+- Mobile dock rule (`@media (max-width: 720px)`) unchanged; the single tip layout still bottom-docks on phones.
+
+### Step / selector reference (unchanged from prior log, restated for the new schema)
+
+| # | Path | Targets (each row = one spotlight; commas inside = priority fallback) | Source |
+|---|------|----------------------------------------------------------------------|--------|
+| 1 | `/dashboard` | `[class*="areaSpotlight"]` + `[class*="areaNextRace"]` (two spotlights) | `app/dashboard/page.jsx:339`, `:754` |
+| 2 | `/dashboard` | `[class*="points"]` | `components/ui/NavShell/index.jsx:89` (`.points`) and `:142` (`.mobilePoints`) - findVisibleTarget picks the laid-out variant |
+| 3 | `/dashboard` | `[class*="countdownBar"]` | `components/ui/NavShell/index.jsx:369` |
+| 4 | `/races` | `[class*="upcomingBanner"]`, `[class*="topStrip"]` | `app/races/page.jsx:336` (conditional), `:374` (always) |
+| 5 | `/drones` | `[class*="fleetRow"]` | `app/drones/page.jsx:238` |
+| 6 | `/drones` | `[class*="cardLink"]` | `app/drones/page.jsx:720` |
+| 7 | `/marketplace` | `[class*="tabs"]`, `[class*="topRow"]` | `app/marketplace/page.jsx:894` (`.tabs` desktop) / `:835` (`.tabsDropdown` mobile) / `:834` (parent fallback) |
+| 8 | `/marketplace` | `[class*="packsShowcase"]`, `[class*="topRow"]` | `app/marketplace/page.jsx:1956`, `:834` - Packs tab is auto-clicked at step entry, so packsShowcase is the resolved match in the steady state |
+
+### External assumptions verified
+- `ResizeObserver` is a standard Web API supported across all modern browsers and not gated behind a polyfill in this stack. The component still guards with `typeof ResizeObserver === 'undefined'` for SSR safety.
+- `Element.click()` on a button with a React `onClick` handler triggers the synthetic onClick path. This holds even when the button is hidden via `display: none` (the click event still dispatches; CSS visibility doesn't gate native click APIs). Verified by inspection of marketplace's tab buttons at `app/marketplace/page.jsx:922-930`: the Packs button is always rendered inside `.tabs`, with `role="tab"` and visible text `Packs`.
+- Marketplace `.tabs` element renders all 5 tab buttons unconditionally on every breakpoint (`app/marketplace/page.jsx:894-940`); only the visibility of the parent flips between desktop tablist and mobile dropdown. So `button[role="tab"]` always finds the Packs button regardless of viewport.
+- Next 16 / React 19 hooks (`usePathname`, `useRouter`, `createPortal`, `useRef`) unchanged from prior verification; `node_modules/next/dist/docs/01-app/03-api-reference/04-functions/use-router.md` confirms `router.push(href)` is the App-Router SPA-navigation primitive.
+
+### Behaviour notes
+- **Cross-page Next click.** The user sees the current step's spotlight + tip until the destination route hydrates. `pendingStep` then commits the index change and the step's spotlight rebinds at `+SETTLE_MS`. NavShell-anchored steps (countdownBar) keep their spotlight visually continuous across the navigation; non-NavShell steps render a brief backdrop-only intermediate frame.
+- **Manual navigation mid-tour.** If the user clicks a sidebar link (e.g. Tracks) mid-flow, the spotlight rebinds to whatever subset of the current step's targets exists on the new page (typically just NavShell-anchored ones). Clicking Next from there still uses the auto-nav path: `router.push` to the next step's route, then commit.
+- **Step 8 on mobile.** The desktop `.tabs` element is `display:none` at the mobile breakpoint, but its child buttons remain in the DOM, so the `.click()` still fires `setTab('packs')`. The user then sees a normal Packs view via the marketplace's own mobile layout.
+
+### Not touched
+NavShell, marketplace page (no URL-param shim was added; programmatic click was sufficient), services, route handlers, game engine, validators, NextAuth config, app/layout.jsx (Onboarding mount unchanged at the root layout from the prior change), app/dashboard/page.jsx. Per ask.
+
+### Verification
+Not run (Captain verifies). Lint skipped per ask.
+
+---
+
+## 2026-05-09 - Onboarding rewrite: 8 steps + selector audit
+
+**Captain ask:** Replace the 7-step flow with the 8-step flow specified in the message. Step 1 has no spotlight (full-page welcome). Other steps have new copy and new spotlight targets. Update localStorage to track 8 steps. Verify each selector against the actual class names in current source files. Don't touch game logic, services, or API routes.
+
+**Branch:** `feature/progressive-disclosure`.
+
+### Files modified (1)
+
+#### `components/ui/Onboarding/index.jsx`
+- Rewrote the `STEPS` array end-to-end. Each step now uses `selectors: string[]` (priority list) instead of a single `selector` string. An empty array means "no spotlight, dark backdrop with centred tip" - used by step 1.
+- Added `findVisibleTarget(selectors)` helper. Walks the priority list in order; for each selector iterates `querySelectorAll` and returns the first element whose `getBoundingClientRect()` has non-zero width and height. This handles three cases that a plain `querySelector(...)` would mishandle:
+  1. **Desktop / mobile dual markup:** NavShell renders both the sidebar (with `.points`) and the mobile top bar (with `.mobilePoints`) at all times; whichever is currently `display: none` reports a zero rect and is skipped.
+  2. **Conditionally rendered targets:** the races page `.upcomingBanner` only mounts when the user has matchups, and `.packsShowcase` on marketplace only mounts when the Packs tab is active. Listing a primary selector + a fallback gives a sensible spotlight in either state.
+  3. **Closed dropdowns:** marketplace's mobile `.tabsDropdown` content is collapsed by default; the matching elements inside it report zero rects until opened.
+- Bumped state-machine bounds. `STEPS.length === 8` so the stored step index range is `0..7`. The hydration check uses `parsed < STEPS.length` so it self-adjusts to the new length without requiring a hard-coded max.
+- Updated the spotlight-render guard to also gate on `stepHasSpotlight`. When `selectors` is empty the component skips the rect calculation entirely, leaving a clean dark backdrop with the centred tip.
+- Step copy + targets are taken verbatim from the Captain message.
+
+### Step / selector audit
+
+| # | Path | Selectors (priority) | Source line |
+|---|------|----------------------|-------------|
+| 1 | `/dashboard` | (none - full-page tip) | n/a |
+| 2 | `/dashboard` | `[class*="points"]` | `components/ui/NavShell/index.jsx:89` (`<div className={styles.points}>`) and `:142` (`<span className={styles.mobilePoints}>`) - both names contain "points"; `findVisibleTarget` picks whichever is laid out at the current breakpoint |
+| 3 | `/dashboard` | `[class*="countdownBar"]` | `components/ui/NavShell/index.jsx:369` (`<div className={styles.countdownBar}>`) |
+| 4 | `/races` | `[class*="upcomingBanner"]`, `[class*="topStrip"]` | `app/races/page.jsx:336` (`<div className={styles.upcomingBanner}>`, conditional on having matchups), `:374` (`<div className={styles.topStrip}>`, always present) |
+| 5 | `/drones` | `[class*="fleetRow"]` | `app/drones/page.jsx:238` (`<div className={styles.fleetRow}>`) |
+| 6 | `/drones` | `[class*="cardLink"]` | `app/drones/page.jsx:720` (`<Link className={styles.cardLink}>`) - matches the first drone card via document order |
+| 7 | `/marketplace` | `[class*="tabs"]`, `[class*="topRow"]` | `app/marketplace/page.jsx:894` (`<div className={styles.tabs}>` desktop tablist) and `:835` (`<div className={styles.tabsDropdown}>` mobile collapsed dropdown) - findVisible picks the visible variant; `topRow` at `:834` is the parent fallback |
+| 8 | `/marketplace` | `[class*="packsShowcase"]`, `[class*="topRow"]` | `app/marketplace/page.jsx:1956` (`<div className={styles.packsShowcase}>`, only present when Packs tab is active), `:834` (parent fallback when user hasn't selected the Packs tab yet) |
+
+### External assumptions verified
+- Source-file selectors confirmed by `grep` of the current files at the listed line numbers.
+- NavShell viewport gating confirmed: `components/ui/NavShell/NavShell.module.css:9-21` declares `.sidebar { display: none }` by default and `:508-523` switches to `display: flex` at `min-width: 1024px`. Below 1024px, sidebar children (including `.points`) lay out as zero-rect; above 1024px, mobileBar children (including `.mobilePoints`) lay out as zero-rect. This is exactly what `findVisibleTarget` relies on.
+- Marketplace tab state is local React state (`app/marketplace/page.jsx:286` `useState('drones')`), not URL-driven, so step 8 cannot deep-link to the Packs tab. The `packsShowcase` selector + `topRow` fallback is the cleanest read: spotlight lands on the pack content if the user has already opened that tab, otherwise on the tabs row where they can click Packs.
+- Next 16 / React 19 hooks (`usePathname`, `useRouter`, `createPortal`) unchanged from prior verification.
+
+### Not touched
+NavShell, all page components, services, route handlers, game engine, validators, NextAuth config, layout.jsx (Onboarding mount stays at the root layout from the prior change). Per ask.
+
+### Verification
+Not run (Captain verifies). Lint skipped per ask.
+
+---
+
+## 2026-05-09 - Demo-login redirect + 7-step cross-page onboarding
+
+**Captain ask:** Two changes. (1) Switch the Play Demo redirect from `/drones` to `/dashboard` (don't break other auth flows). (2) Replace today's 4-step dashboard-only onboarding with a 7-step flow that spans Dashboard / Races / Drones / Marketplace, persists across SPA navigations, prompts the user to navigate when on the wrong route, and ends by returning to /dashboard. Mount it from the root layout (or NavShell) so it's available everywhere. Skip lint.
+
+**Branch:** `feature/progressive-disclosure`.
+
+### Files modified (4)
+
+#### `app/api/auth/demo/route.js`
+- Three response payloads inside `POST` flipped from `{ redirectUrl: '/drones' }` to `{ redirectUrl: '/dashboard' }`: the already-claimed-PILOT branch, the conditional-update success branch, and the fresh-create branch. Magic-link flow is unchanged - that redirect target lives in NextAuth config (`lib/auth/index.js`), not this handler.
+
+#### `app/layout.jsx`
+- Imported `Onboarding` from `@/components/ui/Onboarding` and rendered `<Onboarding />` as a sibling of `{children}` inside `<ToastProvider>`. Root layout never unmounts on App-Router navigation, so the overlay survives cross-page transitions and keeps its component state instead of re-bootstrapping from localStorage on every route change.
+
+#### `app/dashboard/page.jsx`
+- Removed the `Onboarding` import and the `<Onboarding />` element from inside `<NavShell>`. Mounting moved up to the root layout so the tour can drive the user through Races / Drones / Marketplace as well.
+
+#### `components/ui/Onboarding/index.jsx`
+- Rewritten for cross-page operation. New shape:
+  - 7 step definitions, each tagged with `path` (route), `label` (human-readable target name), `selector` (CSS-module class fragment), and `text`.
+  - Two localStorage keys: `onboarding_complete` (`'1'` once finished) and `onboarding_step` (current step index `0..6`). The step key is updated on every Next click so a tab close mid-tour resumes at the same step on next visit.
+  - First-mount hydration reads both keys. If complete, render nothing. If a step is stored, resume there. Otherwise auto-trigger only when `pathname === '/dashboard'`. Visits to `/`, `/login`, `/faq`, etc. never spawn the overlay.
+  - `usePathname()` + `useRouter()` from `next/navigation` for route awareness and the "Go to {label}" button. `usePathname` re-renders the component on each SPA nav so the spotlight rebinds automatically when the user lands on the right page.
+  - `onCorrectPage` derived state gates which UI variant renders. On the matching route: spotlight + body copy + Skip / Next. On any other route: dark backdrop + body copy + nav-hint line ("Next step is on Drones") + Skip / Go to {label}. Same tip card chrome in both cases.
+  - `finish()` writes `onboarding_complete = '1'`, removes `onboarding_step`, and unmounts. The final-step "Got it" calls `finish()` then `router.push('/dashboard')` so the user lands back on home.
+  - Spotlight measurement reuses the previous mechanism (substring class match → getBoundingClientRect, 320ms settle, capture-phase scroll + resize listeners). The 350ms first-paint delay still applies after hydration so layouts settle before measuring.
+  - `computeTipStyle` unchanged (above/below pick + horizontal clamp + centred fallback when no rect).
+
+#### `components/ui/Onboarding/Onboarding.module.css`
+- Added `.tipNavHint` for the off-page nav-hint paragraph: monospace-style `--text-xs` body copy with the target label highlighted in `--accent-primary` via the nested `strong`. Negative top margin (`calc(-1 * var(--space-3))`) pulls it close to the body text so the off-page card visual rhythm tracks the on-page card.
+- Mobile dock rule (`max-width: 720px`) unchanged - both UI variants still bottom-dock on phones.
+
+### External assumptions verified
+- Next.js 16.2.3 / React 19.2.4 (`package.json`). `usePathname` and `useRouter` are exported from `next/navigation`; `router.push(href)` performs SPA navigation per `node_modules/next/dist/docs/01-app/03-api-reference/04-functions/use-router.md` and `use-pathname.md`.
+- Root layout in App Router is preserved across route changes (it does not remount on navigation), so a client component mounted there keeps `useState` / portal / localStorage-derived state across pages.
+- `createPortal(node, document.body)` from `react-dom` is supported in React 19.
+- Selectors verified against current source:
+  - `[class*="areaSpotlight"]` → `app/dashboard/page.jsx:340` (`cn(styles.spotlight, styles.areaSpotlight)`).
+  - `[class*="countdownBar"]` → `components/ui/NavShell/index.jsx:369` (`<div className={styles.countdownBar}>`).
+  - `[class*="topStrip"]` → `app/races/page.jsx:374` (`<div className={styles.topStrip}>`).
+  - `[class*="fleetRow"]` → `app/drones/page.jsx:238` (`<div className={styles.fleetRow}>`).
+  - `[class*="kpiRow"]` → `app/drones/page.jsx:780` (drone-card kpi row).
+  - `[class*="topRow"]` → `app/marketplace/page.jsx:834` (`<div className={styles.topRow}>` containing tabs + balance).
+  - `[class*="balance"]` → `app/marketplace/page.jsx:949` (`<div className={styles.balance}>`). `querySelector` returns the parent `balance` first via document-order traversal, so children like `balanceLabel` don't shadow it.
+
+### Not touched
+NavShell, services, route handlers other than the demo redirect, game engine, validators, NextAuth config. Per ask.
+
+### Verification
+Not run (Captain verifies). Lint skipped per ask.
+
+---
+
+## 2026-05-09 - Dashboard first-visit onboarding overlay
+
+**Captain ask:** Build a first-visit onboarding overlay for the dashboard on a 1-hour budget. 4 steps with Next / Skip / Got it. Dark backdrop, teal accent, spotlight effect on a specific area per step. Gate on localStorage key `onboarding_complete`. CSS Modules using globals.css vars. Mobile responsive. Render only on dashboard, render on top of everything. Don't modify other pages / components / services / game logic. Skip lint.
+
+**Branch:** `feature/progressive-disclosure` (cut from main; the main-merge-blocking work-in-progress is preserved on `feature/megaeth-testnet`).
+
+**Files modified (3):**
+
+### `components/ui/Onboarding/index.jsx` (new)
+- Client component, portals into `document.body` for top-of-stack rendering at `z-index: 9999`.
+- 4 step definitions with text + a `[class*="..."]` selector per step. Selectors target existing CSS-module class fragments (`areaSpotlight`, `countdownBar`, `feedSeeAll`, `areaQuickStats`) so NavShell and other unrelated components stay untouched.
+- First-mount effect reads `localStorage.onboarding_complete`; if absent, activates the overlay after a 350ms settle so the dashboard mounts and lays out before measurement.
+- Per-step effect: `scrollIntoView({block:'center'})` on the target, then `getBoundingClientRect()` after a 320ms settle. `resize` and capture-phase `scroll` listeners re-measure so the spotlight tracks layout shifts.
+- `computeTipStyle` decides above-vs-below placement based on remaining viewport space and clamps horizontally to keep the card on-screen. When no target is found (e.g. selector mismatch on a future layout) the tip falls back to centred.
+- Skip and Got-it both call `finish()` which writes `'1'` to localStorage and unmounts the overlay; Next advances `step` until the final index.
+
+### `components/ui/Onboarding/Onboarding.module.css` (new)
+- Spotlight effect via `box-shadow: 0 0 0 9999px rgba(0,0,0,0.85)` cutout plus `2px var(--accent-primary)` ring and a teal outer glow. Position transitions on top/left/width/height for smooth step movement.
+- Tip uses `var(--bg-elevated)` background, `var(--accent-primary)` border, `var(--shadow-elevated)` + `var(--glow-teal)` shadow stack, monospace step counter, and Rajdhani uppercase buttons matching the rest of the app.
+- `@media (max-width: 720px)` docks the tip to the bottom edge with `!important` overrides on the JS-set `top/left/width` so phones get a stable readable layout regardless of where the spotlight sits.
+
+### `app/dashboard/page.jsx`
+- Imported `Onboarding` from `@/components/ui/Onboarding`.
+- Rendered `<Onboarding />` as the first child inside `<NavShell>`, before `.page`. Component portals to `document.body` so DOM placement is incidental, but keeping it scoped to the dashboard route means it only ever mounts on `/dashboard`.
+
+**External assumptions verified:**
+- Next 16.2.3 + React 19.2.4 (per `package.json`) - both fully support `createPortal` from `react-dom`, `useEffect`, `useState`, `useCallback`, and `'use client'` directive on a leaf component.
+- CSS variable names checked against `app/globals.css`: `--bg-elevated`, `--accent-primary`, `--text-primary`, `--text-secondary`, `--border-subtle`, `--shadow-elevated`, `--glow-teal`, `--radius-lg`, `--radius-md`, `--space-2/3/4/5`, `--font-heading/body/mono`, `--text-xs/sm`, `--duration-fast/normal`, `--ease-out` - all present.
+- Selectors verified against current source: `app/dashboard/page.jsx` uses `styles.areaSpotlight`, `styles.feedSeeAll`, `styles.areaQuickStats`; `components/ui/NavShell/index.jsx` uses `styles.countdownBar`. CSS-modules hashes preserve the original class as a substring, so `[class*="..."]` matches.
+
+**Not touched:** `components/ui/NavShell/*`, all other components, services, game logic, lint configs. Per ask.
+
+**Verification:** Not run (Captain verifies). Lint skipped per ask.
+
+---
+
 ## 2026-05-04 - Marketplace fee 5% → 10%
 
 **Captain ask:** Bump the marketplace platform fee from 5% to 10%. Seller now receives 90% (was 95%). Search "rake / fee / 0.05 / marketplace" for all references. Don't touch guide / FAQ (handled separately). Don't touch other service or game-engine files. Skip lint.
