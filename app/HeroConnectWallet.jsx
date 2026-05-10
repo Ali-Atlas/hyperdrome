@@ -5,6 +5,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useSession } from '@/hooks/useSession';
+import {
+  wasWalletAuthed,
+  markWalletAuthed,
+} from '@/lib/wallet-auth-cache';
 import styles from './HeroConnectWallet.module.css';
 
 // Module-scope guard mirroring NavShell's HeaderConnectWallet. Prevents
@@ -61,6 +65,14 @@ export default function HeroConnectWallet() {
       if (pathname !== target) router.push(target);
       return;
     }
+    // Persistent tab-lifetime cache: this address has already authed
+    // successfully in this tab (via this component or
+    // HeaderConnectWallet). Skip the POST.
+    if (wasWalletAuthed(lowerAddress)) {
+      const target = '/dashboard';
+      if (pathname !== target) router.push(target);
+      return;
+    }
     if (WALLET_AUTH_IN_FLIGHT.has(lowerAddress)) return;
     WALLET_AUTH_IN_FLIGHT.add(lowerAddress);
     setLoading(true);
@@ -76,6 +88,7 @@ export default function HeroConnectWallet() {
         setError(data.error || 'Could not sign in with wallet. Try again.');
         return;
       }
+      markWalletAuthed(lowerAddress);
       // Force next-auth to re-fetch /api/auth/session so the local
       // SessionProvider state picks up the new JWT cookie before we
       // navigate. Without this the destination page mounts under a

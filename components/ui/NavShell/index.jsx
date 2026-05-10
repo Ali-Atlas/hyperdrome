@@ -22,6 +22,11 @@ import VoltIcon from '@/components/ui/VoltIcon';
 import { useUpcomingRaces } from '@/lib/upcoming-races-store';
 import { useAccount, useDisconnect } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
+import {
+  wasWalletAuthed,
+  markWalletAuthed,
+  clearWalletAuthCache,
+} from '@/lib/wallet-auth-cache';
 import styles from './NavShell.module.css';
 
 const NAV_LINKS = [
@@ -154,6 +159,10 @@ function HeaderConnectWallet() {
     // session.user.walletAddress, this comparison passes, and the
     // effect short-circuits on every subsequent render / navigation.
     if (user?.walletAddress === lowerAddress) return;
+    // Persistent tab-lifetime cache: this address has already authed
+    // successfully in this tab (via this component or HeroConnectWallet).
+    // Skip even if `useSession` hasn't yet picked up the cookie.
+    if (wasWalletAuthed(lowerAddress)) return;
     // A sibling NavShell instance (desktop vs mobile) is already POSTing
     // for this address. Skip rather than racing the server-side signIn.
     if (WALLET_AUTH_IN_FLIGHT.has(lowerAddress)) return;
@@ -173,15 +182,17 @@ function HeaderConnectWallet() {
           console.error('[wallet] sign-in failed:', data?.error);
           return;
         }
+        // Mark BEFORE the await so a remount triggered by router.push
+        // sees the cache hit on its first effect run (the await update()
+        // below isn't durable enough on its own - it propagates after
+        // the next render).
+        markWalletAuthed(lowerAddress);
         if (cancelled) return;
         // Force next-auth to re-fetch /api/auth/session so the local
         // SessionProvider state picks up the new JWT cookie. Without
         // this the UI sticks on "Signing in..." until the user
         // manually refreshes - useSession's lazy-poll won't refetch
-        // for a while otherwise. Awaiting before the navigation guards
-        // against a follow-up render/remount firing another POST
-        // (the session-match check above only works after the local
-        // session state has the new walletAddress).
+        // for a while otherwise.
         await update();
         if (cancelled) return;
         const target = data.redirectUrl || '/dashboard';
@@ -243,6 +254,10 @@ export default function NavShell({ children }) {
   // and re-auth into the same session). For demo users it's a no-op
   // since useDisconnect on a non-connected state does nothing.
   const onSignOut = () => {
+    // Clear the persistent auth cache so a sign-out -> reconnect-same
+    // -wallet flow can re-auth. Without this the user would be stuck
+    // unable to sign back in until they hard-reload the tab.
+    clearWalletAuthCache();
     if (walletConnected) disconnect();
     signOut({ redirectTo: '/' });
   };
