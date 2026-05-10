@@ -55,17 +55,35 @@ const BOUND_ADDRESSES = new Set();
 // so a sign-out -> reconnect-same-wallet flow isn't permanently blocked.
 const WALLET_AUTH_IN_FLIGHT = new Set();
 
+const EXPLORER_BASE = 'https://megaeth-testnet-v2.blockscout.com';
+
 /**
- * Wallet connect / disconnect button. Only renders for authenticated users
- * since the bind API requires a session. On connect, fires a fire-and-forget
- * POST to /api/user/wallet so the address is persisted against the user
- * record (server-side write is idempotent on the same address).
+ * Wallet connect button + connected-state dropdown. Only renders for
+ * authenticated users since the bind API requires a session. On connect,
+ * fires a fire-and-forget POST to /api/user/wallet so the address is
+ * persisted against the user record (server-side write is idempotent on
+ * the same address).
+ *
+ * Connected state opens a dropdown with three actions:
+ *   - View on Explorer: opens BlockScout in a new tab.
+ *   - Copy Address: writes the full address to clipboard, briefly swaps
+ *     the button label to "Copied!" as feedback.
+ *   - Disconnect: confirms, then calls `onSignOut` (lifted from
+ *     NavShell) which both disconnects the wallet AND clears the
+ *     NextAuth session, redirecting to '/'.
+ *
+ * `onSignOut` is passed down rather than re-implemented here so the
+ * dropdown's disconnect path is identical to the sidebar Sign Out button -
+ * one source of truth for wallet-cache clearing + wallet disconnect +
+ * session sign-out + redirect.
  */
-function WalletButton() {
+function WalletButton({ onSignOut }) {
   const { user } = useSession();
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
-  const { disconnect } = useDisconnect();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const wrapRef = useRef(null);
 
   useEffect(() => {
     if (!user || !isConnected || !address) return;
@@ -85,6 +103,30 @@ function WalletButton() {
     });
   }, [user, isConnected, address]);
 
+  // Outside-click close. Only attaches the document listener while the
+  // menu is open so we're not paying for a global mousedown handler on
+  // every NavShell instance for the entire session.
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [menuOpen]);
+
+  // External disconnect (e.g. user revokes the site in MetaMask) should
+  // collapse the menu - otherwise it'd hang open over a "Connect Wallet"
+  // button that no longer matches its state.
+  useEffect(() => {
+    if (!isConnected) {
+      setMenuOpen(false);
+      setCopied(false);
+    }
+  }, [isConnected]);
+
   if (!user) return null;
 
   if (!isConnected) {
@@ -100,15 +142,74 @@ function WalletButton() {
   }
 
   const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+  function handleViewExplorer() {
+    setMenuOpen(false);
+    window.open(
+      `${EXPLORER_BASE}/address/${address}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
+  }
+
+  async function handleCopyAddress() {
+    setMenuOpen(false);
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error('[wallet] clipboard write failed:', err);
+    }
+  }
+
+  function handleDisconnect() {
+    setMenuOpen(false);
+    if (window.confirm('Disconnect wallet and sign out?')) {
+      onSignOut();
+    }
+  }
+
   return (
-    <button
-      type="button"
-      className={`${styles.walletBtn} ${styles.walletBtnConnected}`}
-      onClick={() => disconnect()}
-      title="Click to disconnect"
-    >
-      {truncated}
-    </button>
+    <div className={styles.walletBtnWrap} ref={wrapRef}>
+      <button
+        type="button"
+        className={`${styles.walletBtn} ${styles.walletBtnConnected}`}
+        onClick={() => setMenuOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+      >
+        {copied ? 'Copied!' : truncated}
+      </button>
+      {menuOpen && (
+        <div className={styles.walletMenu} role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.walletMenuItem}
+            onClick={handleViewExplorer}
+          >
+            View on Explorer
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.walletMenuItem}
+            onClick={handleCopyAddress}
+          >
+            Copy Address
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={`${styles.walletMenuItem} ${styles.walletMenuItemDanger}`}
+            onClick={handleDisconnect}
+          >
+            Disconnect
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -296,7 +397,7 @@ export default function NavShell({ children }) {
             <VoltIcon size={14} style={{ marginRight: 4 }} />
             {displayBalance.toLocaleString()}
           </div>
-          <WalletButton />
+          <WalletButton onSignOut={onSignOut} />
         </div>
         <button
           type="button"
@@ -348,7 +449,7 @@ export default function NavShell({ children }) {
               <VoltIcon size={13} style={{ marginRight: 4 }} />
               {displayBalance.toLocaleString()}
             </span>
-            <WalletButton />
+            <WalletButton onSignOut={onSignOut} />
           </div>
         ) : (
           <div className={styles.mobileUser}>

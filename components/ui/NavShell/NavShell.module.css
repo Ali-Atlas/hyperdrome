@@ -263,6 +263,73 @@
   letter-spacing: 0.02em;
 }
 
+/* Wallet menu (connected-state dropdown). The wrap is the click-anchor:
+   `position: relative` so the absolute-positioned `.walletMenu` floats
+   directly below the address button. inline-flex keeps the wrap from
+   stretching the parent `.pointsRow` / `.mobileUser` flex row. */
+.walletBtnWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Dropdown panel. Sits below the trigger (top: 100% + 6px gap) and
+   right-aligned so it never overflows the right edge of the sidebar /
+   mobile top bar. z-index 30 clears the mobile-bar (10), the drawer
+   overlay (20), and the countdown bar (9). Elevated bg + teal border
+   matches the in-game card aesthetic; the heavy box-shadow lifts it
+   above whatever sits beneath in either context. */
+.walletMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 168px;
+  padding: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+}
+
+.walletMenuItem {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  letter-spacing: 0.04em;
+  text-align: left;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.walletMenuItem:hover {
+  background: rgba(3, 218, 198, 0.12);
+  color: var(--accent-primary);
+}
+
+.walletMenuItem:focus-visible {
+  outline: 1px solid var(--accent-primary);
+  outline-offset: -1px;
+}
+
+/* Disconnect row uses the error accent on hover so the destructive
+   action reads visually distinct from the two read-only items. */
+.walletMenuItemDanger:hover {
+  background: rgba(207, 102, 121, 0.14);
+  color: var(--accent-error);
+}
+
 
 /* ---- Mobile top bar ---- */
 

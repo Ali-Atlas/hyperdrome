@@ -6718,3 +6718,35 @@ Captain flagged (again) that the in-game Connect Wallet / wallet-address chip in
 - `components/ui/NavShell/NavShell.module.css` — `.walletBtn` rewritten to use the hero pill aesthetic: padding `8px 18px`, `rgba(0,0,0,0.55)` translucent dark backing + `backdrop-filter: blur(8px)`, teal border + teal text, `var(--text-xs)` font, `font-bold` uppercase with `0.08em` tracking, `var(--radius-sm)` corners, hover lifts to `rgba(3,218,198,0.15)` background + `0 0 14px rgba(3,218,198,0.25)` glow, plus a `:focus-visible` ring. `.walletBtnConnected` keeps the new pill base and only overrides font-family to mono with sentence-case + tighter tracking so the truncated hex address stays legible (the pre-existing `color`/`border-color` overrides were redundant now that the base is already teal — removed).
 
 **Untouched:** the unauthenticated `.connectWallet` style (already matched the hero pattern, used by `HeaderConnectWallet`), the hero `.button` itself, and the JS in `NavShell/index.jsx` (no markup or class changes needed — `WalletButton` already applies `.walletBtn` and `.walletBtnConnected`).
+
+---
+
+## 2026-05-10 — Wallet address chip → dropdown menu (View on Explorer / Copy Address / Disconnect)
+
+Captain reported that clicking the wallet-address chip in NavShell instantly disconnected the wallet with no confirmation. Replaced the click-to-disconnect with a click-to-open dropdown menu.
+
+**Files modified (2):**
+
+- `components/ui/NavShell/index.jsx` — `WalletButton`
+  - Removed the direct `disconnect()` onClick. Removed the `useDisconnect` hook from this component (still used by the parent NavShell for `onSignOut`).
+  - Added `onSignOut` prop. The dropdown's Disconnect path delegates to the existing `onSignOut` lifted from NavShell (clearWalletAuthCache → wagmi disconnect → next-auth signOut → redirect to '/'). Single source of truth — same code path as the sidebar Sign Out button.
+  - Added module-scope `EXPLORER_BASE = 'https://megaeth-testnet-v2.blockscout.com'` (same value already hardcoded in 5 other places — kept inline rather than introducing a new shared constant module since this is just a UI link, not a config value).
+  - State: `menuOpen`, `copied`. `wrapRef` for the outside-click container.
+  - useEffect 1 (existing): bind wallet to user record on connect.
+  - useEffect 2 (new): outside-click close. Listener attached to `document` only while `menuOpen` is true so we don't pay for a global mousedown handler in every NavShell instance permanently.
+  - useEffect 3 (new): close menu / clear copied state when `isConnected` flips false (handles the "user revoked the site in MetaMask" case so the menu doesn't hang open over the now-unauth Connect Wallet button).
+  - Three menu items: View on Explorer (`window.open(...,'_blank','noopener,noreferrer')`), Copy Address (`navigator.clipboard.writeText` + 1.5s "Copied!" feedback in the trigger button label), Disconnect (`window.confirm('Disconnect wallet and sign out?')` then `onSignOut()`).
+  - Trigger button now toggles `menuOpen` instead of disconnecting. `aria-haspopup="menu"` + `aria-expanded` for accessibility. Items are `<button role="menuitem">` so keyboard users get tab navigation for free.
+  - Both `<WalletButton />` invocations in NavShell (desktop sidebar `renderUserArea` and mobile top bar) now receive `onSignOut={onSignOut}`.
+
+- `components/ui/NavShell/NavShell.module.css`
+  - `.walletBtnWrap` — `position: relative; display: inline-flex` so the dropdown anchors to the trigger without stretching the parent flex row.
+  - `.walletMenu` — `position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; background: var(--bg-elevated); border: 1px solid var(--accent-primary); border-radius: var(--radius-sm); box-shadow: 0 10px 28px rgba(0,0,0,0.55); min-width: 168px`. z-index 30 clears mobileBar (10), drawer overlay (20), and countdownBar (9). Right-aligned so it never overflows the right edge of either container.
+  - `.walletMenuItem` — `var(--text-xs)`, `var(--font-body)`, `var(--text-primary)`, left-aligned, hover lifts to `rgba(3,218,198,0.12)` background + teal text. `:focus-visible` outline for keyboard nav.
+  - `.walletMenuItemDanger:hover` — uses `rgba(207,102,121,0.14)` (the `--accent-error` rgb) + `var(--accent-error)` text so Disconnect reads visually distinct from the two read-only items.
+
+**Confirmed:** Disconnect goes through the existing `onSignOut` flow — both wallet AND session are cleared, redirect to `/` happens via `signOut({ redirectTo: '/' })`. No new sign-out path introduced.
+
+**Why dropdown opens downward in both contexts:** Captain's brief specified "positioned below". On desktop sidebar footer the dropdown floats over the Sign Out button below it (acceptable popover behavior); on mobile top bar it drops into the page area beneath. No flip-up logic — kept simple.
+
+**Untouched:** `HeaderConnectWallet` (unauthenticated path, no menu needed), the bind-wallet effect, the `BOUND_ADDRESSES` cache, and the parent NavShell's `onSignOut` definition.
