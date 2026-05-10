@@ -13,6 +13,7 @@ import Skeleton from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
+import { useVoltBalance } from '@/hooks/useVoltBalance';
 import {
   cn,
   getLevelColor,
@@ -316,12 +317,12 @@ export default function MarketplacePage() {
   // Mobile filter aside is collapsed by default. Desktop CSS hides the
   // toggle button and forces the inner to render regardless of this flag.
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // Local override for the user's volts balance. NextAuth's session.user.points
-  // is stale until the JWT refreshes; we shadow it with the post-purchase
-  // balance returned by every buy route (pack open, capsule open, listing
-  // buy) so the displayed balance updates immediately after any purchase
-  // without a hard reload. Falls back to user.points when null.
-  const [pointsOverride, setPointsOverride] = useState(null);
+  // VOLT balance comes from the shared `useVoltBalance` hook so it
+  // matches NavShell, the stat editor, and the drone manager exactly.
+  // The hook listens on `volts:update` (which every buy handler below
+  // already dispatches), polls `/api/volt/balance` for wallet-connected
+  // users, and falls back to `user.points` for demo accounts.
+  const userPoints = useVoltBalance();
   const [listings, setListings] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [salesPage, setSalesPage] = useState(1);
@@ -595,7 +596,8 @@ export default function MarketplacePage() {
       // marketplace's volts display updates immediately, AND fire the
       // volts:update event so the NavShell's balance updates too.
       if (typeof body.data?.balance === 'number') {
-        setPointsOverride(body.data.balance);
+        // useVoltBalance() in this component AND in NavShell both
+        // listen on this event - one dispatch updates every consumer.
         window.dispatchEvent(
           new CustomEvent('volts:update', {
             detail: { balance: body.data.balance },
@@ -708,7 +710,6 @@ export default function MarketplacePage() {
   const fee = listingPrice ? Math.floor(Number(listingPrice) * 0.10) : 0;
   const payout = listingPrice ? Number(listingPrice) - fee : 0;
 
-  const userPoints = pointsOverride ?? user?.points ?? 0;
 
   // Pack flow handlers. ONE modal stays mounted from open → confirm →
   // ready → opened → close; only the inner content re-renders. State
@@ -754,7 +755,8 @@ export default function MarketplacePage() {
       }
       const awarded = body.data?.awarded ?? [];
       if (typeof body.data?.balance === 'number') {
-        setPointsOverride(body.data.balance);
+        // useVoltBalance() in this component AND in NavShell both
+        // listen on this event - one dispatch updates every consumer.
         window.dispatchEvent(
           new CustomEvent('volts:update', {
             detail: { balance: body.data.balance },
@@ -790,7 +792,8 @@ export default function MarketplacePage() {
       }
       const awarded = body.data?.awarded ?? [];
       if (typeof body.data?.balance === 'number') {
-        setPointsOverride(body.data.balance);
+        // useVoltBalance() in this component AND in NavShell both
+        // listen on this event - one dispatch updates every consumer.
         window.dispatchEvent(
           new CustomEvent('volts:update', {
             detail: { balance: body.data.balance },

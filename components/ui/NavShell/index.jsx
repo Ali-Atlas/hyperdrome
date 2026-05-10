@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
+import { useVoltBalance } from '@/hooks/useVoltBalance';
 import VoltIcon from '@/components/ui/VoltIcon';
 import { useUpcomingRaces } from '@/lib/upcoming-races-store';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -262,84 +263,11 @@ export default function NavShell({ children }) {
     signOut({ redirectTo: '/' });
   };
 
-  // NextAuth's session.user.points is stale until the JWT refreshes, which
-  // doesn't happen after a purchase. We listen on a global `volts:update`
-  // CustomEvent that purchase handlers (marketplace buy / pack open /
-  // capsule open / NPC drone create) dispatch with the post-mutation
-  // balance returned by the server. Once an event has fired we treat the
-  // override as the source of truth so subsequent stale session reads
-  // can't undo it within this NavShell mount.
-  const [balanceOverride, setBalanceOverride] = useState(null);
-  useEffect(() => {
-    const handler = (e) => {
-      const next = e?.detail?.balance;
-      if (typeof next === 'number') setBalanceOverride(next);
-    };
-    window.addEventListener('volts:update', handler);
-    return () => window.removeEventListener('volts:update', handler);
-  }, []);
-  const dbBalance = user?.points ?? 0;
-
-  // On-chain VOLT for wallet-connected users. When connected, replace the
-  // DB volt display with the on-chain ERC-20 balance (server-cached 30s
-  // via /api/volt/balance). Falls back to dbBalance when no wallet is
-  // linked, the fetch fails, or the user disconnects.
-  //
-  // The API returns `hasWallet: false` when the authenticated user has no
-  // walletAddress row yet (transient state right after RainbowKit connects
-  // but before /api/user/wallet POST commits). In that case we keep
-  // onchainVolts null so the dbBalance fallback wins instead of briefly
-  // overwriting the user's display with a soft "0" reading.
-  //
-  // Polls every 30s to match the server cache TTL - no point reading more
-  // often than the upstream refreshes. `walletConnected` is hoisted up top
-  // alongside `disconnect` so the sign-out handler can also drop the wallet.
-  const [onchainVolts, setOnchainVolts] = useState(null);
-  useEffect(() => {
-    if (!user || !walletConnected || !walletAddress) {
-      setOnchainVolts(null);
-      return;
-    }
-    let cancelled = false;
-    const url = `/api/volt/balance?address=${encodeURIComponent(walletAddress)}`;
-    const fetchBalance = async () => {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) {
-          if (!cancelled) setOnchainVolts(null);
-          return;
-        }
-        const body = await res.json();
-        const data = body?.data;
-        if (!data || data.hasWallet === false) {
-          if (!cancelled) setOnchainVolts(null);
-          return;
-        }
-        const formatted = data.formatted;
-        if (formatted == null) return;
-        const asFloat = Number.parseFloat(formatted);
-        if (!cancelled && Number.isFinite(asFloat)) {
-          setOnchainVolts(Math.floor(asFloat));
-        }
-      } catch {
-        if (!cancelled) setOnchainVolts(null);
-      }
-    };
-    fetchBalance();
-    const id = setInterval(fetchBalance, 30_000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [user, walletConnected, walletAddress]);
-
-  // Override priority: a recent `volts:update` event (purchase, pack
-  // open, stat allocate) wins over both the on-chain poll AND the JWT
-  // points mirror so the user sees the just-paid amount immediately
-  // even while the on-chain balance is still cached. The on-chain poll
-  // catches up on its next tick (30s), but until then the override is
-  // the freshest signal.
-  const displayBalance = balanceOverride ?? onchainVolts ?? dbBalance;
+  // Single source of truth for VOLT across NavShell and every other
+  // consumer (stat editor, marketplace, drone manager). Resolves
+  // `volts:update` override > on-chain poll > JWT mirror in that order;
+  // see hooks/useVoltBalance for the full contract.
+  const displayBalance = useVoltBalance();
 
   const renderLinks = () =>
     NAV_LINKS.map(({ href, label, Icon }) => {

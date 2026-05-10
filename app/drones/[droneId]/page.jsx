@@ -33,6 +33,7 @@ import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
+import { useVoltBalance } from '@/hooks/useVoltBalance';
 import {
   clearPendingToggle,
   getPendingToggle,
@@ -274,7 +275,10 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   // Upgrades are paid from the player's single shared wallet. What's
   // available to spend right now is the user's balance minus any pending
   // staged changes; the drone-level "unspentPoints" column is deprecated.
-  const playerPoints = user?.points ?? 0;
+  // useVoltBalance gives the same value NavShell shows AND auto-updates
+  // when a `volts:update` event fires (e.g. immediately after this same
+  // editor's save() commits) - no manual page refresh needed.
+  const playerPoints = useVoltBalance();
   const availablePoints = playerPoints - totalCost;
   const hasChanges = totalCost > 0;
 

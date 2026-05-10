@@ -11,6 +11,7 @@ import Button from '@/components/ui/Button';
 import VoltIcon from '@/components/ui/VoltIcon';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
+import { useVoltBalance } from '@/hooks/useVoltBalance';
 import {
   cn,
   getLevelColor,
@@ -62,6 +63,10 @@ function winRate(d) {
 
 export default function DronesPage() {
   const session = useSession();
+  // VOLT balance shared with NavShell, marketplace, and the stat
+  // editor; updates immediately on `volts:update` events without a
+  // page refresh.
+  const userVolts = useVoltBalance();
   const { showToast } = useToast();
   const [drones, setDrones] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -269,7 +274,7 @@ export default function DronesPage() {
           onPurchase={handlePurchase}
           pending={vendorPending}
           error={vendorError}
-          userPoints={session.user?.points ?? 0}
+          userPoints={userVolts}
           totalRaces={session.user?.totalRaces ?? 0}
         />
       </div>
