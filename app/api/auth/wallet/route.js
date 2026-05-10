@@ -22,7 +22,13 @@ const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 const HYPERDROME_DRONE_ABI = [
   'function mint(address to, uint256 tokenId) external',
+  'function ownerOf(uint256 tokenId) view returns (address)',
 ];
+
+// Hard cap on the upward probe. 10k is comfortably above any realistic
+// on-chain supply for a single batch script and keeps a corrupt RPC from
+// burning unbounded calls. Mirrors `scripts/batch-mint-drones.js` PROBE_MAX.
+const PROBE_MAX = 10_000;
 
 const bodySchema = z.object({
   walletAddress: z
@@ -79,27 +85,58 @@ function readMintEnv() {
     process.env.NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS ??
     process.env.DRONE_CONTRACT_ADDRESS;
   const rpcUrl = process.env.MEGAETH_RPC_URL;
-  if (!privateKey || !contractAddress || !rpcUrl) return { ok: false };
+  const missing = [];
+  if (!privateKey) missing.push('DEPLOYER_PRIVATE_KEY');
+  if (!contractAddress) missing.push('NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS');
+  if (!rpcUrl) missing.push('MEGAETH_RPC_URL');
+  if (missing.length) return { ok: false, missing };
   return { ok: true, privateKey, contractAddress, rpcUrl };
 }
 
 /**
+ * ERC-721 `ownerOf` reverts on a non-existent tokenId. Collapse the throw
+ * to `false` so the probe loop reads "is this id taken?" cleanly. Mirrors
+ * `scripts/batch-mint-drones.js` `tokenExists`.
+ */
+async function tokenExists(contract, tokenId) {
+  try {
+    await contract.ownerOf(tokenId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Mint a freshly created drone to the player's wallet on MegaETH testnet v2.
- * Mirrors `app/api/drones/[droneId]/mint` minus the auth checks: that route
- * verifies session + ownership before firing, but here we already own the
- * drone we just created. Returns null when env is missing or the mint
- * fails - the caller keeps the DB drone unminted and surfaces the failure.
+ *
+ * Probe pattern: the DB's `MAX(tokenId) + 1` is just a starting hint. The
+ * contract's on-chain supply may already be ahead of the DB (this exact
+ * route is the cause - earlier sign-ups minted on-chain but a follow-up
+ * write or a different DB instance left the row without a tokenId). Walk
+ * upward via `ownerOf` until we find the first unused slot, then mint
+ * there. Without this probe a fresh wallet sign-up always tried tokenId=1
+ * on a contract whose supply was already at N, so every sign-up reverted
+ * with "ERC721 token already minted".
+ *
+ * Returns null when env is missing or the mint fails - the caller keeps
+ * the DB drone unminted and the user can re-mint via the drone manager.
  *
  * @returns {Promise<null | { tokenId: number, txHash: string }>}
  */
 async function mintStarterDroneNft(walletAddress) {
   const env = readMintEnv();
-  if (!env.ok) return null;
+  if (!env.ok) {
+    console.warn(
+      `[auth/wallet] starter drone mint skipped - missing env: ${env.missing.join(', ')}`,
+    );
+    return null;
+  }
 
   const [agg] = await db
     .select({ maxId: sql`COALESCE(MAX(${drones.tokenId}), 0)` })
     .from(drones);
-  const nextTokenId = Number(agg?.maxId ?? 0) + 1;
+  const dbStart = Number(agg?.maxId ?? 0) + 1;
 
   const provider = new ethers.JsonRpcProvider(env.rpcUrl);
   const wallet = new ethers.Wallet(env.privateKey, provider);
@@ -109,10 +146,27 @@ async function mintStarterDroneNft(walletAddress) {
     wallet,
   );
 
-  const tx = await contract.mint(walletAddress, nextTokenId);
+  let tokenId = dbStart;
+  let probed = 0;
+  while (await tokenExists(contract, tokenId)) {
+    tokenId += 1;
+    probed += 1;
+    if (probed > PROBE_MAX) {
+      throw new Error(
+        `tokenId probe overran ${PROBE_MAX} above DB max ${dbStart - 1}; aborting`,
+      );
+    }
+  }
+  if (probed > 0) {
+    console.log(
+      `[auth/wallet] tokenId probe found ${probed} on-chain orphans above DB max; minting at tokenId=${tokenId}`,
+    );
+  }
+
+  const tx = await contract.mint(walletAddress, tokenId);
   const receipt = await tx.wait();
   const txHash = receipt?.hash ?? tx.hash;
-  return { tokenId: nextTokenId, txHash };
+  return { tokenId, txHash };
 }
 
 /**
@@ -345,12 +399,20 @@ export async function POST(request) {
             mintedAt: new Date(),
           })
           .where(eq(drones.id, drone.id));
+        console.log(
+          `[auth/wallet] starter drone mint ok - droneId=${drone.id} tokenId=${mint.tokenId} tx=${mint.txHash} wallet=${stored}`,
+        );
+      } else {
+        console.warn(
+          `[auth/wallet] starter drone mint returned null - droneId=${drone.id} wallet=${stored} (env or pre-flight failure)`,
+        );
       }
     } catch (err) {
       console.error('[auth/wallet] starter drone mint failed:', {
         droneId: drone.id,
         wallet: stored,
-        err,
+        reason: err?.shortMessage ?? err?.message ?? 'unknown',
+        code: err?.code,
       });
     }
   }
@@ -362,10 +424,20 @@ export async function POST(request) {
   try {
     const result = await mintVoltToWallet(checksummed, STARTER_VOLTS);
     voltMintTxHash = result?.txHash ?? null;
+    if (result?.txHash) {
+      console.log(
+        `[auth/wallet] starter VOLT mint ok - amount=${STARTER_VOLTS} tx=${result.txHash} wallet=${stored}`,
+      );
+    } else {
+      console.warn(
+        `[auth/wallet] starter VOLT mint returned null - wallet=${stored} (likely missing DEPLOYER_PRIVATE_KEY / MEGAETH_RPC_URL / VOLT_CONTRACT_ADDRESS)`,
+      );
+    }
   } catch (err) {
     console.error('[auth/wallet] starter VOLT mint failed:', {
       wallet: stored,
-      err,
+      reason: err?.shortMessage ?? err?.message ?? 'unknown',
+      code: err?.code,
     });
   }
 
