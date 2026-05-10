@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { ethers, getAddress } from 'ethers';
 import { db, schema } from '@/lib/db';
 import {
@@ -13,6 +13,7 @@ import { buildLowRangeStats } from '@/lib/game-engine/drone-spawn.js';
 import { generateUniqueDroneName } from '@/lib/game-engine/drone-names.js';
 import { mintVoltToWallet } from '@/lib/onchain/volt.js';
 import { sendStarterGas } from '@/lib/onchain/gas.js';
+import { claimNextTokenId, bumpAndClaim } from '@/lib/onchain/token-id.js';
 
 const { users, drones, droneOwnershipHistory, skins, mods } = schema;
 
@@ -38,10 +39,17 @@ const HYPERDROME_DRONE_ABI = [
 // are identical.
 const HYPERDROME_NFT_ABI = HYPERDROME_DRONE_ABI;
 
-// Hard cap on the upward probe. 10k is comfortably above any realistic
-// on-chain supply for a single batch script and keeps a corrupt RPC from
-// burning unbounded calls. Mirrors `scripts/batch-mint-drones.js` PROBE_MAX.
-const PROBE_MAX = 10_000;
+/**
+ * Detect an "already minted" revert from the NFT contract. Used to
+ * decide whether a failed mint should be retried after bumping the
+ * tokenId counter. Conservative: only treat clear collision messages
+ * as retryable so out-of-gas / not-minter / network errors still throw
+ * on the first attempt.
+ */
+function isAlreadyMintedError(err) {
+  const msg = (err?.shortMessage ?? err?.reason ?? err?.message ?? '').toLowerCase();
+  return msg.includes('already minted') || msg.includes('token already exists');
+}
 
 const bodySchema = z.object({
   walletAddress: z
@@ -107,33 +115,20 @@ function readMintEnv() {
 }
 
 /**
- * ERC-721 `ownerOf` reverts on a non-existent tokenId. Collapse the throw
- * to `false` so the probe loop reads "is this id taken?" cleanly. Mirrors
- * `scripts/batch-mint-drones.js` `tokenExists`.
- */
-async function tokenExists(contract, tokenId) {
-  try {
-    await contract.ownerOf(tokenId);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Mint a freshly created drone to the player's wallet on MegaETH testnet v2.
  *
- * Probe pattern: the DB's `MAX(tokenId) + 1` is just a starting hint. The
- * contract's on-chain supply may already be ahead of the DB (this exact
- * route is the cause - earlier sign-ups minted on-chain but a follow-up
- * write or a different DB instance left the row without a tokenId). Walk
- * upward via `ownerOf` until we find the first unused slot, then mint
- * there. Without this probe a fresh wallet sign-up always tried tokenId=1
- * on a contract whose supply was already at N, so every sign-up reverted
- * with "ERC721 token already minted".
+ * Counter-based: claims the next tokenId from `token_counters` (atomic
+ * UPDATE ... RETURNING; cold-starts from `MAX(drones.tokenId) + 1`).
+ * One DB read, one mint, one DB write - replaces the prior `ownerOf`
+ * probe loop that walked dozens to hundreds of slots on Carrot RPC.
  *
- * Returns null when env is missing or the mint fails - the caller keeps
- * the DB drone unminted and the user can re-mint via the drone manager.
+ * On a collision-style revert (chain supply ahead of the counter, e.g.
+ * after a manual mint) we bump the counter past the failed id and
+ * retry once. A second collision throws - the counter is materially
+ * out of sync and an operator should reset it.
+ *
+ * Returns null when env is missing - the caller keeps the DB drone
+ * unminted and the user can re-mint via the drone manager.
  *
  * @returns {Promise<null | { tokenId: number, txHash: string }>}
  */
@@ -146,11 +141,6 @@ async function mintStarterDroneNft(walletAddress) {
     return null;
   }
 
-  const [agg] = await db
-    .select({ maxId: sql`COALESCE(MAX(${drones.tokenId}), 0)` })
-    .from(drones);
-  const dbStart = Number(agg?.maxId ?? 0) + 1;
-
   const provider = new ethers.JsonRpcProvider(env.rpcUrl);
   const wallet = new ethers.Wallet(env.privateKey, provider);
   const contract = new ethers.Contract(
@@ -159,27 +149,21 @@ async function mintStarterDroneNft(walletAddress) {
     wallet,
   );
 
-  let tokenId = dbStart;
-  let probed = 0;
-  while (await tokenExists(contract, tokenId)) {
-    tokenId += 1;
-    probed += 1;
-    if (probed > PROBE_MAX) {
-      throw new Error(
-        `tokenId probe overran ${PROBE_MAX} above DB max ${dbStart - 1}; aborting`,
-      );
-    }
-  }
-  if (probed > 0) {
-    console.log(
-      `[auth/wallet] tokenId probe found ${probed} on-chain orphans above DB max; minting at tokenId=${tokenId}`,
+  let tokenId = await claimNextTokenId('drone');
+  try {
+    const tx = await contract.mint(walletAddress, tokenId);
+    const receipt = await tx.wait();
+    return { tokenId, txHash: receipt?.hash ?? tx.hash };
+  } catch (err) {
+    if (!isAlreadyMintedError(err)) throw err;
+    console.warn(
+      `[auth/wallet] drone tokenId=${tokenId} collided on-chain; bumping counter and retrying once`,
     );
+    tokenId = await bumpAndClaim('drone', tokenId);
+    const tx = await contract.mint(walletAddress, tokenId);
+    const receipt = await tx.wait();
+    return { tokenId, txHash: receipt?.hash ?? tx.hash };
   }
-
-  const tx = await contract.mint(walletAddress, tokenId);
-  const receipt = await tx.wait();
-  const txHash = receipt?.hash ?? tx.hash;
-  return { tokenId, txHash };
 }
 
 /**
@@ -225,11 +209,6 @@ async function mintStarterNftForRow({ kind, walletAddress, rowId }) {
   }
   const table = kind === 'skin' ? skins : mods;
 
-  const [agg] = await db
-    .select({ maxId: sql`COALESCE(MAX(${table.tokenId}), 0)` })
-    .from(table);
-  const dbStart = Number(agg?.maxId ?? 0) + 1;
-
   const provider = new ethers.JsonRpcProvider(env.rpcUrl);
   const wallet = new ethers.Wallet(env.privateKey, provider);
   const contract = new ethers.Contract(
@@ -238,26 +217,24 @@ async function mintStarterNftForRow({ kind, walletAddress, rowId }) {
     wallet,
   );
 
-  let tokenId = dbStart;
-  let probed = 0;
-  while (await tokenExists(contract, tokenId)) {
-    tokenId += 1;
-    probed += 1;
-    if (probed > PROBE_MAX) {
-      throw new Error(
-        `tokenId probe overran ${PROBE_MAX} above DB max ${dbStart - 1}; aborting`,
-      );
-    }
-  }
-  if (probed > 0) {
-    console.log(
-      `[auth/wallet] ${kind} tokenId probe found ${probed} on-chain orphans above DB max; minting at tokenId=${tokenId}`,
+  // Counter-based mint with one collision retry. See mintStarterDroneNft
+  // for the full reasoning.
+  let tokenId = await claimNextTokenId(kind);
+  let txHash;
+  try {
+    const tx = await contract.mint(walletAddress, tokenId);
+    const receipt = await tx.wait();
+    txHash = receipt?.hash ?? tx.hash;
+  } catch (err) {
+    if (!isAlreadyMintedError(err)) throw err;
+    console.warn(
+      `[auth/wallet] ${kind} tokenId=${tokenId} collided on-chain; bumping counter and retrying once`,
     );
+    tokenId = await bumpAndClaim(kind, tokenId);
+    const tx = await contract.mint(walletAddress, tokenId);
+    const receipt = await tx.wait();
+    txHash = receipt?.hash ?? tx.hash;
   }
-
-  const tx = await contract.mint(walletAddress, tokenId);
-  const receipt = await tx.wait();
-  const txHash = receipt?.hash ?? tx.hash;
 
   await db
     .update(table)
