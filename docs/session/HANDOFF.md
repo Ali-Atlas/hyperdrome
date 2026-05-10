@@ -6331,3 +6331,22 @@ All edits below are scoped to specific `@media` blocks. Desktop / tablet (>768px
   - `toggleActive` adds an `info` toast on success: `"Change takes effect next round."` Lets the user flip active/inactive immediately even when their drone is in a queued race; the queued race itself is unaffected because `executePendingRace` loads drones by id from the PENDING row, not by the `active` flag. Matchmaking honors the new flag at the next cron tick.
 
 **`services/drone.service.js`:** no edit needed. The block was UI-only - the service's `toggleActive` only enforces the slot-count cap, never checked pending-race status.
+
+## 2026-05-10 - Drone explorer link label trimmed to "View"
+
+**Files modified (1):**
+
+- `app/drones/[droneId]/page.jsx`: minted-drone explorer link label changed from `View on MegaETH` to `View`. The `ExternalLink` icon stays as the visual cue; the `title` attribute (`Token #N on MegaETH`) is unchanged so the chain context still surfaces on hover.
+
+## 2026-05-10 - WalletButton: stop spamming /api/user/wallet (FIX 1 of demo prep)
+
+**Captain ask:** WalletButton was firing POST `/api/user/wallet` on every NavShell remount. Each route change re-mounts NavShell (it's not in the root layout), so navigation cycles produced a steady stream of duplicate binds — most resolving 200 (server-side no-op), but the cross-account case (Ali's wallet on a fresh account) returns 409, polluting logs.
+
+**Files modified (1):**
+
+- `components/ui/NavShell/index.jsx`
+  - Added a module-scope `BOUND_ADDRESSES` Set keyed by `${user.id}:${address.toLowerCase()}`. The bind useEffect short-circuits when the key is already present, so any one tab POSTs at most once per (user, address) pair regardless of route changes.
+  - A `useRef` inside `WalletButton` would reset on every NavShell remount, which is why the cache is hoisted to module scope.
+  - On a network-level failure the entry is removed (allowing retry on next render); HTTP error responses keep the entry — a 409 from a wallet-owned-by-someone-else won't keep retrying.
+
+**Why module scope (not session/user):** session JWT does not currently carry `walletAddress`, and the user explicitly restricted auth flow changes. Module Set is the minimal-touch fix.

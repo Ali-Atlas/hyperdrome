@@ -36,6 +36,13 @@ const NAV_LINKS = [
   { href: '/faq',         label: 'FAQ',         Icon: HelpCircle },
 ];
 
+// Module-scope cache of `${userId}:${addressLower}` keys already POSTed to
+// /api/user/wallet during this tab's lifetime. NavShell mounts per-page so a
+// useRef would reset on every navigation; this Set survives remounts and
+// silences the steady stream of duplicate binds (which the server otherwise
+// answers with 200 on no-op or 409 if the address belongs to another user).
+const BOUND_ADDRESSES = new Set();
+
 /**
  * Wallet connect / disconnect button. Only renders for authenticated users
  * since the bind API requires a session. On connect, fires a fire-and-forget
@@ -50,11 +57,20 @@ function WalletButton() {
 
   useEffect(() => {
     if (!user || !isConnected || !address) return;
+    const key = `${user.id}:${address.toLowerCase()}`;
+    if (BOUND_ADDRESSES.has(key)) return;
+    BOUND_ADDRESSES.add(key);
     fetch('/api/user/wallet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ walletAddress: address }),
-    }).catch((err) => console.error('[wallet] bind failed:', err));
+    }).catch((err) => {
+      // Network failure - clear the cache entry so a future render can retry.
+      // Server-side rejections (4xx/5xx with a body) resolve, not reject, so
+      // they keep the entry in place and won't be retried this session.
+      BOUND_ADDRESSES.delete(key);
+      console.error('[wallet] bind failed:', err);
+    });
   }, [user, isConnected, address]);
 
   if (!user) return null;
