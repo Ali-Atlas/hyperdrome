@@ -690,30 +690,13 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     LV {drone.level}
                   </span>
                   <span className={styles.metaSep}>|</span>
-                  <span className={styles.metaOwner}>
-                    Owner:{' '}
-                    {drone.owner?.username ? (
-                      !isOwner && drone.owner.id ? (
-                        <Link
-                          href={`/profile/${drone.owner.id}`}
-                          className={styles.ownerBadgePlayer}
-                        >
-                          {drone.owner.username}
-                        </Link>
-                      ) : isOwner ? (
-                        drone.owner.username
-                      ) : (
-                        <span className={styles.ownerBadgePlayer}>
-                          {drone.owner.username}
-                        </span>
-                      )
-                    ) : drone.isBot ? (
-                      <span className={styles.ownerBadgeBot}>Bot</span>
-                    ) : (
-                      '-'
-                    )}
-                  </span>
-                  {drone.owner?.walletAddress && (
+                  {drone.owner?.walletAddress ? (
+                    /* Wallet-auth user: show only the clickable Blockscout
+                       link. The grey "Owner: <username>" line was rendering
+                       a truncated form of the same address since wallet-auth
+                       usernames are themselves derived from the address
+                       (e.g. "0xF7Ba...9888"), so keeping both showed the
+                       same value twice. */
                     <a
                       href={`https://megaeth-testnet-v2.blockscout.com/address/${drone.owner.walletAddress}`}
                       target="_blank"
@@ -721,9 +704,34 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       className={styles.ownerAddressLink}
                       title={`Owner address ${drone.owner.walletAddress}`}
                     >
+                      Owner:{' '}
                       {drone.owner.walletAddress.slice(0, 6)}...
                       {drone.owner.walletAddress.slice(-4)}
                     </a>
+                  ) : (
+                    <span className={styles.metaOwner}>
+                      Owner:{' '}
+                      {drone.owner?.username ? (
+                        !isOwner && drone.owner.id ? (
+                          <Link
+                            href={`/profile/${drone.owner.id}`}
+                            className={styles.ownerBadgePlayer}
+                          >
+                            {drone.owner.username}
+                          </Link>
+                        ) : isOwner ? (
+                          drone.owner.username
+                        ) : (
+                          <span className={styles.ownerBadgePlayer}>
+                            {drone.owner.username}
+                          </span>
+                        )
+                      ) : drone.isBot ? (
+                        <span className={styles.ownerBadgeBot}>Bot</span>
+                      ) : (
+                        '-'
+                      )}
+                    </span>
                   )}
                 </div>
               </div>

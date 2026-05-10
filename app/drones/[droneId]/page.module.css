@@ -245,13 +245,16 @@
 }
 
 /* On-chain owner address. Mirrors the NavShell wallet button's compact
-   header style: monospace at var(--text-xs), accent-primary tint, no
-   underline. Click opens the address in Blockscout. */
+   header style: monospace at 10px (the established meta-line size used
+   by .walletBtn, .nftMetaLink, .settleLink, and the race detail meta
+   strip), accent-primary tint, no underline. Click opens the address
+   in Blockscout. */
 .ownerAddressLink {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 10px;
   color: var(--accent-primary);
   text-decoration: none;
   letter-spacing: 0.02em;
