@@ -691,23 +691,23 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   </span>
                   <span className={styles.metaSep}>|</span>
                   {drone.owner?.walletAddress ? (
-                    /* Wallet-auth user: show only the clickable Blockscout
-                       link. The grey "Owner: <username>" line was rendering
-                       a truncated form of the same address since wallet-auth
-                       usernames are themselves derived from the address
-                       (e.g. "0xF7Ba...9888"), so keeping both showed the
-                       same value twice. */
-                    <a
-                      href={`https://megaeth-testnet-v2.blockscout.com/address/${drone.owner.walletAddress}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.ownerAddressLink}
-                      title={`Owner address ${drone.owner.walletAddress}`}
-                    >
+                    /* Wallet-auth user: "Owner:" stays as plain meta text
+                       (matches the non-wallet branch below), only the
+                       truncated address itself is the clickable Blockscout
+                       link. */
+                    <span className={styles.metaOwner}>
                       Owner:{' '}
-                      {drone.owner.walletAddress.slice(0, 6)}...
-                      {drone.owner.walletAddress.slice(-4)}
-                    </a>
+                      <a
+                        href={`https://megaeth-testnet-v2.blockscout.com/address/${drone.owner.walletAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.ownerAddressLink}
+                        title={`Owner address ${drone.owner.walletAddress}`}
+                      >
+                        {drone.owner.walletAddress.slice(0, 6)}...
+                        {drone.owner.walletAddress.slice(-4)}
+                      </a>
+                    </span>
                   ) : (
                     <span className={styles.metaOwner}>
                       Owner:{' '}
