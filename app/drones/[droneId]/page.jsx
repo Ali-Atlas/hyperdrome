@@ -759,24 +759,42 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   <div className={styles.formStrip}>
                     <span className={styles.formLabel}>Form</span>
                     <div className={styles.formDots}>
-                      {formInfo.dots.length > 0 ? (
-                        // Reversed: oldest on the left, most recent on the
-                        // right. Streak detection still keys off `dots[0]`
-                        // (newest) which lives in formInfo - we only flip
-                        // the visual order here.
-                        [...formInfo.dots].reverse().map((won, i) => (
+                      {/* Always render 5 slots so the strip width is
+                          stable from race 1 onward. Right-most is most
+                          recent; left-most is oldest of the last 5.
+                          Empty slots (drone hasn't raced enough yet)
+                          render as greyed-out rings. formInfo.dots is
+                          [newest, ..., oldest] - reverse to render
+                          oldest→newest, then left-pad with nulls so
+                          the actual results land at the RIGHT. */}
+                      {(() => {
+                        const reversed = [...formInfo.dots].reverse();
+                        const padCount = Math.max(0, 5 - reversed.length);
+                        const padded = [
+                          ...Array(padCount).fill(null),
+                          ...reversed,
+                        ];
+                        return padded.map((won, i) => (
                           <span
                             key={i}
                             className={cn(
                               styles.formDot,
-                              won ? styles.formDotWin : styles.formDotLoss,
+                              won === null
+                                ? styles.formDotEmpty
+                                : won
+                                  ? styles.formDotWin
+                                  : styles.formDotLoss,
                             )}
-                            aria-label={won ? 'Win' : 'Loss'}
+                            aria-label={
+                              won === null
+                                ? 'No race yet'
+                                : won
+                                  ? 'Win'
+                                  : 'Loss'
+                            }
                           />
-                        ))
-                      ) : (
-                        <span className={styles.formEmpty}>-</span>
-                      )}
+                        ));
+                      })()}
                     </div>
                     {formInfo.dots.length > 0 && (
                       <span

@@ -365,6 +365,15 @@
   background: var(--accent-error);
 }
 
+/* Placeholder slot for races the drone hasn't run yet. Always show 5
+   form dots so the strip width is stable as the drone races up to its
+   first 5 results. Outlined ring on a translucent fill reads as
+   "future slot" without competing visually with the win/loss dots. */
+.formDotEmpty {
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+
 .formEmpty {
   color: var(--text-tertiary);
 }
