@@ -6706,3 +6706,15 @@ Verified no source file imports from these paths before deletion.
 - FIX 3: with the session fresh before navigation, the session-match guard fires deterministically on every later render/remount, so the POST never repeats.
 
 **Untouched:** the auth route itself (still server-side short-circuits authenticated callers with `redirectUrl: '/dashboard'`), the demo login flow, the `WALLET_AUTH_IN_FLIGHT` Set (still useful to dedupe the initial concurrent desktop/mobile POSTs).
+
+---
+
+## 2026-05-10 — In-game Connect Wallet button restyled to match hero CTA
+
+Captain flagged (again) that the in-game Connect Wallet / wallet-address chip in the sidebar + mobile header looked like a tiny utility button next to the volts balance, not a peer of the landing-page hero CTA. Restyled it to mirror `HeroConnectWallet.module.css` `.button`.
+
+**Files modified (1):**
+
+- `components/ui/NavShell/NavShell.module.css` — `.walletBtn` rewritten to use the hero pill aesthetic: padding `8px 18px`, `rgba(0,0,0,0.55)` translucent dark backing + `backdrop-filter: blur(8px)`, teal border + teal text, `var(--text-xs)` font, `font-bold` uppercase with `0.08em` tracking, `var(--radius-sm)` corners, hover lifts to `rgba(3,218,198,0.15)` background + `0 0 14px rgba(3,218,198,0.25)` glow, plus a `:focus-visible` ring. `.walletBtnConnected` keeps the new pill base and only overrides font-family to mono with sentence-case + tighter tracking so the truncated hex address stays legible (the pre-existing `color`/`border-color` overrides were redundant now that the base is already teal — removed).
+
+**Untouched:** the unauthenticated `.connectWallet` style (already matched the hero pattern, used by `HeaderConnectWallet`), the hero `.button` itself, and the JS in `NavShell/index.jsx` (no markup or class changes needed — `WalletButton` already applies `.walletBtn` and `.walletBtnConnected`).

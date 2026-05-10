@@ -216,49 +216,51 @@
   flex-wrap: wrap;
 }
 
-/* Connect Wallet button. Compact header-style variant: lives inline
-   next to the volts balance in the sidebar/drawer user area and inside
-   the mobile top bar's mobileUser group. The connected state
-   (.walletBtnConnected) swaps to mono + sentence case so a hex address
-   renders cleanly. */
+/* Connect Wallet button. Mirrors the landing-page hero CTA
+   (HeroConnectWallet.module.css `.button`) so the auth'd in-game wallet
+   chip reads as the same affordance as the unauth landing CTA: outlined
+   teal pill, translucent dark backing + backdrop blur, teal text-glow on
+   hover. The connected state (.walletBtnConnected) swaps to mono + sentence
+   case so a hex address renders cleanly. */
 .walletBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 2px 7px;
-  background: transparent;
-  color: var(--text-secondary);
+  padding: 8px 18px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--accent-primary);
   font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: var(--font-medium);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   cursor: pointer;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--accent-primary);
   border-radius: var(--radius-sm);
   white-space: nowrap;
   flex-shrink: 0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   transition:
-    border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out);
+    background var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
-/* Hover keeps the button's own (transparent) background so it reads
-   against the parent surface. Only color + border lift to teal. */
-.walletBtn:hover {
-  color: var(--accent-primary);
-  border-color: var(--accent-primary);
+.walletBtn:hover:not(:disabled) {
+  background: rgba(3, 218, 198, 0.15);
+  box-shadow: 0 0 14px rgba(3, 218, 198, 0.25);
+}
+
+.walletBtn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
 }
 
 .walletBtnConnected {
   font-family: var(--font-mono);
   text-transform: none;
   letter-spacing: 0.02em;
-  font-size: 10px;
-  color: var(--accent-primary);
-  border-color: var(--accent-primary);
 }
 
 
