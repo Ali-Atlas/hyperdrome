@@ -6642,3 +6642,29 @@ Verified no source file imports from these paths before deletion.
 **Untouched:** auth flow itself (no signature/SIWE changes), demo `/api/auth/demo` provider, `/api/user/wallet` bind cache, race / VOLT logic.
 
 
+## 2026-05-10 - Move CONNECT WALLET to top-right of landing (FEAT)
+
+**Captain ask:** Standard web3 landing UX - the wallet button lives in the top-right header area, not stacked under PLAY DEMO in the hero. PLAY DEMO stays as the primary hero CTA.
+
+**Files added (2):**
+
+- `app/HeroConnectWallet.jsx`
+  - Extracted the wallet half of HeroActions into a self-contained client component. Same click flow: if a wallet is already attached, click goes straight to `POST /api/auth/wallet`; otherwise click opens RainbowKit, and a `useEffect` finishes the auth POST when `useAccount` reports `isConnected`. `pendingAuth` is cleared after one round-trip so a later disconnect / reconnect on the landing won't accidentally re-fire the flow. Surfaces a small error chip below the button on failure.
+
+- `app/HeroConnectWallet.module.css`
+  - Top-right floating layout: `position: fixed`, `top/right: var(--space-4)`, `z-index: 4` (above hero video overlay z-index 1 and audio toggle z-index 3 so the button is reachable while scrolling through the marketing sections). Wrap is `pointer-events: none` and the button opts back in via `pointer-events: auto`, so the corner area doesn't intercept clicks meant for whatever sits behind it. Outlined teal pill with a translucent dark background + backdrop blur keeps it legible over the hero video without competing with PLAY DEMO. Mobile (`<= 480px`) tightens padding + font-size so the button doesn't crowd the audio toggle on the opposite corner at 375px width.
+
+**Files modified (3):**
+
+- `app/HeroActions.jsx`
+  - Stripped the wallet button + its state, useEffect, useAccount, useConnectModal imports. Renders only PLAY DEMO + the error text now. Header comment updated to point at `app/HeroConnectWallet.jsx` for the secondary entry point.
+
+- `app/HeroActions.module.css`
+  - Removed the `.secondary` rule and its variants (no longer rendered). Header comment updated.
+
+- `app/page.jsx`
+  - Imported `HeroConnectWallet` and rendered it as a sibling of `HeroAudio` inside the `.hero` section. Sits outside `.heroContent` (which is centered vertically) so the corner positioning is unaffected by the hero's center stack.
+
+**External-spec verification:**
+- wagmi v2.19.5 / @rainbow-me/rainbowkit v2.2.11: same hook surface as before (`useAccount`, `useConnectModal`); only the rendering location changed. RainbowKit's modal trigger is `openConnectModal` which the component nullish-checks before invoking - it can be `undefined` on the first render before WagmiProvider commits.
+- z-index ordering verified against `app/page.module.css`: hero overlay 1, heroContent 2, heroAudioToggle 3. New CONNECT WALLET sits at 4 to stay reachable above all of them.

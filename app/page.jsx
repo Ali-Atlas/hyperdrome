@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import VoltIcon from '@/components/ui/VoltIcon';
 import HeroActions from './HeroActions';
 import HeroAudio from './HeroAudio';
+import HeroConnectWallet from './HeroConnectWallet';
 import styles from './page.module.css';
 
 export const metadata = {
@@ -61,6 +62,7 @@ export default async function LandingPage() {
         <div className={styles.heroOverlay} aria-hidden="true" />
 
         <HeroAudio />
+        <HeroConnectWallet />
 
         <div className={styles.heroContent}>
           <h1 className={styles.heroTitle}>HYPERDROME</h1>

@@ -143,42 +143,55 @@
   background: rgba(3, 218, 198, 0.08);
 }
 
-/* Unauthenticated Connect Wallet CTA. Filled outline in accent-primary
-   so the unauth slot reads as a deliberate entry point rather than the
-   muted "sign in" link it replaced. Compact enough to sit comfortably
-   in the sidebar footer slot AND the mobile top bar. */
+/* Unauthenticated CONNECT WALLET CTA. Game-aesthetic outline button:
+   teal border + teal text over a faint translucent teal backing, with a
+   subtle text-shadow that warms into a stronger box-shadow + text-glow
+   on hover (same pattern as the countdown race links and the drone
+   stat-glow accents). Border-radius matches `--radius-md` from the
+   Button primitive so this reads as a sibling of the rest of the app's
+   buttons rather than a one-off pill. font-size deliberately smaller
+   than nav links (`--text-sm`) so the button sits as a utility action,
+   not a primary one. Compact enough for both the sidebar footer slot
+   and the mobile top bar. */
 .connectWallet {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 14px;
-  background: transparent;
+  padding: 7px 16px;
+  background: rgba(3, 218, 198, 0.06);
   color: var(--accent-primary);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: var(--font-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   cursor: pointer;
   border: 1px solid var(--accent-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   width: fit-content;
   white-space: nowrap;
+  text-shadow: 0 0 6px rgba(3, 218, 198, 0.25);
   transition:
-    color var(--duration-fast) var(--ease-out),
     background var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
+    box-shadow var(--duration-fast) var(--ease-out),
+    text-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 
 .connectWallet:hover:not(:disabled) {
-  background: rgba(3, 218, 198, 0.1);
-  box-shadow: 0 0 12px rgba(3, 218, 198, 0.25);
+  background: rgba(3, 218, 198, 0.14);
+  box-shadow: 0 0 16px rgba(3, 218, 198, 0.35);
+  text-shadow: 0 0 8px rgba(3, 218, 198, 0.55);
 }
 
 .connectWallet:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
+}
+
+.connectWallet:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .connectWallet:disabled {
