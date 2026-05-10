@@ -476,6 +476,13 @@ export default function NavShell({ children }) {
       );
     });
 
+  // Demo users (no walletAddress on the user record) get a pure
+  // off-chain experience: username + DB volts + sign out, no wallet
+  // chip and no path to bind a wallet from inside the app. The
+  // "connect a wallet to go on-chain" path is sign out → landing page
+  // → Connect Wallet, never an in-app upgrade. Wallet users see the
+  // address chip + on-chain balance.
+  const isWalletUser = !!user?.walletAddress;
   const renderUserArea = () =>
     user ? (
       <div className={styles.userArea}>
@@ -487,7 +494,7 @@ export default function NavShell({ children }) {
             <VoltIcon size={14} style={{ marginRight: 4 }} />
             {balanceLoading ? '—' : displayBalance.toLocaleString()}
           </div>
-          <WalletButton onSignOut={onSignOut} />
+          {isWalletUser && <WalletButton onSignOut={onSignOut} />}
         </div>
         <button
           type="button"
@@ -539,7 +546,7 @@ export default function NavShell({ children }) {
               <VoltIcon size={13} style={{ marginRight: 4 }} />
               {balanceLoading ? '—' : displayBalance.toLocaleString()}
             </span>
-            <WalletButton onSignOut={onSignOut} />
+            {isWalletUser && <WalletButton onSignOut={onSignOut} />}
           </div>
         ) : (
           <div className={styles.mobileUser}>
