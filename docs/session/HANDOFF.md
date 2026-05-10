@@ -6403,3 +6403,23 @@ All edits below are scoped to specific `@media` blocks. Desktop / tablet (>768px
 - (no service or schema change) `getRaceById` already spreads all `races` columns into the returned object, so `race.settleTxHash` reaches the page without a query change.
 
 **Backward compatibility:** races completed before chunk 2 landed have `settleTxHash IS NULL`; the `&& race.settleTxHash` guard keeps the slot empty for those rows so the existing UI is unchanged.
+
+## 2026-05-10 - scripts/mint-volt.js: ad-hoc VOLT mints from the deployer (FIX 5)
+
+**Captain ask:** Demo users have no wallets, only Ali's test account does. Mint 110_000 VOLT to Ali's address so his connected session shows a real on-chain balance during the demo. Make the script generic (recipient + amount as CLI args).
+
+**Files added (1):**
+
+- `scripts/mint-volt.js`
+  - Usage: `node --env-file=.env.local scripts/mint-volt.js <recipient> <amount>`. Recipient is validated via `ethers.getAddress()` (rejects bad checksums); amount is a non-negative integer in display VOLT units that the script converts to 18-decimal wei via `parseUnits`.
+  - Auth model: `HyperdromeVOLT.mint()` is `onlyMinter` (owner OR an authorized minter). The deployer is the constructor-time owner so it can mint directly without `setMinter` first.
+  - Reads `decimals()` from the contract at runtime instead of hardcoding 18 — defensive against a future contract redeploy with a non-default ERC20 setup.
+  - Prints `before` and `after` balances and a Blockscout link for the tx, mirroring the success-log style in `lib/onchain/settlement.js`.
+
+**Demo recipe:**
+
+```
+node --env-file=.env.local scripts/mint-volt.js 0x<ali-wallet> 110000
+```
+
+**Why not mint to demo PILOT_ users:** none of them have linked wallets; their VOLT lives in the `users.points` DB column and is what NavShell falls back to when no wallet is connected (FIX 6 keeps that fallback).
