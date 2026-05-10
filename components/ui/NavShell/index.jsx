@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
 import VoltIcon from '@/components/ui/VoltIcon';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { useUpcomingRaces } from '@/lib/upcoming-races-store';
 import { useAccount, useDisconnect } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
@@ -85,6 +86,7 @@ function WalletButton({ onSignOut }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   // Track client-side mount so the createPortal call is gated past SSR.
   // Required because next.js still server-renders 'use client' components.
   const [mounted, setMounted] = useState(false);
@@ -199,9 +201,7 @@ function WalletButton({ onSignOut }) {
 
   function handleDisconnect() {
     setMenuOpen(false);
-    if (window.confirm('Disconnect wallet and sign out?')) {
-      onSignOut();
-    }
+    setConfirmOpen(true);
   }
 
   // Compute the dropdown coords synchronously on open so the menu paints
@@ -282,6 +282,19 @@ function WalletButton({ onSignOut }) {
         {copied ? 'Copied!' : truncated}
       </button>
       {menu}
+      {confirmOpen && (
+        <ConfirmModal
+          title="Disconnect Wallet"
+          message="This will sign you out of the game."
+          confirmLabel="Disconnect"
+          cancelLabel="Cancel"
+          onConfirm={() => {
+            setConfirmOpen(false);
+            onSignOut();
+          }}
+          onCancel={() => setConfirmOpen(false)}
+        />
+      )}
     </>
   );
 }
@@ -439,9 +452,13 @@ export default function NavShell({ children }) {
 
   // Single source of truth for VOLT across NavShell and every other
   // consumer (stat editor, marketplace, drone manager). Resolves
-  // `volts:update` override > on-chain poll > JWT mirror in that order;
-  // see hooks/useVoltBalance for the full contract.
-  const displayBalance = useVoltBalance();
+  // `volts:update` override > on-chain poll, with the JWT mirror only
+  // for demo users; see hooks/useVoltBalance for the full contract.
+  // `balanceLoading` is true while a wallet-bound user is waiting for
+  // the first on-chain fetch to resolve - we render '—' in that window
+  // so the navbar never flashes the JWT-mirror value before swapping
+  // to the real on-chain balance on refresh.
+  const { balance: displayBalance, loading: balanceLoading } = useVoltBalance();
 
   const renderLinks = () =>
     NAV_LINKS.map(({ href, label, Icon }) => {
@@ -468,7 +485,7 @@ export default function NavShell({ children }) {
         <div className={styles.pointsRow}>
           <div className={styles.points}>
             <VoltIcon size={14} style={{ marginRight: 4 }} />
-            {displayBalance.toLocaleString()}
+            {balanceLoading ? '—' : displayBalance.toLocaleString()}
           </div>
           <WalletButton onSignOut={onSignOut} />
         </div>
@@ -520,7 +537,7 @@ export default function NavShell({ children }) {
             <span className={styles.mobileSep}>|</span>
             <span className={styles.mobilePoints}>
               <VoltIcon size={13} style={{ marginRight: 4 }} />
-              {displayBalance.toLocaleString()}
+              {balanceLoading ? '—' : displayBalance.toLocaleString()}
             </span>
             <WalletButton onSignOut={onSignOut} />
           </div>

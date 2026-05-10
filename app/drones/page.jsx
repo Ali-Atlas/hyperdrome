@@ -66,7 +66,7 @@ export default function DronesPage() {
   // VOLT balance shared with NavShell, marketplace, and the stat
   // editor; updates immediately on `volts:update` events without a
   // page refresh.
-  const userVolts = useVoltBalance();
+  const { balance: userVolts } = useVoltBalance();
   const { showToast } = useToast();
   const [drones, setDrones] = useState([]);
   const [loading, setLoading] = useState(true);

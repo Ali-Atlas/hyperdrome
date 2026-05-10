@@ -7,22 +7,31 @@ import { useSession } from '@/hooks/useSession';
 /**
  * Single source of truth for the user's VOLT balance across the app.
  *
- * Resolution order (first non-null wins):
+ * Resolution order:
  *
- *   1. `balanceOverride` - the most recent post-mutation balance the
- *      server returned (purchase, pack open, capsule open, stat allocate,
- *      NPC drone create). Set by listening on the global `volts:update`
- *      CustomEvent that those handlers dispatch. The override stays in
- *      effect for this hook's lifetime so a follow-up read-only render
- *      doesn't bounce back to the stale JWT mirror.
+ *   1. `override` - the most recent post-mutation balance the server
+ *      returned (purchase, pack open, capsule open, stat allocate, NPC
+ *      drone create). Set by listening on the global `volts:update`
+ *      CustomEvent that those handlers dispatch. Authoritative for any
+ *      caller as soon as it fires.
  *
- *   2. `onchainVolts` - the player wallet's on-chain ERC-20 balance
+ *   2. `onchain` - the player wallet's on-chain ERC-20 balance
  *      (server-cached 30s via `/api/volt/balance`). Polls every 30s while
- *      a wallet is connected. Authoritative for wallet-bound users when
- *      no override has fired.
+ *      a wallet is connected. Authoritative for wallet-bound users.
  *
- *   3. `user.points` - the JWT mirror. Only used when no wallet is
- *      connected (demo / email-auth users) and no override has fired.
+ *   3. `user.points` - the JWT mirror. ONLY shown for demo / email-auth
+ *      users (no wallet bound on the user record). For wallet-bound
+ *      users this fallback is suppressed - we'd rather display nothing
+ *      than briefly flash a stale on-chain balance from the JWT.
+ *
+ * `loading` is true when the user has a wallet bound (`user.walletAddress`)
+ * but neither `override` nor `onchain` has resolved yet. UI consumers
+ * (NavShell) render a skeleton/dash in that state so the user never sees
+ * the JWT-mirror value flash before being replaced by the real on-chain
+ * balance on refresh. We key the loading flag on `user.walletAddress`
+ * (not `isConnected`) because wagmi auto-reconnect can finish AFTER
+ * `useSession` hydrates - keying off the live wagmi flag would cause a
+ * brief JWT flash → '—' → real-value sequence as wagmi races to catch up.
  *
  * Why a hook (not module-scope state): every consumer subscribes
  * independently and gets a re-render on every update. NavShell, the
@@ -31,8 +40,7 @@ import { useSession } from '@/hooks/useSession';
  * a `volts:update` dispatched anywhere updates them all in the same
  * React commit.
  *
- * @returns {number} the current VOLT balance to display (always an
- *   integer; on-chain wei is `Math.floor`'d).
+ * @returns {{ balance: number, loading: boolean }}
  */
 export function useVoltBalance() {
   const { user } = useSession();
@@ -67,8 +75,8 @@ export function useVoltBalance() {
         const data = body?.data;
         // hasWallet=false is the route's signal for "the user has no
         // server-bound walletAddress" (transient right after connect,
-        // permanent for demo accounts). Treat as null so the JWT mirror
-        // wins instead of an authoritative-looking 0.
+        // permanent for demo accounts). Leave onchain=null and let the
+        // demo-user fallback below kick in.
         if (!data || data.hasWallet === false) {
           if (!cancelled) setOnchain(null);
           return;
@@ -91,5 +99,12 @@ export function useVoltBalance() {
     };
   }, [user, isConnected, address]);
 
-  return override ?? onchain ?? user?.points ?? 0;
+  const hasWalletBound = !!user?.walletAddress;
+  const loading = hasWalletBound && override == null && onchain == null;
+  const balance =
+    override ??
+    onchain ??
+    (hasWalletBound ? 0 : user?.points ?? 0);
+
+  return { balance, loading };
 }

@@ -6788,3 +6788,71 @@ Captain reported three follow-ups on the new wallet dropdown:
 **Why the previous shipped fix didn't actually solve it:** the prior attempt switched to `position: fixed` but never got committed (caught during this pass via `git status` - the changes were still uncommitted on disk while Captain was testing the live `e8809c8`, which was the original absolute-positioned version). This pass goes further (portal) and ships.
 
 **Untouched:** the trigger hover/focus styling, the menu item styles, `.walletBtnConnected` mono override, the unauth `HeaderConnectWallet` path, the bind-wallet effect, and the `onSignOut` wiring (still passed to both `<WalletButton />` instances - sidebar/drawer + mobile top bar).
+
+---
+
+## 2026-05-10 — Replace `window.confirm` disconnect dialog with on-brand ConfirmModal
+
+Captain's brief: the wallet "Disconnect" action in `NavShell` was using `window.confirm()`, which renders the browser-chrome native dialog and breaks the game aesthetic. Replace it with a reusable, on-brand confirm modal.
+
+**Files added (2):**
+
+- `components/ui/ConfirmModal/index.jsx` — new reusable component.
+  - Props: `title`, `message`, `confirmLabel` (default `'Confirm'`), `cancelLabel` (default `'Cancel'`), `onConfirm`, `onCancel`. Conditionally rendered by the parent (no `isOpen` prop — when mounted, it's open).
+  - Rendered via `createPortal` into `document.body` so the dialog escapes every ancestor's stacking / overflow / containing-block tree (matches the wallet-dropdown portal pattern).
+  - `mounted` flag gates the portal call past Next.js SSR (same pattern as `WalletButton`).
+  - Escape key triggers `onCancel`. Overlay click triggers `onCancel`. Inner panel click is `stopPropagation`'d so clicks on the card don't dismiss.
+  - `body.overflow = 'hidden'` while open; previous value restored on unmount.
+  - Panel auto-focuses via `tabIndex={-1}` + `panelRef.current?.focus()`.
+  - `role="dialog"`, `aria-modal="true"`, `aria-label={title}`.
+
+- `components/ui/ConfirmModal/ConfirmModal.module.css`
+  - `.overlay`: `position: fixed; inset: 0; z-index: 1000` (clears the wallet dropdown's 30, drawer overlay's 20, mobile-bar 10, countdown bar 9), `background: rgba(0, 0, 0, 0.7)`, flex centered, fade-in via `cmFadeIn` keyframes.
+  - `.panel`: `var(--bg-elevated)` bg, `1px solid var(--accent-primary)` border, `var(--radius-md)` corners, `max-width: 380px`, `box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6)`, rises in via `cmRise` keyframes (`translateY(8px) → 0` + opacity).
+  - `.title`: `var(--font-heading)`, `var(--text-sm)`, uppercase, letter-spacing `0.08em`, `var(--font-bold)`, `var(--text-primary)`.
+  - `.message`: `var(--font-body)`, `var(--text-xs)`, `var(--text-secondary)`, `line-height: 1.5`.
+  - `.actions`: flex right-aligned, `gap: var(--space-3)`.
+  - `.cancelBtn`: transparent bg, teal border + teal text — the same outlined-pill aesthetic as `.walletBtn` (hover: `rgba(3, 218, 198, 0.15)` fill + teal box-shadow glow, focus-visible: 2px teal outline).
+  - `.confirmBtn`: `var(--accent-error)` (#CF6679) fill, white text, hover: lighter `#D97A8A` + red glow, focus-visible: 2px red outline.
+
+**Files modified (1):**
+
+- `components/ui/NavShell/index.jsx` — `WalletButton`
+  - Added `import ConfirmModal from '@/components/ui/ConfirmModal'`.
+  - New state: `confirmOpen` (boolean).
+  - `handleDisconnect` now closes the dropdown menu and flips `confirmOpen` true (replaces the `window.confirm()` call).
+  - On confirm: closes the modal, then calls the existing `onSignOut` (the same lifted prop the sidebar Sign Out button uses — single source of truth for `clearWalletAuthCache + disconnect + signOut + redirect`).
+  - On cancel: closes the modal, no side effects.
+  - Modal is rendered in the same fragment as the trigger button, after `{menu}`. Portal-rendering means the modal is unaffected by where in the JSX tree it sits.
+
+**Untouched:** `HeaderConnectWallet`, the bind-wallet effect, the `BOUND_ADDRESSES` cache, the wallet menu rendering, and the `onSignOut` flow itself. The disconnect path is still: dropdown → click "Disconnect" → confirm dialog → `onSignOut()` → `clearWalletAuthCache + disconnect + signOut({ redirectTo: '/' })`.
+
+**Why a new component (not a wrapper around `components/ui/Modal`):** the existing `Modal` is a generic chromed dialog (header bar + X close + size variants `sm/md/lg`). The Captain's brief specifies a tighter, accent-bordered confirm card with two specific buttons. Wrapping `Modal` and overriding its chrome would cost more than a focused ~80-line component, and would still need its own button styles. The new `ConfirmModal` is a single-purpose primitive.
+
+---
+
+## 2026-05-10 — Kill VOLT-balance flash on refresh: skeleton for wallet users, JWT only for demo
+
+Captain reported seeing two different VOLT balances on refresh: the first one flashes briefly, then a second value lands and stays. They wanted only the on-chain wallet value displayed, with a skeleton/dash until it loads. JWT mirror should only be used for demo users.
+
+**Root cause** (from `hooks/useVoltBalance.js`): on first render after refresh, `override` and `onchain` are both null, so the resolution `override ?? onchain ?? user?.points ?? 0` returned `user.points` (the JWT mirror, which is baked into the session cookie). A few hundred ms later the `/api/volt/balance` fetch resolved, `onchain` flipped to a number, and the hook returned that instead — visibly swapping the displayed value.
+
+**Files modified (5):**
+
+- `hooks/useVoltBalance.js`
+  - Return shape changed: `number` → `{ balance: number, loading: boolean }`. JSDoc updated to match.
+  - Added `hasWalletBound = !!user?.walletAddress`. Loading is true when `hasWalletBound && override == null && onchain == null`. Balance falls back to 0 (not `user.points`) for wallet-bound users — that suppresses the JWT-mirror flash entirely; consumers render a skeleton in the loading window.
+  - Demo users (no `walletAddress` on the user record) keep getting `user.points` as the fallback — exactly what they had before.
+  - Keyed loading off `user.walletAddress` rather than wagmi's live `isConnected`. Wagmi auto-reconnect can finish AFTER `useSession` hydrates; if loading were keyed off `isConnected`, the flow on refresh would be: user populates → `isConnected` still false → balance = `user.points` (FLASH) → `isConnected` flips → loading=true → '—' → onchain resolves → real value. Three states. Keying off `walletAddress` collapses that to: user populates (already with walletAddress) → loading=true → '—' → onchain resolves → real value. Two states, no flash.
+
+- `components/ui/NavShell/index.jsx`
+  - Destructured: `const { balance: displayBalance, loading: balanceLoading } = useVoltBalance();` (kept `displayBalance` name to minimize diff churn).
+  - Both render sites (desktop sidebar `.points` + mobile top bar `.mobilePoints`) now show `balanceLoading ? '—' : displayBalance.toLocaleString()`.
+
+- `app/drones/page.jsx`, `app/marketplace/page.jsx`, `app/drones/[droneId]/page.jsx`
+  - Updated each caller to destructure: `const { balance: userVolts } = useVoltBalance();` (and equivalents for `userPoints` / `playerPoints`). Variable names preserved so downstream usage (`canAfford` checks, arithmetic, `.toLocaleString()`) is unchanged.
+  - These callers don't render a skeleton — they just take `balance`, which is briefly 0 for wallet users while loading. "Can afford" comparisons (`balance >= price`) momentarily evaluate false → buy buttons stay disabled until the on-chain value arrives. Correct UX (better than letting the user click buy with a stale "afford" judgment from a JWT mirror).
+
+**Edge case I deliberately didn't optimize:** a wallet-bound user who's signed in but has manually disconnected their wallet (e.g. via the wallet dropdown's Disconnect, or externally via MetaMask). They'd see '—' indefinitely since the on-chain fetch only fires when wagmi reports a connection. In practice the dropdown's Disconnect calls `onSignOut` which signs them out fully — so this state is reachable only via external wallet revocation (rare). If it becomes a problem, the fix is a timeout-based fallback to `user.points`. For now, '—' for that rare case is acceptable per Captain's "DB value only for demo users" rule.
+
+**Untouched:** the `volts:update` event mechanism, the `/api/volt/balance` route, the 30s polling cadence, and the `Math.floor` of the on-chain wei → integer.

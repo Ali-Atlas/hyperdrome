@@ -322,7 +322,7 @@ export default function MarketplacePage() {
   // The hook listens on `volts:update` (which every buy handler below
   // already dispatches), polls `/api/volt/balance` for wallet-connected
   // users, and falls back to `user.points` for demo accounts.
-  const userPoints = useVoltBalance();
+  const { balance: userPoints } = useVoltBalance();
   const [listings, setListings] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [salesPage, setSalesPage] = useState(1);

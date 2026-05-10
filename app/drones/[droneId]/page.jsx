@@ -278,7 +278,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   // useVoltBalance gives the same value NavShell shows AND auto-updates
   // when a `volts:update` event fires (e.g. immediately after this same
   // editor's save() commits) - no manual page refresh needed.
-  const playerPoints = useVoltBalance();
+  const { balance: playerPoints } = useVoltBalance();
   const availablePoints = playerPoints - totalCost;
   const hasChanges = totalCost > 0;
 
