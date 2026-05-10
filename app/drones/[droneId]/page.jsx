@@ -614,7 +614,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       title={`Token #${drone.tokenId} on MegaETH`}
                     >
                       <ExternalLink size={10} aria-hidden="true" />
-                      View on MegaETH
+                      View
                     </a>
                   )}
                   {isOwner && (() => {
