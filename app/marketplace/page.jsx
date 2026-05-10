@@ -1450,6 +1450,7 @@ export default function MarketplacePage() {
             success={buySuccess}
             error={buyError}
             status={buyStatus}
+            walletConnected={walletConnected}
             onConfirm={handleBuy}
             onClose={closePurchaseModal}
           />
@@ -1635,6 +1636,7 @@ export default function MarketplacePage() {
         {packFlow && (
           <PackFlowModalBody
             flow={packFlow}
+            walletConnected={walletConnected}
             onConfirm={
               packFlow.kind === 'skin'
                 ? confirmSkinPackPurchase
@@ -3556,9 +3558,17 @@ function PurchaseModalBody({
   success,
   error,
   status,
+  walletConnected,
   onConfirm,
   onClose,
 }) {
+  // DB-only listings never made it on-chain (item not minted, or the
+  // seller's listItem call failed). For wallet users, the buy will go
+  // through the legacy server-signed path - their wallet VOLT won't
+  // move. Surface that so the testnet wallet display matches what's
+  // actually happening. Demo users (no walletConnected) don't see the
+  // notice because their economy is DB-only by design.
+  const isOffChainBuy = walletConnected && listing.onchainListingId == null;
   const isDrone = listing.itemType === 'drone';
   const isMod = listing.itemType === 'mod';
   const isSkin = listing.itemType === 'skin';
@@ -3758,6 +3768,12 @@ function PurchaseModalBody({
 
           {error && <div className={styles.purchaseError}>{error}</div>}
 
+          {isOffChainBuy && (
+            <p className={styles.purchaseDisclaimer}>
+              This is a pre-on-chain item. Your wallet VOLT won&apos;t be charged.
+            </p>
+          )}
+
           <p className={styles.purchaseFee}>10% marketplace fee included</p>
         </>
       )}
@@ -3784,7 +3800,7 @@ function PurchaseModalBody({
 /* loading prop for the spinner.                                                */
 /* -------------------------------------------------------------------------- */
 
-function PackFlowModalBody({ flow, onConfirm, onOpen, onEquip, onClose }) {
+function PackFlowModalBody({ flow, walletConnected, onConfirm, onOpen, onEquip, onClose }) {
   const { stage, kind, pack, awarded, pending } = flow;
   const tier = pack.id.includes('legendary')
     ? 'legendary'
@@ -3908,6 +3924,21 @@ function PackFlowModalBody({ flow, onConfirm, onOpen, onEquip, onClose }) {
           <span>{pack.price.toLocaleString()}</span>
         </div>
       </div>
+
+      {/* Off-chain disclaimer for wallet users on the confirm stage. Pack
+          and capsule flows currently route through the legacy DB-only
+          /api/marketplace/(packs|capsules)/open path - wallet VOLT
+          isn't moved. Visibility-toggled (matching the price block
+          above) so the modal layout stays stable across stages. */}
+      {walletConnected && (
+        <p
+          className={styles.purchaseDisclaimer}
+          style={{ visibility: showPrice ? 'visible' : 'hidden' }}
+          aria-hidden={showPrice ? undefined : 'true'}
+        >
+          This is a pre-on-chain item. Your wallet VOLT won&apos;t be charged.
+        </p>
+      )}
 
       <div className={styles.flowActionRow}>
         <Button

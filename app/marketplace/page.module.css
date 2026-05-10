@@ -4635,6 +4635,21 @@
   letter-spacing: 0.06em;
 }
 
+/* Off-chain disclaimer for wallet users buying DB-only listings or
+   opening DB-only packs. Reads as a low-key advisory just above the
+   marketplace-fee footnote - small, muted, single-line on any
+   reasonable modal width, naturally wraps to two lines on the
+   narrowest mobile breakpoint without shifting any other element. */
+.purchaseDisclaimer {
+  margin: var(--space-2) 0 0;
+  padding: 0 var(--space-2);
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.4;
+}
+
 .purchaseSuccessBlock {
   display: flex;
   flex-direction: column;

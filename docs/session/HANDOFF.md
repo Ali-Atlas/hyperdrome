@@ -6946,3 +6946,37 @@ The drones route was missing the same treatment — it returned `fail('Drone not
 **Why pass `params.droneId` (string) directly to `placeholderMetadata` rather than the parsed `Number(tokenId)`:** matches skins/mods exactly. The string round-trips into the JSON `name` field unchanged, which is what indexers index. Range validation in `lookupDrone` (PG_INT_MAX guard) returns null for out-of-range numerics, so those also get the placeholder — which is the right behavior; an indexer querying tokenId 999_999_999_999 should still get a cacheable 200 rather than a retry-prone 404.
 
 **Untouched:** `lookupDrone`, `buildMetadata`, the UUID dev/debug branch, and `getDroneById` (the rich app-internal shape served from `/api/drones/[droneId]/full` is unrelated and stays 404 on miss).
+
+---
+
+## 2026-05-10 — Marketplace + pack modals: surface "pre-on-chain item" disclaimer for wallet users
+
+**Why:** Earlier session diagnosis found that wallet users on the marketplace can buy items where their wallet VOLT is NOT actually moved. Two cases:
+
+1. Listings without an `onchainListingId` — the seller's `listItem` on-chain call failed (or the item was never minted), so `createListing` left the row DB-only. Wallet buyers fall back to the server-signed legacy path; only `users.points` (DB mirror) is debited.
+
+2. Packs and capsules — currently always DB-only. The marketplace page calls `/api/marketplace/packs/open` and `/api/marketplace/capsules/open` (the legacy DB flows). The on-chain `/api/packs/buy` route exists (uses `lib/onchain/packs.js#buyPackOnchain`, which burns VOLT from the buyer's wallet) but isn't wired to any UI yet — comment in `app/api/packs/buy/route.js:21-22` notes "the legacy flow remains the dashboard's pack-open path until a follow-on migration consolidates them."
+
+Both cases produce the same observable bug: wallet users see purchases succeed but their on-chain VOLT balance doesn't drop, because the wallet display reads on-chain (`useVoltBalance`) and the on-chain VOLT was never touched.
+
+**Captain's call:** don't block, don't auto-migrate, don't write a migration script. For the testnet user-test window, just be honest about what's happening — show a low-key disclaimer in the buy modal so testers know wallet VOLT won't move for that purchase. Real fix lands later (separate dev/prod contracts so the listing flow stops failing, and consolidate pack flows onto `/api/packs/buy`).
+
+**Files modified (2):**
+
+- `app/marketplace/page.module.css`
+  - Added `.purchaseDisclaimer` rule. Mirrors `.purchaseFee` placement (low-key footnote-style, sits next to the marketplace-fee blurb just below the CTA) but bumped to 11px / `--text-secondary` / sentence-case body font so it's legible without screaming. `padding: 0 var(--space-2)` + `line-height: 1.4` lets the line wrap cleanly on the narrowest mobile breakpoint without pushing any other modal element.
+
+- `app/marketplace/page.jsx`
+  - `PurchaseModalBody`: added `walletConnected` prop and `isOffChainBuy = walletConnected && listing.onchainListingId == null` discriminator. Disclaimer renders between `purchaseError` and `purchaseFee` only when `isOffChainBuy` is true (so demo accounts and on-chain listings are unaffected — adding a generic always-on warning would have been hostile to working flows).
+  - `PackFlowModalBody`: added `walletConnected` prop. Disclaimer renders for wallet users on the `confirm` stage (pack/capsule flows are universally DB-only today). Used the same `visibility: showPrice ? 'visible' : 'hidden'` toggle the price block uses — keeps layout stable across the confirm → ready → opened stage transitions.
+  - Both Modal-mounting JSX blocks pass the new `walletConnected` prop down (sourced from `useAccount`'s `isConnected` already destructured at page-level line 392).
+
+**Wording:** "This is a pre-on-chain item. Your wallet VOLT won't be charged." (one apostrophe-escaped sentence, ~60 chars, fits in one line on standard modal width).
+
+**Untouched:** the on-chain user-signed buy flow, the demo-user code paths, the legacy server-signed branch in `marketplace.service.js`, the `useVoltBalance` hook, and the on-chain `/api/packs/buy` route. None of those produce the symptom — the disclaimer is purely UI-side honesty.
+
+**What this does NOT fix:**
+- The underlying counter-collision bug that left listings without on-chain twins (still being addressed by the manual `token_counters` bumps + the eventual contract-separation work).
+- Pack flows being DB-only (the on-chain pack route exists but isn't wired up).
+
+**What it DOES fix:** wallet users no longer see a confusing "I bought something but my VOLT didn't change" state without context. Testnet feedback stays trustworthy.
