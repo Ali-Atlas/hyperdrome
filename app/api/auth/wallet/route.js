@@ -7,6 +7,7 @@ import { auth, signIn } from '@/lib/auth';
 import { buildLowRangeStats } from '@/lib/game-engine/drone-spawn.js';
 import { generateUniqueDroneName } from '@/lib/game-engine/drone-names.js';
 import { mintVoltToWallet } from '@/lib/onchain/volt.js';
+import { sendStarterGas } from '@/lib/onchain/gas.js';
 
 const { users, drones, droneOwnershipHistory } = schema;
 
@@ -441,7 +442,34 @@ export async function POST(request) {
     });
   }
 
-  // 6. Sign in. If this fails the bootstrap is wasted - the row exists but
+  // 6. Starter gas drop. Send 0.001 ETH from the deployer so the user can
+  // pay gas on their own (user-signed) VOLT approvals + marketplace buys.
+  // Best-effort - failure leaves the user with their starter NFT + VOLT
+  // but no gas; they can be topped up manually if it matters. We don't
+  // block sign-in on this because most flows still work for a gasless
+  // user (race rewards, level-ups, on-chain reads).
+  let gasTxHash = null;
+  try {
+    const gas = await sendStarterGas(checksummed);
+    gasTxHash = gas?.txHash ?? null;
+    if (gas?.txHash) {
+      console.log(
+        `[auth/wallet] starter gas drop ok - 0.001 ETH tx=${gas.txHash} wallet=${stored}`,
+      );
+    } else {
+      console.warn(
+        `[auth/wallet] starter gas drop returned null - wallet=${stored} (likely missing DEPLOYER_PRIVATE_KEY / MEGAETH_RPC_URL)`,
+      );
+    }
+  } catch (err) {
+    console.error('[auth/wallet] starter gas drop failed:', {
+      wallet: stored,
+      reason: err?.shortMessage ?? err?.message ?? 'unknown',
+      code: err?.code,
+    });
+  }
+
+  // 7. Sign in. If this fails the bootstrap is wasted - the row exists but
   // the user has no session; the next press will hit the existing-wallet
   // branch and sign in cleanly, so a transient signIn failure is recoverable.
   try {
@@ -470,5 +498,6 @@ export async function POST(request) {
       ? { id: drone.id, name: drone.name, tokenId: mintTokenId, mintTxHash }
       : null,
     voltMintTxHash,
+    gasTxHash,
   });
 }
