@@ -244,6 +244,24 @@
   color: var(--text-secondary);
 }
 
+/* On-chain owner address. Mirrors the NavShell wallet button's compact
+   header style: monospace at var(--text-xs), accent-primary tint, no
+   underline. Click opens the address in Blockscout. */
+.ownerAddressLink {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent-primary);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.ownerAddressLink:hover {
+  color: var(--text-primary);
+}
+
 /* Coloured ownership badges, matching the radar tone for the same drone:
    purple for any other player, orange for matchmaker bots. The viewer's
    own drone keeps plain text - the active/inactive toggle on the same

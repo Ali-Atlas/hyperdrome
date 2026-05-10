@@ -112,7 +112,15 @@ export async function getDroneById(droneId) {
   return {
     ...row.drone,
     owner: row.owner
-      ? { id: row.owner.id, username: row.owner.username }
+      ? {
+          id: row.owner.id,
+          username: row.owner.username,
+          // Lower-cased so explorer / Blockscout-style URLs are
+          // case-insensitive without an EIP-55 round-trip on the client.
+          walletAddress: row.owner.walletAddress
+            ? row.owner.walletAddress.toLowerCase()
+            : null,
+        }
       : null,
     appliedSkin: row.skin,
     appliedMod,

@@ -698,6 +698,18 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       '-'
                     )}
                   </span>
+                  {drone.owner?.walletAddress && (
+                    <a
+                      href={`https://megaeth-testnet-v2.blockscout.com/address/${drone.owner.walletAddress}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.ownerAddressLink}
+                      title={`Owner address ${drone.owner.walletAddress}`}
+                    >
+                      {drone.owner.walletAddress.slice(0, 6)}...
+                      {drone.owner.walletAddress.slice(-4)}
+                    </a>
+                  )}
                 </div>
               </div>
 
