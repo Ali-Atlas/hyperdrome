@@ -80,7 +80,14 @@ export default function DashboardPage() {
   const [liveFeed, setLiveFeed] = useState([]);
   const [recentRaces, setRecentRaces] = useState([]);
   const [myStats, setMyStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Per-card loading flags so the dashboard renders progressively -
+  // each card flips out of its spinner the moment its own fetch
+  // resolves, instead of all four cards waiting on the slowest. Quick
+  // Stats has no flag because it doesn't gate render: missing fields
+  // fall back to 0 / 0% / '-' until the leaderboard fetch lands.
+  const [loadingDrones, setLoadingDrones] = useState(true);
+  const [loadingFeed, setLoadingFeed] = useState(true);
+  const [loadingRecent, setLoadingRecent] = useState(true);
   /* Shared upcoming-races store - same source NavShell's countdown
    * footer reads, so the dashboard's "your upcoming" feed rows and
    * the footer's number chips can never disagree about how many
@@ -89,47 +96,49 @@ export default function DashboardPage() {
    * mid-insert) so we don't have to. */
   const { races: upcomingRaces } = useUpcomingRaces();
 
-  const fetchAll = useCallback(async () => {
-    try {
-      // The user-scoped recent-races request is conditional - skipped
-      // when no session yet so we don't blast a `user_id=undefined`
-      // query at the API. The races route supports `user_id`
-      // server-side, which is the correct path for "Your Recent
-      // Results" (replaces the prior client-side filter from the
-      // global top-20 list, which would silently empty under load).
-      // The user-scoped recent-results request is conditional - skipped
-      // when no session yet so we don't blast a `user_id=undefined`
-      // query at the API. status=completed locks it to finished races
-      // so we never show pending rows in the results table.
-      const myRacesPromise = user?.id
-        ? fetch(
-            `/api/races?user_id=${user.id}&status=completed&limit=20`,
-          )
-            .then((r) => r.json())
-            .catch(() => null)
-        : Promise.resolve(null);
-      const [dronesRes, racesRes, meRes, myRacesRes] = await Promise.all([
-        fetch('/api/drones').then((r) => r.json()).catch(() => null),
-        // Live Race Feed shows global pending races (the current race
-        // queue waiting on the cron tick) so the surface actually
-        // reads as "live". Up to 100 rows, scrolled inside a fixed
-        // height container in the UI.
-        fetch('/api/races?status=pending&limit=100')
-          .then((r) => r.json())
-          .catch(() => null),
-        fetch('/api/leaderboard/me').then((r) => r.json()).catch(() => null),
-        myRacesPromise,
-      ]);
-      if (dronesRes?.data) setMyDrones(dronesRes.data);
-      if (racesRes?.data?.items) setLiveFeed(racesRes.data.items);
-      if (meRes?.data) setMyStats(meRes.data);
-      if (myRacesRes?.data?.items) {
-        setRecentRaces(myRacesRes.data.items);
-      } else if (!user?.id) {
-        setRecentRaces([]);
-      }
-    } finally {
-      setLoading(false);
+  // Fire all four fetches independently rather than awaiting them as
+  // one Promise.all. Each card's spinner clears the moment its own
+  // request resolves; the slowest fetch no longer holds the whole
+  // dashboard in a single coupled spinner. Network volume is
+  // unchanged - same four requests fire in parallel either way.
+  //
+  // The user-scoped recent-results request is conditional - skipped
+  // when no session yet so we don't blast a `user_id=undefined` query
+  // at the API. status=completed locks it to finished races so we
+  // never show pending rows in the results table.
+  const fetchAll = useCallback(() => {
+    fetch('/api/drones')
+      .then((r) => r.json())
+      .then((res) => { if (res?.data) setMyDrones(res.data); })
+      .catch(() => {})
+      .finally(() => setLoadingDrones(false));
+
+    // Live Race Feed shows global pending races (the current race
+    // queue waiting on the cron tick). Cron emits at most ~3-9 races
+    // per cycle so 20 rows is more than enough headroom; the feed is
+    // scrolled inside a fixed-height container.
+    fetch('/api/races?status=pending&limit=20')
+      .then((r) => r.json())
+      .then((res) => { if (res?.data?.items) setLiveFeed(res.data.items); })
+      .catch(() => {})
+      .finally(() => setLoadingFeed(false));
+
+    fetch('/api/leaderboard/me')
+      .then((r) => r.json())
+      .then((res) => { if (res?.data) setMyStats(res.data); })
+      .catch(() => {});
+
+    if (user?.id) {
+      fetch(`/api/races?user_id=${user.id}&status=completed&limit=20`)
+        .then((r) => r.json())
+        .then((res) => {
+          if (res?.data?.items) setRecentRaces(res.data.items);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingRecent(false));
+    } else {
+      setRecentRaces([]);
+      setLoadingRecent(false);
     }
   }, [user?.id]);
 
@@ -366,7 +375,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {loading ? (
+            {loadingDrones ? (
               <div className={cn(styles.cardBody, styles.loadingCenter)}>
                 <Spinner size="md" />
               </div>
@@ -458,14 +467,14 @@ export default function DashboardPage() {
             canCycle={nextRaceCanCycle}
             onPrev={goPrevNextRace}
             onNext={goNextNextRace}
-            loading={loading}
+            loading={loadingDrones}
           />
 
           {/* ---- Row 2 col 2 (and below): Live Race Feed ---- */}
           <Card className={cn(styles.liveFeed, styles.areaFeed)}>
             <h2 className={styles.sectionHeading}>Live Race Feed</h2>
             <div className={cn(styles.cardBody, styles.feedBody)}>
-            {loading ? (
+            {loadingFeed ? (
               <div className={styles.loadingCenter}>
                 <Spinner size="md" />
               </div>
@@ -578,7 +587,7 @@ export default function DashboardPage() {
           <Card className={cn(styles.results, styles.areaResults)}>
             <h2 className={styles.sectionHeading}>Your Recent Results</h2>
             <div className={styles.cardBody}>
-            {loading ? (
+            {loadingRecent ? (
               <div className={styles.loadingCenter}>
                 <Spinner size="md" />
               </div>
