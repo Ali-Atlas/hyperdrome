@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Plus, Trophy, X } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
-import Skeleton from '@/components/ui/Skeleton';
+import Spinner from '@/components/ui/Spinner';
 import EmptyState from '@/components/ui/EmptyState';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
@@ -224,15 +224,9 @@ export default function DronesPage() {
     <NavShell>
       <div className={styles.page}>
         {loading ? (
-          <>
-            <Skeleton variant="card" height={70} />
-            <div className={styles.grid}>
-              <Skeleton variant="card" height={380} />
-              <Skeleton variant="card" height={380} />
-              <Skeleton variant="card" height={380} />
-              <Skeleton variant="card" height={380} />
-            </div>
-          </>
+          <div className={styles.loadingCenter}>
+            <Spinner size="lg" label="Loading fleet" />
+          </div>
         ) : drones.length === 0 ? (
           <EmptyState
             title="No drones yet"

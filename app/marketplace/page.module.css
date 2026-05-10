@@ -6302,3 +6302,14 @@
     max-width: none;
   }
 }
+
+/* Centered Spinner placeholder for the listings grid while listings
+   load. Min-height absorbs vertical layout shift between the spinner
+   phase and the rendered grid. */
+.loadingCenter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  width: 100%;
+}

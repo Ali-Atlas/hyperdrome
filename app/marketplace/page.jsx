@@ -9,7 +9,7 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
-import Skeleton from '@/components/ui/Skeleton';
+import Spinner from '@/components/ui/Spinner';
 import EmptyState from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
@@ -1238,11 +1238,8 @@ export default function MarketplacePage() {
                 onOpenCapsule={(pack) => openPackFlow('capsule', pack)}
               />
             ) : loading ? (
-              <div className={styles.grid}>
-                <Skeleton variant="card" height={260} />
-                <Skeleton variant="card" height={260} />
-                <Skeleton variant="card" height={260} />
-                <Skeleton variant="card" height={260} />
+              <div className={styles.loadingCenter}>
+                <Spinner size="lg" label="Loading listings" />
               </div>
             ) : filteredListings.length === 0 ? (
               <EmptyState

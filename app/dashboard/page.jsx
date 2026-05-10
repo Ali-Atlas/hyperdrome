@@ -17,7 +17,7 @@ import {
 } from '@/lib/pending-toggle';
 import DroneImage from '@/components/ui/DroneImage';
 import EmptyState from '@/components/ui/EmptyState';
-import Skeleton from '@/components/ui/Skeleton';
+import Spinner from '@/components/ui/Spinner';
 import StatRadar from '@/components/ui/StatRadar';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import ConditionPill from '@/components/ui/ConditionPill';
@@ -367,8 +367,8 @@ export default function DashboardPage() {
             </div>
 
             {loading ? (
-              <div className={styles.cardBody}>
-                <Skeleton variant="card" height={220} />
+              <div className={cn(styles.cardBody, styles.loadingCenter)}>
+                <Spinner size="md" />
               </div>
             ) : spotlightDrone ? (
               <div className={styles.spotlightBody}>
@@ -458,6 +458,7 @@ export default function DashboardPage() {
             canCycle={nextRaceCanCycle}
             onPrev={goPrevNextRace}
             onNext={goNextNextRace}
+            loading={loading}
           />
 
           {/* ---- Row 2 col 2 (and below): Live Race Feed ---- */}
@@ -465,7 +466,9 @@ export default function DashboardPage() {
             <h2 className={styles.sectionHeading}>Live Race Feed</h2>
             <div className={cn(styles.cardBody, styles.feedBody)}>
             {loading ? (
-              <Skeleton variant="text" count={6} />
+              <div className={styles.loadingCenter}>
+                <Spinner size="md" />
+              </div>
             ) : liveFeed.length === 0 ? (
               <p className={styles.empty}>No upcoming races.</p>
             ) : (
@@ -576,7 +579,9 @@ export default function DashboardPage() {
             <h2 className={styles.sectionHeading}>Your Recent Results</h2>
             <div className={styles.cardBody}>
             {loading ? (
-              <Skeleton variant="text" count={5} />
+              <div className={styles.loadingCenter}>
+                <Spinner size="md" />
+              </div>
             ) : recentRaces.length === 0 ? (
               <p className={styles.empty}>
                 No races yet. Activate a drone and wait for the next race
@@ -749,6 +754,7 @@ function NextRacePanel({
   canCycle,
   onPrev,
   onNext,
+  loading,
 }) {
   return (
     <Card className={cn(styles.nextRacePanel, styles.areaNextRace)}>
@@ -791,7 +797,11 @@ function NextRacePanel({
         )}
       </div>
 
-      {race ? (
+      {loading ? (
+        <div className={styles.loadingCenter}>
+          <Spinner size="md" />
+        </div>
+      ) : race ? (
         <NextRaceMatchup race={race} />
       ) : (
         <div className={styles.nextRaceEmpty}>

@@ -811,6 +811,17 @@
   margin: 0;
 }
 
+/* Centered Spinner placeholder for cards / table bodies that are empty
+   while their data fetch is in flight. Min-height absorbs vertical
+   layout shift between the spinner phase and the rendered content. */
+.loadingCenter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  width: 100%;
+}
+
 /* ==========================================================================
  * Breakpoints
  * ========================================================================== */
