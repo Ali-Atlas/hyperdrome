@@ -4636,18 +4636,30 @@
 }
 
 /* Off-chain disclaimer for wallet users buying DB-only listings or
-   opening DB-only packs. Reads as a low-key advisory just above the
-   marketplace-fee footnote - small, muted, single-line on any
-   reasonable modal width, naturally wraps to two lines on the
-   narrowest mobile breakpoint without shifting any other element. */
+   opening DB-only packs. Yellow caution pill - translucent fill +
+   accent-warning border + accent-warning text - so wallet users
+   notice it before clicking Confirm. inline-flex + align-self:
+   center sizes the pill to its content within the parent flex
+   column; max-width: 100% lets it wrap on narrow mobile widths
+   without overflowing the modal. */
 .purchaseDisclaimer {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
   margin: var(--space-2) 0 0;
-  padding: 0 var(--space-2);
+  padding: 6px 14px;
   font-family: var(--font-body);
   font-size: 11px;
-  color: var(--text-secondary);
+  font-weight: var(--font-semibold);
+  color: var(--accent-warning);
+  background: rgba(245, 197, 24, 0.12);
+  border: 1px solid rgba(245, 197, 24, 0.5);
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
   text-align: center;
-  line-height: 1.4;
 }
 
 .purchaseSuccessBlock {
