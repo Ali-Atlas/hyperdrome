@@ -17,7 +17,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Is it free to play?',
-        a: 'Yes. Sign up and you get a free Level 1 starter drone (active by default), 500 volts in your wallet, one unbound common skin, and one unbound common mod sitting in your inventory. All further progression is earned by racing.',
+        a: 'Yes. Connect a wallet and you get a free Level 1 starter drone (active by default, minted to your wallet as an NFT), 1000 VOLT minted on-chain, and 1 active drone slot at ELO 1000. All further progression is earned by racing. Or pick Play Demo for a pre-seeded off-chain account if you want to look around first.',
       },
       {
         q: 'Do I need to be online for races?',
@@ -29,7 +29,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'How do I sign up?',
-        a: 'Go to /login, enter your email, click the magic link we send you. No password.',
+        a: 'Click Connect Wallet on the landing page and pick a wallet (MetaMask or any injected browser wallet). The first time you connect from a new address, the server provisions your starter drone NFT and 1000 VOLT and signs you in. Returning visitors connect once and land back in the dashboard.',
       },
       {
         q: 'What\'s the max level?',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -13,7 +13,6 @@ import {
   BookOpen,
   HelpCircle,
   Menu,
-  LogIn,
   LogOut,
   Hexagon,
 } from 'lucide-react';
@@ -101,6 +100,88 @@ function WalletButton() {
 }
 
 /**
+ * Unauthenticated Connect Wallet entry point. Rendered in the user-area
+ * slot when there's no session. Two states:
+ *
+ *   - Wallet not attached: button opens RainbowKit. On connection the
+ *     auto-auth effect fires `POST /api/auth/wallet` and reloads into
+ *     /dashboard.
+ *   - Wallet already attached (returning visitor whose RainbowKit
+ *     session restored on landing): the auto-auth effect runs on mount
+ *     so the user lands in the app without an extra click. Button
+ *     surface shows a busy state during the round-trip.
+ *
+ * The auth POST is gated by `triedRef` so a transient failure (network,
+ * 500) doesn't infinite-loop the effect; on failure it clears the gate
+ * so a click can retry.
+ */
+function HeaderConnectWallet() {
+  const { address, isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const [authing, setAuthing] = useState(false);
+  const triedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isConnected || !address) return;
+    if (authing || triedRef.current) return;
+    triedRef.current = true;
+    setAuthing(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/wallet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ walletAddress: address }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          console.error('[wallet] sign-in failed:', data?.error);
+          if (!cancelled) {
+            triedRef.current = false;
+            setAuthing(false);
+          }
+          return;
+        }
+        window.location.href = data.redirectUrl || '/dashboard';
+      } catch (err) {
+        console.error('[wallet] sign-in error:', err);
+        if (!cancelled) {
+          triedRef.current = false;
+          setAuthing(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, address, authing]);
+
+  if (isConnected) {
+    return (
+      <button
+        type="button"
+        className={styles.connectWallet}
+        disabled
+        aria-busy="true"
+      >
+        Signing in...
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={styles.connectWallet}
+      onClick={() => openConnectModal?.()}
+    >
+      Connect Wallet
+    </button>
+  );
+}
+
+/**
  * Application layout shell with desktop sidebar + mobile drawer nav.
  * Reads the session directly - no need to pass `user` from every page.
  * @param {object} props
@@ -110,7 +191,17 @@ export default function NavShell({ children }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { user, signOut } = useSession();
-  const onSignOut = () => signOut({ redirectTo: '/' });
+  const { isConnected: walletConnected, address: walletAddress } = useAccount();
+  const { disconnect } = useDisconnect();
+  // Wallet-auth users see their session vanish AND their wallet drop on
+  // sign-out, so the next CONNECT WALLET press starts from a clean slate
+  // (otherwise the still-connected wallet would skip the RainbowKit modal
+  // and re-auth into the same session). For demo users it's a no-op
+  // since useDisconnect on a non-connected state does nothing.
+  const onSignOut = () => {
+    if (walletConnected) disconnect();
+    signOut({ redirectTo: '/' });
+  };
 
   // NextAuth's session.user.points is stale until the JWT refreshes, which
   // doesn't happen after a purchase. We listen on a global `volts:update`
@@ -130,21 +221,20 @@ export default function NavShell({ children }) {
   }, []);
   const dbBalance = balanceOverride ?? user?.points ?? 0;
 
-  // On-chain VOLT for wallet-connected users. When connected, the
-  // RainbowKit-attached address is passed to /api/volt/balance and the
-  // ERC-20 balance for THAT address is what NavShell shows (not the DB
-  // points column). The on-chain balance is a property of the wallet,
-  // not the user account: a session can be logged in as PILOT_X without
-  // a server-side bind for that address (e.g. the demo deployer wallet
-  // is bound to PILOT_D02 but anyone connecting it should see its real
-  // 112_363 VOLT, not their own DB-tracked points).
+  // On-chain VOLT for wallet-connected users. When connected, replace the
+  // DB volt display with the on-chain ERC-20 balance (server-cached 30s
+  // via /api/volt/balance). Falls back to dbBalance when no wallet is
+  // linked, the fetch fails, or the user disconnects.
   //
-  // The address-less call path remains for non-RainbowKit consumers and
-  // falls back to `users.walletAddress` server-side. NavShell never hits
-  // that path because it always passes the address when connected.
+  // The API returns `hasWallet: false` when the authenticated user has no
+  // walletAddress row yet (transient state right after RainbowKit connects
+  // but before /api/user/wallet POST commits). In that case we keep
+  // onchainVolts null so the dbBalance fallback wins instead of briefly
+  // overwriting the user's display with a soft "0" reading.
   //
-  // Polls every 30s to match the server cache TTL.
-  const { isConnected: walletConnected, address: walletAddress } = useAccount();
+  // Polls every 30s to match the server cache TTL - no point reading more
+  // often than the upstream refreshes. `walletConnected` is hoisted up top
+  // alongside `disconnect` so the sign-out handler can also drop the wallet.
   const [onchainVolts, setOnchainVolts] = useState(null);
   useEffect(() => {
     if (!user || !walletConnected || !walletAddress) {
@@ -225,10 +315,7 @@ export default function NavShell({ children }) {
         </button>
       </div>
     ) : (
-      <Link href="/login" className={styles.signIn}>
-        <LogIn size={14} aria-hidden="true" />
-        Sign in
-      </Link>
+      <HeaderConnectWallet />
     );
 
   return (
@@ -258,7 +345,7 @@ export default function NavShell({ children }) {
         >
           <Menu size={20} />
         </button>
-        {user && (
+        {user ? (
           <div className={styles.mobileUser}>
             <span className={styles.mobileUsername}>
               {user.username ?? user.email}
@@ -269,6 +356,10 @@ export default function NavShell({ children }) {
               {displayBalance.toLocaleString()}
             </span>
             <WalletButton />
+          </div>
+        ) : (
+          <div className={styles.mobileUser}>
+            <HeaderConnectWallet />
           </div>
         )}
       </header>

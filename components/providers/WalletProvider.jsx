@@ -7,8 +7,10 @@
  * useDisconnect, ...) and open the connect modal via RainbowKit's
  * useConnectModal.
  *
- * Wallet connect is additive: it does not replace NextAuth email magic-link
- * sign-in. A user can use the entire app without ever connecting a wallet.
+ * Two entry points into the app are CONNECT WALLET (this provider's session
+ * + NextAuth wallet credentials) and PLAY DEMO (NextAuth credentials with a
+ * server-side PILOT_ user, no wallet). Demo users can also connect a wallet
+ * post-login via the NavShell button to bind it to their account.
  *
  * Connector list is `injected()` only - browser-extension wallets like
  * MetaMask. WalletConnect mobile (the protocol, not the brand) requires a

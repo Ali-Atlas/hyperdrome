@@ -52,29 +52,9 @@
   pointer-events: none;
 }
 
-/* Top-right hero login link. Subtle, mono, never competes with PLAY DEMO. */
-.heroLogin {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
-  z-index: 3;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-secondary);
-  text-decoration: none;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition: color var(--duration-fast) var(--ease-out);
-}
-
-.heroLogin:hover {
-  color: var(--text-primary);
-}
-
-/* Top-left hero audio toggle. Sits opposite .heroLogin so the two
-   corner controls mirror each other; both share the z-index 3 layer
-   above the dark video overlay. Subtle by design - small dark pill
-   with a 16px icon, muted tertiary color. */
+/* Top-left hero audio toggle. Sits in the top-left of the hero on the
+   z-index 3 layer above the dark video overlay. Subtle by design - small
+   dark pill with a 16px icon, muted tertiary color. */
 .heroAudioToggle {
   position: absolute;
   top: var(--space-4);

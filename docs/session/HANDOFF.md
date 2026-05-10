@@ -6562,3 +6562,44 @@ Verified no source file imports from these paths before deletion.
 - wagmi v2.19.5: `useAccount` returns `{ address, isConnected }`; `useDisconnect` returns `{ disconnect }`. Both are already exercised in this repo's NavShell.
 - @rainbow-me/rainbowkit v2.2.11: `useConnectModal` returns `{ openConnectModal }` (may be `undefined` on first render before provider commits, hence the optional call).
 - next-auth v5.0.0-beta.30: `signOut({ redirectTo })` is the v5 API (replaces v4's `callbackUrl`).
+## 2026-05-10 - Wallet-connect new player flow (FEAT)
+
+**Captain ask:** Real players connect their wallet from the landing page and play the game fully on-chain - real NFTs, real VOLT tokens, no demo seed. Two paths into the game: existing PLAY DEMO (off-chain) and new CONNECT WALLET (on-chain). New wallets get a starter drone NFT minted to their address and 1000 VOLT minted on-chain.
+
+**Files added (1):**
+
+- `app/api/auth/wallet/route.js`
+  - `POST /api/auth/wallet` accepts `{ walletAddress }`, validates EIP-55 via `ethers.getAddress`, looks up the user by lowercased address, and either signs in the existing user or provisions a new one. New-user provisioning runs in best-effort order (no transactions on the Neon HTTP driver): insert user (synthetic email `wallet_<lower>@wallet.hyperdrome.gg`, username `0x<4>...<4>`, walletAddress lowercased, points = 1000 to mirror the on-chain starter for the upgrade gate) → insert starter drone with `buildLowRangeStats(1, 5)` and `generateUniqueDroneName` → insert drone ownership history (`creation`) → mint NFT to player wallet (compute next tokenId as `MAX+1`, persist `tokenId` / `mintTxHash` / `mintedAt` on success) → mint 1000 VOLT to player wallet → `signIn('wallet', ...)`. Each step except the user insert + signIn is best-effort; failures log and the user can re-mint via the existing `/api/drones/[droneId]/mint` route. IP rate-limited (10 / hour) per the demo route's pattern. Concurrent-create race resolved by re-reading on UNIQUE violation and signing into the survivor row.
+
+**Files modified (4):**
+
+- `lib/auth/index.js`
+  - Added a second Credentials provider with `id: 'wallet'`. Mirrors the existing PILOT_ provider's secret-comparison guard (compares against `NEXTAUTH_SECRET` so the path can never be driven by an external client) but keys auth on `walletAddress` being non-null instead of `name` starting with `PILOT_`. The PILOT_ provider is untouched.
+
+- `lib/onchain/volt.js`
+  - Added `mintVoltToWallet(walletAddress, volts)` mirroring the existing `burnVoltFromWallet`. Returns `null` on missing env or non-positive amount so the caller can degrade gracefully on testnet without env vars set; throws on RPC / contract errors so the caller can decide whether to surface or swallow. Added `decimals()` to the local ABI so a future contract change can't silently shift mint amounts.
+
+- `app/HeroActions.jsx` + `app/HeroActions.module.css`
+  - Added a CONNECT WALLET button below PLAY DEMO. Click flow: if a wallet is already attached it goes straight to `POST /api/auth/wallet`; otherwise it opens the RainbowKit modal and a `useEffect` finishes the auth POST as soon as `useAccount` reports `isConnected`. Button states: idle / "Open your wallet..." (modal-pending) / "Connecting..." (POST in flight). Demo and wallet buttons mutually disable each other while either is loading. CSS adds a `.secondary` variant - outlined accent-primary - so PLAY DEMO keeps visual priority and the wallet path is clearly available without competing for attention.
+
+- `components/ui/NavShell/index.jsx`
+  - Hoisted the existing `useAccount()` call to the top of the component and added `useDisconnect`. `onSignOut` now calls `disconnect()` before `signOut({ redirectTo: '/' })` when a wallet is connected, so wallet-auth users start from a clean slate on the next CONNECT WALLET press. For email-auth users the disconnect is a no-op since wagmi's `useDisconnect` on a non-connected state does nothing. The on-chain VOLT polling block reuses the same hoisted `walletConnected` value.
+
+**External-spec verification:**
+- next-auth v5.0.0-beta.30: `Credentials({ id, credentials, authorize })` supports a custom `id` so two providers can coexist (verified against `node_modules/@auth/core/providers/credentials.d.ts`).
+- ethers v6.16.0: `getAddress()` validates EIP-55 and accepts canonical all-lower / all-upper inputs; `JsonRpcProvider` + `Wallet` + `Contract` follow the existing `app/api/drones/[droneId]/mint/route.js` pattern.
+- wagmi v2.19.5 / @rainbow-me/rainbowkit v2.2.11: `useAccount` exposes `address` + `isConnected`; `useDisconnect` exposes `disconnect`; `useConnectModal` exposes `openConnectModal`. All three are already used elsewhere in NavShell so the API surface is exercised in this repo.
+
+**Auth model (testnet MVP, by Captain's spec):** the server trusts the wallet address from the POST body. SIWE / signed-message auth is mainnet polish - acceptable for a testnet demo where the worst case is "someone else takes over an empty starter account" and the on-chain assets are minted to the address itself (so even a forged sign-in cannot steal the drone NFT or VOLT balance).
+
+**Non-changes (per spec):**
+- Demo flow untouched: `PLAY DEMO` button, `/api/auth/demo` route, the `Credentials` PILOT_ provider, and `seedDemoPlayer` are all unmodified.
+- Race engine, matchmaking, ELO, drone / skin / mod contracts, deploy scripts, and game-balance numbers untouched.
+- `/api/user/wallet`, `/api/volt/balance`, and `/api/drones/[droneId]/mint` unmodified - the wallet-connect flow piggybacks on the existing patterns rather than redefining them.
+
+**Rollout notes:**
+- Required env vars (already present for the existing on-chain flows): `DEPLOYER_PRIVATE_KEY`, `MEGAETH_RPC_URL`, `VOLT_CONTRACT_ADDRESS`, `NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS` (or `DRONE_CONTRACT_ADDRESS`).
+- HyperdromeVOLT.mint() requires the deployer to be `onlyMinter`; the deployer is the constructor-time owner so no `setMinter` ceremony is needed (same model as `scripts/mint-volt.js`).
+- A new wallet that already paid into the seed pool can re-press CONNECT WALLET safely - the existing-user branch is idempotent.
+
+

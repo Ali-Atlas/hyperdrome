@@ -51,7 +51,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Creating your account' },
       {
         type: 'paragraph',
-        text: 'Sign up with email. We send a magic link. No password. On first sign-in you get a free Level 1 starter drone (active by default), 500 volts in your wallet, one unbound common skin and one unbound common mod sitting in your inventory, and 1 active drone slot at ELO 1000.',
+        text: 'Click Connect Wallet on the landing page and pick a wallet (MetaMask or any injected browser wallet). The first time you connect from a new address, you get a free Level 1 starter drone minted as an NFT to your wallet, 1000 VOLT minted on-chain, and 1 active drone slot at ELO 1000. Returning visitors connect the same wallet and land back in the dashboard. Or pick Play Demo for a pre-seeded off-chain account if you want to look around first.',
       },
       { type: 'subheading', text: 'Your first drone' },
       {

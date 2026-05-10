@@ -1,9 +1,11 @@
 /**
  * Next.js sitemap. Public routes only.
  *
- * `/login`, `/register`, `/signup` are excluded - proxy.js redirects them
- * to `/`. Protected routes (dashboard, drones, marketplace, admin, etc.)
- * are excluded so search engines don't crawl private URLs.
+ * Auth entry points (CONNECT WALLET / PLAY DEMO) live on the landing page;
+ * legacy `/login`, `/register`, `/signup` paths still bounce to `/` via
+ * proxy.js for any stale bookmarks. Protected routes (dashboard, drones,
+ * marketplace, admin, etc.) are excluded so search engines don't crawl
+ * private URLs.
  */
 const BASE = 'https://hyperdrome.vercel.app';
 
