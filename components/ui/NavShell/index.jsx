@@ -20,6 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
+import { useBootstrapSelfHeal } from '@/hooks/useBootstrapSelfHeal';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { useUpcomingRaces } from '@/lib/upcoming-races-store';
@@ -399,6 +400,10 @@ function HeaderConnectWallet() {
               'volts:awaiting-mint-until',
               String(Date.now() + ttlMs),
             );
+            // Flag that bootstrap was kicked here so the self-heal
+            // hook (useBootstrapSelfHeal) doesn't fire a redundant
+            // second call on the next page mount in this tab.
+            window.sessionStorage.setItem('bootstrap-fired', String(Date.now()));
           } catch {
             /* private mode / quota - hook still works once it mounts */
           }
@@ -493,6 +498,11 @@ export default function NavShell({ children }) {
   // so the navbar never flashes the JWT-mirror value before swapping
   // to the real on-chain balance on refresh.
   const { balance: displayBalance, loading: balanceLoading } = useVoltBalance();
+
+  // If a fresh wallet user lands in the app without the connect-flow's
+  // bootstrap having completed (tab closed, network drop), this hook
+  // re-kicks the idempotent bootstrap endpoint once per tab session.
+  useBootstrapSelfHeal();
 
   const renderLinks = () =>
     NAV_LINKS.map(({ href, label, Icon }) => {

@@ -120,6 +120,10 @@ export default function HeroConnectWallet() {
             'volts:awaiting-mint-until',
             String(Date.now() + ttlMs),
           );
+          // Also flag that we kicked the bootstrap, so the dashboard
+          // self-heal hook (useBootstrapSelfHeal in NavShell) doesn't
+          // fire a redundant second call when /dashboard mounts.
+          window.sessionStorage.setItem('bootstrap-fired', String(Date.now()));
         } catch {
           /* private mode / quota - hook still works once it mounts */
         }
