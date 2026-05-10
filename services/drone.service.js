@@ -73,7 +73,18 @@ export async function getDroneById(droneId) {
       })
       .from(races)
       .leftJoin(tracks, eq(races.trackId, tracks.id))
-      .where(or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)))
+      // status='completed' guard so the drone-detail "Race History"
+      // table never renders a PENDING row. Pending races have a null
+      // winnerDroneId, which the row mapper interpreted as a LOSS;
+      // clicking that row routed to /races/[id] which correctly
+      // showed the strategy view (status='pending'), but to the user
+      // it looked like a completed race jumping to the upcoming view.
+      .where(
+        and(
+          eq(races.status, 'completed'),
+          or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)),
+        ),
+      )
       .orderBy(desc(races.createdAt))
       .limit(10),
     db
