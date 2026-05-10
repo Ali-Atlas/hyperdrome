@@ -6362,3 +6362,27 @@ All edits below are scoped to specific `@media` blocks. Desktop / tablet (>768px
   - Updated the JSDoc to describe the new contract.
 
 **What did NOT change:** the 502 path on RPC failure stays in place — that's a real server-side failure, not a state issue. NavShell already nulls out `onchainVolts` on any non-OK response and falls back to `dbBalance`, so the bad-RPC case still degrades gracefully without showing 0.
+
+## 2026-05-10 - Race settlement: visibility for missing-env + success cases (FIX 3)
+
+**Captain ask:** Verify the on-chain race settlement is wired up. Test it works whether triggered by Vercel cron or by manual hit on `/api/races/run`.
+
+**Audit result:** the wiring landed in commit `3e14819 feat: on-chain race settlement contract + cron integration` and is complete:
+
+1. **Settlement is invoked.** `runRaceCycle()` calls `executeReadyPendingRaces`, which builds a `settlementResults[]` per finished race; the orchestrator then calls `settleEpochOnchain({ epochId, results })` once per cron tick (`services/race.service.js:245-270`).
+2. **Results array is correct.** `executePendingRace` constructs the payload at `services/race.service.js:540-554` with `droneATokenId`, `droneBTokenId`, `winnerTokenId`, `eloDeltaA`, `eloDeltaB`, `voltRewardA`, `voltRewardB`. Field order matches the Solidity `SettlementResult` struct in `contracts/contracts/HyperdromeSettlement.sol:46-54` and the ethers v6 ABI in `lib/onchain/settlement.js:16-18`.
+3. **epochId + settleTxHash are recorded.** On a successful tx, `runRaceCycle` issues a parallel `Promise.all` of `UPDATE races SET epoch_id, settle_tx_hash WHERE id = ?` for every race included in the batch.
+4. **Missing env vars are graceful.** `settleEpochOnchain` returns `null` when any of `DEPLOYER_PRIVATE_KEY` / `MEGAETH_RPC_URL` / `SETTLEMENT_CONTRACT_ADDRESS` are absent; the orchestrator's `if (result?.txHash)` guard short-circuits the DB writes. Races still resolve in the DB.
+5. **Unminted demo drones skip.** `executePendingRace` returns `null` (no settlement payload) when either drone has no `tokenId` (`services/race.service.js:539`). The race is settled in the DB without an on-chain mirror.
+
+**Trigger paths:** `app/api/races/run/route.js` accepts both GET (Vercel cron default) and POST (our scripts) and calls `runRaceCycle()` regardless. Settlement fires no matter the trigger source.
+
+**Files modified (2):**
+
+- `lib/onchain/settlement.js`
+  - `readEnv()` now returns `{ ok: false, missing: [...] }` listing the unset vars instead of a bare `{ ok: false }`. `settleEpochOnchain` emits `console.warn('[settlement] skipping on-chain settleEpoch - missing env: ...')` so the silent-skip case is visible during the demo.
+
+- `services/race.service.js`
+  - Added a `console.log('[race.service] on-chain settleEpoch ok - epoch=N races=N tx=0x...')` in the success branch. Failure branch already had error logging; success was silent and made it hard to confirm settlement actually fired without a Blockscout round-trip.
+
+**Captain post-deploy reminder (already on record from `deploy-settlement.js`):** the deployer must call `HyperdromeVOLT.setMinter(<settlement>, true)` once after the settlement deploy. Without it, every `settleEpoch` call reverts when minting the winner reward; the cron logs would surface that as a settleEpoch failure. Verify before the demo.

@@ -260,6 +260,9 @@ export async function runRaceCycle() {
               .where(eq(races.id, r.raceId)),
           ),
         );
+        console.log(
+          `[race.service] on-chain settleEpoch ok - epoch=${epochId} races=${result.count} tx=${result.txHash}`,
+        );
       }
     } catch (err) {
       console.error(
