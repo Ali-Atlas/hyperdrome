@@ -1,0 +1,102 @@
+/*
+ * Top-right corner CONNECT WALLET on the landing. Position: fixed so it
+ * stays anchored as the user scrolls through the marketing sections
+ * below the hero. z-index 4 sits above the hero video overlay (1) and
+ * the audio toggle (3) so the button is always reachable. The wrap is
+ * pointer-events: none so the corner area doesn't intercept clicks
+ * meant for whatever is rendered behind it; the button itself opts back
+ * in via pointer-events: auto.
+ */
+.wrap {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+/*
+ * Outlined teal pill - matches the secondary-CTA aesthetic used elsewhere
+ * (NavShell .connectWallet) so the unauth Connect Wallet button reads as
+ * one consistent affordance across the marketing surface and the app
+ * shell. Translucent dark background + backdrop blur keeps it legible
+ * over the hero video without competing with the PLAY DEMO primary
+ * sitting in the hero center.
+ */
+.button {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 18px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--accent-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.button:hover:not(:disabled) {
+  background: rgba(3, 218, 198, 0.15);
+  box-shadow: 0 0 14px rgba(3, 218, 198, 0.25);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+}
+
+.button:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+/*
+ * Small error chip dropped under the button on auth failure. Right-aligned
+ * to the wrap so the chip nests under the button, with a translucent dark
+ * background so the error stays readable over any underlying section.
+ */
+.error {
+  pointer-events: auto;
+  margin: 0;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--accent-error);
+  color: var(--accent-error);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+  max-width: 240px;
+  text-align: right;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Mobile: shrink padding + font so the button doesn't crowd the audio
+   toggle on the opposite corner at 375px width. */
+@media (max-width: 480px) {
+  .wrap {
+    top: var(--space-3);
+    right: var(--space-3);
+  }
+  .button {
+    padding: 6px 12px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+}

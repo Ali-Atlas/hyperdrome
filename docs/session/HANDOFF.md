@@ -6602,4 +6602,43 @@ Verified no source file imports from these paths before deletion.
 - HyperdromeVOLT.mint() requires the deployer to be `onlyMinter`; the deployer is the constructor-time owner so no `setMinter` ceremony is needed (same model as `scripts/mint-volt.js`).
 - A new wallet that already paid into the seed pool can re-press CONNECT WALLET safely - the existing-user branch is idempotent.
 
+## 2026-05-10 - BUG: CONNECT WALLET infinite redirect loop on /dashboard
+
+**Captain ask:** After CONNECT WALLET succeeded, the dashboard reloaded in a cycle - `POST /api/auth/wallet` fired on every render. Fix: never POST when the session already corresponds to the connected wallet, and stop full-page reloading on success.
+
+**Root cause:**
+
+1. Server-side, `/api/auth/wallet` short-circuits authenticated callers with `{ redirectUrl: '/dashboard' }`. Cheap from the server's perspective but the client treated the response as "go redirect".
+2. Client-side, `HeaderConnectWallet` set `window.location.href = data.redirectUrl` on every successful response. A full page reload resets all React state and the `triedRef` guard, so the next mount fired a fresh POST.
+3. `HeaderConnectWallet`'s effect ran while `useSession().status === 'loading'` (initial render after a hard reload returns `user: null` until next-auth's `/api/auth/session` round-trip completes). It saw `!user`, fired POST, server short-circuited, client reloaded - loop.
+4. Mobile + desktop NavShell both render `HeaderConnectWallet`, so two POSTs fired in parallel even within a single mount.
+
+**Files modified (3):**
+
+- `lib/auth/index.js`
+  - JWT callback now selects `users.walletAddress` alongside the existing username/points/totalRaces refresh and stashes the lowercased value on the token. Session callback exposes it as `session.user.walletAddress` (defaulting to `null` for non-wallet sessions). The lowercase normalization is server-side so client compares can use `useAccount().address?.toLowerCase()` directly without a re-checksum step.
+
+- `components/ui/NavShell/index.jsx`
+  - Added module-scope `WALLET_AUTH_IN_FLIGHT` Set keyed by lowercased address. Mobile + desktop `HeaderConnectWallet` instances both check it before POSTing so they never race.
+  - Imported `useRouter` from `next/navigation` and `useSession` for the gate.
+  - Rewrote `HeaderConnectWallet`'s auto-auth effect to:
+    - Wait for `status !== 'loading'` before deciding (so the initial-loading null-user window is harmless).
+    - Skip the POST entirely when `user.walletAddress === connectedAddress.toLowerCase()` (the canonical "already signed in" signal).
+    - Use `WALLET_AUTH_IN_FLIGHT` to dedupe parallel mobile/desktop POSTs.
+    - Replace `window.location.href = redirectUrl` with `router.push(target)` (skipped when `pathname === target`) plus `router.refresh()` so the layout RSC reads the new session cookie. No full reload means React/RainbowKit/in-flight Set survive the redirect.
+
+- `app/HeroConnectWallet.jsx`
+  - Same module-scope `WALLET_AUTH_IN_FLIGHT` pattern.
+  - `postWalletAuth` short-circuits when `user.walletAddress` matches the connected address: just `router.push('/dashboard')` (skipped when already there) without calling `/api/auth/wallet`. The route would also short-circuit, but skipping the round-trip is cheaper and avoids resetting `loading` state for a no-op.
+  - The `pendingAuth` effect waits for `status !== 'loading'`. Replaced `window.location.href` with `router.push` + `router.refresh()` for the same reason as `HeaderConnectWallet`.
+
+**Why the four guards together:**
+
+- `status === 'loading'` gate: prevents firing during the initial-render null-user window.
+- `user?.walletAddress === lowerAddress`: the durable "session already matches" gate that prevents loops once the cookie lands.
+- `WALLET_AUTH_IN_FLIGHT`: prevents the desktop+mobile NavShell instances (and a Strict-Mode double-effect in dev) from firing concurrent POSTs on the same address.
+- `router.push` (with pathname check) instead of `window.location.href`: avoids the full reload that would otherwise reset all the above guards.
+
+**Untouched:** auth flow itself (no signature/SIWE changes), demo `/api/auth/demo` provider, `/api/user/wallet` bind cache, race / VOLT logic.
+
 

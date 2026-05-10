@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Cpu,
@@ -41,6 +41,13 @@ const NAV_LINKS = [
 // silences the steady stream of duplicate binds (which the server otherwise
 // answers with 200 on no-op or 409 if the address belongs to another user).
 const BOUND_ADDRESSES = new Set();
+
+// Module-scope set of lowercased addresses for which a POST /api/auth/wallet
+// is currently in flight. Two NavShell renders (desktop sidebar + mobile
+// top-bar) both render HeaderConnectWallet; without this gate they'd both
+// fire concurrent sign-in attempts on the same address. Cleared in `finally`
+// so a sign-out -> reconnect-same-wallet flow isn't permanently blocked.
+const WALLET_AUTH_IN_FLIGHT = new Set();
 
 /**
  * Wallet connect / disconnect button. Only renders for authenticated users
@@ -104,29 +111,50 @@ function WalletButton() {
  * slot when there's no session. Two states:
  *
  *   - Wallet not attached: button opens RainbowKit. On connection the
- *     auto-auth effect fires `POST /api/auth/wallet` and reloads into
+ *     auto-auth effect fires `POST /api/auth/wallet` and routes to
  *     /dashboard.
  *   - Wallet already attached (returning visitor whose RainbowKit
  *     session restored on landing): the auto-auth effect runs on mount
  *     so the user lands in the app without an extra click. Button
  *     surface shows a busy state during the round-trip.
  *
- * The auth POST is gated by `triedRef` so a transient failure (network,
- * 500) doesn't infinite-loop the effect; on failure it clears the gate
- * so a click can retry.
+ * Loop guards (the dashboard previously cycled through reload->POST->reload
+ * when `/api/auth/wallet` returned a redirectUrl on every page render):
+ *
+ *   1. Wait for `useSession().status` to resolve before deciding. During
+ *      the initial 'loading' window `user` is null even when a JWT cookie
+ *      exists; firing during loading would re-POST against an existing
+ *      session.
+ *   2. If `user.walletAddress` already matches the connected address,
+ *      skip the POST entirely. The session is the canonical signal that
+ *      this address is signed in.
+ *   3. `WALLET_AUTH_IN_FLIGHT` (module-scope) prevents the desktop +
+ *      mobile NavShell instances from both POSTing the same address.
+ *   4. Use `router.push` (no full reload) so React state, RainbowKit
+ *      state, and the in-flight Set survive the redirect. Skip the push
+ *      when already on the target path.
  */
 function HeaderConnectWallet() {
+  const { user, status } = useSession();
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
+  const router = useRouter();
+  const pathname = usePathname();
   const [authing, setAuthing] = useState(false);
-  const triedRef = useRef(false);
 
   useEffect(() => {
+    if (status === 'loading') return;
     if (!isConnected || !address) return;
-    if (authing || triedRef.current) return;
-    triedRef.current = true;
-    setAuthing(true);
+    const lowerAddress = address.toLowerCase();
+    // Already signed in as this exact wallet - the bind is the bind.
+    if (user?.walletAddress === lowerAddress) return;
+    // A sibling NavShell instance (desktop vs mobile) is already POSTing
+    // for this address. Skip rather than racing the server-side signIn.
+    if (WALLET_AUTH_IN_FLIGHT.has(lowerAddress)) return;
+    WALLET_AUTH_IN_FLIGHT.add(lowerAddress);
+
     let cancelled = false;
+    setAuthing(true);
     (async () => {
       try {
         const res = await fetch('/api/auth/wallet', {
@@ -137,25 +165,25 @@ function HeaderConnectWallet() {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           console.error('[wallet] sign-in failed:', data?.error);
-          if (!cancelled) {
-            triedRef.current = false;
-            setAuthing(false);
-          }
           return;
         }
-        window.location.href = data.redirectUrl || '/dashboard';
+        if (cancelled) return;
+        const target = data.redirectUrl || '/dashboard';
+        if (pathname !== target) router.push(target);
+        // Re-fetch RSC so the layout server components pick up the new
+        // session cookie that signIn() wrote to the response.
+        router.refresh();
       } catch (err) {
         console.error('[wallet] sign-in error:', err);
-        if (!cancelled) {
-          triedRef.current = false;
-          setAuthing(false);
-        }
+      } finally {
+        WALLET_AUTH_IN_FLIGHT.delete(lowerAddress);
+        if (!cancelled) setAuthing(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [isConnected, address, authing]);
+  }, [status, user?.walletAddress, isConnected, address, pathname, router]);
 
   if (isConnected) {
     return (
