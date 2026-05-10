@@ -6450,3 +6450,25 @@ node --env-file=.env.local scripts/mint-volt.js 0x<ali-wallet> 110000
 | RPC failure                 | 502                               | dbBalance      |
 
 **Demo recipe coordination with FIX 5:** run `node --env-file=.env.local scripts/mint-volt.js <ali-wallet> 110000` once before the demo. Ali's connected session will then surface 110_000 from on-chain via this fallback chain.
+
+## 2026-05-10 - BUG 1: duplicate pending races (3 active drones → 6 upcoming)
+
+**Captain ask:** A user with 3 active drones was seeing 6 upcoming races across the dashboard / races page. Hypothesis: concurrent race-cron runs creating overlapping pending rows.
+
+**Root cause confirmed by DB query.** 157 pending races, many in duplicate `(drone1, drone2)` pairs created within ~1s of each other (e.g. `08:58:24.836Z` vs `08:58:25.520Z`). That's the signature of two concurrent `runRaceCycle` invocations both reading the same "drones not in pending" snapshot, both calling `matchDronesInBracket`, both INSERTing the same pairs. In local dev this happens whenever the user POSTs `/api/races/run` while a previous tick is still in flight; in production Vercel cron is single-firing per schedule so the bug only surfaces in dev. Cross-process duplication (two serverless instances) would still need DB-level enforcement, but that's out of scope for the demo.
+
+**Files modified (1):**
+
+- `services/race.service.js`
+  - **Mutex.** Added a module-scope `cycleInFlight` boolean and split `runRaceCycle` into a public wrapper + private `runRaceCycleInner`. The wrapper short-circuits with `{ skipped: true, reason: 'already in flight', ... }` (zero-valued shape preserves the existing key set) when a tick is already running, then `try/finally` clears the flag.
+  - **Phase-2 dedup.** `executeReadyPendingRaces` now orders pending rows by `createdAt` and walks them deduping by an unordered drone-pair key (`a<b ? "a|b" : "b|a"`). The earliest row in each pair is executed; the rest are `DELETE`d in one `inArray` call before the engine loop. This drains pre-mutex dirty state on the next tick without double-paying VOLT/ELO. Logs the count when it fires.
+  - **UI dedup.** `getUpcomingRacesForUser` runs the same in-memory pair-dedup over its result rows. The dashboard / races page stops showing the 2× ghost rows immediately on next page load — without waiting for the next cron tick to drain duplicates.
+  - **Untouched.** `getUpcomingRaceForDrone` already uses `.limit(1)` so it naturally picks the earliest row when duplicates exist; no change there.
+
+**Why three layers (mutex, phase-2 dedup, UI dedup):**
+
+- Mutex prevents NEW duplicates being inserted in this process.
+- Phase-2 dedup drains EXISTING duplicates lazily on the next tick AND defends against any cross-process hypothetical leakage.
+- UI dedup gives an immediate clean view without waiting for either the next cron tick or a DB cleanup script. The user sees 3 races for 3 drones the moment the page reloads.
+
+**What I did NOT change:** matchmaking algorithm and game-balance numbers (per ATLAS guardrails). The same-user pairing guard in `matchDronesInBracket` was already correct; the issue was at the orchestrator level, not the matcher.

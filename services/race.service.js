@@ -204,6 +204,17 @@ async function rollSkinDropForWinner(userId, cfg) {
  *  and dictates how soon AFTER the schedule a race actually executes. */
 const PENDING_WINDOW_SECONDS = 120; // 2 minutes
 
+/** Module-scope mutex preventing two concurrent runRaceCycle invocations
+ *  in the same Node process from racing through Phase 1 matchmaking and
+ *  both INSERTing the same drone-pair pending row.
+ *
+ *  Surfaced in local dev when the user POSTs `/api/races/run` while a
+ *  previous tick is still in flight. In production, Vercel cron is
+ *  single-firing per schedule so this is belt-and-braces. Cross-process
+ *  duplication (e.g. two serverless instances) needs DB-level enforcement
+ *  which is out of scope for the demo. */
+let cycleInFlight = false;
+
 /**
  * Run one full race cycle. Two phases per tick:
  *
@@ -227,6 +238,27 @@ const PENDING_WINDOW_SECONDS = 120; // 2 minutes
  * }>}
  */
 export async function runRaceCycle() {
+  if (cycleInFlight) {
+    console.warn('[race.service] runRaceCycle already in flight; skipping concurrent invocation');
+    return {
+      skipped: true,
+      reason: 'already in flight',
+      pendingExecuted: 0,
+      pendingCreated: 0,
+      botsActivated: 0,
+      bracketSummary: {},
+      settleTx: null,
+    };
+  }
+  cycleInFlight = true;
+  try {
+    return await runRaceCycleInner();
+  } finally {
+    cycleInFlight = false;
+  }
+}
+
+async function runRaceCycleInner() {
   const cfg = await loadConfig();
 
   // PHASE 2 - execute any ready PENDING races first. The executor now
@@ -380,12 +412,40 @@ async function executeReadyPendingRaces(cfg) {
         eq(races.status, 'pending'),
         sql`${races.scheduledAt} <= NOW()`,
       ),
+    )
+    .orderBy(races.createdAt);
+
+  // Defensive dedup. The runRaceCycle mutex prevents NEW duplicates, but
+  // pre-mutex dirty rows (a previous concurrent tick double-inserted the
+  // same drone-pair) must not both execute or the engine double-pays
+  // rewards and emits two settlement payloads for one matchup. Keep the
+  // earliest-by-createdAt row per unordered pair; DELETE the later ones
+  // so the UI ghost rows clear out too.
+  const seenPairs = new Set();
+  const toExecute = [];
+  const duplicateIds = [];
+  for (const race of ready) {
+    const a = race.drone1Id;
+    const b = race.drone2Id;
+    const pairKey = a < b ? `${a}|${b}` : `${b}|${a}`;
+    if (seenPairs.has(pairKey)) {
+      duplicateIds.push(race.id);
+    } else {
+      seenPairs.add(pairKey);
+      toExecute.push(race);
+    }
+  }
+  if (duplicateIds.length > 0) {
+    await db.delete(races).where(inArray(races.id, duplicateIds));
+    console.warn(
+      `[race.service] removed ${duplicateIds.length} duplicate pending race(s) before execution`,
     );
+  }
 
   let executed = 0;
   /** @type {Array<{raceId: string, payload: object}>} */
   const settlementResults = [];
-  for (const race of ready) {
+  for (const race of toExecute) {
     try {
       const settlement = await executePendingRace(race, cfg);
       executed += 1;
@@ -1131,14 +1191,30 @@ export async function getUpcomingRacesForUser(userId) {
 
   if (rows.length === 0) return [];
 
+  // Defensive dedup by unordered drone-pair. The runRaceCycle mutex now
+  // prevents new duplicates, but rows created before the mutex landed
+  // can still be in the table. Without this, a user with N active drones
+  // would see 2N upcoming races on the dashboard / races page until the
+  // next cron tick (which deletes the dups via executeReadyPendingRaces).
+  const seenPairs = new Set();
+  const dedupedRows = [];
+  for (const row of rows) {
+    const a = row.race.drone1Id;
+    const b = row.race.drone2Id;
+    const pairKey = a < b ? `${a}|${b}` : `${b}|${a}`;
+    if (seenPairs.has(pairKey)) continue;
+    seenPairs.add(pairKey);
+    dedupedRows.push(row);
+  }
+
   const allDroneIds = new Set();
-  rows.forEach(({ race }) => {
+  dedupedRows.forEach(({ race }) => {
     allDroneIds.add(race.drone1Id);
     allDroneIds.add(race.drone2Id);
   });
   const droneMap = await loadDronesWithJoins(Array.from(allDroneIds));
 
-  return rows.map(({ race, track }) =>
+  return dedupedRows.map(({ race, track }) =>
     shapePendingRace(
       race,
       track,
