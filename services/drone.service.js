@@ -271,12 +271,15 @@ export async function allocateStats(droneId, userId, statChanges) {
     .where(eq(drones.id, droneId))
     .returning();
 
-  // Surface the upgrade tx hash alongside the drone fields the route
-  // already returns so the client can render an explorer link without
-  // an extra round-trip. Spread keeps the existing response shape
+  // Surface the upgrade tx hash and the user's post-deduct balance
+  // alongside the drone fields the route already returns. The balance
+  // lets the client dispatch a `volts:update` event so NavShell shows
+  // the new total without waiting on either the JWT refresh or the
+  // on-chain balance poll. Spread keeps the existing response shape
   // backward-compatible - consumers that only read drone columns are
   // unaffected.
-  return { ...updated, upgradeTxHash };
+  const newBalance = Math.max(0, (user.points ?? 0) - result.totalCost);
+  return { ...updated, upgradeTxHash, balance: newBalance };
 }
 
 /**

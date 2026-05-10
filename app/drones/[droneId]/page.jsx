@@ -317,6 +317,17 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
         showToast(body?.error || 'Save failed', 'error');
       } else {
         showToast('Stats saved', 'success');
+        // Dispatch the post-allocate balance so NavShell updates the
+        // volts display immediately. Without this the user has to wait
+        // for the next on-chain poll (30s) or refresh the page to see
+        // the deduction. Mirrors the marketplace / pack purchase flow.
+        if (typeof body.data?.balance === 'number') {
+          window.dispatchEvent(
+            new CustomEvent('volts:update', {
+              detail: { balance: body.data.balance },
+            }),
+          );
+        }
         await onReload();
       }
     } catch (err) {

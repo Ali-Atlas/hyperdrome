@@ -263,7 +263,7 @@ export default function NavShell({ children }) {
     window.addEventListener('volts:update', handler);
     return () => window.removeEventListener('volts:update', handler);
   }, []);
-  const dbBalance = balanceOverride ?? user?.points ?? 0;
+  const dbBalance = user?.points ?? 0;
 
   // On-chain VOLT for wallet-connected users. When connected, replace the
   // DB volt display with the on-chain ERC-20 balance (server-cached 30s
@@ -318,7 +318,13 @@ export default function NavShell({ children }) {
     };
   }, [user, walletConnected, walletAddress]);
 
-  const displayBalance = onchainVolts ?? dbBalance;
+  // Override priority: a recent `volts:update` event (purchase, pack
+  // open, stat allocate) wins over both the on-chain poll AND the JWT
+  // points mirror so the user sees the just-paid amount immediately
+  // even while the on-chain balance is still cached. The on-chain poll
+  // catches up on its next tick (30s), but until then the override is
+  // the freshest signal.
+  const displayBalance = balanceOverride ?? onchainVolts ?? dbBalance;
 
   const renderLinks = () =>
     NAV_LINKS.map(({ href, label, Icon }) => {
