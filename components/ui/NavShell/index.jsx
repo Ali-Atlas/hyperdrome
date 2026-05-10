@@ -389,9 +389,22 @@ function HeaderConnectWallet() {
         // so useVoltBalance shows '—' instead of '0', then nudge an
         // immediate refetch when bootstrap returns.
         if (data?.bootstrapNeeded) {
+          // Seed sessionStorage directly (not just dispatching the
+          // event) so the hook can hydrate on mount/navigation when
+          // its listener wasn't attached yet. See HeroConnectWallet
+          // for the full reasoning.
+          const ttlMs = 30_000;
+          try {
+            window.sessionStorage.setItem(
+              'volts:awaiting-mint-until',
+              String(Date.now() + ttlMs),
+            );
+          } catch {
+            /* private mode / quota - hook still works once it mounts */
+          }
           window.dispatchEvent(
             new CustomEvent('volts:awaiting-mint', {
-              detail: { ttlMs: 30_000 },
+              detail: { ttlMs },
             }),
           );
           fetch('/api/auth/wallet/bootstrap', { method: 'POST' })

@@ -105,12 +105,27 @@ export default function HeroConnectWallet() {
         // Tell every useVoltBalance subscriber to hold a loading dash
         // (instead of the literal pre-mint zero) until the starter
         // VOLT mint lands. The hook auto-clears on the first non-zero
-        // balance OR after the TTL ceiling. Survives navigation via
-        // sessionStorage so the dashboard renders '—' even though the
-        // mint is happening on a different request.
+        // balance OR after the TTL ceiling.
+        //
+        // We write sessionStorage DIRECTLY here in addition to the
+        // CustomEvent. Reason: NavShell (the main consumer) is mounted
+        // on /dashboard, not on this landing page, so by the time its
+        // useVoltBalance hook attaches its event listener (post-redirect)
+        // the event has already fired and is lost. The hook's mount-
+        // time effect reads sessionStorage instead, so seeding it here
+        // is what makes the loading dash visible on /dashboard.
+        const ttlMs = 30_000;
+        try {
+          window.sessionStorage.setItem(
+            'volts:awaiting-mint-until',
+            String(Date.now() + ttlMs),
+          );
+        } catch {
+          /* private mode / quota - hook still works once it mounts */
+        }
         window.dispatchEvent(
           new CustomEvent('volts:awaiting-mint', {
-            detail: { ttlMs: 30_000 },
+            detail: { ttlMs },
           }),
         );
         // Intentionally not awaited - the user navigates to /dashboard
