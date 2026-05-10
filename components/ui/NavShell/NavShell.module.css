@@ -159,7 +159,10 @@
   justify-content: center;
   gap: 6px;
   padding: 7px 16px;
-  background: rgba(3, 218, 198, 0.06);
+  /* Translucent dark backdrop so the teal outline reads cleanly over
+     both the dark sidebar and the marketing video on the landing
+     header overlay. backdrop-filter softens whatever sits behind. */
+  background: rgba(0, 0, 0, 0.35);
   color: var(--accent-primary);
   font-family: var(--font-body);
   font-size: var(--text-xs);
@@ -171,7 +174,8 @@
   border-radius: var(--radius-md);
   width: fit-content;
   white-space: nowrap;
-  text-shadow: 0 0 6px rgba(3, 218, 198, 0.25);
+  text-shadow: 0 0 6px rgba(3, 218, 198, 0.2);
+  backdrop-filter: blur(2px);
   transition:
     background var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out),
@@ -181,8 +185,8 @@
 
 .connectWallet:hover:not(:disabled) {
   background: rgba(3, 218, 198, 0.14);
-  box-shadow: 0 0 16px rgba(3, 218, 198, 0.35);
-  text-shadow: 0 0 8px rgba(3, 218, 198, 0.55);
+  box-shadow: 0 0 18px rgba(3, 218, 198, 0.45);
+  text-shadow: 0 0 8px rgba(3, 218, 198, 0.6);
 }
 
 .connectWallet:focus-visible {
