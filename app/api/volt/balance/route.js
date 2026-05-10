@@ -69,6 +69,11 @@ async function fetchOnchainBalance(walletAddress) {
 export const GET = withApiHandler(async ({ session, request }) => {
   const url = new URL(request.url);
   const queryAddress = url.searchParams.get('address');
+  // `?fresh=1` skips the 30s cache for callers that just observed a
+  // VOLT mutation (post-buy, post-stat-allocate, post-pack) and need
+  // an authoritative read. The fresh fetch repopulates the cache so
+  // subsequent polled reads pick up the new value too.
+  const forceFresh = url.searchParams.get('fresh') === '1';
 
   let wallet = null;
   if (queryAddress) {
@@ -101,7 +106,7 @@ export const GET = withApiHandler(async ({ session, request }) => {
   const now = Date.now();
 
   let raw;
-  const cached = balanceCache.get(wallet);
+  const cached = !forceFresh ? balanceCache.get(wallet) : null;
   if (cached && cached.expiresAt > now) {
     raw = cached.balance;
   } else {
