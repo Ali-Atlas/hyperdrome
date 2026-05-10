@@ -4,7 +4,6 @@ import { eq } from 'drizzle-orm';
 import { getAddress } from 'ethers';
 import { db, schema } from '@/lib/db';
 import { auth, signIn } from '@/lib/auth';
-import { buildLowRangeStats } from '@/lib/game-engine/drone-spawn.js';
 import { generateUniqueDroneName } from '@/lib/game-engine/drone-names.js';
 
 const { users, drones, droneOwnershipHistory } = schema;
@@ -253,11 +252,13 @@ export async function POST(request) {
     });
   }
 
-  // 3. Starter drone (DB row). Same low-range LV1 roll as the magic-link
-  // starter so wallet and email signups produce comparable starter rosters.
+  // 3. Starter drone (DB row). Every stat starts at 1 (sum 9, TSB 29 ->
+  // 20 points of allocation headroom). Same baseline as the magic-link
+  // email starter (lib/auth/index.js#createStarterDrone) so wallet and
+  // email signups produce identical starter rosters and every new player
+  // has the same day-one reason to engage with stat allocation.
   let drone = null;
   try {
-    const stats = buildLowRangeStats(1, 5);
     const droneName = await generateUniqueDroneName(db, drones);
     [drone] = await db
       .insert(drones)
@@ -268,7 +269,15 @@ export async function POST(request) {
         xp: 0,
         xpToNextLevel: 300,
         totalStatBudget: 29,
-        ...stats,
+        speed: 1,
+        turning: 1,
+        acceleration: 1,
+        durability: 1,
+        nightVision: 1,
+        batteryCapacity: 1,
+        rainHandling: 1,
+        windResistance: 1,
+        consistency: 1,
         active: true,
         imageUrl: '/drones/default.png',
         isBot: false,

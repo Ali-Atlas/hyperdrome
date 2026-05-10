@@ -6901,3 +6901,27 @@ Branch built per Captain's spec to test before merging to main. Migrates VOLT sp
 1. The user-signed flow only kicks in when listing.onchainListingId is set (i.e. the listing was created post-Phase-A). Legacy DB-only listings still go through the original server-signed path.
 2. If `NEXT_PUBLIC_*` env vars aren't wired in `.env.local` and the server isn't restarted, the marketplace page falls back to the legacy server-signed path silently (the `useUserSigned` boolean evaluates false). Useful for incremental rollout but easy to miss.
 3. The new helper `verifyBuyTx` does a single RPC fetch with no retries. If the server's RPC node is briefly behind the client's at the moment the user POSTs, the verification fails with "transaction not found on-chain (still propagating?). Wait a moment and retry." — message is wired through to the user's error display. If we see this often, add a 1-2 retry with 500ms backoff in the helper.
+
+---
+
+## 2026-05-10 — Starter drone: every stat starts at 1 (equal baseline + day-one allocation headroom)
+
+**Diagnosis (read-only pass, prior turn):** the starter drone spawn used `buildLowRangeStats(1, 5)` — each of the 9 stats rolled uniformly in [1, 5], then trimmed only on the high end if the sum exceeded TSB. Math: mean sum ≈ 27, σ ≈ 4.2, **~33% of fresh players landed at sum = 29 (the level 1 TSB cap)** with zero allocation headroom. The other ~67% had 1–20 points free. So a third of brand-new players opened the stat editor on day one and saw no points to spend.
+
+**Captain's call:** equal baseline. Every stat = 1, sum = 9, TSB = 29 → **everyone gets 20 points of allocation headroom on day one**. No RNG variance, no "you opened the stat editor and there's nothing to do". Same starting roster for wallet and email signups.
+
+**Files modified (2):**
+
+- `lib/auth/index.js` — `createStarterDrone` (called from the magic-link email signup path via `events.createUser`).
+  - Removed the `buildLowRangeStats` import (only call site, now dead).
+  - Replaced `const stats = buildLowRangeStats(1, 5)` + `...stats` spread with explicit `speed/turning/acceleration/durability/nightVision/batteryCapacity/rainHandling/windResistance/consistency: 1` literals on the insert payload. `totalStatBudget: 29` unchanged (matches `calculateTSB(1)`).
+  - Updated the function's JSDoc — old version explained the [1, 5] roll math; new version states the equal-baseline rationale.
+
+- `app/api/auth/wallet/route.js` — wallet-signup branch (the new-user creation block at line ~256).
+  - Removed the `buildLowRangeStats` import (only call site, now dead).
+  - Replaced `const stats = buildLowRangeStats(1, 5)` + `...stats` with the same 9 explicit `: 1` literals.
+  - Updated the inline comment to point at `lib/auth/index.js#createStarterDrone` so future readers see they're two halves of one starter contract.
+
+**Untouched (intentional):** `app/api/drones/create/route.js:49` (NPC vendor purchase) still uses `buildLowRangeStats(1, 5)` — that's a paid bonus drone with the existing "deliberately mid-tier" RNG intent (`drone-spawn.js:42-45`), not the starter every player gets at signup. Captain's brief was scoped to starter creation only. `lib/game-engine/drone-spawn.js` is untouched — `buildLowRangeStats` stays exported for the vendor path; XP-milestone spawns use `buildLevelDistributedStats`.
+
+**Verification of external assumptions:** `calculateTSB(1) = 9 + 20*1 = 29` (`lib/game-engine/economy.js:86-89`). Per-stat cap at level 1 = `min(100, 10 + floor(4.5*1)) = 14` (`economy.js:98-101`). Sum = 9 stats × 1 = 9, well below both caps. `validateStatAllocation` (`economy.js:173-213`) recomputes TSB from `drone.level` rather than reading the stored column, so the hardcoded `totalStatBudget: 29` field stays display-only (used by the stat editor UI to show "X / 29"). No higher-level paths affected: `level` and `totalStatBudget` are unchanged at signup; level-up at `services/drone.service.js:checkAndLevelUp` recomputes TSB on every level transition, so the day-2+ economy is identical.
