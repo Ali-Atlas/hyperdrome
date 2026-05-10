@@ -1,0 +1,115 @@
+/* Full-screen overlay. z-index 1000 clears the wallet dropdown (30),
+   the mobile drawer overlay (20), and any other in-app layer. Fixed
+   position so it ignores any ancestor's transform / containing block. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.7);
+  animation: cmFadeIn var(--duration-fast) var(--ease-out);
+}
+
+.panel {
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  outline: none;
+  animation: cmRise var(--duration-normal) var(--ease-out);
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.message {
+  margin: 0 0 var(--space-5);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+/* Both buttons share size/typography. Cancel is the secondary outline
+   (teal border + teal text) and confirm is the destructive solid fill
+   (error red + white text). */
+.cancelBtn,
+.confirmBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  padding: 8px 14px;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.cancelBtn {
+  background: transparent;
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+}
+
+.cancelBtn:hover {
+  background: rgba(3, 218, 198, 0.15);
+  box-shadow: 0 0 14px rgba(3, 218, 198, 0.25);
+}
+
+.cancelBtn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.confirmBtn {
+  background: var(--accent-error);
+  color: #FFFFFF;
+  border: 1px solid var(--accent-error);
+}
+
+.confirmBtn:hover {
+  background: #D97A8A;
+  box-shadow: 0 0 14px rgba(207, 102, 121, 0.4);
+}
+
+.confirmBtn:focus-visible {
+  outline: 2px solid var(--accent-error);
+  outline-offset: 2px;
+}
+
+@keyframes cmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cmRise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
