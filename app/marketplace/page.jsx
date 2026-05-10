@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, ChevronDown, ChevronUp, ChevronRight, X, Check } from 'lucide-react';
+import {
+  useAccount,
+  usePublicClient,
+  useWriteContract,
+} from 'wagmi';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -14,6 +19,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
+import { useVoltApproval } from '@/hooks/useVoltApproval';
 import {
   cn,
   getLevelColor,
@@ -25,6 +31,23 @@ import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import SkinThumb from '@/components/ui/SkinThumb';
 import styles from './page.module.css';
+
+/**
+ * On-chain marketplace constants for the user-signed buy flow. The
+ * address is read from the NEXT_PUBLIC_ env at module load (build time
+ * for Next.js). The ABI fragment only needs `buyItem(uint256)` because
+ * VOLT approval lives in the dedicated useVoltApproval hook.
+ */
+const MARKETPLACE_ADDRESS = process.env.NEXT_PUBLIC_MARKETPLACE_CONTRACT_ADDRESS;
+const MARKETPLACE_BUY_ABI = [
+  {
+    type: 'function',
+    name: 'buyItem',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'listingId', type: 'uint256' }],
+    outputs: [],
+  },
+];
 
 const PACK_DEFS = [
   {
@@ -357,6 +380,26 @@ export default function MarketplacePage() {
   const [buyPending, setBuyPending] = useState(false);
   const [buySuccess, setBuySuccess] = useState(null);
   const [buyError, setBuyError] = useState(null);
+  // Optional human-readable status for the user-signed buy stages
+  // (approving / buying / confirming / recording). Cleared between buys.
+  const [buyStatus, setBuyStatus] = useState(null);
+
+  // wagmi wiring for the user-signed buy. usePublicClient gives us the
+  // viem client we use to imperatively wait for receipts after writing.
+  // useWriteContract gives us writeContractAsync, the Promise-returning
+  // sibling of writeContract that lets handleBuy stay in a single async
+  // function rather than splintering across React state machines.
+  const { address: walletAddress, isConnected: walletConnected } = useAccount();
+  const publicClient = usePublicClient();
+  const { writeContractAsync } = useWriteContract();
+  // Pre-bind VOLT approval to the open buy modal's price. The hook
+  // tolerates null/undefined inputs (returns sensible defaults) so it's
+  // safe to render unconditionally; it only fires reads / writes once
+  // the user opens a modal AND we have a wallet + spender.
+  const buyApproval = useVoltApproval({
+    spender: MARKETPLACE_ADDRESS,
+    amount: buyModal?.price ?? null,
+  });
   const [listModal, setListModal] = useState(false);
   const [listingType, setListingType] = useState('drone');
   const [listingItemId, setListingItemId] = useState('');
@@ -571,15 +614,72 @@ export default function MarketplacePage() {
     setBuyPending(false);
     setBuySuccess(null);
     setBuyError(null);
+    setBuyStatus(null);
   };
 
   const handleBuy = async () => {
     if (!buyModal || buyPending) return;
+
+    // User-signed flow only fires when (a) the listing has an on-chain
+    // twin we can call buyItem against, (b) the user has a connected
+    // wallet, and (c) the marketplace address is configured. Everything
+    // else (demo accounts, listings without onchainListingId, missing
+    // env) falls back to the legacy server-signed mirror.
+    const useUserSigned =
+      buyModal.onchainListingId != null &&
+      walletConnected &&
+      !!walletAddress &&
+      !!MARKETPLACE_ADDRESS;
+
     setBuyPending(true);
     setBuyError(null);
+    setBuyStatus(useUserSigned ? 'preparing' : 'recording');
+
     try {
+      let userTxHash = null;
+
+      if (useUserSigned) {
+        // Step 1: VOLT approval. Skip when allowance already covers the
+        // price (the hook's `needsApproval` flag already reflects the
+        // on-chain read).
+        if (buyApproval.needsApproval) {
+          setBuyStatus('approving');
+          showToast('Open your wallet to approve VOLT spending', 'info');
+          const approveHash = await buyApproval.approve();
+          if (!approveHash) {
+            setBuyError(buyApproval.error || 'Approval was rejected');
+            return;
+          }
+          setBuyStatus('approve-pending');
+          await publicClient.waitForTransactionReceipt({ hash: approveHash });
+        }
+
+        // Step 2: Buy. writeContractAsync returns the tx hash; we wait
+        // for the receipt before telling the server, so by the time the
+        // server's verifyBuyTx runs the receipt is definitely available
+        // on the same Carrot RPC the server uses.
+        setBuyStatus('signing');
+        showToast('Confirm purchase in your wallet', 'info');
+        const buyHash = await writeContractAsync({
+          abi: MARKETPLACE_BUY_ABI,
+          address: MARKETPLACE_ADDRESS,
+          functionName: 'buyItem',
+          args: [BigInt(buyModal.onchainListingId)],
+        });
+        setBuyStatus('tx-pending');
+        showToast('Confirming on-chain...', 'info');
+        await publicClient.waitForTransactionReceipt({ hash: buyHash });
+        userTxHash = buyHash;
+        setBuyStatus('recording');
+      }
+
+      // Server side: records the sale in DB, transfers ownership, fires
+      // ownership-history rows. When userTxHash is provided it verifies
+      // the receipt + ItemSold event before any DB write.
       const res = await fetch(`/api/marketplace/${buyModal.id}/buy`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userTxHash ? { userTxHash } : {}),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -592,6 +692,10 @@ export default function MarketplacePage() {
         buyModal.skin?.name ??
         'Item';
       setBuySuccess({ name: itemName });
+      setBuyStatus(null);
+      if (useUserSigned) {
+        showToast('Purchase confirmed', 'success');
+      }
       // Reflect the post-purchase balance returned by the buy route so the
       // marketplace's volts display updates immediately, AND fire the
       // volts:update event so the NavShell's balance updates too.
@@ -614,7 +718,16 @@ export default function MarketplacePage() {
         setBuySuccess(null);
       }, 2000);
     } catch (err) {
-      setBuyError(String(err));
+      // wagmi / viem errors carry `shortMessage` for the human-readable
+      // bit ("User rejected the request.", "execution reverted: not
+      // active", etc.). Fall through to the raw message + String() for
+      // anything else.
+      const raw = err?.shortMessage ?? err?.message ?? String(err);
+      const friendly = /user rejected|user denied|rejected the request/i.test(raw)
+        ? 'Transaction rejected'
+        : raw;
+      setBuyError(friendly);
+      setBuyStatus(null);
     } finally {
       setBuyPending(false);
     }
@@ -1336,6 +1449,7 @@ export default function MarketplacePage() {
             pending={buyPending}
             success={buySuccess}
             error={buyError}
+            status={buyStatus}
             onConfirm={handleBuy}
             onClose={closePurchaseModal}
           />
@@ -3400,12 +3514,48 @@ function CancelModalBody({
   );
 }
 
+/**
+ * Map a user-signed buy stage to a human-readable CTA label. Stages
+ * mirror the orchestration in handleBuy:
+ *   preparing       - between click and the first wallet popup
+ *   approving       - waiting on the user to confirm `approve` in MetaMask
+ *   approve-pending - approve tx in mempool, waiting for receipt
+ *   signing         - waiting on the user to confirm `buyItem` in MetaMask
+ *   tx-pending      - buyItem tx in mempool, waiting for receipt
+ *   recording       - server is verifying + writing DB rows
+ *   null            - legacy server-signed path (no granular stages)
+ */
+function statusToLabel(status) {
+  switch (status) {
+    case 'approving':
+      return 'Approve in wallet...';
+    case 'approve-pending':
+      return 'Approving VOLT...';
+    case 'signing':
+      return 'Confirm in wallet...';
+    case 'tx-pending':
+      return 'Confirming on-chain...';
+    case 'recording':
+      return 'Recording sale...';
+    case 'preparing':
+    default:
+      return 'Processing...';
+  }
+}
+
+/**
+ * `status` is the user-signed buy stage (or null) - drives the CTA label
+ * during multi-step flows (approve → sign → confirm → record). When the
+ * legacy server-signed path runs, `status` stays null and the CTA falls
+ * back to a single 'Processing...' label.
+ */
 function PurchaseModalBody({
   listing,
   userPoints,
   pending,
   success,
   error,
+  status,
   onConfirm,
   onClose,
 }) {
@@ -3600,7 +3750,7 @@ function PurchaseModalBody({
             disabled={!canAfford || pending}
           >
             {pending
-              ? 'Processing...'
+              ? statusToLabel(status)
               : !canAfford
                 ? 'Not enough Volts'
                 : 'Confirm Purchase'}

@@ -5,6 +5,7 @@ import {
   listItemOnchain,
   buyItemOnchain,
   cancelListingOnchain,
+  verifyBuyTx,
 } from '@/lib/onchain/marketplace.js';
 
 const {
@@ -169,10 +170,33 @@ export async function createListing(userId, itemType, itemId, price) {
 /**
  * Buy an active listing. Uses a conditional UPDATE on the listing status to
  * guard against race conditions between concurrent buyers.
+ *
+ * Two flows, distinguished by `opts.userTxHash`:
+ *
+ *  - **User-signed (preferred for wallet users on listings with an on-chain
+ *    twin):** the frontend has already approved + called marketplace.buyItem
+ *    from the user's wallet, then submits the resulting tx hash here. We
+ *    verify the receipt + ItemSold event match this listing AND this user's
+ *    session wallet, then run the DB-side bookkeeping (status flip,
+ *    ownership, points credit/debit). The DB affordability check is skipped
+ *    in this branch because the on-chain transferFrom has already moved the
+ *    real VOLT - the DB `users.points` mirror may be stale relative to chain
+ *    and would otherwise block legitimate buys.
+ *
+ *  - **Server-signed legacy:** when `userTxHash` is omitted (demo accounts,
+ *    listings without an on-chain twin, fallback path), the deployer signs
+ *    the on-chain mirror call after the DB sale settles - same behavior as
+ *    before this change.
+ *
  * @param {string} buyerId
  * @param {string} listingId
+ * @param {object} [opts]
+ * @param {string} [opts.userTxHash] - hash of the user-signed marketplace.buyItem tx
+ * @param {string} [opts.buyerWalletAddress] - session-bound wallet, required when userTxHash is set
  */
-export async function buyListing(buyerId, listingId) {
+export async function buyListing(buyerId, listingId, opts = {}) {
+  const { userTxHash, buyerWalletAddress } = opts;
+
   const [listing] = await db
     .select()
     .from(marketplaceListings)
@@ -187,13 +211,34 @@ export async function buyListing(buyerId, listingId) {
     throw new ApiError('You cannot buy your own listing', 400);
   }
 
+  // User-signed flow gates: the listing must have an on-chain twin and we
+  // must verify the tx before touching the DB. If verification fails the
+  // helper throws ApiError - bubble that up unchanged.
+  if (userTxHash) {
+    if (listing.onchainListingId == null) {
+      throw new ApiError(
+        'This listing has no on-chain twin; user-signed buy is not applicable',
+        400,
+      );
+    }
+    await verifyBuyTx({
+      txHash: userTxHash,
+      expectedListingId: listing.onchainListingId,
+      expectedBuyer: buyerWalletAddress,
+    });
+  }
+
   const [buyer] = await db
     .select()
     .from(users)
     .where(eq(users.id, buyerId))
     .limit(1);
   if (!buyer) throw new ApiError('Buyer not found', 404);
-  if (buyer.points < listing.price) {
+  // Only enforce DB-side affordability for the server-signed path. In the
+  // user-signed branch the on-chain transferFrom has already executed; the
+  // JWT-mirror `points` value can be stale and would otherwise reject a
+  // perfectly valid on-chain purchase.
+  if (!userTxHash && buyer.points < listing.price) {
     throw new ApiError('Insufficient volts', 400);
   }
 
@@ -305,10 +350,13 @@ export async function buyListing(buyerId, listingId) {
   }
 
   // On-chain mirror: forward the buy to the marketplace contract when
-  // this listing has an on-chain twin. Best-effort - DB is already
-  // settled and the user has been charged, so a chain failure here is a
-  // reconciliation concern, not a user-facing one.
-  if (listing.onchainListingId != null) {
+  // this listing has an on-chain twin AND the user didn't already sign
+  // it themselves. Best-effort - DB is already settled and the user has
+  // been charged, so a chain failure here is a reconciliation concern.
+  // For the user-signed path, the chain leg is the user's own buyItem
+  // call (already verified above); calling buyItemOnchain again would
+  // double-spend from the deployer.
+  if (!userTxHash && listing.onchainListingId != null) {
     try {
       await buyItemOnchain({
         listingId: listing.onchainListingId,
