@@ -385,10 +385,24 @@ function HeaderConnectWallet() {
         if (cancelled) return;
         // Kick the async on-chain bootstrap (NFT mints + VOLT + gas)
         // for new wallet signups. Idempotent endpoint, fire-and-forget.
+        // Mirrors the HeroConnectWallet flow: announce the mint window
+        // so useVoltBalance shows '—' instead of '0', then nudge an
+        // immediate refetch when bootstrap returns.
         if (data?.bootstrapNeeded) {
-          fetch('/api/auth/wallet/bootstrap', { method: 'POST' }).catch((err) => {
-            console.warn('[wallet] bootstrap kick-off failed:', err);
-          });
+          window.dispatchEvent(
+            new CustomEvent('volts:awaiting-mint', {
+              detail: { ttlMs: 30_000 },
+            }),
+          );
+          fetch('/api/auth/wallet/bootstrap', { method: 'POST' })
+            .then(() => {
+              window.dispatchEvent(
+                new CustomEvent('volts:update', { detail: {} }),
+              );
+            })
+            .catch((err) => {
+              console.warn('[wallet] bootstrap kick-off failed:', err);
+            });
         }
         const target = data.redirectUrl || '/dashboard';
         if (pathname !== target) router.push(target);

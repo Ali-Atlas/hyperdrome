@@ -102,14 +102,35 @@ export default function HeroConnectWallet() {
       // endpoint is idempotent so this is safe even if it races with
       // a dashboard self-heal call.
       if (data?.bootstrapNeeded) {
+        // Tell every useVoltBalance subscriber to hold a loading dash
+        // (instead of the literal pre-mint zero) until the starter
+        // VOLT mint lands. The hook auto-clears on the first non-zero
+        // balance OR after the TTL ceiling. Survives navigation via
+        // sessionStorage so the dashboard renders '—' even though the
+        // mint is happening on a different request.
+        window.dispatchEvent(
+          new CustomEvent('volts:awaiting-mint', {
+            detail: { ttlMs: 30_000 },
+          }),
+        );
         // Intentionally not awaited - the user navigates to /dashboard
         // immediately. Catch on the promise prevents an unhandled
         // rejection if the bootstrap fetch itself fails (network drop,
         // etc.); the bootstrap is best-effort and an operator can
         // trigger a re-run later.
-        fetch('/api/auth/wallet/bootstrap', { method: 'POST' }).catch((err) => {
-          console.warn('[wallet] bootstrap kick-off failed:', err);
-        });
+        fetch('/api/auth/wallet/bootstrap', { method: 'POST' })
+          .then(() => {
+            // Bootstrap returned - nudge the hook to refetch on-chain
+            // immediately rather than wait for its 30s steady poll.
+            // This event is the same one every VOLT mutation already
+            // fires; for wallet users it triggers a fresh fetch.
+            window.dispatchEvent(
+              new CustomEvent('volts:update', { detail: {} }),
+            );
+          })
+          .catch((err) => {
+            console.warn('[wallet] bootstrap kick-off failed:', err);
+          });
       }
       const target = data.redirectUrl || '/dashboard';
       if (pathname !== target) router.push(target);
