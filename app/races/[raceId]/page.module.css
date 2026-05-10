@@ -21,7 +21,11 @@
   align-items: center;
   gap: var(--space-2);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  /* 10px (not var(--text-xs) = 12px) to match the NavShell wallet
+     button's compact header style. The whole strip - RACE label, id,
+     timestamp, settle "View" link - reads as a single utility line and
+     should size to that established meta scale. */
+  font-size: 10px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
