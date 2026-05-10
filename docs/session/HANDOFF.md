@@ -6386,3 +6386,20 @@ All edits below are scoped to specific `@media` blocks. Desktop / tablet (>768px
   - Added a `console.log('[race.service] on-chain settleEpoch ok - epoch=N races=N tx=0x...')` in the success branch. Failure branch already had error logging; success was silent and made it hard to confirm settlement actually fired without a Blockscout round-trip.
 
 **Captain post-deploy reminder (already on record from `deploy-settlement.js`):** the deployer must call `HyperdromeVOLT.setMinter(<settlement>, true)` once after the settlement deploy. Without it, every `settleEpoch` call reverts when minting the winner reward; the cron logs would surface that as a settleEpoch failure. Verify before the demo.
+
+## 2026-05-10 - Race detail: "View" link to the settlement tx (FIX 4)
+
+**Captain ask:** When a race has `settleTxHash`, link the user to the on-chain settlement tx on Blockscout. Subtle, near the result, hidden when null (backward compatible with pre-settlement races and unminted-drone races).
+
+**Files modified (3):**
+
+- `app/races/[raceId]/page.jsx`
+  - Added `ExternalLink` to the `lucide-react` import line.
+  - Inside `headlineRight` (next to the points chip and condition chips), added a conditional anchor — renders only when `race.settleTxHash` is truthy. Target URL: `https://megaeth-testnet-v2.blockscout.com/tx/${race.settleTxHash}`. Link label is `View` to mirror the drone detail page; the full hash sits in the `title` attribute for hover.
+
+- `app/races/[raceId]/page.module.css`
+  - Added `.settleLink` and `.settleLink:hover` mirroring `.nftMetaLink` from the drone page (same 10px size, accent-primary color, body font, no underline). The class name is local-scoped, so reusing the rule rather than importing it from the drone page keeps each route's CSS module self-contained.
+
+- (no service or schema change) `getRaceById` already spreads all `races` columns into the returned object, so `race.settleTxHash` reaches the page without a query change.
+
+**Backward compatibility:** races completed before chunk 2 landed have `settleTxHash IS NULL`; the `&& race.settleTxHash` guard keeps the slot empty for those rows so the existing UI is unchanged.

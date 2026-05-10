@@ -7,6 +7,7 @@ import {
   Bot,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
@@ -559,6 +560,18 @@ export default function RaceDetailPage({ params }) {
                   <VoltIcon size={11} />
                   {race.pointsAwarded}
                 </span>
+              )}
+              {race.settleTxHash && (
+                <a
+                  href={`https://megaeth-testnet-v2.blockscout.com/tx/${race.settleTxHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.settleLink}
+                  title={`On-chain settlement tx ${race.settleTxHash}`}
+                >
+                  <ExternalLink size={10} aria-hidden="true" />
+                  View
+                </a>
               )}
               {leadChanges > 0 && (
                 <span className={styles.conditionChip}>

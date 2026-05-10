@@ -268,6 +268,25 @@
   letter-spacing: 0.05em;
 }
 
+.settleLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: var(--font-medium);
+  color: var(--accent-primary);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.settleLink:hover {
+  color: var(--text-primary);
+}
+
 .conditionChip svg {
   color: var(--text-secondary);
 }
