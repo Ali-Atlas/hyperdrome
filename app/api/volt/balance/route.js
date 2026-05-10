@@ -64,7 +64,10 @@ export const GET = withApiHandler(async ({ session }) => {
     .limit(1);
 
   if (!user?.walletAddress) {
-    return ok({ balance: '0', formatted: '0' });
+    // hasWallet=false signals "no on-chain balance to display" so callers
+    // (NavShell) can keep showing the DB-volts fallback instead of
+    // mistaking the 0 for an authoritative on-chain reading.
+    return ok({ balance: '0', formatted: '0', hasWallet: false });
   }
 
   const wallet = user.walletAddress.toLowerCase();
@@ -90,5 +93,6 @@ export const GET = withApiHandler(async ({ session }) => {
   return ok({
     balance: raw.toString(),
     formatted: ethers.formatUnits(raw, 18),
+    hasWallet: true,
   });
 });

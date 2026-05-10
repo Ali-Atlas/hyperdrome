@@ -133,9 +133,16 @@ export default function NavShell({ children }) {
   // On-chain VOLT for wallet-connected users. When connected, replace the
   // DB volt display with the on-chain ERC-20 balance (server-cached 30s
   // via /api/volt/balance). Falls back to dbBalance when no wallet is
-  // linked, the fetch fails, or the user disconnects. Polls every 30s to
-  // match the server cache TTL - no point reading more often than the
-  // upstream refreshes.
+  // linked, the fetch fails, or the user disconnects.
+  //
+  // The API returns `hasWallet: false` when the authenticated user has no
+  // walletAddress row yet (transient state right after RainbowKit connects
+  // but before /api/user/wallet POST commits). In that case we keep
+  // onchainVolts null so the dbBalance fallback wins instead of briefly
+  // overwriting the user's display with a soft "0" reading.
+  //
+  // Polls every 30s to match the server cache TTL - no point reading more
+  // often than the upstream refreshes.
   const { isConnected: walletConnected } = useAccount();
   const [onchainVolts, setOnchainVolts] = useState(null);
   useEffect(() => {
@@ -152,7 +159,12 @@ export default function NavShell({ children }) {
           return;
         }
         const body = await res.json();
-        const formatted = body?.data?.formatted;
+        const data = body?.data;
+        if (!data || data.hasWallet === false) {
+          if (!cancelled) setOnchainVolts(null);
+          return;
+        }
+        const formatted = data.formatted;
         if (formatted == null) return;
         const asFloat = Number.parseFloat(formatted);
         if (!cancelled && Number.isFinite(asFloat)) {

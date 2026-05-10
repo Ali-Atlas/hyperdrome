@@ -6423,3 +6423,30 @@ node --env-file=.env.local scripts/mint-volt.js 0x<ali-wallet> 110000
 ```
 
 **Why not mint to demo PILOT_ users:** none of them have linked wallets; their VOLT lives in the `users.points` DB column and is what NavShell falls back to when no wallet is connected (FIX 6 keeps that fallback).
+
+## 2026-05-10 - NavShell: cleaner on-chain vs DB VOLT fallback (FIX 6)
+
+**Captain ask:** Wallet-connected users should show on-chain VOLT (from /api/volt/balance); demo users should keep showing DB volts. Don't show both, and avoid flicker during the transient when RainbowKit has connected but the bind round-trip hasn't committed yet.
+
+**Why this needs care after FIX 2:** the balance route now returns `{ balance: "0", formatted: "0" }` (200) for users with no `walletAddress` row instead of 400. Without a distinguishing flag, the wallet-just-connected transient (bind POST in flight, GET races ahead) would show on-chain "0" briefly, overwriting the user's real DB balance.
+
+**Files modified (2):**
+
+- `app/api/volt/balance/route.js`
+  - Both response branches now include a `hasWallet: boolean`. The unbound branch returns `{ balance: '0', formatted: '0', hasWallet: false }`; the bound branch keeps the existing `{ balance, formatted, hasWallet: true }`. Backward-compatible: existing consumers reading `data.formatted` are unchanged.
+
+- `components/ui/NavShell/index.jsx`
+  - The fetch handler now treats `data.hasWallet === false` as a signal to keep `onchainVolts = null`, which lets `displayBalance = onchainVolts ?? dbBalance` resolve to the DB value during the bind transient. A genuine zero on-chain (`hasWallet: true`, `formatted: '0'`) still propagates as `0` so a wallet-connected user with a real zero balance sees the truth.
+  - Updated the JSDoc comment to spell out the four states (not-connected → DB, connected-not-yet-bound → DB, connected-bound-zero → on-chain 0, connected-bound-positive → on-chain N).
+
+**State table:**
+
+| Wallet state                | API returns                       | NavShell shows |
+|-----------------------------|-----------------------------------|----------------|
+| Not connected               | (no fetch issued)                 | dbBalance      |
+| Connected, bind in flight   | `hasWallet: false, formatted: 0`  | dbBalance      |
+| Connected, bound, 0 VOLT    | `hasWallet: true, formatted: 0`   | 0 (on-chain)   |
+| Connected, bound, N VOLT    | `hasWallet: true, formatted: N`   | N (on-chain)   |
+| RPC failure                 | 502                               | dbBalance      |
+
+**Demo recipe coordination with FIX 5:** run `node --env-file=.env.local scripts/mint-volt.js <ali-wallet> 110000` once before the demo. Ali's connected session will then surface 110_000 from on-chain via this fallback chain.
