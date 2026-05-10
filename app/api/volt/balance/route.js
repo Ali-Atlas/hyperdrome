@@ -46,31 +46,58 @@ async function fetchOnchainBalance(walletAddress) {
 }
 
 /**
- * GET /api/volt/balance
+ * GET /api/volt/balance[?address=0x...]
  *
- * Returns the authenticated user's on-chain VOLT balance, cached for 30s
- * to avoid hammering the Carrot RPC on dashboard polls. Users without a
- * linked wallet receive a soft `{ balance: "0", formatted: "0" }` so the
- * route is non-throwing for any logged-in caller. NavShell still treats a
- * present-but-zero on-chain value as the source of truth when the wallet
- * is connected; a 200 with zeros is preferable to a 400 since RainbowKit
- * may have a session before the bind round-trip lands.
+ * Returns the on-chain VOLT balance for an address, cached for 30s to
+ * avoid hammering the Carrot RPC on dashboard polls.
+ *
+ * Address resolution:
+ *   1. If `?address=0x...` is provided, validate it and query that address
+ *      directly. NavShell uses this path so the displayed balance reflects
+ *      the wallet that's currently RainbowKit-attached, regardless of
+ *      whether the user account has that wallet bound in `users` (the
+ *      bind can be locked out by a 409 if the same wallet is already on
+ *      another account).
+ *   2. Otherwise, fall back to the authenticated user's bound
+ *      `walletAddress`. Returns `{ hasWallet: false }` if neither is set.
+ *
+ * Auth is required either way (withApiHandler enforces). On-chain
+ * `balanceOf` is public on the chain anyway, so accepting an arbitrary
+ * address as input does not leak anything users can't already read from
+ * Blockscout.
  */
-export const GET = withApiHandler(async ({ session }) => {
-  const [user] = await db
-    .select({ walletAddress: users.walletAddress })
-    .from(users)
-    .where(eq(users.id, session.user.id))
-    .limit(1);
+export const GET = withApiHandler(async ({ session, request }) => {
+  const url = new URL(request.url);
+  const queryAddress = url.searchParams.get('address');
 
-  if (!user?.walletAddress) {
+  let wallet = null;
+  if (queryAddress) {
+    try {
+      // ethers.getAddress validates the EIP-55 checksum (or canonical
+      // all-lower / all-upper) and throws on garbage input.
+      wallet = ethers.getAddress(queryAddress).toLowerCase();
+    } catch {
+      return fail('Invalid address parameter', 400);
+    }
+  } else {
+    const [user] = await db
+      .select({ walletAddress: users.walletAddress })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+      .limit(1);
+    if (user?.walletAddress) {
+      wallet = user.walletAddress.toLowerCase();
+    }
+  }
+
+  if (!wallet) {
     // hasWallet=false signals "no on-chain balance to display" so callers
-    // (NavShell) can keep showing the DB-volts fallback instead of
-    // mistaking the 0 for an authoritative on-chain reading.
+    // (NavShell when no RainbowKit address is attached) can keep showing
+    // the DB-volts fallback instead of mistaking the 0 for an
+    // authoritative on-chain reading.
     return ok({ balance: '0', formatted: '0', hasWallet: false });
   }
 
-  const wallet = user.walletAddress.toLowerCase();
   const now = Date.now();
 
   let raw;

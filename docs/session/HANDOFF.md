@@ -6472,3 +6472,93 @@ node --env-file=.env.local scripts/mint-volt.js 0x<ali-wallet> 110000
 - UI dedup gives an immediate clean view without waiting for either the next cron tick or a DB cleanup script. The user sees 3 races for 3 drones the moment the page reloads.
 
 **What I did NOT change:** matchmaking algorithm and game-balance numbers (per ATLAS guardrails). The same-user pairing guard in `matchDronesInBracket` was already correct; the issue was at the orchestrator level, not the matcher.
+
+## 2026-05-10 - BUG 2: NavShell shows DB volts (110_100) instead of on-chain (112_363)
+
+**Captain ask:** The deployer wallet's on-chain VOLT was 112_363 but NavShell rendered 110_100. For wallet-connected users, NavShell MUST show the on-chain balance — the wallet, not the user account, is the unit of truth.
+
+**Root cause** (verified end-to-end against the live DB and the live RPC):
+
+- The active session is `PILOT_D11`. Its `users.points` is exactly 110_100.
+- `users.walletAddress` for `PILOT_D11` is `NULL`. The deployer wallet `0xF7Ba...9888` is bound to a different account (`PILOT_D02`).
+- After FIX 1's bind-cache + FIX 2's soft-zero, the `/api/user/wallet` POST for the deployer wallet returns 409 (already bound to PILOT_D02), and `/api/volt/balance` returns `{ hasWallet: false }` for PILOT_D11. NavShell falls back to `dbBalance = users.points = 110_100`.
+- Live `balanceOf(0xF7Ba...9888)` on-chain = `112363.0` VOLT.
+
+The DB-bind path is the wrong source of truth. The on-chain balance is a property of *the wallet* RainbowKit has attached, not the user-account row. Anyone connecting `0xF7Ba...9888` should see 112_363, regardless of which `users` row their session points at.
+
+**Files modified (2):**
+
+- `app/api/volt/balance/route.js`
+  - The route now accepts an optional `?address=0x...` query param. Validated via `ethers.getAddress()` (rejects bad checksums with 400). When present, the on-chain balance is queried for THAT address, bypassing the `users.walletAddress` lookup. When absent, the existing fallback path (lookup `users.walletAddress`) still runs for non-RainbowKit consumers.
+  - Doc comment updated to spell out the resolution order. The `balanceCache` keying is unchanged (lowercased wallet); cache hits work identically across both paths since the same address resolves to the same cell.
+  - Auth still required (`withApiHandler`). On-chain `balanceOf` is public anyway, so accepting an arbitrary address as input does not leak anything not already on Blockscout.
+
+- `components/ui/NavShell/index.jsx`
+  - Hoisted `address` out of `useAccount()` alongside the existing `isConnected`, and added it to the on-chain VOLT effect's dependency array. The fetch URL now includes `?address=<encodeURIComponent(walletAddress)>` whenever the wallet is connected. The early-return guard tightened to also check `walletAddress` (a connected RainbowKit session without an address is theoretically possible during a re-connect window).
+  - Comment block updated to capture the new contract: NavShell never hits the address-less fallback path because it always passes the address when connected.
+
+**End-to-end verification (sanity check, not a behavior change):**
+
+```
+$ node --env-file=.env.local --input-type=module -e '<simulate route>'
+simulated route output: { "balance": "112363000000000000000000", "formatted": "112363.0", "hasWallet": true }
+NavShell would render: 112,363
+```
+
+**Why the FIX 1 bind-cache stays as-is:** PILOT_D11 should not retry binding `0xF7Ba...9888` — it would 409 forever. The cache silences the spam. The display fix lives one layer up (NavShell asks the API for the wallet's balance directly, no bind required).
+
+**Untouched:** `users.points` mutation paths in `services/race.service.js`, `marketplace.service.js`, `pack.service.js`, `drone.service.js`. DB and on-chain VOLT continue to track separately by design — DB is the per-account leaderboard / progression currency; on-chain is the per-wallet ERC-20 token. NavShell prefers on-chain whenever a wallet is connected; demo users without a wallet still see DB volts.
+
+## 2026-05-10 - Wallet-connect UI cleanup (FEAT)
+
+**Captain ask:** Two entry points only - PLAY DEMO and CONNECT WALLET. Drop the dev-gated Login/Register link from the landing page, replace the NavShell unauth Sign-in link with a Connect Wallet button that opens RainbowKit and auto-finishes the auth POST on connection, and remove the now-orphaned email-auth pages (`/login`, `/check-email`, `/auth-error`). UI only - auth backend, wallet route, demo flow untouched.
+
+**Files modified (6):**
+
+- `app/page.jsx`
+  - Removed the `process.env.NODE_ENV === 'development'` Login/Register link in the hero. The two CTAs in HeroActions (PLAY DEMO + CONNECT WALLET) are now the only entry points on the landing page.
+
+- `app/page.module.css`
+  - Dropped the `.heroLogin` selector and updated the adjacent `.heroAudioToggle` comment which referenced the removed link's z-index pairing.
+
+- `components/ui/NavShell/index.jsx`
+  - Added a `HeaderConnectWallet` component (between `WalletButton` and `NavShell`). When unauthenticated and no wallet is attached, it renders a Connect Wallet button that opens RainbowKit. When unauthenticated and a wallet is already attached (returning visitor whose RainbowKit session restored), it auto-fires `POST /api/auth/wallet` on mount with the connected address and reloads into `/dashboard`. A `triedRef` gate prevents the effect looping on transient failures; a 4xx/5xx clears the gate so a manual retry can re-fire.
+  - `renderUserArea` for unauthenticated state now returns `<HeaderConnectWallet />` (replacing the `<Link href="/login">` Sign in link).
+  - Mobile top bar now also renders `<HeaderConnectWallet />` for unauthenticated users so the unauth CTA is reachable without opening the drawer.
+  - Hoisted `useAccount` + `useDisconnect` to the top of the parent component; `onSignOut` calls `disconnect()` before `signOut({ redirectTo: '/' })` when a wallet is connected, so the next CONNECT WALLET press starts from a clean RainbowKit state. The existing on-chain VOLT polling block reuses the same hoisted `walletConnected` value (one less duplicate hook call).
+  - Removed the `LogIn` import (no longer used).
+
+- `components/ui/NavShell/NavShell.module.css`
+  - Replaced the combined `.signIn, .signOut` rule with a `.signOut`-only rule (Sign in is gone). Added a `.connectWallet` button class - outlined accent-primary button matching the game aesthetic, sized to fit both the sidebar footer slot and the mobile top bar. Hover lifts the background and adds a subtle teal glow; `:disabled` shows a `cursor: progress` while the auth POST is in flight.
+
+- `app/faq/page.jsx`
+  - Updated two answers that referenced the removed magic-link flow. "Is it free to play?" now describes the wallet-connect starter (NFT drone + 1000 VOLT). "How do I sign up?" now describes the Connect Wallet flow.
+
+- `app/guide/page.jsx`
+  - Updated the "Creating your account" paragraph the same way - drops "magic link" and describes the wallet-connect provisioning instead.
+
+**Files modified (housekeeping, 2):**
+
+- `components/providers/WalletProvider.jsx`
+  - Header comment no longer claims "wallet connect is additive to email magic-link sign-in" since the magic-link UI is gone. Now describes the two entry points (CONNECT WALLET and PLAY DEMO) and the post-login bind path for demo users.
+
+- `app/sitemap.js`
+  - Comment updated for accuracy: legacy `/login`, `/register`, `/signup` paths still bounce to `/` via proxy.js (kept for stale bookmarks), but the explanation now points at the landing-page CTAs as the auth entry points instead of implying the routes are part of an active flow.
+
+**Files deleted (6):**
+
+- `app/login/page.jsx`
+- `app/login/LoginForm.jsx`
+- `app/login/page.module.css`
+- `app/check-email/page.jsx`
+- `app/check-email/page.module.css`
+- `app/auth-error/page.jsx`
+
+Verified no source file imports from these paths before deletion.
+
+**Auth backend untouched:** `lib/auth/index.js` still has the Resend provider configured and the `pages: { signIn: '/login', verifyRequest: '/check-email', error: '/auth-error' }` config. None of those references fire in the new UI: the demo + wallet flows both use `signIn(..., { redirect: false })`, and there's no UI surface that calls `signIn('resend', ...)` anymore. `proxy.js` still bounces `/login`, `/register`, `/signup` to `/` for legacy bookmarks - leaving that gate in place is the friendliest behavior post-cleanup.
+
+**External-spec verification:**
+- wagmi v2.19.5: `useAccount` returns `{ address, isConnected }`; `useDisconnect` returns `{ disconnect }`. Both are already exercised in this repo's NavShell.
+- @rainbow-me/rainbowkit v2.2.11: `useConnectModal` returns `{ openConnectModal }` (may be `undefined` on first render before provider commits, hence the optional call).
+- next-auth v5.0.0-beta.30: `signOut({ redirectTo })` is the v5 API (replaces v4's `callbackUrl`).

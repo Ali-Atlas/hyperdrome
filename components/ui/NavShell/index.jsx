@@ -130,30 +130,32 @@ export default function NavShell({ children }) {
   }, []);
   const dbBalance = balanceOverride ?? user?.points ?? 0;
 
-  // On-chain VOLT for wallet-connected users. When connected, replace the
-  // DB volt display with the on-chain ERC-20 balance (server-cached 30s
-  // via /api/volt/balance). Falls back to dbBalance when no wallet is
-  // linked, the fetch fails, or the user disconnects.
+  // On-chain VOLT for wallet-connected users. When connected, the
+  // RainbowKit-attached address is passed to /api/volt/balance and the
+  // ERC-20 balance for THAT address is what NavShell shows (not the DB
+  // points column). The on-chain balance is a property of the wallet,
+  // not the user account: a session can be logged in as PILOT_X without
+  // a server-side bind for that address (e.g. the demo deployer wallet
+  // is bound to PILOT_D02 but anyone connecting it should see its real
+  // 112_363 VOLT, not their own DB-tracked points).
   //
-  // The API returns `hasWallet: false` when the authenticated user has no
-  // walletAddress row yet (transient state right after RainbowKit connects
-  // but before /api/user/wallet POST commits). In that case we keep
-  // onchainVolts null so the dbBalance fallback wins instead of briefly
-  // overwriting the user's display with a soft "0" reading.
+  // The address-less call path remains for non-RainbowKit consumers and
+  // falls back to `users.walletAddress` server-side. NavShell never hits
+  // that path because it always passes the address when connected.
   //
-  // Polls every 30s to match the server cache TTL - no point reading more
-  // often than the upstream refreshes.
-  const { isConnected: walletConnected } = useAccount();
+  // Polls every 30s to match the server cache TTL.
+  const { isConnected: walletConnected, address: walletAddress } = useAccount();
   const [onchainVolts, setOnchainVolts] = useState(null);
   useEffect(() => {
-    if (!user || !walletConnected) {
+    if (!user || !walletConnected || !walletAddress) {
       setOnchainVolts(null);
       return;
     }
     let cancelled = false;
+    const url = `/api/volt/balance?address=${encodeURIComponent(walletAddress)}`;
     const fetchBalance = async () => {
       try {
-        const res = await fetch('/api/volt/balance');
+        const res = await fetch(url);
         if (!res.ok) {
           if (!cancelled) setOnchainVolts(null);
           return;
@@ -180,7 +182,7 @@ export default function NavShell({ children }) {
       cancelled = true;
       clearInterval(id);
     };
-  }, [user, walletConnected]);
+  }, [user, walletConnected, walletAddress]);
 
   const displayBalance = onchainVolts ?? dbBalance;
 
