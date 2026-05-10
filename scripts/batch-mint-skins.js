@@ -28,22 +28,31 @@ const THROTTLE_MS = 200;
 // testnet for a single batch script.
 const PROBE_MAX = 10_000;
 
+// `--prod` switches the DB connection to PROD_DATABASE_URL while leaving
+// the chain-side env (private key, contract address, RPC URL) untouched.
+// Same chain in both modes, just a different DB the script reads from /
+// writes back to.
+const IS_PROD = process.argv.includes('--prod');
+
 function readEnv() {
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
   const contractAddress = process.env.SKIN_CONTRACT_ADDRESS;
   const rpcUrl = process.env.MEGAETH_RPC_URL;
-  const databaseUrl = process.env.DATABASE_URL;
+  const dbVar = IS_PROD ? 'PROD_DATABASE_URL' : 'DATABASE_URL';
+  const databaseUrl = process.env[dbVar];
   const missing = [];
   if (!privateKey) missing.push('DEPLOYER_PRIVATE_KEY');
   if (!contractAddress) missing.push('SKIN_CONTRACT_ADDRESS');
   if (!rpcUrl) missing.push('MEGAETH_RPC_URL');
-  if (!databaseUrl) missing.push('DATABASE_URL');
+  if (!databaseUrl) missing.push(dbVar);
   if (missing.length) {
     console.error(`Missing required env vars: ${missing.join(', ')}`);
-    console.error('Run via: node --env-file=.env.local scripts/batch-mint-skins.js');
+    console.error(
+      `Run via: node --env-file=.env.local scripts/batch-mint-skins.js${IS_PROD ? ' --prod' : ''}`,
+    );
     process.exit(1);
   }
-  return { privateKey, contractAddress, rpcUrl, databaseUrl };
+  return { privateKey, contractAddress, rpcUrl, databaseUrl, dbVar };
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -75,7 +84,7 @@ async function main() {
   const contract = new ethers.Contract(env.contractAddress, HYPERDROME_SKIN_ABI, wallet);
 
   const network = await provider.getNetwork();
-  console.log(`[batch-mint-skins] chain id ${network.chainId}, deployer ${deployerAddress}`);
+  console.log(`[batch-mint-skins] db=${env.dbVar} chain=${network.chainId} deployer=${deployerAddress}`);
   console.log(`[batch-mint-skins] contract ${env.contractAddress}`);
 
   const pending = await db
