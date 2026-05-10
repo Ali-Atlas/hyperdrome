@@ -6856,3 +6856,48 @@ Captain reported seeing two different VOLT balances on refresh: the first one fl
 **Edge case I deliberately didn't optimize:** a wallet-bound user who's signed in but has manually disconnected their wallet (e.g. via the wallet dropdown's Disconnect, or externally via MetaMask). They'd see '—' indefinitely since the on-chain fetch only fires when wagmi reports a connection. In practice the dropdown's Disconnect calls `onSignOut` which signs them out fully — so this state is reachable only via external wallet revocation (rare). If it becomes a problem, the fix is a timeout-based fallback to `user.points`. For now, '—' for that rare case is acceptable per Captain's "DB value only for demo users" rule.
 
 **Untouched:** the `volts:update` event mechanism, the `/api/volt/balance` route, the 30s polling cadence, and the `Math.floor` of the on-chain wei → integer.
+
+---
+
+## 2026-05-10 — User-signed VOLT transactions (branch: user-signed-volt-transactions)
+
+Branch built per Captain's spec to test before merging to main. Migrates VOLT spending from server-signed (deployer pays + signs on user's behalf) to user-signed (user signs in MetaMask via wagmi). Each change is a separate commit.
+
+### External assumptions verified before implementation
+- **wagmi 2.19.5 + viem 2.48.8** (package.json:20-38) — wagmi v2 API: `useWriteContract` returns `{ writeContractAsync, data: hash, isPending }`; `useWaitForTransactionReceipt({ hash })` for receipts; `usePublicClient()` returns the viem client whose `waitForTransactionReceipt({ hash })` is the imperative path.
+- **ethers 6.16.0** — `parseEther('0.001')` returns bigint; `wallet.sendTransaction({ to, value })` is the v6 ETH-transfer API.
+- **MegaETH testnet v2 chain id 6343** — confirmed in `components/providers/WalletProvider.jsx:34-48` with an explicit "verified against docs.megaeth.com + chainlist.org on 2026-05-06" note.
+- **HyperdromeMarketplace.buyItem(uint256)** — `contracts/contracts/HyperdromeMarketplace.sol:104-137` calls `voltToken.transferFrom(msg.sender, ...)` for both seller-payout and treasury-cut (so prior `approve()` is required), and emits `ItemSold(listingId indexed, buyer indexed, seller indexed, sellerProceeds, treasuryCut)` (line 47-53). The `buyer indexed` field is what the server uses to bind the user-signed tx to the session wallet.
+- **HyperdromeVOLT** is OpenZeppelin standard ERC-20 (line 4: `import {ERC20}`) so `allowance(owner, spender)` and `approve(spender, value)` are standard. Custom burn/mint role system is unrelated to user-signed marketplace flow.
+- **HyperdromePacks** — `commitPack(...)` and `revealAndMint(...)` are both `onlyOwner`, and `revealAndMint` calls `voltToken.burn(buyer, price)` via the burner role (bypassing allowance). **There is no user-callable purchase function**. Combined with Captain's "do NOT modify existing contract Solidity code", this means **packs cannot be migrated to user-signed without a contract change**. Per Captain's escape clause, packs stay server-signed for this iteration. Flagged below.
+
+### Files changed (commits in order)
+
+**Commit 1 (`fdbccef`) — env vars:**
+- `.env.example` — added `NEXT_PUBLIC_VOLT_CONTRACT_ADDRESS` and `NEXT_PUBLIC_MARKETPLACE_CONTRACT_ADDRESS` alongside their server-only counterparts. Comments updated to reflect the new "both server- and client-exposed" semantics.
+- Captain must mirror these in `.env.local` (already done locally — not committed since `.env.local` is gitignored). Dev server must restart for `NEXT_PUBLIC_*` to propagate to bundles.
+
+**Commit 2 (`01dc769`) — gas drip:**
+- New file `lib/onchain/gas.js` — `sendStarterGas(walletAddress)` helper. Uses `ethers.Wallet.sendTransaction({ to, value: parseEther('0.001') })` from `DEPLOYER_PRIVATE_KEY`. Returns `{ txHash }` on success, `null` when env unconfigured, throws on RPC errors.
+- `app/api/auth/wallet/route.js` — imports `sendStarterGas`, calls it at the new step 6 (after starter VOLT mint, before sign-in). Best-effort: failures log but don't block sign-in. Surfaces `gasTxHash` in the response alongside `voltMintTxHash`.
+
+**Commit 3 (`4d15bfb`) — useVoltApproval hook:**
+- New file `hooks/useVoltApproval.js`. Reads VOLT.allowance via `useReadContract`, exposes `approve()` via `useWriteContract` (returns hash), tracks the approve tx via `useWaitForTransactionReceipt`, refetches allowance on confirmation. Returns `{ needsApproval, approve, isApproving, isApproved, error, allowance }`. Inputs (`spender`, `amount`) tolerate null — disabled state returns sensible defaults so consumers don't have to gate the render.
+- ABI fragments inline (allowance + approve only — minimum surface). VOLT address read from `NEXT_PUBLIC_VOLT_CONTRACT_ADDRESS` at module scope. Amounts in integer "volts" → wei via `viem.parseUnits(..., 18)`.
+
+**Commit 4 (`7465220`) — marketplace user-signed buy + tx status UI (combined Changes 3 + 7):**
+- `lib/onchain/marketplace.js` — added `ItemSold` to the ABI fragment. New helper `verifyBuyTx({ txHash, expectedListingId, expectedBuyer })`: fetches receipt via `provider.getTransactionReceipt(txHash)`, checks `status === 1`, parses logs for ItemSold from the marketplace address, asserts `event.listingId === expectedListingId` and `event.buyer.toLowerCase() === expectedBuyer.toLowerCase()`. Throws ApiError on any mismatch — those are client-attributable.
+- `services/marketplace.service.js` — `buyListing(buyerId, listingId, opts)` now accepts `opts.userTxHash` and `opts.buyerWalletAddress`. When `userTxHash` is provided AND listing has `onchainListingId`: verifies the tx, skips the DB affordability check (on-chain transferFrom already moved real VOLT — DB mirror may be stale), runs DB updates, and skips the legacy server-signed `buyItemOnchain` mirror (the user is the chain leg). When `userTxHash` is omitted: original behavior (DB affordability + server-signed mirror).
+- `app/api/marketplace/[listingId]/buy/route.js` — accepts optional `{ userTxHash }` body. Buyer wallet pulled from `session.user.walletAddress` (server-trusted, never from request body) so a malicious caller can't forward a stranger's tx hash.
+- `app/marketplace/page.jsx` — `handleBuy` rewritten as a multi-stage flow. Pre-bound hooks: `useAccount`, `usePublicClient`, `useWriteContract`, and `useVoltApproval({ spender: MARKETPLACE_ADDRESS, amount: buyModal?.price })`. New `buyStatus` state drives the CTA label through the stages: `preparing → approving → approve-pending → signing → tx-pending → recording → null`. `statusToLabel` helper maps each to a human-readable button label ("Approve in wallet...", "Confirming on-chain...", etc.). Toasts surface the same stages at the page level. Wagmi/viem rejection errors mapped to "Transaction rejected"; reverts fall through with their shortMessage.
+- `PurchaseModalBody` — accepts new `status` prop, uses `statusToLabel(status)` for the CTA label while pending. Falls back to "Processing..." when status is null (legacy path).
+
+### Skipped / flagged
+
+- **Change 4 (packs user-signed):** flagged as not feasible without modifying `HyperdromePacks.sol`. The contract has no user-callable purchase function — both `commitPack` and `revealAndMint` are `onlyOwner`, and the VOLT burn happens via `voltToken.burn(buyer, price)` (burner role, bypasses allowance). Per Captain's brief escape clause ("If this is too complex... keep packs server-signed for now and only switch marketplace to user-signed. Flag which approach you took"), **packs remain server-signed in this iteration**. Migration would require a new `buyPack(uint8 tier)` user-callable function on the contract that does `voltToken.transferFrom(msg.sender, address(this), price)` then commits the hash — a future contract upgrade.
+- **Change 5 (stat upgrades):** unchanged per Captain's instruction. Stats remain off-chain; deployer burns from user's on-chain VOLT via burner role.
+
+### Next-steps Captain should know about
+1. The user-signed flow only kicks in when listing.onchainListingId is set (i.e. the listing was created post-Phase-A). Legacy DB-only listings still go through the original server-signed path.
+2. If `NEXT_PUBLIC_*` env vars aren't wired in `.env.local` and the server isn't restarted, the marketplace page falls back to the legacy server-signed path silently (the `useUserSigned` boolean evaluates false). Useful for incremental rollout but easy to miss.
+3. The new helper `verifyBuyTx` does a single RPC fetch with no retries. If the server's RPC node is briefly behind the client's at the moment the user POSTs, the verification fails with "transaction not found on-chain (still propagating?). Wait a moment and retry." — message is wired through to the user's error display. If we see this often, add a 1-2 retry with 500ms backoff in the helper.
