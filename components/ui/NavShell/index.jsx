@@ -135,7 +135,7 @@ function WalletButton() {
  *      when already on the target path.
  */
 function HeaderConnectWallet() {
-  const { user, status } = useSession();
+  const { user, status, update } = useSession();
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const router = useRouter();
@@ -143,10 +143,16 @@ function HeaderConnectWallet() {
   const [authing, setAuthing] = useState(false);
 
   useEffect(() => {
+    // Wait for the session to resolve. During the initial 'loading'
+    // window `user` is null even when a JWT cookie exists; firing here
+    // would re-POST against an existing session.
     if (status === 'loading') return;
     if (!isConnected || !address) return;
     const lowerAddress = address.toLowerCase();
-    // Already signed in as this exact wallet - the bind is the bind.
+    // Already signed in as this exact wallet - the canonical "no-POST
+    // needed" gate. After a successful round-trip update() refreshes
+    // session.user.walletAddress, this comparison passes, and the
+    // effect short-circuits on every subsequent render / navigation.
     if (user?.walletAddress === lowerAddress) return;
     // A sibling NavShell instance (desktop vs mobile) is already POSTing
     // for this address. Skip rather than racing the server-side signIn.
@@ -168,10 +174,20 @@ function HeaderConnectWallet() {
           return;
         }
         if (cancelled) return;
+        // Force next-auth to re-fetch /api/auth/session so the local
+        // SessionProvider state picks up the new JWT cookie. Without
+        // this the UI sticks on "Signing in..." until the user
+        // manually refreshes - useSession's lazy-poll won't refetch
+        // for a while otherwise. Awaiting before the navigation guards
+        // against a follow-up render/remount firing another POST
+        // (the session-match check above only works after the local
+        // session state has the new walletAddress).
+        await update();
+        if (cancelled) return;
         const target = data.redirectUrl || '/dashboard';
         if (pathname !== target) router.push(target);
-        // Re-fetch RSC so the layout server components pick up the new
-        // session cookie that signIn() wrote to the response.
+        // Re-fetch RSC so the layout server components also pick up
+        // the new session cookie.
         router.refresh();
       } catch (err) {
         console.error('[wallet] sign-in error:', err);
@@ -183,7 +199,7 @@ function HeaderConnectWallet() {
     return () => {
       cancelled = true;
     };
-  }, [status, user?.walletAddress, isConnected, address, pathname, router]);
+  }, [status, user?.walletAddress, isConnected, address, pathname, router, update]);
 
   if (isConnected) {
     return (

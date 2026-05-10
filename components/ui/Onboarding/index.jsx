@@ -28,7 +28,12 @@ const STEPS = [
   },
   {
     path: '/dashboard',
-    targets: [['[class*="points"]']],
+    // `[class*="points"]` matched the new `.pointsRow` wrapper (parent
+    // of the volts display + the inline WalletButton), making the
+    // spotlight cover both. `:not([class*="Row"])` excludes that
+    // parent so it lands on `.points` (desktop volts) or
+    // `.mobilePoints` (mobile bar) instead.
+    targets: [['[class*="points"]:not([class*="Row"])']],
     text: 'These are your volts - your currency for everything. Buy packs, trade on the marketplace, and upgrade your drone stats.',
   },
   {

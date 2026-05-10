@@ -6668,3 +6668,41 @@ Verified no source file imports from these paths before deletion.
 **External-spec verification:**
 - wagmi v2.19.5 / @rainbow-me/rainbowkit v2.2.11: same hook surface as before (`useAccount`, `useConnectModal`); only the rendering location changed. RainbowKit's modal trigger is `openConnectModal` which the component nullish-checks before invoking - it can be `undefined` on the first render before WagmiProvider commits.
 - z-index ordering verified against `app/page.module.css`: hero overlay 1, heroContent 2, heroAudioToggle 3. New CONNECT WALLET sits at 4 to stay reachable above all of them.
+
+## 2026-05-10 - Onboarding step 2 + post-auth session refresh + POST guard tightening
+
+**Captain ask:** Three coupled bugs surfacing on the demo branch:
+
+1. Onboarding step 2 / step 3 spotlights look broken after the wallet-button NavShell restructure.
+2. After CONNECT WALLET succeeds, the button stays on "SIGNING IN..." and the UI never transitions to the logged-in state without a manual refresh.
+3. `POST /api/auth/wallet` is still firing multiple times per page navigation.
+
+**Root cause - all three are downstream of the same client-side gap.** `useSession` from next-auth has its own SessionProvider-cached state. After `signIn()` writes the JWT cookie via the route's response, the cookie is in the browser but the SessionProvider's React state still reflects the *old* (null/loading) session until next-auth's lazy poll re-fetches `/api/auth/session`. During that window:
+
+- The wallet-auth components saw `user.walletAddress = null` and the session-match guard from the prior fix didn't catch — so the POST would re-fire on the next mount / navigation.
+- The "SIGNING IN..." button kept rendering because `useSession` still reported `unauthenticated`, so NavShell rendered `HeaderConnectWallet` instead of the auth'd userArea.
+- Once the user manually reloaded, the cookie was read on the fresh page boot and everything worked.
+
+**Files modified (3 + 1 selector tweak):**
+
+- `hooks/useSession.js`
+  - Re-exposed next-auth's `update` from the underlying `useSession` hook. `update()` triggers a re-fetch of `/api/auth/session`, which re-runs the JWT + session callbacks server-side and pushes the resulting session into the SessionProvider's React state. Returns a Promise; awaiting it guarantees the local session is fresh before the caller does anything else. Updated the JSDoc to include `walletAddress` in the `user` shape and to document the new field.
+
+- `components/ui/NavShell/index.jsx` - `HeaderConnectWallet`
+  - After a successful `POST /api/auth/wallet` and BEFORE the `router.push`, the component now `await update()`s. By the time `router.push` runs, `useSession()` already returns the new user with `walletAddress` populated. Subsequent re-renders / remounts hit the `user?.walletAddress === lowerAddress` short-circuit and skip the POST entirely.
+  - Added `update` to the effect's dep array.
+
+- `app/HeroConnectWallet.jsx`
+  - Same `await update()` insertion in the `postWalletAuth` flow before the navigation.
+
+- `components/ui/Onboarding/index.jsx` - step 2 selector
+  - The new `.pointsRow` wrapper around `.points` + `WalletButton` made the previous `[class*="points"]` selector match `.pointsRow` first, spotlighting the volts AND the wallet button. Tightened to `[class*="points"]:not([class*="Row"])` so it lands on `.points` (desktop) or `.mobilePoints` (mobile) instead.
+  - Step 3 (`[class*="countdownBar"]`) verified against current CSS: only `.countdownBar` matches, so no change needed there.
+
+**Why this single change closes all three bugs:**
+
+- FIX 1: only the step 2 selector required adjustment.
+- FIX 2: `await update()` makes the SessionProvider state catch up to the JWT cookie, so NavShell's user-area rendering flips to the authenticated branch without a reload.
+- FIX 3: with the session fresh before navigation, the session-match guard fires deterministically on every later render/remount, so the POST never repeats.
+
+**Untouched:** the auth route itself (still server-side short-circuits authenticated callers with `redirectUrl: '/dashboard'`), the demo login flow, the `WALLET_AUTH_IN_FLIGHT` Set (still useful to dedupe the initial concurrent desktop/mobile POSTs).

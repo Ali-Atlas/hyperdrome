@@ -46,7 +46,7 @@ export default function HeroConnectWallet() {
   const [error, setError] = useState(null);
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
-  const { user, status } = useSession();
+  const { user, status, update } = useSession();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -76,6 +76,12 @@ export default function HeroConnectWallet() {
         setError(data.error || 'Could not sign in with wallet. Try again.');
         return;
       }
+      // Force next-auth to re-fetch /api/auth/session so the local
+      // SessionProvider state picks up the new JWT cookie before we
+      // navigate. Without this the destination page mounts under a
+      // stale `useSession() = null` and would re-trigger the auto-auth
+      // effect over there.
+      await update();
       const target = data.redirectUrl || '/dashboard';
       if (pathname !== target) router.push(target);
       router.refresh();
