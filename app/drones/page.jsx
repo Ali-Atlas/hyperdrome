@@ -32,8 +32,8 @@ import styles from './page.module.css';
  *  elsewhere and the toast effect just reacts to the drone count + race
  *  total crossing a threshold between page loads. */
 const DRONE_PRICE = 3500;
-const MILESTONE_FIRST = 3000;
-const MILESTONE_SECOND = 10000;
+const MILESTONE_FIRST = 1000;
+const MILESTONE_SECOND = 3000;
 const FREE_DRONE_CAP = 3;
 
 const TIERS = ['steel', 'orange', 'purple', 'gold'];
@@ -313,8 +313,8 @@ function VendorModal({
   totalRaces,
 }) {
   const canAfford = userPoints >= DRONE_PRICE;
-  // Starter drone counts as #1; milestones at 3k and 10k races add #2 and
-  // #3. The bar always spans 0 -> 10,000 (the full free-drone journey) so
+  // Starter drone counts as #1; milestones at 1k and 3k races add #2 and
+  // #3. The bar always spans 0 -> 3,000 (the full free-drone journey) so
   // a single visual carries both milestones.
   const freeEarned =
     totalRaces >= MILESTONE_SECOND
