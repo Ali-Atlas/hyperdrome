@@ -3,13 +3,18 @@ import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
 import { ethers, getAddress } from 'ethers';
 import { db, schema } from '@/lib/db';
-import { auth, signIn } from '@/lib/auth';
+import {
+  auth,
+  signIn,
+  cloneStarterSkin,
+  cloneStarterMod,
+} from '@/lib/auth';
 import { buildLowRangeStats } from '@/lib/game-engine/drone-spawn.js';
 import { generateUniqueDroneName } from '@/lib/game-engine/drone-names.js';
 import { mintVoltToWallet } from '@/lib/onchain/volt.js';
 import { sendStarterGas } from '@/lib/onchain/gas.js';
 
-const { users, drones, droneOwnershipHistory } = schema;
+const { users, drones, droneOwnershipHistory, skins, mods } = schema;
 
 // ethers v6 needs Node crypto APIs the Edge runtime doesn't expose, and the
 // drone-mint round-trip on Carrot RPC can take 5-15s. Match the existing
@@ -25,6 +30,13 @@ const HYPERDROME_DRONE_ABI = [
   'function mint(address to, uint256 tokenId) external',
   'function ownerOf(uint256 tokenId) view returns (address)',
 ];
+
+// Skin + Mod NFT contracts share the drone's mint(address,uint256) +
+// ownerOf signature (HyperdromeSkin.sol / HyperdromeMod.sol both expose
+// `mint(address to, uint256 tokenId) onlyMinter` + standard ERC721
+// reads). Single ABI fragment reused for both since the function shapes
+// are identical.
+const HYPERDROME_NFT_ABI = HYPERDROME_DRONE_ABI;
 
 // Hard cap on the upward probe. 10k is comfortably above any realistic
 // on-chain supply for a single batch script and keeps a corrupt RPC from
@@ -167,6 +179,91 @@ async function mintStarterDroneNft(walletAddress) {
   const tx = await contract.mint(walletAddress, tokenId);
   const receipt = await tx.wait();
   const txHash = receipt?.hash ?? tx.hash;
+  return { tokenId, txHash };
+}
+
+/**
+ * Read NFT-mint env for a non-drone collection. The drone path uses its
+ * own readMintEnv since `NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS` is the only
+ * contract address with a NEXT_PUBLIC_ alias; skin + mod stay
+ * server-only.
+ */
+function readNftMintEnv(envKey) {
+  const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+  const contractAddress = process.env[envKey];
+  const rpcUrl = process.env.MEGAETH_RPC_URL;
+  const missing = [];
+  if (!privateKey) missing.push('DEPLOYER_PRIVATE_KEY');
+  if (!contractAddress) missing.push(envKey);
+  if (!rpcUrl) missing.push('MEGAETH_RPC_URL');
+  if (missing.length) return { ok: false, missing };
+  return { ok: true, privateKey, contractAddress, rpcUrl };
+}
+
+/**
+ * Mint a freshly created skin/mod row to the player's wallet. Same probe
+ * pattern as `mintStarterDroneNft`: walk upward from `MAX(table.tokenId) + 1`
+ * via the contract's `ownerOf` until we find an unused tokenId, then mint
+ * there. Updates the row with `tokenId / mintTxHash / mintedAt` on
+ * success. Returns null on env miss; throws on RPC / mint failure so the
+ * caller can log a real error.
+ *
+ * @param {object} args
+ * @param {'skin'|'mod'} args.kind        - which table + contract to use
+ * @param {string} args.walletAddress     - player wallet (checksummed)
+ * @param {string} args.rowId             - DB row id of the freshly cloned skin/mod
+ * @returns {Promise<null | { tokenId: number, txHash: string }>}
+ */
+async function mintStarterNftForRow({ kind, walletAddress, rowId }) {
+  const envKey = kind === 'skin' ? 'SKIN_CONTRACT_ADDRESS' : 'MOD_CONTRACT_ADDRESS';
+  const env = readNftMintEnv(envKey);
+  if (!env.ok) {
+    console.warn(
+      `[auth/wallet] starter ${kind} mint skipped - missing env: ${env.missing.join(', ')}`,
+    );
+    return null;
+  }
+  const table = kind === 'skin' ? skins : mods;
+
+  const [agg] = await db
+    .select({ maxId: sql`COALESCE(MAX(${table.tokenId}), 0)` })
+    .from(table);
+  const dbStart = Number(agg?.maxId ?? 0) + 1;
+
+  const provider = new ethers.JsonRpcProvider(env.rpcUrl);
+  const wallet = new ethers.Wallet(env.privateKey, provider);
+  const contract = new ethers.Contract(
+    env.contractAddress,
+    HYPERDROME_NFT_ABI,
+    wallet,
+  );
+
+  let tokenId = dbStart;
+  let probed = 0;
+  while (await tokenExists(contract, tokenId)) {
+    tokenId += 1;
+    probed += 1;
+    if (probed > PROBE_MAX) {
+      throw new Error(
+        `tokenId probe overran ${PROBE_MAX} above DB max ${dbStart - 1}; aborting`,
+      );
+    }
+  }
+  if (probed > 0) {
+    console.log(
+      `[auth/wallet] ${kind} tokenId probe found ${probed} on-chain orphans above DB max; minting at tokenId=${tokenId}`,
+    );
+  }
+
+  const tx = await contract.mint(walletAddress, tokenId);
+  const receipt = await tx.wait();
+  const txHash = receipt?.hash ?? tx.hash;
+
+  await db
+    .update(table)
+    .set({ tokenId, mintTxHash: txHash, mintedAt: new Date() })
+    .where(eq(table.id, rowId));
+
   return { tokenId, txHash };
 }
 
@@ -418,6 +515,96 @@ export async function POST(request) {
     }
   }
 
+  // 4b. Starter common skin (DB row + NFT mint). Clones a random
+  // image-backed common from the unowned vault and assigns it to the
+  // user, then mints the corresponding NFT. Best-effort: any failure
+  // logs and continues - the user can be issued a starter skin later
+  // via scripts or the admin tooling. Mirrors cloneStarterSkin's
+  // existing use in the magic-link createUser flow but extended with
+  // the NFT mint here.
+  let starterSkin = null;
+  let skinMintTokenId = null;
+  let skinMintTxHash = null;
+  try {
+    starterSkin = await cloneStarterSkin(user.id);
+    if (!starterSkin) {
+      console.warn(
+        `[auth/wallet] starter skin clone returned null - common skin vault is empty (wallet=${stored})`,
+      );
+    } else {
+      try {
+        const mint = await mintStarterNftForRow({
+          kind: 'skin',
+          walletAddress: checksummed,
+          rowId: starterSkin.id,
+        });
+        if (mint) {
+          skinMintTokenId = mint.tokenId;
+          skinMintTxHash = mint.txHash;
+          console.log(
+            `[auth/wallet] starter skin mint ok - skinId=${starterSkin.id} tokenId=${mint.tokenId} tx=${mint.txHash} wallet=${stored}`,
+          );
+        }
+      } catch (err) {
+        console.error('[auth/wallet] starter skin mint failed:', {
+          skinId: starterSkin.id,
+          wallet: stored,
+          reason: err?.shortMessage ?? err?.message ?? 'unknown',
+          code: err?.code,
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[auth/wallet] starter skin clone failed:', {
+      wallet: stored,
+      reason: err?.shortMessage ?? err?.message ?? 'unknown',
+      code: err?.code,
+    });
+  }
+
+  // 4c. Starter common mod (DB row + NFT mint). Same shape as the
+  // skin step above. Mod vault has no image filter (every mod renders
+  // from text fields) so cloneStarterMod just picks any common.
+  let starterMod = null;
+  let modMintTokenId = null;
+  let modMintTxHash = null;
+  try {
+    starterMod = await cloneStarterMod(user.id);
+    if (!starterMod) {
+      console.warn(
+        `[auth/wallet] starter mod clone returned null - common mod vault is empty (wallet=${stored})`,
+      );
+    } else {
+      try {
+        const mint = await mintStarterNftForRow({
+          kind: 'mod',
+          walletAddress: checksummed,
+          rowId: starterMod.id,
+        });
+        if (mint) {
+          modMintTokenId = mint.tokenId;
+          modMintTxHash = mint.txHash;
+          console.log(
+            `[auth/wallet] starter mod mint ok - modId=${starterMod.id} tokenId=${mint.tokenId} tx=${mint.txHash} wallet=${stored}`,
+          );
+        }
+      } catch (err) {
+        console.error('[auth/wallet] starter mod mint failed:', {
+          modId: starterMod.id,
+          wallet: stored,
+          reason: err?.shortMessage ?? err?.message ?? 'unknown',
+          code: err?.code,
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[auth/wallet] starter mod clone failed:', {
+      wallet: stored,
+      reason: err?.shortMessage ?? err?.message ?? 'unknown',
+      code: err?.code,
+    });
+  }
+
   // 5. Starter VOLT to the player's wallet. Best-effort - failure leaves the
   // user with the DB-side STARTER_VOLTS mirror so the upgrade gate still
   // works; on-chain balance can be topped up via scripts/mint-volt.js.
@@ -496,6 +683,22 @@ export async function POST(request) {
     },
     starterDrone: drone
       ? { id: drone.id, name: drone.name, tokenId: mintTokenId, mintTxHash }
+      : null,
+    starterSkin: starterSkin
+      ? {
+          id: starterSkin.id,
+          name: starterSkin.name,
+          tokenId: skinMintTokenId,
+          mintTxHash: skinMintTxHash,
+        }
+      : null,
+    starterMod: starterMod
+      ? {
+          id: starterMod.id,
+          name: starterMod.name,
+          tokenId: modMintTokenId,
+          mintTxHash: modMintTxHash,
+        }
       : null,
     voltMintTxHash,
     gasTxHash,
