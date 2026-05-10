@@ -50,8 +50,11 @@ async function fetchOnchainBalance(walletAddress) {
  *
  * Returns the authenticated user's on-chain VOLT balance, cached for 30s
  * to avoid hammering the Carrot RPC on dashboard polls. Users without a
- * linked wallet get a 400 - the UI must keep showing DB volts in that
- * case (NavShell already does).
+ * linked wallet receive a soft `{ balance: "0", formatted: "0" }` so the
+ * route is non-throwing for any logged-in caller. NavShell still treats a
+ * present-but-zero on-chain value as the source of truth when the wallet
+ * is connected; a 200 with zeros is preferable to a 400 since RainbowKit
+ * may have a session before the bind round-trip lands.
  */
 export const GET = withApiHandler(async ({ session }) => {
   const [user] = await db
@@ -61,7 +64,7 @@ export const GET = withApiHandler(async ({ session }) => {
     .limit(1);
 
   if (!user?.walletAddress) {
-    return fail('No wallet linked to this account', 400);
+    return ok({ balance: '0', formatted: '0' });
   }
 
   const wallet = user.walletAddress.toLowerCase();

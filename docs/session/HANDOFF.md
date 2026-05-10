@@ -6350,3 +6350,15 @@ All edits below are scoped to specific `@media` blocks. Desktop / tablet (>768px
   - On a network-level failure the entry is removed (allowing retry on next render); HTTP error responses keep the entry — a 409 from a wallet-owned-by-someone-else won't keep retrying.
 
 **Why module scope (not session/user):** session JWT does not currently carry `walletAddress`, and the user explicitly restricted auth flow changes. Module Set is the minimal-touch fix.
+
+## 2026-05-10 - VOLT balance endpoint never 400s for logged-in users (FIX 2)
+
+**Captain ask:** GET `/api/volt/balance` was returning 400 when the authenticated user had no `walletAddress` row. That is a valid state (RainbowKit may have a session before the bind round-trip lands; demo users have no bind at all). Zero balance should be a value, not an error.
+
+**Files modified (1):**
+
+- `app/api/volt/balance/route.js`
+  - Replaced `return fail('No wallet linked to this account', 400)` with `return ok({ balance: '0', formatted: '0' })`. The on-chain zero path was already returning 200 (the contract's `balanceOf` simply returns `0n` for unfunded addresses), so this aligns the no-bind path with that behavior.
+  - Updated the JSDoc to describe the new contract.
+
+**What did NOT change:** the 502 path on RPC failure stays in place — that's a real server-side failure, not a state issue. NavShell already nulls out `onchainVolts` on any non-OK response and falls back to `dbBalance`, so the bad-RPC case still degrades gracefully without showing 0.
