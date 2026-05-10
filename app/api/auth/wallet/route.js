@@ -1,55 +1,25 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { ethers, getAddress } from 'ethers';
+import { getAddress } from 'ethers';
 import { db, schema } from '@/lib/db';
-import {
-  auth,
-  signIn,
-  cloneStarterSkin,
-  cloneStarterMod,
-} from '@/lib/auth';
+import { auth, signIn } from '@/lib/auth';
 import { buildLowRangeStats } from '@/lib/game-engine/drone-spawn.js';
 import { generateUniqueDroneName } from '@/lib/game-engine/drone-names.js';
-import { mintVoltToWallet } from '@/lib/onchain/volt.js';
-import { sendStarterGas } from '@/lib/onchain/gas.js';
-import { claimNextTokenId, bumpAndClaim } from '@/lib/onchain/token-id.js';
 
-const { users, drones, droneOwnershipHistory, skins, mods } = schema;
+const { users, drones, droneOwnershipHistory } = schema;
 
-// ethers v6 needs Node crypto APIs the Edge runtime doesn't expose, and the
-// drone-mint round-trip on Carrot RPC can take 5-15s. Match the existing
-// drone mint route's nodejs runtime + 60s ceiling.
+// ethers' getAddress (used for the EIP-55 checksum on the input
+// address) is the only crypto-ish call left in this route. Everything
+// heavy (NFT mints, VOLT mint, gas drip) moved to
+// /api/auth/wallet/bootstrap. Node runtime is still required because
+// ethers' checksum impl uses keccak256 from the crypto module.
 export const runtime = 'nodejs';
-export const maxDuration = 60;
 
 const STARTER_VOLTS = 1000;
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
-const HYPERDROME_DRONE_ABI = [
-  'function mint(address to, uint256 tokenId) external',
-  'function ownerOf(uint256 tokenId) view returns (address)',
-];
-
-// Skin + Mod NFT contracts share the drone's mint(address,uint256) +
-// ownerOf signature (HyperdromeSkin.sol / HyperdromeMod.sol both expose
-// `mint(address to, uint256 tokenId) onlyMinter` + standard ERC721
-// reads). Single ABI fragment reused for both since the function shapes
-// are identical.
-const HYPERDROME_NFT_ABI = HYPERDROME_DRONE_ABI;
-
-/**
- * Detect an "already minted" revert from the NFT contract. Used to
- * decide whether a failed mint should be retried after bumping the
- * tokenId counter. Conservative: only treat clear collision messages
- * as retryable so out-of-gas / not-minter / network errors still throw
- * on the first attempt.
- */
-function isAlreadyMintedError(err) {
-  const msg = (err?.shortMessage ?? err?.reason ?? err?.message ?? '').toLowerCase();
-  return msg.includes('already minted') || msg.includes('token already exists');
-}
 
 const bodySchema = z.object({
   walletAddress: z
@@ -100,149 +70,6 @@ function syntheticEmail(addressLower) {
   return `wallet_${addressLower}@wallet.hyperdrome.gg`;
 }
 
-function readMintEnv() {
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
-  const contractAddress =
-    process.env.NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS ??
-    process.env.DRONE_CONTRACT_ADDRESS;
-  const rpcUrl = process.env.MEGAETH_RPC_URL;
-  const missing = [];
-  if (!privateKey) missing.push('DEPLOYER_PRIVATE_KEY');
-  if (!contractAddress) missing.push('NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS');
-  if (!rpcUrl) missing.push('MEGAETH_RPC_URL');
-  if (missing.length) return { ok: false, missing };
-  return { ok: true, privateKey, contractAddress, rpcUrl };
-}
-
-/**
- * Mint a freshly created drone to the player's wallet on MegaETH testnet v2.
- *
- * Counter-based: claims the next tokenId from `token_counters` (atomic
- * UPDATE ... RETURNING; cold-starts from `MAX(drones.tokenId) + 1`).
- * One DB read, one mint, one DB write - replaces the prior `ownerOf`
- * probe loop that walked dozens to hundreds of slots on Carrot RPC.
- *
- * On a collision-style revert (chain supply ahead of the counter, e.g.
- * after a manual mint) we bump the counter past the failed id and
- * retry once. A second collision throws - the counter is materially
- * out of sync and an operator should reset it.
- *
- * Returns null when env is missing - the caller keeps the DB drone
- * unminted and the user can re-mint via the drone manager.
- *
- * @returns {Promise<null | { tokenId: number, txHash: string }>}
- */
-async function mintStarterDroneNft(walletAddress) {
-  const env = readMintEnv();
-  if (!env.ok) {
-    console.warn(
-      `[auth/wallet] starter drone mint skipped - missing env: ${env.missing.join(', ')}`,
-    );
-    return null;
-  }
-
-  const provider = new ethers.JsonRpcProvider(env.rpcUrl);
-  const wallet = new ethers.Wallet(env.privateKey, provider);
-  const contract = new ethers.Contract(
-    env.contractAddress,
-    HYPERDROME_DRONE_ABI,
-    wallet,
-  );
-
-  let tokenId = await claimNextTokenId('drone');
-  try {
-    const tx = await contract.mint(walletAddress, tokenId);
-    const receipt = await tx.wait();
-    return { tokenId, txHash: receipt?.hash ?? tx.hash };
-  } catch (err) {
-    if (!isAlreadyMintedError(err)) throw err;
-    console.warn(
-      `[auth/wallet] drone tokenId=${tokenId} collided on-chain; bumping counter and retrying once`,
-    );
-    tokenId = await bumpAndClaim('drone', tokenId);
-    const tx = await contract.mint(walletAddress, tokenId);
-    const receipt = await tx.wait();
-    return { tokenId, txHash: receipt?.hash ?? tx.hash };
-  }
-}
-
-/**
- * Read NFT-mint env for a non-drone collection. The drone path uses its
- * own readMintEnv since `NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS` is the only
- * contract address with a NEXT_PUBLIC_ alias; skin + mod stay
- * server-only.
- */
-function readNftMintEnv(envKey) {
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
-  const contractAddress = process.env[envKey];
-  const rpcUrl = process.env.MEGAETH_RPC_URL;
-  const missing = [];
-  if (!privateKey) missing.push('DEPLOYER_PRIVATE_KEY');
-  if (!contractAddress) missing.push(envKey);
-  if (!rpcUrl) missing.push('MEGAETH_RPC_URL');
-  if (missing.length) return { ok: false, missing };
-  return { ok: true, privateKey, contractAddress, rpcUrl };
-}
-
-/**
- * Mint a freshly created skin/mod row to the player's wallet. Same probe
- * pattern as `mintStarterDroneNft`: walk upward from `MAX(table.tokenId) + 1`
- * via the contract's `ownerOf` until we find an unused tokenId, then mint
- * there. Updates the row with `tokenId / mintTxHash / mintedAt` on
- * success. Returns null on env miss; throws on RPC / mint failure so the
- * caller can log a real error.
- *
- * @param {object} args
- * @param {'skin'|'mod'} args.kind        - which table + contract to use
- * @param {string} args.walletAddress     - player wallet (checksummed)
- * @param {string} args.rowId             - DB row id of the freshly cloned skin/mod
- * @returns {Promise<null | { tokenId: number, txHash: string }>}
- */
-async function mintStarterNftForRow({ kind, walletAddress, rowId }) {
-  const envKey = kind === 'skin' ? 'SKIN_CONTRACT_ADDRESS' : 'MOD_CONTRACT_ADDRESS';
-  const env = readNftMintEnv(envKey);
-  if (!env.ok) {
-    console.warn(
-      `[auth/wallet] starter ${kind} mint skipped - missing env: ${env.missing.join(', ')}`,
-    );
-    return null;
-  }
-  const table = kind === 'skin' ? skins : mods;
-
-  const provider = new ethers.JsonRpcProvider(env.rpcUrl);
-  const wallet = new ethers.Wallet(env.privateKey, provider);
-  const contract = new ethers.Contract(
-    env.contractAddress,
-    HYPERDROME_NFT_ABI,
-    wallet,
-  );
-
-  // Counter-based mint with one collision retry. See mintStarterDroneNft
-  // for the full reasoning.
-  let tokenId = await claimNextTokenId(kind);
-  let txHash;
-  try {
-    const tx = await contract.mint(walletAddress, tokenId);
-    const receipt = await tx.wait();
-    txHash = receipt?.hash ?? tx.hash;
-  } catch (err) {
-    if (!isAlreadyMintedError(err)) throw err;
-    console.warn(
-      `[auth/wallet] ${kind} tokenId=${tokenId} collided on-chain; bumping counter and retrying once`,
-    );
-    tokenId = await bumpAndClaim(kind, tokenId);
-    const tx = await contract.mint(walletAddress, tokenId);
-    const receipt = await tx.wait();
-    txHash = receipt?.hash ?? tx.hash;
-  }
-
-  await db
-    .update(table)
-    .set({ tokenId, mintTxHash: txHash, mintedAt: new Date() })
-    .where(eq(table.id, rowId));
-
-  return { tokenId, txHash };
-}
 
 /**
  * POST /api/auth/wallet
@@ -456,186 +283,13 @@ export async function POST(request) {
     console.error('[auth/wallet] starter drone insert failed:', err);
   }
 
-  // 4. NFT mint. Best-effort - on failure the drone stays in DB without a
-  // tokenId and the user can re-mint from the drone manager later.
-  let mintTxHash = null;
-  let mintTokenId = null;
-  if (drone) {
-    try {
-      const mint = await mintStarterDroneNft(checksummed);
-      if (mint) {
-        mintTxHash = mint.txHash;
-        mintTokenId = mint.tokenId;
-        await db
-          .update(drones)
-          .set({
-            tokenId: mint.tokenId,
-            mintTxHash: mint.txHash,
-            mintedAt: new Date(),
-          })
-          .where(eq(drones.id, drone.id));
-        console.log(
-          `[auth/wallet] starter drone mint ok - droneId=${drone.id} tokenId=${mint.tokenId} tx=${mint.txHash} wallet=${stored}`,
-        );
-      } else {
-        console.warn(
-          `[auth/wallet] starter drone mint returned null - droneId=${drone.id} wallet=${stored} (env or pre-flight failure)`,
-        );
-      }
-    } catch (err) {
-      console.error('[auth/wallet] starter drone mint failed:', {
-        droneId: drone.id,
-        wallet: stored,
-        reason: err?.shortMessage ?? err?.message ?? 'unknown',
-        code: err?.code,
-      });
-    }
-  }
-
-  // 4b. Starter common skin (DB row + NFT mint). Clones a random
-  // image-backed common from the unowned vault and assigns it to the
-  // user, then mints the corresponding NFT. Best-effort: any failure
-  // logs and continues - the user can be issued a starter skin later
-  // via scripts or the admin tooling. Mirrors cloneStarterSkin's
-  // existing use in the magic-link createUser flow but extended with
-  // the NFT mint here.
-  let starterSkin = null;
-  let skinMintTokenId = null;
-  let skinMintTxHash = null;
-  try {
-    starterSkin = await cloneStarterSkin(user.id);
-    if (!starterSkin) {
-      console.warn(
-        `[auth/wallet] starter skin clone returned null - common skin vault is empty (wallet=${stored})`,
-      );
-    } else {
-      try {
-        const mint = await mintStarterNftForRow({
-          kind: 'skin',
-          walletAddress: checksummed,
-          rowId: starterSkin.id,
-        });
-        if (mint) {
-          skinMintTokenId = mint.tokenId;
-          skinMintTxHash = mint.txHash;
-          console.log(
-            `[auth/wallet] starter skin mint ok - skinId=${starterSkin.id} tokenId=${mint.tokenId} tx=${mint.txHash} wallet=${stored}`,
-          );
-        }
-      } catch (err) {
-        console.error('[auth/wallet] starter skin mint failed:', {
-          skinId: starterSkin.id,
-          wallet: stored,
-          reason: err?.shortMessage ?? err?.message ?? 'unknown',
-          code: err?.code,
-        });
-      }
-    }
-  } catch (err) {
-    console.error('[auth/wallet] starter skin clone failed:', {
-      wallet: stored,
-      reason: err?.shortMessage ?? err?.message ?? 'unknown',
-      code: err?.code,
-    });
-  }
-
-  // 4c. Starter common mod (DB row + NFT mint). Same shape as the
-  // skin step above. Mod vault has no image filter (every mod renders
-  // from text fields) so cloneStarterMod just picks any common.
-  let starterMod = null;
-  let modMintTokenId = null;
-  let modMintTxHash = null;
-  try {
-    starterMod = await cloneStarterMod(user.id);
-    if (!starterMod) {
-      console.warn(
-        `[auth/wallet] starter mod clone returned null - common mod vault is empty (wallet=${stored})`,
-      );
-    } else {
-      try {
-        const mint = await mintStarterNftForRow({
-          kind: 'mod',
-          walletAddress: checksummed,
-          rowId: starterMod.id,
-        });
-        if (mint) {
-          modMintTokenId = mint.tokenId;
-          modMintTxHash = mint.txHash;
-          console.log(
-            `[auth/wallet] starter mod mint ok - modId=${starterMod.id} tokenId=${mint.tokenId} tx=${mint.txHash} wallet=${stored}`,
-          );
-        }
-      } catch (err) {
-        console.error('[auth/wallet] starter mod mint failed:', {
-          modId: starterMod.id,
-          wallet: stored,
-          reason: err?.shortMessage ?? err?.message ?? 'unknown',
-          code: err?.code,
-        });
-      }
-    }
-  } catch (err) {
-    console.error('[auth/wallet] starter mod clone failed:', {
-      wallet: stored,
-      reason: err?.shortMessage ?? err?.message ?? 'unknown',
-      code: err?.code,
-    });
-  }
-
-  // 5. Starter VOLT to the player's wallet. Best-effort - failure leaves the
-  // user with the DB-side STARTER_VOLTS mirror so the upgrade gate still
-  // works; on-chain balance can be topped up via scripts/mint-volt.js.
-  let voltMintTxHash = null;
-  try {
-    const result = await mintVoltToWallet(checksummed, STARTER_VOLTS);
-    voltMintTxHash = result?.txHash ?? null;
-    if (result?.txHash) {
-      console.log(
-        `[auth/wallet] starter VOLT mint ok - amount=${STARTER_VOLTS} tx=${result.txHash} wallet=${stored}`,
-      );
-    } else {
-      console.warn(
-        `[auth/wallet] starter VOLT mint returned null - wallet=${stored} (likely missing DEPLOYER_PRIVATE_KEY / MEGAETH_RPC_URL / VOLT_CONTRACT_ADDRESS)`,
-      );
-    }
-  } catch (err) {
-    console.error('[auth/wallet] starter VOLT mint failed:', {
-      wallet: stored,
-      reason: err?.shortMessage ?? err?.message ?? 'unknown',
-      code: err?.code,
-    });
-  }
-
-  // 6. Starter gas drop. Send 0.001 ETH from the deployer so the user can
-  // pay gas on their own (user-signed) VOLT approvals + marketplace buys.
-  // Best-effort - failure leaves the user with their starter NFT + VOLT
-  // but no gas; they can be topped up manually if it matters. We don't
-  // block sign-in on this because most flows still work for a gasless
-  // user (race rewards, level-ups, on-chain reads).
-  let gasTxHash = null;
-  try {
-    const gas = await sendStarterGas(checksummed);
-    gasTxHash = gas?.txHash ?? null;
-    if (gas?.txHash) {
-      console.log(
-        `[auth/wallet] starter gas drop ok - 0.001 ETH tx=${gas.txHash} wallet=${stored}`,
-      );
-    } else {
-      console.warn(
-        `[auth/wallet] starter gas drop returned null - wallet=${stored} (likely missing DEPLOYER_PRIVATE_KEY / MEGAETH_RPC_URL)`,
-      );
-    }
-  } catch (err) {
-    console.error('[auth/wallet] starter gas drop failed:', {
-      wallet: stored,
-      reason: err?.shortMessage ?? err?.message ?? 'unknown',
-      code: err?.code,
-    });
-  }
-
-  // 7. Sign in. If this fails the bootstrap is wasted - the row exists but
-  // the user has no session; the next press will hit the existing-wallet
-  // branch and sign in cleanly, so a transient signIn failure is recoverable.
+  // 4. Sign in. The on-chain mints (drone NFT, starter skin + mod, VOLT,
+  // gas drip) are NOT awaited here - they're handled by a follow-up
+  // POST to /api/auth/wallet/bootstrap that the client fires immediately
+  // after the auth response lands. Splitting keeps this endpoint under
+  // ~2s on Neon HTTP so the user reaches /dashboard immediately and
+  // sees loading states for the in-flight assets, instead of waiting
+  // ~95s for sequential RPC mints.
   try {
     await signIn('wallet', {
       userId: user.id,
@@ -653,31 +307,20 @@ export async function POST(request) {
   return NextResponse.json({
     redirectUrl: '/dashboard',
     isNew: true,
+    // bootstrapNeeded is the client's signal to fire the (async, fire-
+    // and-forget) POST /api/auth/wallet/bootstrap that runs the NFT +
+    // VOLT + gas mints. Always true on the new-wallet branch since
+    // we just inserted the user with no on-chain assets yet. Existing
+    // users hit a separate response path above (no isNew, no
+    // bootstrapNeeded).
+    bootstrapNeeded: true,
     user: {
       id: user.id,
       username: user.username,
       walletAddress: checksummed,
     },
     starterDrone: drone
-      ? { id: drone.id, name: drone.name, tokenId: mintTokenId, mintTxHash }
+      ? { id: drone.id, name: drone.name }
       : null,
-    starterSkin: starterSkin
-      ? {
-          id: starterSkin.id,
-          name: starterSkin.name,
-          tokenId: skinMintTokenId,
-          mintTxHash: skinMintTxHash,
-        }
-      : null,
-    starterMod: starterMod
-      ? {
-          id: starterMod.id,
-          name: starterMod.name,
-          tokenId: modMintTokenId,
-          mintTxHash: modMintTxHash,
-        }
-      : null,
-    voltMintTxHash,
-    gasTxHash,
   });
 }

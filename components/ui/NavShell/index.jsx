@@ -383,6 +383,13 @@ function HeaderConnectWallet() {
         // for a while otherwise.
         await update();
         if (cancelled) return;
+        // Kick the async on-chain bootstrap (NFT mints + VOLT + gas)
+        // for new wallet signups. Idempotent endpoint, fire-and-forget.
+        if (data?.bootstrapNeeded) {
+          fetch('/api/auth/wallet/bootstrap', { method: 'POST' }).catch((err) => {
+            console.warn('[wallet] bootstrap kick-off failed:', err);
+          });
+        }
         const target = data.redirectUrl || '/dashboard';
         if (pathname !== target) router.push(target);
         // Re-fetch RSC so the layout server components also pick up

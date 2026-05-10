@@ -95,6 +95,22 @@ export default function HeroConnectWallet() {
       // stale `useSession() = null` and would re-trigger the auto-auth
       // effect over there.
       await update();
+      // Fire-and-forget the on-chain bootstrap (NFT mints, VOLT, gas
+      // drip) for new wallet signups. The dashboard is shown
+      // immediately while these run in the background; loading states
+      // for individual assets self-clear as each mint completes. The
+      // endpoint is idempotent so this is safe even if it races with
+      // a dashboard self-heal call.
+      if (data?.bootstrapNeeded) {
+        // Intentionally not awaited - the user navigates to /dashboard
+        // immediately. Catch on the promise prevents an unhandled
+        // rejection if the bootstrap fetch itself fails (network drop,
+        // etc.); the bootstrap is best-effort and an operator can
+        // trigger a re-run later.
+        fetch('/api/auth/wallet/bootstrap', { method: 'POST' }).catch((err) => {
+          console.warn('[wallet] bootstrap kick-off failed:', err);
+        });
+      }
       const target = data.redirectUrl || '/dashboard';
       if (pathname !== target) router.push(target);
       router.refresh();
