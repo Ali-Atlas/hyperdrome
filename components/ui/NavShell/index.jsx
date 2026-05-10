@@ -156,7 +156,7 @@ function WalletButton({ onSignOut }) {
       if (!triggerRef.current) return;
       const r = triggerRef.current.getBoundingClientRect();
       setMenuPos({
-        top: r.bottom + 6,
+        bottom: window.innerHeight - r.top + 6,
         right: window.innerWidth - r.right,
       });
     }
@@ -211,6 +211,12 @@ function WalletButton({ onSignOut }) {
   // position: fixed (rather than absolute) escapes the `.mobileUser`
   // ancestor's overflow:hidden clip and the desktop sidebar's viewport
   // bottom edge - both of which were eating the dropdown previously.
+  //
+  // Anchored ABOVE the trigger (the menu's bottom edge sits 6px above
+  // the trigger's top) so it grows upward into open space instead of
+  // downward into the viewport edge - the desktop sidebar trigger
+  // lives low in `.sidebarFooter`, near the bottom of a 100vh fixed
+  // column, so a downward menu was getting clipped by the viewport.
   function toggleMenu() {
     if (menuOpen) {
       setMenuOpen(false);
@@ -219,7 +225,7 @@ function WalletButton({ onSignOut }) {
     if (triggerRef.current) {
       const r = triggerRef.current.getBoundingClientRect();
       setMenuPos({
-        top: r.bottom + 6,
+        bottom: window.innerHeight - r.top + 6,
         right: window.innerWidth - r.right,
       });
     }
@@ -239,7 +245,7 @@ function WalletButton({ onSignOut }) {
           ref={menuRef}
           className={styles.walletMenu}
           role="menu"
-          style={{ top: menuPos.top, right: menuPos.right }}
+          style={{ bottom: menuPos.bottom, right: menuPos.right }}
         >
           <button
             type="button"
