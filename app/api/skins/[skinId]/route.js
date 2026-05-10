@@ -3,6 +3,16 @@ import { eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { withApiHandler, fail } from '@/lib/api/response.js';
 
+// Long-cache the placeholder so Blockscout / explorer indexers don't
+// retry-storm on every page render. 24h is comfortably longer than the
+// time it takes us to mint and seed a new skin token; once the row
+// exists the response will surface real metadata via the same
+// CDN-cached path on the next purge.
+const PLACEHOLDER_CACHE_HEADERS = {
+  'Content-Type': 'application/json',
+  'Cache-Control': 'public, max-age=86400, s-maxage=86400, immutable',
+};
+
 const { skins, droneSkins, drones } = schema;
 
 /**
@@ -96,10 +106,35 @@ function buildMetadata(skin, bound) {
   };
 }
 
+/**
+ * Minimal valid ERC-721 metadata so a Blockscout indexer that probes
+ * sequentially up the tokenId range gets a 200 it can cache instead of
+ * a 404 it will retry. Only used when the requested id was numeric -
+ * UUID-form lookups that miss are still 404 (app-internal access).
+ */
+function placeholderMetadata(tokenId) {
+  return {
+    name: `Hyperdrome Skin #${tokenId}`,
+    description: 'Skin not found',
+    image: '',
+  };
+}
+
 export const GET = withApiHandler(
   async ({ params }) => {
     const skin = await lookupSkin(params.skinId);
-    if (!skin) return fail('Skin not found', 404);
+    if (!skin) {
+      // Numeric tokenId that misses = unminted slot the indexer is
+      // probing. Return placeholder + cache so it doesn't retry.
+      if (/^\d+$/.test(params.skinId)) {
+        return Response.json(
+          placeholderMetadata(params.skinId),
+          { headers: PLACEHOLDER_CACHE_HEADERS },
+        );
+      }
+      // UUID miss = real not-found from app-internal callers.
+      return fail('Skin not found', 404);
+    }
     const bound = await lookupBoundDrone(skin.id);
     return Response.json(buildMetadata(skin, bound), {
       headers: { 'Content-Type': 'application/json' },

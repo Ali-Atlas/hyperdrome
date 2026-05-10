@@ -3,6 +3,13 @@ import { eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { withApiHandler, fail } from '@/lib/api/response.js';
 
+// Long-cache the placeholder so Blockscout / explorer indexers don't
+// retry-storm on every page render. Mirrors the skin metadata route.
+const PLACEHOLDER_CACHE_HEADERS = {
+  'Content-Type': 'application/json',
+  'Cache-Control': 'public, max-age=86400, s-maxage=86400, immutable',
+};
+
 const { mods, droneMods, drones } = schema;
 
 /**
@@ -107,10 +114,32 @@ function buildMetadata(mod, bound) {
   };
 }
 
+/**
+ * Minimal valid ERC-721 metadata so a Blockscout indexer that probes
+ * sequentially up the tokenId range gets a 200 it can cache instead of
+ * a 404 it will retry. Only used when the requested id was numeric -
+ * UUID-form lookups that miss are still 404 (app-internal access).
+ */
+function placeholderMetadata(tokenId) {
+  return {
+    name: `Hyperdrome Mod #${tokenId}`,
+    description: 'Mod not found',
+    image: '',
+  };
+}
+
 export const GET = withApiHandler(
   async ({ params }) => {
     const mod = await lookupMod(params.modId);
-    if (!mod) return fail('Mod not found', 404);
+    if (!mod) {
+      if (/^\d+$/.test(params.modId)) {
+        return Response.json(
+          placeholderMetadata(params.modId),
+          { headers: PLACEHOLDER_CACHE_HEADERS },
+        );
+      }
+      return fail('Mod not found', 404);
+    }
     const bound = await lookupBoundDrone(mod.id);
     return Response.json(buildMetadata(mod, bound), {
       headers: { 'Content-Type': 'application/json' },
