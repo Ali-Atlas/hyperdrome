@@ -227,7 +227,7 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 8px 18px;
+  padding: 4px 8px;
   background: rgba(0, 0, 0, 0.55);
   color: var(--accent-primary);
   font-family: var(--font-body);
@@ -263,25 +263,20 @@
   letter-spacing: 0.02em;
 }
 
-/* Wallet menu (connected-state dropdown). The wrap is the click-anchor:
-   `position: relative` so the absolute-positioned `.walletMenu` floats
-   directly below the address button. inline-flex keeps the wrap from
-   stretching the parent `.pointsRow` / `.mobileUser` flex row. */
-.walletBtnWrap {
-  position: relative;
-  display: inline-flex;
-}
-
-/* Dropdown panel. Sits below the trigger (top: 100% + 6px gap) and
-   right-aligned so it never overflows the right edge of the sidebar /
-   mobile top bar. z-index 30 clears the mobile-bar (10), the drawer
-   overlay (20), and the countdown bar (9). Elevated bg + teal border
-   matches the in-game card aesthetic; the heavy box-shadow lifts it
-   above whatever sits beneath in either context. */
+/* Wallet dropdown panel. Rendered via React portal into document.body
+   (see WalletButton) so the menu DOM lives outside every ancestor's
+   stacking / overflow / containing-block tree. That's what makes it
+   visible from BOTH:
+   - the mobile/header top bar, whose `.mobileUser` ancestor has
+     overflow: hidden (which previously ate the menu - the click toggled
+     state but the menu was invisible, looked like "does nothing").
+   - the desktop sidebar, whose trigger sits low in `.sidebarFooter` and
+     used to push the absolute-positioned menu past the viewport bottom.
+   `top` and `right` are set inline from the trigger's
+   getBoundingClientRect on open. z-index 30 clears the mobile-bar (10),
+   the drawer overlay (20), and the countdown bar (9). */
 .walletMenu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
+  position: fixed;
   z-index: 30;
   display: flex;
   flex-direction: column;

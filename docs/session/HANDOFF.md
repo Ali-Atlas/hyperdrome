@@ -6750,3 +6750,41 @@ Captain reported that clicking the wallet-address chip in NavShell instantly dis
 **Why dropdown opens downward in both contexts:** Captain's brief specified "positioned below". On desktop sidebar footer the dropdown floats over the Sign Out button below it (acceptable popover behavior); on mobile top bar it drops into the page area beneath. No flip-up logic — kept simple.
 
 **Untouched:** `HeaderConnectWallet` (unauthenticated path, no menu needed), the bind-wallet effect, the `BOUND_ADDRESSES` cache, and the parent NavShell's `onSignOut` definition.
+
+---
+
+## 2026-05-10 — Wallet dropdown: React portal + compact padding
+
+Captain reported three follow-ups on the new wallet dropdown:
+1. Clicking the wallet chip in the mobile/header top bar appeared to do nothing.
+2. The desktop sidebar dropdown was getting cut off.
+3. The wallet button was visually too large.
+
+**Root cause for (1) + (2):** the absolute-positioned menu sat inside ancestors that clipped or constrained it.
+- Mobile/header top bar (`.mobileBar` at <1024px): `.mobileUser` has `overflow: hidden` (for username ellipsis), which clipped the absolute menu entirely - looked like the click did nothing.
+- Desktop sidebar (≥1024px): `position: fixed; height: 100vh`, trigger sits low in `.sidebarFooter` so a downward absolute menu extended past the viewport.
+
+**Why I went straight to a React portal (not just `position: fixed`):** Captain's brief explicitly said "use position:fixed with portal-like positioning so it's not clipped by the sidebar container". An interim attempt that used only `position: fixed` (without portal) is a half-measure - it works in most cases but breaks if any ancestor introduces a containing block via `transform`, `filter`, `backdrop-filter`, `perspective`, or `contain` (the drawer's `slideInLeft` animation uses `transform`, for example). Rendering the menu via `createPortal` into `document.body` guarantees the menu DOM lives outside every ancestor's stacking / overflow / containing-block tree - bulletproof regardless of what ancestors do later.
+
+**Files modified (2):**
+
+- `components/ui/NavShell/index.jsx` — `WalletButton`
+  - Added `import { createPortal } from 'react-dom'`.
+  - State: `menuOpen`, `menuPos` (`{ top, right }`), `copied`, `mounted`. `triggerRef` on the trigger button, `menuRef` on the menu div.
+  - `mounted` flag flips true in a one-shot useEffect on first client render. Gates the `createPortal` call so it doesn't fire during Next.js SSR (where `document.body` doesn't exist yet).
+  - `toggleMenu` computes coords synchronously on open via `triggerRef.current.getBoundingClientRect()` before flipping `menuOpen` true - no first-paint flash.
+  - Outside-click effect now checks BOTH `triggerRef` and `menuRef` (the portal'd menu is no longer a DOM descendant of the trigger, so a single ancestor `contains()` check would close the menu the moment the user clicks an item). Listener attached only while `menuOpen` is true.
+  - Resize-while-open effect re-computes coords. No scroll listener needed: both contexts keep the trigger in a fixed/sticky container (desktop sidebar `position: fixed`, mobile top bar `position: sticky`), so the trigger's viewport coords are scroll-invariant.
+  - Render: outer `<>` (replaced the old `.walletBtnWrap` div). Trigger button stays in-tree; menu is rendered via `createPortal(<div .../>, document.body)` when `menuOpen && menuPos && mounted`. Menu div has inline `style={{ top, right }}`.
+  - Removed the now-unused `wrapRef`.
+
+- `components/ui/NavShell/NavShell.module.css`
+  - Removed the `.walletBtnWrap` rule (no longer rendered).
+  - `.walletMenu`: `position: fixed`, no static `top`/`right` (set inline from the trigger rect), `z-index: 30` (clears mobile-bar 10, drawer overlay 20, countdown bar 9). Same dark-elevated bg + teal border + box-shadow as before.
+  - `.walletBtn`: padding `8px 18px` → `4px 8px` per Captain's brief. Hero-pill aesthetic (translucent dark bg, teal border, uppercase bold text-xs, blur backdrop, hover glow) preserved - only size shrinks.
+
+**Why no scroll listener (verified):** mobile top bar is `position: sticky; top: 0` (NavShell.module.css line 339-345); desktop sidebar is `position: fixed; top: 0; height: 100vh`. Page content scrolls inside `.main`, unrelated to the trigger. So `getBoundingClientRect()` coords are scroll-invariant in both contexts.
+
+**Why the previous shipped fix didn't actually solve it:** the prior attempt switched to `position: fixed` but never got committed (caught during this pass via `git status` - the changes were still uncommitted on disk while Captain was testing the live `e8809c8`, which was the original absolute-positioned version). This pass goes further (portal) and ships.
+
+**Untouched:** the trigger hover/focus styling, the menu item styles, `.walletBtnConnected` mono override, the unauth `HeaderConnectWallet` path, the bind-wallet effect, and the `onSignOut` wiring (still passed to both `<WalletButton />` instances - sidebar/drawer + mobile top bar).

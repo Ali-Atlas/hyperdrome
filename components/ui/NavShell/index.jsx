@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -82,8 +83,17 @@ function WalletButton({ onSignOut }) {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState(null);
   const [copied, setCopied] = useState(false);
-  const wrapRef = useRef(null);
+  // Track client-side mount so the createPortal call is gated past SSR.
+  // Required because next.js still server-renders 'use client' components.
+  const [mounted, setMounted] = useState(false);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!user || !isConnected || !address) return;
@@ -103,15 +113,19 @@ function WalletButton({ onSignOut }) {
     });
   }, [user, isConnected, address]);
 
-  // Outside-click close. Only attaches the document listener while the
-  // menu is open so we're not paying for a global mousedown handler on
-  // every NavShell instance for the entire session.
+  // Outside-click close. With the menu rendered via portal into
+  // document.body, it's no longer a DOM descendant of the trigger - we
+  // check both refs so a click on a menu item (which lives in the portal
+  // tree) doesn't immediately close the menu before the click handler
+  // fires. Listener attached only while the menu is open.
   useEffect(() => {
     if (!menuOpen) return;
     function onPointerDown(e) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
+      const trigger = triggerRef.current;
+      const menu = menuRef.current;
+      if (trigger && trigger.contains(e.target)) return;
+      if (menu && menu.contains(e.target)) return;
+      setMenuOpen(false);
     }
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
@@ -126,6 +140,26 @@ function WalletButton({ onSignOut }) {
       setCopied(false);
     }
   }, [isConnected]);
+
+  // Re-anchor the dropdown to the trigger on resize while it's open. We
+  // don't need a scroll listener because both render contexts keep the
+  // trigger in a fixed/sticky position (desktop sidebar: position: fixed;
+  // mobile top bar: position: sticky) - the trigger never moves relative
+  // to the viewport while the rest of the page scrolls. Resize is the only
+  // way the trigger's viewport coordinates can change.
+  useEffect(() => {
+    if (!menuOpen) return;
+    function update() {
+      if (!triggerRef.current) return;
+      const r = triggerRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: r.bottom + 6,
+        right: window.innerWidth - r.right,
+      });
+    }
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [menuOpen]);
 
   if (!user) return null;
 
@@ -170,19 +204,42 @@ function WalletButton({ onSignOut }) {
     }
   }
 
-  return (
-    <div className={styles.walletBtnWrap} ref={wrapRef}>
-      <button
-        type="button"
-        className={`${styles.walletBtn} ${styles.walletBtnConnected}`}
-        onClick={() => setMenuOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={menuOpen}
-      >
-        {copied ? 'Copied!' : truncated}
-      </button>
-      {menuOpen && (
-        <div className={styles.walletMenu} role="menu">
+  // Compute the dropdown coords synchronously on open so the menu paints
+  // in the right place on the first render - avoids the one-frame flash
+  // you get when a useEffect-driven recalc fires after layout. Using
+  // position: fixed (rather than absolute) escapes the `.mobileUser`
+  // ancestor's overflow:hidden clip and the desktop sidebar's viewport
+  // bottom edge - both of which were eating the dropdown previously.
+  function toggleMenu() {
+    if (menuOpen) {
+      setMenuOpen(false);
+      return;
+    }
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: r.bottom + 6,
+        right: window.innerWidth - r.right,
+      });
+    }
+    setMenuOpen(true);
+  }
+
+  // Menu is rendered as a portal into document.body so it sits outside
+  // every ancestor's stacking / overflow / containing-block tree. This is
+  // what makes the menu reliably visible from BOTH the mobile/header top
+  // bar (whose `.mobileUser` ancestor has overflow: hidden) and the
+  // desktop sidebar (whose trigger sits low enough that an absolute or
+  // even fixed-but-contained menu was extending past the visible area).
+  // Gated on `mounted` so the createPortal call doesn't fire during SSR.
+  const menu = menuOpen && menuPos && mounted
+    ? createPortal(
+        <div
+          ref={menuRef}
+          className={styles.walletMenu}
+          role="menu"
+          style={{ top: menuPos.top, right: menuPos.right }}
+        >
           <button
             type="button"
             role="menuitem"
@@ -207,9 +264,25 @@ function WalletButton({ onSignOut }) {
           >
             Disconnect
           </button>
-        </div>
-      )}
-    </div>
+        </div>,
+        document.body,
+      )
+    : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`${styles.walletBtn} ${styles.walletBtnConnected}`}
+        onClick={toggleMenu}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+      >
+        {copied ? 'Copied!' : truncated}
+      </button>
+      {menu}
+    </>
   );
 }
 
