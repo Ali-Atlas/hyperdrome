@@ -622,12 +622,12 @@ async function executePendingRace(pending, cfg) {
 /* -------------------------------------------------------------------------- */
 
 const MILESTONE_THRESHOLDS = [
-  { races: 10000, droneCap: 3 },
-  { races: 3000,  droneCap: 2 },
+  { races: 3000, droneCap: 3 },
+  { races: 1000, droneCap: 2 },
 ];
 
 /**
- * Free LV1 drone awarded when a player crosses 3,000 / 10,000 lifetime
+ * Free LV1 drone awarded when a player crosses 1,000 / 3,000 lifetime
  * races AND has fewer drones than the milestone's droneCap. Bumps
  * activeDroneSlots up to the cap on the same call so the new drone has
  * somewhere to live. Both checks fire independently — a player joining

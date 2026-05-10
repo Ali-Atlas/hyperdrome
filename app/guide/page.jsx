@@ -578,8 +578,8 @@ const SECTIONS = [
         type: 'list',
         items: [
           { name: 'Slot 1', desc: 'Granted at signup.' },
-          { name: 'Slot 2', desc: 'Unlocks at 3,000 total races (across all your drones). The same milestone also auto-spawns a free Level 1 drone with one unbound common skin and one unbound common mod, so the new slot has somewhere to go.' },
-          { name: 'Slot 3', desc: 'Unlocks at 10,000 total races. Same auto-spawn: a free Level 1 drone plus an unbound common skin and mod.' },
+          { name: 'Slot 2', desc: 'Unlocks at 1,000 total races (across all your drones). The same milestone also auto-spawns a free Level 1 drone with one unbound common skin and one unbound common mod, so the new slot has somewhere to go.' },
+          { name: 'Slot 3', desc: 'Unlocks at 3,000 total races. Same auto-spawn: a free Level 1 drone plus an unbound common skin and mod.' },
         ],
       },
 
@@ -669,7 +669,7 @@ const PRE_SECTIONS = [
       { type: 'subheading', text: 'Active Drone Slots' },
       {
         type: 'paragraph',
-        text: 'You start with 1 active drone slot. Slot 2 unlocks at 3,000 total races, slot 3 at 10,000 races. Each milestone also auto-spawns a free Level 1 drone (plus an unbound common skin and mod) so the new slot has something to fill it. Only active drones enter race batches. Changes to active/inactive status take effect after the current race batch resolves.',
+        text: 'You start with 1 active drone slot. Slot 2 unlocks at 1,000 total races, slot 3 at 3,000 races. Each milestone also auto-spawns a free Level 1 drone (plus an unbound common skin and mod) so the new slot has something to fill it. Only active drones enter race batches. Changes to active/inactive status take effect after the current race batch resolves.',
       },
     ],
   },

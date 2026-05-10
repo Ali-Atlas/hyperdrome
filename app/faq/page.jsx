@@ -47,7 +47,7 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I get more drones?',
-        a: 'Three ways. (1) Race milestones: at 3,000 total races (across all your drones) you auto-receive a free Level 1 drone, plus a slot 2 unlock. At 10,000 races, the same again with slot 3. Each milestone spawn includes one unbound common skin and one unbound common mod. (2) NPC vendor: 3,500 volts per Level 1 drone. Random mid-range stats, one bound common skin, one bound common mod. Available anytime, no marketplace dependency. (3) Marketplace: buy a drone listed by another player at any level with whatever skins, mods, and race history the seller built into it.',
+        a: 'Three ways. (1) Race milestones: at 1,000 total races (across all your drones) you auto-receive a free Level 1 drone, plus a slot 2 unlock. At 3,000 races, the same again with slot 3. Each milestone spawn includes one unbound common skin and one unbound common mod. (2) NPC vendor: 3,500 volts per Level 1 drone. Random mid-range stats, one bound common skin, one bound common mod. Available anytime, no marketplace dependency. (3) Marketplace: buy a drone listed by another player at any level with whatever skins, mods, and race history the seller built into it.',
       },
       {
         q: 'Can I buy XP or buy levels?',
@@ -55,7 +55,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Can I have multiple active drones?',
-        a: 'Yes, up to 3 once you unlock the slots. Slot 2 unlocks at 3,000 total races. Slot 3 unlocks at 10,000 total races. Total races counts every race any of your drones runs. Each unlock also auto-spawns a free Level 1 drone (with an unbound common skin and mod) so the new slot has a drone to fill it.',
+        a: 'Yes, up to 3 once you unlock the slots. Slot 2 unlocks at 1,000 total races. Slot 3 unlocks at 3,000 total races. Total races counts every race any of your drones runs. Each unlock also auto-spawns a free Level 1 drone (with an unbound common skin and mod) so the new slot has a drone to fill it.',
       },
       {
         q: 'What happens when my drone levels up?',
