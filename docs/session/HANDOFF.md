@@ -6925,3 +6925,24 @@ Branch built per Captain's spec to test before merging to main. Migrates VOLT sp
 **Untouched (intentional):** `app/api/drones/create/route.js:49` (NPC vendor purchase) still uses `buildLowRangeStats(1, 5)` — that's a paid bonus drone with the existing "deliberately mid-tier" RNG intent (`drone-spawn.js:42-45`), not the starter every player gets at signup. Captain's brief was scoped to starter creation only. `lib/game-engine/drone-spawn.js` is untouched — `buildLowRangeStats` stays exported for the vendor path; XP-milestone spawns use `buildLevelDistributedStats`.
 
 **Verification of external assumptions:** `calculateTSB(1) = 9 + 20*1 = 29` (`lib/game-engine/economy.js:86-89`). Per-stat cap at level 1 = `min(100, 10 + floor(4.5*1)) = 14` (`economy.js:98-101`). Sum = 9 stats × 1 = 9, well below both caps. `validateStatAllocation` (`economy.js:173-213`) recomputes TSB from `drone.level` rather than reading the stored column, so the hardcoded `totalStatBudget: 29` field stays display-only (used by the stat editor UI to show "X / 29"). No higher-level paths affected: `level` and `totalStatBudget` are unchanged at signup; level-up at `services/drone.service.js:checkAndLevelUp` recomputes TSB on every level transition, so the day-2+ economy is identical.
+
+---
+
+## 2026-05-10 — Drones metadata route: placeholder for unminted numeric tokenIds (parity with skins/mods)
+
+Same fix already shipped for `app/api/skins/[skinId]/route.js` and `app/api/mods/[modId]/route.js`. Blockscout's indexer probes sequentially up the contract's tokenId range; for slots that don't yet have a DB row, a 404 makes it retry-storm on every render. The skins/mods routes solved this by returning a minimal valid ERC-721 metadata JSON with a long-lived cache header so the indexer stops retrying.
+
+The drones route was missing the same treatment — it returned `fail('Drone not found', 404)` for both numeric-form misses and UUID-form misses with the comment "Invalid form OR no row matches - both look the same to a client following a tokenURI link." Wrong: numeric and UUID misses come from very different callers and want very different responses.
+
+**File modified (1):**
+
+- `app/api/drones/[droneId]/route.js`
+  - Added `PLACEHOLDER_CACHE_HEADERS` const at module scope (`Content-Type: application/json`, `Cache-Control: public, max-age=86400, s-maxage=86400, immutable`). Identical to skins/mods.
+  - Added `placeholderMetadata(tokenId)` helper returning `{ name: "Hyperdrome Drone #<id>", description: "Drone not found", image: "" }`. Identical shape to the skin/mod placeholders, only the `name` prefix and the `description` differ.
+  - GET handler: when `lookupDrone` returns null, the dispatch now branches on `/^\d+$/.test(params.droneId)`:
+    - Numeric → `Response.json(placeholderMetadata(params.droneId), { headers: PLACEHOLDER_CACHE_HEADERS })` (200).
+    - UUID (or anything non-numeric) → `fail('Drone not found', 404)` as before.
+
+**Why pass `params.droneId` (string) directly to `placeholderMetadata` rather than the parsed `Number(tokenId)`:** matches skins/mods exactly. The string round-trips into the JSON `name` field unchanged, which is what indexers index. Range validation in `lookupDrone` (PG_INT_MAX guard) returns null for out-of-range numerics, so those also get the placeholder — which is the right behavior; an indexer querying tokenId 999_999_999_999 should still get a cacheable 200 rather than a retry-prone 404.
+
+**Untouched:** `lookupDrone`, `buildMetadata`, the UUID dev/debug branch, and `getDroneById` (the rich app-internal shape served from `/api/drones/[droneId]/full` is unrelated and stays 404 on miss).

@@ -6,6 +6,16 @@ import { getDroneById } from '@/services/drone.service.js';
 
 const { drones, skins } = schema;
 
+// Long-cache the placeholder so Blockscout / explorer indexers don't
+// retry-storm on every page render. 24h is comfortably longer than the
+// time it takes us to mint and seed a new drone token; once the row
+// exists the response will surface real metadata via the same
+// CDN-cached path on the next purge.
+const PLACEHOLDER_CACHE_HEADERS = {
+  'Content-Type': 'application/json',
+  'Cache-Control': 'public, max-age=86400, s-maxage=86400, immutable',
+};
+
 /**
  * GET /api/drones/[droneId]
  *
@@ -142,12 +152,33 @@ function buildMetadata(drone) {
   };
 }
 
+/**
+ * Minimal valid ERC-721 metadata so a Blockscout indexer that probes
+ * sequentially up the tokenId range gets a 200 it can cache instead of
+ * a 404 it will retry. Only used when the requested id was numeric -
+ * UUID-form lookups that miss are still 404 (app-internal access).
+ */
+function placeholderMetadata(tokenId) {
+  return {
+    name: `Hyperdrome Drone #${tokenId}`,
+    description: 'Drone not found',
+    image: '',
+  };
+}
+
 export const GET = withApiHandler(
   async ({ params }) => {
     const drone = await lookupDrone(params.droneId);
     if (!drone) {
-      // Invalid form OR no row matches - both look the same to a client
-      // following a tokenURI link.
+      // Numeric tokenId that misses = unminted slot the indexer is
+      // probing. Return placeholder + cache so it doesn't retry.
+      if (/^\d+$/.test(params.droneId)) {
+        return Response.json(
+          placeholderMetadata(params.droneId),
+          { headers: PLACEHOLDER_CACHE_HEADERS },
+        );
+      }
+      // UUID miss = real not-found from app-internal callers.
       return fail('Drone not found', 404);
     }
     return Response.json(buildMetadata(drone), {
