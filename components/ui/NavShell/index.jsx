@@ -60,6 +60,20 @@ const WALLET_AUTH_IN_FLIGHT = new Set();
 
 const EXPLORER_BASE = 'https://megaeth-testnet-v2.blockscout.com';
 
+// Anchor the dropdown to the trigger, flipping vertical direction based
+// on which half of the viewport the trigger sits in. Top half (mobile
+// header) opens downward; bottom half (desktop sidebar footer) opens
+// upward. Right edge always aligns with the trigger's so the menu grows
+// leftward and never clips off the right side of the viewport.
+function computeMenuPos(triggerEl) {
+  const r = triggerEl.getBoundingClientRect();
+  const right = window.innerWidth - r.right;
+  const opensDown = r.top + r.height / 2 < window.innerHeight / 2;
+  return opensDown
+    ? { top: r.bottom + 6, right }
+    : { bottom: window.innerHeight - r.top + 6, right };
+}
+
 /**
  * Wallet connect button + connected-state dropdown. Only renders for
  * authenticated users since the bind API requires a session. On connect,
@@ -154,11 +168,7 @@ function WalletButton({ onSignOut }) {
     if (!menuOpen) return;
     function update() {
       if (!triggerRef.current) return;
-      const r = triggerRef.current.getBoundingClientRect();
-      setMenuPos({
-        bottom: window.innerHeight - r.top + 6,
-        right: window.innerWidth - r.right,
-      });
+      setMenuPos(computeMenuPos(triggerRef.current));
     }
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
@@ -212,22 +222,18 @@ function WalletButton({ onSignOut }) {
   // ancestor's overflow:hidden clip and the desktop sidebar's viewport
   // bottom edge - both of which were eating the dropdown previously.
   //
-  // Anchored ABOVE the trigger (the menu's bottom edge sits 6px above
-  // the trigger's top) so it grows upward into open space instead of
-  // downward into the viewport edge - the desktop sidebar trigger
-  // lives low in `.sidebarFooter`, near the bottom of a 100vh fixed
-  // column, so a downward menu was getting clipped by the viewport.
+  // Direction auto-flips: opens DOWN from the trigger when the trigger
+  // sits in the top half of the viewport (mobile/header top bar), and
+  // UP when it sits in the bottom half (desktop sidebar footer). Both
+  // anchors share the right edge with the trigger so the menu grows
+  // leftward and never clips off the right side of the viewport.
   function toggleMenu() {
     if (menuOpen) {
       setMenuOpen(false);
       return;
     }
     if (triggerRef.current) {
-      const r = triggerRef.current.getBoundingClientRect();
-      setMenuPos({
-        bottom: window.innerHeight - r.top + 6,
-        right: window.innerWidth - r.right,
-      });
+      setMenuPos(computeMenuPos(triggerRef.current));
     }
     setMenuOpen(true);
   }
@@ -245,7 +251,7 @@ function WalletButton({ onSignOut }) {
           ref={menuRef}
           className={styles.walletMenu}
           role="menu"
-          style={{ bottom: menuPos.bottom, right: menuPos.right }}
+          style={menuPos}
         >
           <button
             type="button"
