@@ -5,12 +5,37 @@ import { updateAdminConfigSchema } from '@/lib/validators';
 
 const { adminConfig } = schema;
 
-export const GET = withApiHandler(async () => {
+/**
+ * Admin gate. `withApiHandler` only checks that a session exists, which
+ * any demo or wallet user has. The admin_config table tunes live game
+ * parameters (racing_enabled, etc.) so unauthorized writes can kill the
+ * cron globally - require the caller's email to appear in ADMIN_EMAILS.
+ *
+ * ADMIN_EMAILS is a comma-separated allowlist of verified human emails.
+ * Demo accounts (synthetic pilot_*@demo.hyperdrome.gg) and wallet
+ * accounts (synthetic wallet_*@wallet.hyperdrome.gg) cannot match unless
+ * the operator explicitly adds those addresses.
+ */
+function requireAdmin(session) {
+  const raw = process.env.ADMIN_EMAILS ?? '';
+  const admins = raw
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const email = session?.user?.email?.toLowerCase();
+  if (!email || !admins.includes(email)) {
+    throw new ApiError('Admin access required', 403);
+  }
+}
+
+export const GET = withApiHandler(async ({ session }) => {
+  requireAdmin(session);
   const rows = await db.select().from(adminConfig);
   return ok(rows);
 });
 
-export const PATCH = withApiHandler(async ({ request }) => {
+export const PATCH = withApiHandler(async ({ session, request }) => {
+  requireAdmin(session);
   const body = await request.json().catch(() => ({}));
   const parsed = updateAdminConfigSchema.safeParse(body);
   if (!parsed.success) {

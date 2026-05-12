@@ -1,9 +1,27 @@
+import { timingSafeEqual } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { runRaceCycle } from '@/services/race.service.js';
 import { ok, fail } from '@/lib/api/response.js';
 
 const { adminConfig } = schema;
+
+/**
+ * Constant-time compare for the cron secret. The incoming value is
+ * attacker-controlled (a public HTTP header), so a non-constant compare
+ * is theoretically timing-oracle exploitable. `timingSafeEqual` requires
+ * equal-length buffers, so length mismatch short-circuits to false
+ * (which is itself constant against the known-length expected value).
+ */
+function safeEq(provided, expected) {
+  if (typeof provided !== 'string' || typeof expected !== 'string') {
+    return false;
+  }
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 /**
  * Scheduled race cycle runner.
@@ -27,7 +45,7 @@ async function handler(request) {
     authHeader && authHeader.startsWith('Bearer ')
       ? authHeader.slice('Bearer '.length)
       : null;
-  if (providedBearer !== expected && custom !== expected) {
+  if (!safeEq(providedBearer, expected) && !safeEq(custom, expected)) {
     return fail('Unauthorized', 401);
   }
 

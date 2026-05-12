@@ -4,6 +4,50 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-12 - Security audit + four testnet fixes
+
+**Captain ask:** Full security audit of prod (hyperdrome.vercel.app on MegaETH testnet). Output a report first, then implement only the quick testnet fixes (C2, C3, C4, M1) and defer the larger items (C1 SIWE, H1-H5, L6) to mainnet via a new docs/SECURITY_MAINNET_CHECKLIST.md.
+
+**Report findings.** 4 critical, 5 high, 8 medium, 7 low. Full breakdown delivered inline in the conversation; mainnet items are codified in `docs/SECURITY_MAINNET_CHECKLIST.md`.
+
+**Files modified / deleted (8):**
+
+### `app/api/admin/config/route.js` (C2)
+- Added `requireAdmin(session)` gate that checks `session.user.email` against a comma-separated `ADMIN_EMAILS` env allowlist (lowercased compare). Applied to both `GET` and `PATCH`.
+- Demo synthetic emails (`pilot_*@demo.hyperdrome.gg`) and wallet synthetic emails (`wallet_*@wallet.hyperdrome.gg`) cannot match unless the operator explicitly adds them.
+- Empty `ADMIN_EMAILS` means nobody is admin (safe default).
+
+### `.env.example` (C2 ergonomics)
+- Documented the new `ADMIN_EMAILS` variable next to `CRON_SECRET`.
+
+### Deleted: `app/api/marketplace/list/route.js`, `app/api/marketplace/buy/route.js`, `app/api/marketplace/cancel/route.js` (C3)
+- These were direct passthroughs to `lib/onchain/marketplace.js` with no ownership checks. Any authenticated user could trigger the deployer wallet to list / buy / cancel arbitrary tokenIds (drain vector).
+- Confirmed no client code references these routes. Legit flows go through `services/marketplace.service.js` via `/api/marketplace` POST + `/api/marketplace/[listingId]/buy|cancel`, which check ownership.
+- Empty parent dirs also removed.
+
+### `lib/onchain/marketplace.js` (C3 doc cleanup)
+- Updated the file-header comment that referenced the deleted routes.
+
+### `app/api/packs/buy/route.js` (C4)
+- Imported `PACK_PRICES` from `services/pack.service.js`. Look up the caller's `users.points`, reject with 400 if insufficient, debit the price, then call `buyPackOnchain`. On chain-leg failure, refund the debit and rethrow.
+- Closes the deployer-drain where any authenticated user could repeatedly POST `{packTier:"legendary"}` and pull NFTs to their wallet while the deployer paid the on-chain VOLT burn with no app-side accounting.
+- Response now includes `price` and post-deduct `balance` alongside the existing `buyPackOnchain` result.
+
+### `app/api/races/run/route.js` (M1)
+- Imported `timingSafeEqual` from `node:crypto`. Added a `safeEq(provided, expected)` helper that compares as equal-length buffers (length-mismatch short-circuits to false).
+- Both the `Authorization: Bearer` and `x-cron-secret` checks use `safeEq` instead of `!==`.
+
+### New: `docs/SECURITY_MAINNET_CHECKLIST.md`
+- Captures the deferred items (C1, H1-H5, L6) plus the off-code action items (rotate `NEXTAUTH_SECRET`, scan deployer for mainnet balance, verify Resend sender domain, wire usage alerts, set bug-bounty scope).
+- Each item carries a "today / fix" pair so the mainnet implementer can pick it up cold.
+
+**Notes.**
+- File count is 8, above the 4-file rule. Captain explicitly scoped each fix; flagged before execution.
+- The `.env.example` addition means operators need to set `ADMIN_EMAILS=ali@example.com` (or whatever address Captain uses for magic-link sign-in) in their Vercel env vars before the admin panel works again. Until that var is set, all admin_config reads and writes return 403.
+- Did not run dev / lint / build per the skip-verification rule.
+
+---
+
 ## 2026-05-04 - Guide + FAQ accuracy + obfuscation pass
 
 **Captain ask:** Combined accuracy fixes (the engine drifted from v1 to v2; the docs still describe v1) and obfuscation (replace exact formulas/constants with qualitative descriptions so a competitor can't reconstruct the engine from the guide). 29 numbered items, applied consistently to both guide and FAQ wherever the same content appears. Specific keep-as-is list (pack prices, NPC vendor price, XP per win/loss, level-up rewards, starting ELO, race interval, season length, level cap, skin count breakdown, slot unlock milestones, bracket ranges, strategy window, weather + time-of-day enumerations, track list). Don't restructure; don't remove sections; don't touch CSS, imports, or component structure. Skip lint.
