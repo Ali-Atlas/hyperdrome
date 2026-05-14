@@ -6,6 +6,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Bot,
+  Zap,
+  X,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
@@ -340,9 +342,60 @@ export default function DashboardPage() {
   const goNextNextRace = () =>
     setNextRaceIndex((i) => (i + 1) % sortedUpcomingRaces.length);
 
+  /* Auto-race info banner. Visibility hydrates on mount (reading
+     localStorage during render would mismatch SSR markup): show only
+     when onboarding has finished AND the user hasn't already dismissed
+     this banner. Dismiss writes the flag and runs a short fade before
+     unmounting so the banner doesn't pop. */
+  const [bannerVisible, setBannerVisible] = useState(false);
+  const [bannerExiting, setBannerExiting] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onboardingDone =
+      window.localStorage.getItem('onboarding_complete') === '1';
+    const dismissed =
+      window.localStorage.getItem('races-banner-dismissed') === '1';
+    if (onboardingDone && !dismissed) setBannerVisible(true);
+  }, []);
+  const dismissBanner = () => {
+    setBannerExiting(true);
+    window.setTimeout(() => {
+      setBannerVisible(false);
+      try {
+        window.localStorage.setItem('races-banner-dismissed', '1');
+      } catch {}
+    }, 200);
+  };
+
   return (
     <NavShell>
       <div className={styles.page}>
+        {bannerVisible && (
+          <div
+            className={cn(styles.banner, bannerExiting && styles.bannerExiting)}
+            role="status"
+          >
+            <Zap
+              size={16}
+              className={styles.bannerIcon}
+              aria-hidden="true"
+            />
+            <p className={styles.bannerText}>
+              Your drones race automatically every 3 minutes. Your first 3
+              drones are set to active by default. You can toggle them in
+              the Drone Manager. See results from your dashboard, your
+              drone's page, or the Races page.
+            </p>
+            <button
+              type="button"
+              className={styles.bannerDismiss}
+              onClick={dismissBanner}
+              aria-label="Dismiss"
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          </div>
+        )}
         <div className={styles.grid}>
           {/* ---- Row 1 col 1: Spotlight ---- */}
           <Card className={cn(styles.spotlight, styles.areaSpotlight)}>

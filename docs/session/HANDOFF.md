@@ -4,6 +4,25 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-14 - Auto-race banner redesign
+
+**Captain ask:** Make the dashboard auto-race banner more pronounced - drop the left border stripe, full-width, lighter background, teal ring all around, larger white text, lightning icon left, dismiss X right, updated copy. Still gated on onboarding-complete + not-dismissed.
+
+**Files modified (2):**
+
+### `app/dashboard/page.jsx`
+- Banner copy replaced with: "Your drones race automatically every 3 minutes. Your first 3 drones are set to active by default. You can toggle them in the Drone Manager. See results from your dashboard, your drone's page, or the Races page."
+
+### `app/dashboard/page.module.css`
+- `.banner` redesign: removed `border-left: 3px solid var(--accent-primary)`. Added `width: 100%`, padding `16px 20px`, background `rgba(255, 255, 255, 0.03)`, border `1px solid rgba(3, 218, 198, 0.3)` (radius unchanged at `var(--radius-md)`).
+- `.bannerText` font size `var(--text-xs)` → `var(--text-sm)`, color `var(--text-secondary)` → `var(--text-primary)`.
+
+**Notes.**
+- Banner gating verified: the existing mount-only `useEffect` already requires `localStorage.getItem('onboarding_complete') === '1'` AND `races-banner-dismissed !== '1'` before setting `bannerVisible(true)`. No change needed.
+- Did not run dev / lint / build per the skip-verification rule.
+
+---
+
 ## 2026-05-14 - Onboarding tooltip selector fixes
 
 **Captain ask:** Step 1 highlights misaligned; steps 2 and 3 produce no highlight; tour appears to end after step 3. Audit selectors against current DOM and fix.

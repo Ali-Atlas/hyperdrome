@@ -823,6 +823,80 @@
 }
 
 /* ==========================================================================
+ * Auto-race info banner (above the dashboard grid, post-onboarding)
+ * ========================================================================== */
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(3, 218, 198, 0.3);
+  border-radius: var(--radius-md);
+  opacity: 1;
+  transition: opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out);
+}
+
+.bannerExiting {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+
+.bannerIcon {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.bannerText {
+  flex: 1;
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.bannerDismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.bannerDismiss:hover {
+  color: var(--accent-primary);
+  background: rgba(3, 218, 198, 0.08);
+}
+
+.bannerDismiss:focus-visible {
+  outline: 1px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner {
+    transition: opacity var(--duration-fast) linear;
+  }
+  .bannerExiting {
+    transform: none;
+  }
+}
+
+/* ==========================================================================
  * Breakpoints
  * ========================================================================== */
 
