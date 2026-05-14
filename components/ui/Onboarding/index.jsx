@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
+import { useSession } from '@/hooks/useSession';
 import styles from './Onboarding.module.css';
 
 const STORAGE_DONE = 'onboarding_complete';
@@ -152,6 +153,7 @@ function activatePacksTab() {
 export default function Onboarding() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user } = useSession();
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
   const [pendingStep, setPendingStep] = useState(null);
@@ -164,11 +166,20 @@ export default function Onboarding() {
   /* First-mount hydration. Reading localStorage during render would
    * mismatch the SSR output, so we defer until after hydration. The
    * settle delay lets the destination page lay out before we attempt
-   * to measure a target. */
+   * to measure a target.
+   *
+   * Gate on the session being resolved. Several spotlight targets in
+   * NavShell are user-conditional (`.points` desktop volts, the
+   * `.countdownBar` footer) so kicking the tour off before useSession
+   * lands leaves step 2 and step 3 with nothing to measure - the
+   * spotlight is empty until the next step change, by which point
+   * we've already missed the highlight. Re-running on `user` change
+   * means the tour resumes the moment the session lands. */
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     setHydrated(true);
     if (window.localStorage.getItem(STORAGE_DONE) === '1') return undefined;
+    if (!user) return undefined;
 
     const storedStep = window.localStorage.getItem(STORAGE_STEP);
     if (storedStep != null) {
@@ -190,7 +201,7 @@ export default function Onboarding() {
       return () => clearTimeout(t);
     }
     return undefined;
-  }, [pathname]);
+  }, [pathname, user]);
 
   /* When Next was clicked on a step that auto-navigates, we stash the
    * intended next index in `pendingStep` and only commit it once the
@@ -245,7 +256,14 @@ export default function Onboarding() {
    * every 250ms up to 8 retries until every expected target resolves.
    * Each successful partial measurement still updates rects, so the
    * first target paints as soon as it's available even if its sibling
-   * is still mounting. */
+   * is still mounting.
+   *
+   * Once the targets resolve we also attach a ResizeObserver to each
+   * spotlit element. The dashboard renders its cards progressively
+   * (spinner -> full content as each /api fetch lands), and step 1's
+   * Active Drone Spotlight + Next Race cards roughly triple in height
+   * once their data arrives. Without this, the spotlight stays sized
+   * to the small spinner state and visually misses the loaded card. */
   useEffect(() => {
     if (!active) return undefined;
     if (!stepHasSpotlight) {
@@ -266,6 +284,22 @@ export default function Onboarding() {
     let retries = 0;
     const maxRetries = 8;
     let timer = null;
+    const observers = [];
+
+    const observeTargets = () => {
+      if (typeof ResizeObserver === 'undefined') return;
+      for (const sel of stepDef.targets) {
+        const el = findVisibleTarget(sel);
+        if (!el) continue;
+        const ro = new ResizeObserver(() => {
+          setViewport({ w: window.innerWidth, h: window.innerHeight });
+          setRects(measureTargets(stepDef.targets));
+        });
+        ro.observe(el);
+        observers.push(ro);
+      }
+    };
+
     const attempt = () => {
       if (typeof window === 'undefined') return;
       setViewport({ w: window.innerWidth, h: window.innerHeight });
@@ -274,6 +308,8 @@ export default function Onboarding() {
       if (found.length < expected && retries < maxRetries) {
         retries++;
         timer = setTimeout(attempt, 250);
+      } else if (found.length === expected && observers.length === 0) {
+        observeTargets();
       }
     };
     timer = setTimeout(attempt, SETTLE_MS);
@@ -282,6 +318,7 @@ export default function Onboarding() {
     window.addEventListener('scroll', measure, true);
     return () => {
       if (timer) clearTimeout(timer);
+      observers.forEach((o) => o.disconnect());
       window.removeEventListener('resize', measure);
       window.removeEventListener('scroll', measure, true);
     };

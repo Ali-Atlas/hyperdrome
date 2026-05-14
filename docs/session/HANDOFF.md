@@ -4,6 +4,23 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
+## 2026-05-14 - Onboarding tooltip selector fixes
+
+**Captain ask:** Step 1 highlights misaligned; steps 2 and 3 produce no highlight; tour appears to end after step 3. Audit selectors against current DOM and fix.
+
+**Root cause.** `.points` (desktop volts) and `.countdownBar` (footer) in NavShell are wrapped in `user && (...)` gates, so the spotlight targets for steps 2 and 3 do not exist until `useSession()` resolves. Step 1 misalignment is a separate problem: the dashboard cards render at spinner height first, then triple in size when their `/api` fetches land. The existing retry-poll stops as soon as both targets are *found*, so the saved rects stay frozen at the small spinner state. Steps 4-8 selectors all still match their current targets; the perceived "tour ends after step 3" is just steps 2/3 showing the dim backdrop with no highlight, which reads as broken.
+
+**Files modified (1):**
+
+### `components/ui/Onboarding/index.jsx`
+- Imported `useSession` and read `user` inside `Onboarding`. The hydration effect now early-returns when `!user`, and `user` is added to its deps so the tour resumes the moment the session lands.
+- The measure effect now attaches a `ResizeObserver` to each spotlit element once all targets resolve. When a card grows out of its spinner state, the observer fires `setRects(measureTargets(...))` so the spotlight follows the new size. Observers are torn down on cleanup.
+
+**Notes.**
+- Did not run dev / lint / build per the skip-verification rule.
+
+---
+
 ## 2026-05-12 - Security audit + four testnet fixes
 
 **Captain ask:** Full security audit of prod (hyperdrome.vercel.app on MegaETH testnet). Output a report first, then implement only the quick testnet fixes (C2, C3, C4, M1) and defer the larger items (C1 SIWE, H1-H5, L6) to mainnet via a new docs/SECURITY_MAINNET_CHECKLIST.md.
@@ -7024,3 +7041,27 @@ Both cases produce the same observable bug: wallet users see purchases succeed b
 - Pack flows being DB-only (the on-chain pack route exists but isn't wired up).
 
 **What it DOES fix:** wallet users no longer see a confusing "I bought something but my VOLT didn't change" state without context. Testnet feedback stays trustworthy.
+
+---
+
+## 2026-05-14 — Dashboard auto-race info banner + footer label rename ("Next Auto-Race in")
+
+**Why:** Repeated playtester feedback that users don't realise races are automatic. Two paired UX nudges so the "set it and walk away" model is explicit on the dashboard and in the footer countdown.
+
+**Files modified (3):**
+
+- `app/dashboard/page.jsx`
+  - Added `Zap` and `X` to the existing `lucide-react` import.
+  - Added `bannerVisible` / `bannerExiting` state, a mount-only `useEffect` that hydrates visibility from localStorage (`onboarding_complete === '1'` AND `races-banner-dismissed !== '1'`), and a `dismissBanner` handler that flags exiting, runs the fade, then unmounts and persists the dismissal. Reading localStorage in `useEffect` rather than initial state matches the SSR-safe pattern already used in `components/ui/Onboarding/index.jsx`.
+  - Renders the banner inside `.page` above `.grid`. `role="status"` so SRs hear it on appearance. Icon and X button are `aria-hidden` decorative + an explicit `aria-label="Dismiss"` on the button.
+  - Banner copy matches Captain's brief verbatim: "Your drone races automatically every 3 minutes. Keep it active and it gets matched into the next round. Watch results roll in from the dashboard." Cadence verified against `vercel.json` cron (`*/3 * * * *`) before committing.
+
+- `app/dashboard/page.module.css`
+  - Added a self-contained "Auto-race info banner" block before the breakpoints section: `.banner` (full width, `var(--radius-md)`, `var(--bg-elevated)`, 3px `var(--accent-primary)` left border, opacity+transform transition), `.bannerExiting` (`opacity: 0`, `translateY(-4px)`, `pointer-events: none`), `.bannerIcon`, `.bannerText` (`var(--text-xs)` / `var(--text-secondary)` per brief), `.bannerDismiss` (26x26 button with teal hover, accent-primary focus ring). `@media (prefers-reduced-motion: reduce)` strips the transform.
+
+- `components/ui/NavShell/index.jsx`
+  - Footer countdown label only: `"Next Round in"` → `"Next Auto-Race in"` (single line change at the prior line 845). "Strategy Lock in" label unchanged.
+
+**Untouched (intentional):** the `Onboarding` component's storage keys (only read, never written from the dashboard); the footer's `RACING IN PROGRESS` / `LOCKED IN` states; mobile breakpoint rules (banner uses single-line flex that wraps naturally — text is `flex: 1` between fixed-size icon and dismiss button).
+
+**Verification notes (external assumptions):** Cadence "3 minutes" in the banner copy matches `vercel.json` cron `*/3 * * * *` and the `race.service.js:273` comment ("the 3-minute cron cadence"). The onboarding localStorage key `onboarding_complete` is the literal value `STORAGE_DONE` in `components/ui/Onboarding/index.jsx:8`. Banner dismissal key `races-banner-dismissed` is new (no collision with existing keys grepped).
