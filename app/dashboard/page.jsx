@@ -392,11 +392,11 @@ export default function DashboardPage() {
                 <div className={styles.bannerRow}>
                   <dt className={styles.bannerKey}>Control</dt>
                   <dd className={styles.bannerVal}>
-                    Toggle which drones are active in the{' '}
+                    Open a drone from{' '}
                     <Link href="/drones" className={styles.bannerLink}>
-                      Drone Manager
+                      My Drones
                     </Link>{' '}
-                    (3-active cap).
+                    and toggle it active in its Drone Manager (3-active cap).
                   </dd>
                 </div>
                 <div className={styles.bannerRow}>
