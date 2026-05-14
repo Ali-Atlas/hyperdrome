@@ -375,24 +375,34 @@ export default function DashboardPage() {
             className={cn(styles.banner, bannerExiting && styles.bannerExiting)}
             role="status"
           >
-            <Zap
-              size={16}
-              className={styles.bannerIcon}
-              aria-hidden="true"
-            />
-            <p className={styles.bannerText}>
-              Your drones race automatically every 3 minutes. Your first 3
-              drones are set to active by default. You can toggle them in
-              the Drone Manager. See results from your dashboard, your
-              drone's page, or the Races page.
-            </p>
+            <span className={styles.bannerIconWrap} aria-hidden="true">
+              <Zap size={18} className={styles.bannerIcon} />
+            </span>
+            <div className={styles.bannerContent}>
+              <h2 className={styles.bannerTitle}>
+                Auto-racing is live · every 3 minutes
+              </h2>
+              <p className={styles.bannerText}>
+                Your top 3 drones race automatically. Toggle which drones
+                are active in the{' '}
+                <Link href="/drones" className={styles.bannerLink}>
+                  Drone Manager
+                </Link>
+                . Watch results on this dashboard, each drone&apos;s page,
+                or the{' '}
+                <Link href="/races" className={styles.bannerLink}>
+                  Races page
+                </Link>
+                .
+              </p>
+            </div>
             <button
               type="button"
               className={styles.bannerDismiss}
               onClick={dismissBanner}
               aria-label="Dismiss"
             >
-              <X size={14} aria-hidden="true" />
+              <X size={16} aria-hidden="true" />
             </button>
           </div>
         )}

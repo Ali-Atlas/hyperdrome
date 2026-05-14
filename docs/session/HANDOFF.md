@@ -4,21 +4,28 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
-## 2026-05-14 - Auto-race banner redesign
+## 2026-05-14 - Auto-race banner: announcement-panel redesign
 
-**Captain ask:** Make the dashboard auto-race banner more pronounced - drop the left border stripe, full-width, lighter background, teal ring all around, larger white text, lightning icon left, dismiss X right, updated copy. Still gated on onboarding-complete + not-dismissed.
+**Captain ask:** The first-pass banner read as a flat bordered strip - not "top-designer ready". The dashboard's first impression has to *communicate* that races run automatically (users were confused about how races start and where to read results) and look like a deliberate announcement, not a generic notice.
 
 **Files modified (2):**
 
 ### `app/dashboard/page.jsx`
-- Banner copy replaced with: "Your drones race automatically every 3 minutes. Your first 3 drones are set to active by default. You can toggle them in the Drone Manager. See results from your dashboard, your drone's page, or the Races page."
+- Banner restructured into icon-badge + title + body. Title: "Auto-racing is live · every 3 minutes" (leads with the surprising fact: it's automatic). Body explains the top-3 default + where to manage + where to read.
+- "Drone Manager" and "Races page" now render as inline `next/link` `<Link>`s wired to `/drones` and `/races`, so the banner is functional, not just informational - the user can act on the message in one click.
+- Dismiss X bumped 14 → 16, repositioned (now absolute top-right via CSS, see below).
 
 ### `app/dashboard/page.module.css`
-- `.banner` redesign: removed `border-left: 3px solid var(--accent-primary)`. Added `width: 100%`, padding `16px 20px`, background `rgba(255, 255, 255, 0.03)`, border `1px solid rgba(3, 218, 198, 0.3)` (radius unchanged at `var(--radius-md)`).
-- `.bannerText` font size `var(--text-xs)` → `var(--text-sm)`, color `var(--text-secondary)` → `var(--text-primary)`.
+- Banner: layered background (radial teal wash from top-left fading into `--bg-elevated`) + 1px teal border + soft 24px outer shadow. Padding 18px 22px.
+- New `.bannerIconWrap`: 36×36 rounded square with `rgba(3,218,198,0.12)` fill and matching ring, holds the `Zap` glyph in accent colour with a teal drop-shadow. Pulses at 3.6s for a subtle "look here" cue (respects `prefers-reduced-motion`).
+- `.bannerTitle`: `--font-heading`, uppercase, bold, accent-primary - reads as a header, not body text.
+- `.bannerText`: body font, `--text-sm`, white, line-height 1.55.
+- `.bannerLink`: accent-primary with a soft teal underline that brightens on hover.
+- `.bannerDismiss` switched to absolute positioning so the content column never collides with it.
+- Added a `<=560px` breakpoint that tightens padding, shrinks the icon badge, and steps the title down to `--text-xs` so the banner stays readable on phones without restructuring.
 
 **Notes.**
-- Banner gating verified: the existing mount-only `useEffect` already requires `localStorage.getItem('onboarding_complete') === '1'` AND `races-banner-dismissed !== '1'` before setting `bannerVisible(true)`. No change needed.
+- Banner gating still verified: the existing mount-only `useEffect` requires `localStorage.getItem('onboarding_complete') === '1'` AND `races-banner-dismissed !== '1'` before setting `bannerVisible(true)`. No change.
 - Did not run dev / lint / build per the skip-verification rule.
 
 ---
