@@ -4,28 +4,34 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 
 ---
 
-## 2026-05-14 - Auto-race banner: announcement-panel redesign
+## 2026-05-14 - Auto-race banner: progressive-disclosure rewrite
 
-**Captain ask:** The first-pass banner read as a flat bordered strip - not "top-designer ready". The dashboard's first impression has to *communicate* that races run automatically (users were confused about how races start and where to read results) and look like a deliberate announcement, not a generic notice.
+**Captain ask:** The previous redesign looked clean but didn't *teach* the player. New first-visit banner should walk them through the whole auto-race model in under five seconds: when races run, the 3-active-drone cap, where to toggle, what the footer chips do, where every flavour of result lives. Top-designer feel, progressive disclosure.
+
+**Structure now (icon-badge + content column):**
+- Title: `Auto-racing is live · every 3 minutes`
+- Lede (one sentence, muted): names Hyperdrome, the 3-min batch cadence, the **3-of-your-drones** active cap, and the "no clicking start" reassurance.
+- Scannable quick-map with three label/value rows:
+  - **CONTROL** — Toggle drones in the [Drone Manager] (3-active cap restated as a footnote).
+  - **UPCOMING** — Tap the 1 / 2 / 3 chips in the footer countdown bar to preview each queued matchup.
+  - **RESULTS** — Watch the **Live Race Feed** below, open any drone's page, or browse the full [Races page].
 
 **Files modified (2):**
 
 ### `app/dashboard/page.jsx`
-- Banner restructured into icon-badge + title + body. Title: "Auto-racing is live · every 3 minutes" (leads with the surprising fact: it's automatic). Body explains the top-3 default + where to manage + where to read.
-- "Drone Manager" and "Races page" now render as inline `next/link` `<Link>`s wired to `/drones` and `/races`, so the banner is functional, not just informational - the user can act on the message in one click.
-- Dismiss X bumped 14 → 16, repositioned (now absolute top-right via CSS, see below).
+- Replaced the single `<p>` body with a `<p className=lede>` plus a `<dl className=lookup>` of three `dt`/`dd` rows. Bold inline emphasis (`.bannerEm`) draws the eye to the key terms (`3 of your drones`, `Live Race Feed`); the two destination links stay underlined and accent-tinted.
+- Hyperlinks point to `/drones` (Drone Manager) and `/races` (full Races page).
 
 ### `app/dashboard/page.module.css`
-- Banner: layered background (radial teal wash from top-left fading into `--bg-elevated`) + 1px teal border + soft 24px outer shadow. Padding 18px 22px.
-- New `.bannerIconWrap`: 36×36 rounded square with `rgba(3,218,198,0.12)` fill and matching ring, holds the `Zap` glyph in accent colour with a teal drop-shadow. Pulses at 3.6s for a subtle "look here" cue (respects `prefers-reduced-motion`).
-- `.bannerTitle`: `--font-heading`, uppercase, bold, accent-primary - reads as a header, not body text.
-- `.bannerText`: body font, `--text-sm`, white, line-height 1.55.
-- `.bannerLink`: accent-primary with a soft teal underline that brightens on hover.
-- `.bannerDismiss` switched to absolute positioning so the content column never collides with it.
-- Added a `<=560px` breakpoint that tightens padding, shrinks the icon badge, and steps the title down to `--text-xs` so the banner stays readable on phones without restructuring.
+- New `.bannerLede` (body font, `--text-sm`, `--text-secondary`) sits between title and lookup as the *why*.
+- New `.bannerLookup` / `.bannerRow` grid (92px label column · `1fr` description), labels in mono uppercase accent so they match the dashboard's Quick Stats label treatment and act as anchor terms.
+- `.bannerEm` for inline highlights: white, semibold, no underline (distinguishes "info to remember" from "tap here").
+- `.bannerTitle` bumped `--text-sm` → `--text-base` so the headline lands at first glance.
+- Mobile (`<=560px`): rows collapse to single column (label on its own line above the description), lede and value step down to 13px, title back to `--text-sm`.
+- Icon badge, gradient background, ring, outer shadow, dismiss positioning, and pulse animation from the prior pass all retained.
 
 **Notes.**
-- Banner gating still verified: the existing mount-only `useEffect` requires `localStorage.getItem('onboarding_complete') === '1'` AND `races-banner-dismissed !== '1'` before setting `bannerVisible(true)`. No change.
+- Gating still verified: same mount-only effect requires `onboarding_complete === '1'` AND `races-banner-dismissed !== '1'`.
 - Did not run dev / lint / build per the skip-verification rule.
 
 ---

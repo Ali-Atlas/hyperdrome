@@ -382,19 +382,44 @@ export default function DashboardPage() {
               <h2 className={styles.bannerTitle}>
                 Auto-racing is live · every 3 minutes
               </h2>
-              <p className={styles.bannerText}>
-                Your top 3 drones race automatically. Toggle which drones
-                are active in the{' '}
-                <Link href="/drones" className={styles.bannerLink}>
-                  Drone Manager
-                </Link>
-                . Watch results on this dashboard, each drone&apos;s page,
-                or the{' '}
-                <Link href="/races" className={styles.bannerLink}>
-                  Races page
-                </Link>
-                .
+              <p className={styles.bannerLede}>
+                Hyperdrome runs a new race batch every 3 minutes. Up to{' '}
+                <strong className={styles.bannerEm}>3 of your drones</strong>{' '}
+                can be active at once — they enter the next batch
+                automatically, no clicking start.
               </p>
+              <dl className={styles.bannerLookup}>
+                <div className={styles.bannerRow}>
+                  <dt className={styles.bannerKey}>Control</dt>
+                  <dd className={styles.bannerVal}>
+                    Toggle which drones are active in the{' '}
+                    <Link href="/drones" className={styles.bannerLink}>
+                      Drone Manager
+                    </Link>{' '}
+                    (3-active cap).
+                  </dd>
+                </div>
+                <div className={styles.bannerRow}>
+                  <dt className={styles.bannerKey}>Upcoming</dt>
+                  <dd className={styles.bannerVal}>
+                    Tap the 1 / 2 / 3 chips in the footer countdown bar to
+                    preview each of your queued matchups.
+                  </dd>
+                </div>
+                <div className={styles.bannerRow}>
+                  <dt className={styles.bannerKey}>Results</dt>
+                  <dd className={styles.bannerVal}>
+                    Watch the{' '}
+                    <strong className={styles.bannerEm}>Live Race Feed</strong>{' '}
+                    below, open any drone&apos;s page for its own history,
+                    or browse the full{' '}
+                    <Link href="/races" className={styles.bannerLink}>
+                      Races page
+                    </Link>
+                    .
+                  </dd>
+                </div>
+              </dl>
             </div>
             <button
               type="button"
