@@ -385,7 +385,7 @@ export default function DashboardPage() {
               <p className={styles.bannerLede}>
                 Hyperdrome runs a new race batch every 3 minutes. Up to{' '}
                 <strong className={styles.bannerEm}>3 of your drones</strong>{' '}
-                can be active at once — they enter the next batch
+                can be active at once - they enter the next batch
                 automatically, no clicking start.
               </p>
               <dl className={styles.bannerLookup}>

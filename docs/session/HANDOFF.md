@@ -12,21 +12,21 @@ Work log for the current session. Archive to docs/archive/ when exceeding 500 li
 - Title: `Auto-racing is live · every 3 minutes`
 - Lede (one sentence, muted): names Hyperdrome, the 3-min batch cadence, the **3-of-your-drones** active cap, and the "no clicking start" reassurance.
 - Scannable quick-map with three label/value rows:
-  - **CONTROL** — Toggle drones in the [Drone Manager] (3-active cap restated as a footnote).
-  - **UPCOMING** — Tap the 1 / 2 / 3 chips in the footer countdown bar to preview each queued matchup.
-  - **RESULTS** — Watch the **Live Race Feed** below, open any drone's page, or browse the full [Races page].
+  - **CONTROL** - Open a drone from [My Drones] and toggle it active in its Drone Manager (3-active cap).
+  - **UPCOMING** - Tap the 1 / 2 / 3 chips in the footer countdown bar to preview each queued matchup.
+  - **RESULTS** - Watch the **Live Race Feed** below, open any drone's page, or browse the full [Races page].
 
 **Files modified (2):**
 
 ### `app/dashboard/page.jsx`
 - Replaced the single `<p>` body with a `<p className=lede>` plus a `<dl className=lookup>` of three `dt`/`dd` rows. Bold inline emphasis (`.bannerEm`) draws the eye to the key terms (`3 of your drones`, `Live Race Feed`); the two destination links stay underlined and accent-tinted.
-- Hyperlinks point to `/drones` (Drone Manager) and `/races` (full Races page).
+- Hyperlinks point to `/drones` (My Drones listing) and `/races` (full Races page).
 
 ### `app/dashboard/page.module.css`
 - New `.bannerLede` (body font, `--text-sm`, `--text-secondary`) sits between title and lookup as the *why*.
 - New `.bannerLookup` / `.bannerRow` grid (92px label column · `1fr` description), labels in mono uppercase accent so they match the dashboard's Quick Stats label treatment and act as anchor terms.
 - `.bannerEm` for inline highlights: white, semibold, no underline (distinguishes "info to remember" from "tap here").
-- `.bannerTitle` bumped `--text-sm` → `--text-base` so the headline lands at first glance.
+- `.bannerTitle` bumped `--text-sm` -> `--text-base` so the headline lands at first glance.
 - Mobile (`<=560px`): rows collapse to single column (label on its own line above the description), lede and value step down to 13px, title back to `--text-sm`.
 - Icon badge, gradient background, ring, outer shadow, dismiss positioning, and pulse animation from the prior pass all retained.
 
