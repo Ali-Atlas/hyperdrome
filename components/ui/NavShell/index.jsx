@@ -576,7 +576,10 @@ export default function NavShell({ children }) {
             className={styles.logoIcon}
             aria-hidden="true"
           />
-          <span className={styles.logoText}>Hyperdrome</span>
+          <span className={styles.logoTextGroup}>
+            <span className={styles.logoText}>Hyperdrome</span>
+            <span className={styles.logoBeta}>beta</span>
+          </span>
         </Link>
         <nav className={styles.nav}>{renderLinks()}</nav>
         <div className={styles.sidebarFooter}>{renderUserArea()}</div>
@@ -631,7 +634,10 @@ export default function NavShell({ children }) {
             className={styles.logoIcon}
             aria-hidden="true"
           />
-                <span className={styles.logoText}>Hyperdrome</span>
+                <span className={styles.logoTextGroup}>
+            <span className={styles.logoText}>Hyperdrome</span>
+            <span className={styles.logoBeta}>beta</span>
+          </span>
               </span>
             </div>
             <nav className={styles.nav}>{renderLinks()}</nav>
