@@ -780,7 +780,7 @@ function DroneCard({ drone }) {
             <Kpi label="ELO" value={drone.eloRating.toLocaleString()} />
             <Kpi
               label="W / L"
-              value={`${drone.wins} / ${drone.losses}`}
+              value={`${drone.wins}/${drone.losses}`}
             />
             <Kpi
               label="Win Rate"
