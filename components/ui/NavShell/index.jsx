@@ -842,7 +842,7 @@ function CountdownBar() {
               </span>
             ) : (
               <>
-                <span className={styles.countdownLabel}>Next Round in</span>
+                <span className={styles.countdownLabel}>Next Auto-Race in</span>
                 <span className={styles.countdownValue}>
                   {batchText ?? '--:--'}
                 </span>
