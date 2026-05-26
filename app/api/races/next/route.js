@@ -1,26 +1,16 @@
-import { eq } from 'drizzle-orm';
-import { db, schema } from '@/lib/db';
 import { withApiHandler, ok } from '@/lib/api/response.js';
-import { getNextRaceTime } from '@/services/race.service.js';
 
-const { adminConfig } = schema;
-
+// Racing is paused for now (auto-race cron disabled to cut DB costs).
+// Short-circuit to paused without touching the DB so this endpoint -
+// which the countdown bar polls every 30s per active user - stops
+// generating per-poll reads. The countdown UI shows "Racing paused"
+// whenever this returns { paused: true }.
+//
+// To re-enable racing: restore the racing_enabled DB check (see git
+// history for this file) and add the cron back to vercel.json.
 export const GET = withApiHandler(
   async () => {
-    // Check the master racing kill-switch first
-    const [flag] = await db
-      .select()
-      .from(adminConfig)
-      .where(eq(adminConfig.key, 'racing_enabled'))
-      .limit(1);
-    const enabled = flag?.value === 'true';
-
-    if (!enabled) {
-      return ok({ paused: true, nextRaceAt: null });
-    }
-
-    const next = await getNextRaceTime();
-    return ok({ paused: false, nextRaceAt: next.toISOString() });
+    return ok({ paused: true, nextRaceAt: null });
   },
   { requireAuth: false },
 );
