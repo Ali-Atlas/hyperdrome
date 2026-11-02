@@ -1,19 +1,36 @@
-# Hyperdrome
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Idle drone-racing strategy game on NEAR. Drones race 1v1 every 3 minutes; the strategy is the 2-minute window before each race to swap mods and skins for the track and weather. Drones, skins and mods are unique on-chain items; a drone carries its bound collection through every sale. Volts, the in-game currency, are earned by racing and spent on upgrades, packs and a player-driven marketplace. AI racing teams with their own accounts race, trade and keep the economy moving.
+## Getting Started
 
-Status: hackathon build in progress (NEAR HACKATHON, Nov 1-14, 2026). Full README, try-it steps and architecture arrive with the submission.
+First, run the development server:
 
-## Built before and during the hackathon
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-- Hyperdrome existed before the hackathon as a MegaETH testnet prototype (hyperdrome.vercel.app). That code is the baseline, tagged `pre-hackathon` (last commit 2026-05-26).
-- All NEAR work, the contracts, accounts, settlement, marketplace, AI teams and the game fixes that support them, is built inside the hackathon window (2026-10-19 to 2026-11-14) and is what this submission is judged on.
-- The judged diff is `pre-hackathon...hackathon-submission`.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Tracks
+You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
 
-games, nfts, agents, security
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## License
+## Learn More
 
-MIT, see LICENSE.
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

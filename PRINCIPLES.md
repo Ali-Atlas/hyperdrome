@@ -40,7 +40,7 @@ Cross-cutting quality standards Compass evaluates against and Mercenary follows.
 - No dead code: remove unused imports, variables, exports, and commented-out blocks.
 - No `console.log` debug noise in committed code. Use `console.error` for real failures only.
 - Match existing style in the file. Don't reformat unrelated lines.
-- **Scope is the task's acceptance list** (AGENTS.md). No drive-by changes outside it.
+- **Max 4 files per change.** If a fix needs more, escalate to Captain.
 
 ## Styling
 
