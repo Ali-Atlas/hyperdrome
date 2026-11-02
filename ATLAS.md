@@ -53,7 +53,7 @@
 | Feature components | components/{admin,dashboard,drones,leaderboard,marketplace,races}/ |
 | Dev proxy | proxy.js |
 | Drizzle config | drizzle.config.js |
-| Full game spec + task log | DEVELOPMENT_PLAN.md |
+| Spec, build plan, standards, agent rules | SPEC.md, BUILD_PLAN.md, ENGINEERING.md, AGENTS.md |
 
 ### Routes
 
@@ -97,13 +97,7 @@
 - **Breakpoints:** 1440px (desktop), 1024px (tablet), 375px (mobile) — every component must look right at all three.
 
 ### Verification
-- **Captain verifies. Mercenary does not run verification commands.** Build the change cleanly to top-engineer standards and stop. Captain runs dev / lint / build / browser checks.
-- Available commands (for Captain's reference, not Mercenary's):
-  - `npm run dev` — compile + visual check in the browser.
-  - `npm run lint` — eslint.
-  - `npm run build` — production build.
-  - `npm run db:push` — push Drizzle schema changes.
-- **Never run tests unless Captain explicitly asks.** The only test command in the repo is `npm run test:economy`, and it's reserved for Captain-driven requests.
+The agent verifies its own work before a task is done. Commands, gates and the definition of done are in AGENTS.md and ENGINEERING.md section 3.
 
 ---
 
@@ -119,5 +113,5 @@
 8. **Neon HTTP driver has no transactions.** Bootstrap / multi-step writes must be best-effort with logged failure recovery (see `lib/auth/index.js` `createUser` event for the pattern).
 9. **Auth via NextAuth JWT session.** Don't read tokens from localStorage. Use `auth()` from `lib/auth/index.js` on the server and `useSession()` from `hooks/useSession.js` on the client.
 10. **JSDoc comments** on exported functions and component props — they replace TypeScript for IDE hints.
-11. **Captain verifies, not Mercenary.** Build the change to top-engineer-grade clean-code standards, log it in HANDOFF.md, and stop. Do not run dev / lint / build / browser checks to verify completed work — Captain handles all verification.
-12. **Max 4 files per change.** If a fix needs more, escalate to Captain before writing code.
+11. **The agent verifies its own work.** See AGENTS.md.
+12. **Scope is the task's acceptance list.** See AGENTS.md and BUILD_PLAN.md.
