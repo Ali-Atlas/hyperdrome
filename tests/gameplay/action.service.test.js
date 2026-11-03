@@ -263,9 +263,48 @@ describe.skipIf(!dbEnabled)('runPlayerAction', () => {
 
     const replay = await allocate(user.id, actionId, near);
     expect(replay.status).toBe(409);
-    expect(String(replay.body.error)).toMatch(/could not be confirmed/);
+    expect(String(replay.body.error)).toMatch(/did not go through/);
     expect(applied()).toBe(0);
     expect((await row(actionId)).status).toBe('failed');
+  });
+
+  it('resolves the hash stored at signing when the process dies mid-call, with no second send', async () => {
+    const { near, applied } = chain();
+    const { user } = await newPlayer(db, near);
+    const actionId = randomUUID();
+    /** @type {() => void} */
+    let died = () => {};
+    const death = new Promise((r) => {
+      died = () => r(undefined);
+    });
+    // Signs (onSigned stores the hash), broadcasts and lands, then the process is killed before
+    // the response is handled: the call never returns and the lease is left to expire.
+    const dying = {
+      ...near,
+      /** @type {typeof near.callAsPlayer} */
+      callAsPlayer: async (...args) => {
+        await near.callAsPlayer(...args);
+        died();
+        return new Promise(() => {});
+      },
+    };
+    void allocate(user.id, actionId, dying);
+    await death;
+
+    const stored = await row(actionId);
+    expect(stored).toMatchObject({ status: 'pending', seq: 1 });
+    expect(stored.txHashes).toEqual([stored.txHash]);
+    expect(stored.txHash).toBeTruthy();
+    await db
+      .update(users)
+      .set({ actionClaimedAt: new Date(Date.now() - 31_000) })
+      .where(eq(users.id, user.id));
+
+    const replay = await allocate(user.id, actionId, near);
+    expect(replay.status).toBe(200);
+    expect(replay.body.txHash).toBe(stored.txHash);
+    expect(applied()).toBe(1);
+    expect((await row(actionId)).status).toBe('applied');
   });
 
   it('keeps the hashes and answers 202 when the chain cannot be read', async () => {

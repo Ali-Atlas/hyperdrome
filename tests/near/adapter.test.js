@@ -134,6 +134,34 @@ describe('real adapter over a fake RPC', () => {
     expect(res.events.map((e) => e.event)).toEqual(['item_bound']);
   });
 
+  it('callAsPlayer hands the hash to onSigned before the broadcast, and sends nothing if it throws', async () => {
+    /** @type {string[]} */
+    const order = [];
+    const { near } = await adapterOver(
+      chain({
+        send: () => {
+          order.push('send');
+          return { result: outcome({ hash: 'x', status: { SuccessValue: '' } }) };
+        },
+      })
+    );
+    const signed = async (/** @type {string} */ hash) => {
+      order.push(`signed:${hash}`);
+    };
+    const res = await near.callAsPlayer(PLAYER, playKeyEnc, 'bind', {}, { onSigned: signed });
+    expect(order).toEqual([`signed:${res.txHash}`, 'send']);
+
+    order.length = 0;
+    const fail = async () => {
+      throw new Error('db down');
+    };
+    const err = await near
+      .callAsPlayer(PLAYER, playKeyEnc, 'bind', {}, { onSigned: fail })
+      .catch((e) => e);
+    expect(err.message).toBe('db down');
+    expect(order).toEqual([]);
+  });
+
   it('maps a contract panic to ContractPanicError carrying the SPEC 4.8 string and tx hash', async () => {
     const { near } = await adapterOver(
       chain({

@@ -7,9 +7,11 @@
  * 3. takes a per-user lease (`users.action_claimed_at`, conditional UPDATE, 30 s), so one player
  *    never has two chain calls in flight (they would carry the same seq and access-key nonce);
  * 4. records the action (`actions` row, id = the action id) and pins its seq before sending;
- * 5. sends it with the player's play key under that seq. Every resend of the action carries the
- *    same seq, so at most one of its transactions can ever apply; once the seq is used on chain,
- *    the action is resolved from its own transaction hashes and never sent under another seq;
+ * 5. sends it with the player's play key under that seq, storing each transaction's hash on the
+ *    row after signing and before the broadcast (`onSigned`), so a process killed mid-call leaves
+ *    the hash behind. Every resend of the action carries the same seq, so at most one of its
+ *    transactions can ever apply; once the seq is used on chain, the action is resolved from its
+ *    own transaction hashes and never sent under another seq;
  * 6. stores the outcome: applied with its response, failed with the mapped panic, or pending with
  *    the hashes when the outcome is unknown (202; the replay resolves it).
  */
@@ -27,8 +29,11 @@ import { claimLease, releaseLease } from './action-lease.js';
 
 const { users, actions } = schema;
 
-/** Answer for an action whose seq was used on chain by none of its known transactions. */
-const UNCONFIRMED = 'This action could not be confirmed. Check your items, then try again.';
+/**
+ * Answer for an action whose seq was used on chain by none of its transactions. Every hash is
+ * stored before its broadcast, so the action did not apply and never can.
+ */
+const NOT_APPLIED = 'This action did not go through. Try again.';
 
 /**
  * @typedef {{ status: number, body: Record<string, unknown> }} ActionResponse
@@ -86,6 +91,7 @@ export async function runPlayerAction(action, deps = {}) {
     action,
     accountId: user.nearAccountId,
     playKeyEnc: user.playKeyEnc,
+    hashes: [],
   };
   try {
     await db
@@ -115,20 +121,21 @@ export async function runPlayerAction(action, deps = {}) {
  * @property {PlayerAction} action
  * @property {string} accountId
  * @property {string} playKeyEnc
+ * @property {string[]} hashes every transaction of the action, oldest first (`actions.tx_hashes`)
  * @typedef {typeof actions.$inferSelect} ActionRow
  */
 
 /**
  * Pin the action's seq on its first send; on a resend, check that seq on chain first. While the
  * seq is unused, (re)send under it; once it is used, finish from whichever of the action's own
- * transactions applied, or answer that the action could not be confirmed.
+ * transactions applied, or answer that the action did not apply.
  * @param {Ctx} ctx
  * @param {ActionRow} row
  * @returns {Promise<ActionResponse>}
  */
 async function settle(ctx, row) {
   const { near, action, accountId } = ctx;
-  const hashes = /** @type {string[]} */ (row.txHashes ?? []);
+  ctx.hashes = /** @type {string[]} */ (row.txHashes ?? []);
   let seq = row.seq;
   try {
     const next = await near.nextSeq(accountId);
@@ -136,10 +143,10 @@ async function settle(ctx, row) {
       seq = next;
       await update(ctx, { seq });
     } else if (next > seq) {
-      const found = await appliedAttempt(ctx, seq, hashes);
+      const found = await appliedAttempt(ctx, seq);
       if (found) return await applied(ctx, found);
-      await finish(ctx, 409, UNCONFIRMED, row.txHash);
-      return reject(409, UNCONFIRMED);
+      await finish(ctx, 409, NOT_APPLIED, row.txHash);
+      return reject(409, NOT_APPLIED);
     } else if (next < seq) {
       return pendingAnswer(ctx, row.txHash);
     }
@@ -150,29 +157,36 @@ async function settle(ctx, row) {
       actionId: action.actionId,
       err: String(err),
     });
-    return hashes.length > 0
+    return ctx.hashes.length > 0
       ? pendingAnswer(ctx, row.txHash)
       : reject(503, 'The chain is not responding. Try again shortly.');
   }
+  const pinned = seq;
+  /** @param {string} txHash */
+  const onSigned = async (txHash) => {
+    ctx.hashes = [...ctx.hashes, txHash];
+    await update(ctx, { seq: pinned, txHash, txHashes: ctx.hashes });
+  };
   try {
     const sent = await near.callAsPlayer(accountId, ctx.playKeyEnc, action.method, action.args, {
       seq,
+      onSigned,
     });
     return await applied(ctx, sent);
   } catch (err) {
-    return failed(ctx, err, seq, hashes);
+    return failed(ctx, err, seq);
   }
 }
 
 /**
  * The applied outcome among the action's transactions, all sent under `seq`, or null. A
- * transaction that executed and failed (a panic reverts it) did not apply.
+ * transaction that executed and failed (a panic reverts it), or was signed and never broadcast,
+ * did not apply.
  * @param {Ctx} ctx
  * @param {number} seq
- * @param {string[]} hashes
  */
-async function appliedAttempt(ctx, seq, hashes) {
-  for (const hash of hashes) {
+async function appliedAttempt(ctx, seq) {
+  for (const hash of ctx.hashes) {
     try {
       const outcome = await ctx.near.resolveOutcome(ctx.accountId, seq, hash);
       if (outcome.applied) return outcome;
@@ -239,13 +253,16 @@ async function applied(ctx, res) {
  * @param {Ctx} ctx
  * @param {unknown} err
  * @param {number} seq the action's pinned seq
- * @param {string[]} hashes the action's earlier transactions
  * @returns {Promise<ActionResponse>}
  */
-async function failed(ctx, err, seq, hashes) {
+async function failed(ctx, err, seq) {
   const { action } = ctx;
   if (err instanceof RpcUnknownOutcomeError) {
-    await update(ctx, { txHash: err.txHash, txHashes: [...hashes, err.txHash] });
+    // `onSigned` stored the hash already; an adapter that skipped it is covered here.
+    if (err.txHash && !ctx.hashes.includes(err.txHash)) {
+      ctx.hashes = [...ctx.hashes, err.txHash];
+      await update(ctx, { txHash: err.txHash, txHashes: ctx.hashes });
+    }
     return pendingAnswer(ctx, err.txHash);
   }
   if (err instanceof ContractPanicError) {
@@ -253,15 +270,15 @@ async function failed(ctx, err, seq, hashes) {
     if (err.panic === 'bad seq') {
       // The seq was used meanwhile: by an earlier transaction of this action, or by another.
       try {
-        const found = await appliedAttempt(ctx, seq, hashes);
+        const found = await appliedAttempt(ctx, seq);
         if (found) return await applied(ctx, found);
       } catch {
-        return pendingAnswer(ctx, hashes.at(-1) ?? null);
+        return pendingAnswer(ctx, ctx.hashes.at(-1) ?? null);
       }
       return reject(mapped.status, mapped.error);
     }
     if ((action.transient ?? []).includes(err.panic)) return reject(mapped.status, mapped.error);
-    await finish(ctx, mapped.status, mapped.error, err.txHash ?? null);
+    await finish(ctx, mapped.status, mapped.error, err.txHash ?? ctx.hashes.at(-1) ?? null);
     return reject(mapped.status, mapped.error);
   }
   if (err instanceof TransactionFailedError) {
@@ -269,8 +286,8 @@ async function failed(ctx, err, seq, hashes) {
     await finish(ctx, 502, error, err.txHash);
     return reject(502, error);
   }
-  // Not sent, or rejected before execution: the row stays pending under its seq, so the same
-  // request sends it again and can still apply it only once.
+  // Not sent, or rejected before execution: the row stays pending under its seq with every signed
+  // hash, so the same request resolves or resends it and can still apply it only once.
   console.error({
     scope: 'action',
     msg: 'action not sent',
