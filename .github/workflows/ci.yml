@@ -15,9 +15,20 @@ concurrency:
 jobs:
   app:
     runs-on: ubuntu-latest
+    services:
+      # Test database: the schema comes from the committed migration (npm run db:migrate).
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       NEXT_TELEMETRY_DISABLED: '1'
-      # Build-time placeholder, not a real database (docs/runbooks/dev-setup.md).
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
       - uses: actions/checkout@v7
@@ -32,6 +43,7 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck
+      - run: npm run db:migrate
       - run: npm test
       - run: npm run build
 
@@ -57,9 +69,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - name: npm audit
-        # until T8 removes the MegaETH dependencies
-        # The remaining high advisories are all in wagmi, @rainbow-me/rainbowkit, ethers and viem (T2).
-        continue-on-error: true
         run: npm audit --audit-level=high
 
   contract:
