@@ -1,0 +1,90 @@
+{
+  "encoding": "sha256(9 stat bytes ++ u16 LE mod template ++ u16 LE skin template)",
+  "vectors": [
+    {
+      "note": "all stats 1, nothing equipped: testnet d:1 stats_hash",
+      "stats": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "mod": 0,
+      "skin": 0,
+      "hex": "0955d388dfcaecb9af17a36936bbae472103b419f2195cc0a08e5b649c46a6ba"
+    },
+    {
+      "note": "starter kit equipped: a common mod and Ember",
+      "stats": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "mod": 3,
+      "skin": 4,
+      "hex": "98be5fd0baa49108e529cd0e0d0caf915c7c5814c2dc6c7141924a1f711dc242"
+    },
+    {
+      "note": "mixed stats, rare mod, no skin",
+      "stats": [
+        14,
+        9,
+        3,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "mod": 11,
+      "skin": 0,
+      "hex": "a5689154653823a1475cbd4b550fbbe7c2aff9c87649bc70cc81fd0e8a7b6833"
+    },
+    {
+      "note": "level 20 maxed, legendary mod and skin",
+      "stats": [
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        9
+      ],
+      "mod": 26,
+      "skin": 32,
+      "hex": "8dd4514b99ef78c04ec30146941ca76501b4292b5e957a94c905bc4e0f06574e"
+    },
+    {
+      "note": "u16 little-endian check",
+      "stats": [
+        7,
+        13,
+        21,
+        34,
+        55,
+        89,
+        1,
+        2,
+        3
+      ],
+      "mod": 258,
+      "skin": 513,
+      "hex": "7b11818155d0b7f5ce8870cfb36dc98f3565c7c060a05110a8cf154174e51030"
+    }
+  ]
+}

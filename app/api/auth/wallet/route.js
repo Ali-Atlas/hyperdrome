@@ -5,6 +5,7 @@ import { getAddress } from 'ethers';
 import { db, schema } from '@/lib/db';
 import { auth, signIn } from '@/lib/auth';
 import { generateUniqueDroneName } from '@/lib/game-engine/drone-names.js';
+import { STARTER_VOLTS, calculateXPToNextLevel } from '@/lib/game-engine/economy.js';
 
 const { users, drones, droneOwnershipHistory } = schema;
 
@@ -15,15 +16,11 @@ const { users, drones, droneOwnershipHistory } = schema;
 // ethers' checksum impl uses keccak256 from the crypto module.
 export const runtime = 'nodejs';
 
-const STARTER_VOLTS = 1000;
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
-
 const bodySchema = z.object({
-  walletAddress: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
+  walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
 });
 
 /** @type {Map<string, { count: number, resetAt: number }>} */
@@ -69,7 +66,6 @@ function syntheticEmail(addressLower) {
   return `wallet_${addressLower}@wallet.hyperdrome.gg`;
 }
 
-
 /**
  * POST /api/auth/wallet
  *
@@ -111,7 +107,7 @@ export async function POST(request) {
   if (!checkRateLimit(ip)) {
     return NextResponse.json(
       { error: 'Too many wallet sign-in attempts. Try again later.' },
-      { status: 429 },
+      { status: 429 }
     );
   }
 
@@ -120,7 +116,7 @@ export async function POST(request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid request body', details: parsed.error.issues },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -131,10 +127,7 @@ export async function POST(request) {
     // checksum so a typo can never bind a wrong address.
     checksummed = getAddress(parsed.data.walletAddress);
   } catch {
-    return NextResponse.json(
-      { error: 'Invalid Ethereum address checksum' },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: 'Invalid Ethereum address checksum' }, { status: 400 });
   }
   const stored = checksummed.toLowerCase();
 
@@ -162,7 +155,7 @@ export async function POST(request) {
       console.error('[auth/wallet] signIn (existing) failed:', err);
       return NextResponse.json(
         { error: 'Wallet recognized but sign-in failed. Try refreshing.' },
-        { status: 500 },
+        { status: 500 }
       );
     }
     return NextResponse.json({
@@ -209,7 +202,7 @@ export async function POST(request) {
         console.error('[auth/wallet] user insert failed:', err);
         return NextResponse.json(
           { error: 'Could not provision a wallet account. Try again.' },
-          { status: 500 },
+          { status: 500 }
         );
       }
     }
@@ -225,7 +218,7 @@ export async function POST(request) {
     if (!raced) {
       return NextResponse.json(
         { error: 'Could not provision a wallet account. Try again.' },
-        { status: 500 },
+        { status: 500 }
       );
     }
     try {
@@ -238,7 +231,7 @@ export async function POST(request) {
       console.error('[auth/wallet] signIn (race recovery) failed:', err);
       return NextResponse.json(
         { error: 'Wallet recognized but sign-in failed. Try refreshing.' },
-        { status: 500 },
+        { status: 500 }
       );
     }
     return NextResponse.json({
@@ -267,7 +260,7 @@ export async function POST(request) {
         name: droneName,
         level: 1,
         xp: 0,
-        xpToNextLevel: 300,
+        xpToNextLevel: calculateXPToNextLevel(1),
         totalStatBudget: 29,
         speed: 1,
         turning: 1,
@@ -309,7 +302,7 @@ export async function POST(request) {
     console.error('[auth/wallet] signIn (new) failed:', err);
     return NextResponse.json(
       { error: 'Account created but sign-in failed. Try connecting again.' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 
@@ -328,8 +321,6 @@ export async function POST(request) {
       username: user.username,
       walletAddress: checksummed,
     },
-    starterDrone: drone
-      ? { id: drone.id, name: drone.name }
-      : null,
+    starterDrone: drone ? { id: drone.id, name: drone.name } : null,
   });
 }

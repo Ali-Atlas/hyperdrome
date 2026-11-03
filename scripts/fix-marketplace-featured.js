@@ -34,6 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { neon } from '@neondatabase/serverless';
 import { randomDroneName } from '../lib/game-engine/drone-names.js';
 import { buildStats } from '../lib/game-engine/drone-stats.js';
+import { calculateXPToNextLevel } from '../lib/game-engine/economy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -82,11 +83,29 @@ const LEGACY_FEATURED_NAMES = [
  */
 const NEW_LISTINGS = [
   // One legendary anchor at the top of the board.
-  { level: 19, profile: 'speedster',  priceRange: [550_000, 650_000], skinName: 'Valiant',         skinRarity: 'legendary' },
+  {
+    level: 19,
+    profile: 'speedster',
+    priceRange: [550_000, 650_000],
+    skinName: 'Valiant',
+    skinRarity: 'legendary',
+  },
   // Two epic-skinned drones — Dragon Scale at the top of T4, Crystal
   // Phantom mid-T3 so the showcase doesn't cluster everything in T4.
-  { level: 17, profile: 'cornerer',   priceRange: [400_000, 500_000], skinName: 'Dragon Scale',    skinRarity: 'epic'      },
-  { level: 12, profile: 'allrounder', priceRange: [180_000, 220_000], skinName: 'Crystal Phantom', skinRarity: 'epic'      },
+  {
+    level: 17,
+    profile: 'cornerer',
+    priceRange: [400_000, 500_000],
+    skinName: 'Dragon Scale',
+    skinRarity: 'epic',
+  },
+  {
+    level: 12,
+    profile: 'allrounder',
+    priceRange: [180_000, 220_000],
+    skinName: 'Crystal Phantom',
+    skinRarity: 'epic',
+  },
 ];
 
 // Inclusive on both ends. Standalone here because this script doesn't
@@ -125,9 +144,7 @@ async function deleteLegacyFeatured() {
   if (targets.length === 0) return;
 
   const droneIds = targets.map((d) => d.id);
-  const formerSkinIds = targets
-    .map((d) => d.applied_skin_id)
-    .filter(Boolean);
+  const formerSkinIds = targets.map((d) => d.applied_skin_id).filter(Boolean);
 
   // Order matters: drop FK-dependents first, then drones themselves.
   const listings = await sql`
@@ -197,9 +214,7 @@ async function getSellerIds() {
     WHERE username = ANY(${SELLER_NAMES})
   `;
   if (rows.length !== SELLER_NAMES.length) {
-    console.error(
-      `Expected ${SELLER_NAMES.length} MKT_* users, found ${rows.length}.`,
-    );
+    console.error(`Expected ${SELLER_NAMES.length} MKT_* users, found ${rows.length}.`);
     process.exit(1);
   }
   return rows.map((r) => r.id);
@@ -252,7 +267,7 @@ async function insertSkinnedListing({ def, sellerId }) {
       night_vision, battery_capacity, rain_handling, wind_resistance, consistency,
       active, is_bot, elo_rating, image_url
     ) VALUES (
-      ${sellerId}, ${name}, ${def.level}, 0, ${300 * def.level * def.level}, ${tsb},
+      ${sellerId}, ${name}, ${def.level}, 0, ${calculateXPToNextLevel(def.level)}, ${tsb},
       ${stats.speed}, ${stats.turning}, ${stats.acceleration}, ${stats.durability},
       ${stats.nightVision}, ${stats.batteryCapacity}, ${stats.rainHandling}, ${stats.windResistance}, ${stats.consistency},
       false, false, 1000, '/drones/default.png'
@@ -274,7 +289,7 @@ async function insertSkinnedListing({ def, sellerId }) {
   `;
 
   console.log(
-    `  + ${name} (LV${def.level}, ${def.skinRarity} ${def.skinName}) @ ${price.toLocaleString()}V`,
+    `  + ${name} (LV${def.level}, ${def.skinRarity} ${def.skinName}) @ ${price.toLocaleString()}V`
   );
   return true;
 }
@@ -296,9 +311,7 @@ async function main() {
   await deleteLegacyFeatured();
   const sellerIds = await getSellerIds();
   if (await alreadySeeded(sellerIds)) {
-    console.log(
-      '\n[insert] skipped — MKT_* sellers already have enough skinned drone listings',
-    );
+    console.log('\n[insert] skipped — MKT_* sellers already have enough skinned drone listings');
   } else {
     await seedNewListings(sellerIds);
   }
