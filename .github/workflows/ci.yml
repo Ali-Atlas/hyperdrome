@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      # Build-time placeholder, not a real database (docs/runbooks/dev-setup.md).
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # format:check and lint scope files against the pre-hackathon tag.
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: npm audit
+        # until T8 removes the MegaETH dependencies
+        # next, next-auth, @auth/drizzle-adapter and zod also fail it; T8 alone does not clear it.
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+  contract:
+    # hashFiles is not available in a job-level `if`, so each step checks for the contract.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/hyperdrome
+    steps:
+      - uses: actions/checkout@v7
+      - name: Contract present?
+        id: detect
+        working-directory: .
+        run: echo "present=${{ hashFiles('contracts/hyperdrome/Cargo.toml') != '' }}" >> "$GITHUB_OUTPUT"
+      - if: steps.detect.outputs.present == 'true'
+        uses: dtolnay/rust-toolchain@1.93.0
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - if: steps.detect.outputs.present == 'true'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      - if: steps.detect.outputs.present == 'true'
+        run: cargo fmt --check
+      - if: steps.detect.outputs.present == 'true'
+        run: cargo clippy -- -D warnings
+      - if: steps.detect.outputs.present == 'true'
+        run: cargo test
+      - if: steps.detect.outputs.present == 'true'
+        run: cargo audit
