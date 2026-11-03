@@ -4,6 +4,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Version updates paused until after the 2026-11-14 submission (DECISIONS.md 1.12).
+    # Security updates have their own limit and stay on.
+    open-pull-requests-limit: 0
     ignore:
       # Major bumps break the flat config pairing; @eslint/js must match eslint's version.
       - dependency-name: eslint
@@ -13,14 +16,32 @@ updates:
       # react and react-dom must stay on the same version; bump them together manually.
       - dependency-name: react
       - dependency-name: react-dom
+      # TypeScript majors change the type checker; bump deliberately in a dedicated task.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      # @types/node tracks the Node 24 runtime (SPEC.md section 15).
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      # lucide-react minors add and rename icons; patches only.
+      - dependency-name: lucide-react
+        update-types: ['version-update:semver-minor']
   - package-ecosystem: cargo
     directory: /contracts/hyperdrome
     schedule:
       interval: weekly
+    # Version updates paused until after the 2026-11-14 submission (DECISIONS.md 1.12).
+    # Security updates have their own limit and stay on.
+    open-pull-requests-limit: 0
+    ignore:
+      # near-api is pinned at 0.8.6 (SPEC.md section 15).
+      - dependency-name: near-api
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    # Version updates paused until after the 2026-11-14 submission (DECISIONS.md 1.12).
+    # Security updates have their own limit and stay on.
+    open-pull-requests-limit: 0
     ignore:
       # Rust is pinned to 1.93.0 (SPEC.md section 15); the action ref is the toolchain version.
       - dependency-name: dtolnay/rust-toolchain
