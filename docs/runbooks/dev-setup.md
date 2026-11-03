@@ -96,7 +96,6 @@ Never commit a `.env*` file; `.env.example` is the template. Copy it to `.env.lo
 | `DATABASE_URL`                         | Neon pooled connection string. Required at build time (any Postgres URL works for a build). |
 | `AUTH_SECRET`                          | Auth.js secret (`openssl rand -base64 32`); also guards the server-only demo sign-in.       |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Google OAuth client; Auth.js reads them by name.                                            |
-| `AUTH_RESEND_KEY`                      | Resend API key for the magic link; Auth.js reads it by name.                                |
 | `CRON_SECRET`                          | Shared secret for the race cron endpoint (`openssl rand -hex 32`).                          |
 | `ADMIN_EMAILS`                         | Comma-separated admin allowlist.                                                            |
 | `DEMO_ACCOUNT_CAP`                     | Lifetime Play Demo accounts (default 100). Raise it before judging if demo use is high.     |
@@ -107,10 +106,9 @@ Never commit a `.env*` file; `.env.example` is the template. Copy it to `.env.lo
 
 1. Neon (console.neon.tech): create a project (or a branch per environment), open Connect, copy the pooled connection string into `DATABASE_URL`.
 2. Google Cloud console, APIs and Services, Credentials: create an OAuth client ID (web application) with the authorized redirect URI `http://localhost:3000/api/auth/callback/google` (and `<app url>/api/auth/callback/google` per deployed environment); copy the client id and secret into `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`.
-3. Resend (resend.com): create an API key for `AUTH_RESEND_KEY`. The sender is `onboarding@resend.dev`, which delivers only to the email address of the Resend account (Resend knowledge base, "403 error using resend.dev domain") until a domain is verified at resend.com/domains and the `from` in `lib/auth/index.js` changes to it.
-4. `AUTH_SECRET`: `openssl rand -base64 32`. `KEY_ENCRYPTION_KEY` and `ADMIN_KEY_ENCRYPTION_KEY`: `openssl rand -hex 32` each, generated once per environment, different from each other, never committed. Losing them makes every stored player key unreadable.
-5. `NEAR_OPS_KEY` and `NEAR_SETTLEMENT_KEY`: see Export a key for the app's env.
-6. `npm run db:migrate` (applies `drizzle/`), then `npm run dev`. Schema changes: edit `lib/db/schema.js`, `npm run db:generate -- --name <change>`, commit the new migration, `npm run db:migrate`.
+3. `AUTH_SECRET`: `openssl rand -base64 32`. `KEY_ENCRYPTION_KEY` and `ADMIN_KEY_ENCRYPTION_KEY`: `openssl rand -hex 32` each, generated once per environment, different from each other, never committed. Losing them makes every stored player key unreadable.
+4. `NEAR_OPS_KEY` and `NEAR_SETTLEMENT_KEY`: see Export a key for the app's env.
+5. `npm run db:migrate` (applies `drizzle/`), then `npm run dev`. Schema changes: edit `lib/db/schema.js`, `npm run db:generate -- --name <change>`, commit the new migration, `npm run db:migrate`.
 
 ### Test database
 

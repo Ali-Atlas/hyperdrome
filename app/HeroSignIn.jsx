@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import styles from './HeroSignIn.module.css';
 
-/** Top-right sign-in link on the landing hero (SPEC.md 12): Google or a magic link at /login. */
+/** Top-right sign-in link on the landing hero (SPEC.md 12): Google or Play Demo at /login. */
 export default function HeroSignIn() {
   return (
     <div className={styles.wrap}>

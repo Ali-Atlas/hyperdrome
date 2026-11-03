@@ -6,7 +6,7 @@ import { auth } from '@/lib/auth';
  *
  * Two responsibilities:
  *   1. Block /register and /signup IN PRODUCTION (no such flows; sign-in is /login with Google
- *      or the magic link, SPEC.md 12). In local dev these pass through.
+ *      or Play Demo, SPEC.md 12). In local dev these pass through.
  *   2. Gate protected app routes. Unauthenticated requests redirect to /.
  *
  * Exemptions handled inline:
@@ -24,10 +24,8 @@ export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
   if (BLOCKED_AUTH_PATHS.has(pathname)) {
-    // Prod: bounce these routes to the landing page (PLAY DEMO is the
-    // only entry). Dev: pass through so the magic-link form can render
-    // for unauthenticated users - the auth gate below would otherwise
-    // redirect them straight back to /, making the link feel dead.
+    // Prod: bounce these routes to the landing page. Dev: pass through
+    // so unauthenticated users are not redirected straight back to /.
     return IS_DEV ? NextResponse.next() : NextResponse.redirect(new URL('/', request.url));
   }
 
