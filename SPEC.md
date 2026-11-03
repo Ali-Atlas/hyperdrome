@@ -272,7 +272,7 @@ Auth.js v5: Google provider and Resend magic link. On first session: `POST /api/
 
 ## 13. Tests and gas budgets
 
-Contract: per ENGINEERING.md 3. Gas budgets (asserted in sandbox tests): `create_player` <= 40 TGas, `mint_drone` <= 10, player actions <= 15 each, `reveal_pack` <= 30, `commit_batch` (50) <= 30, `settle_batch` (50) <= 150. Engine: determinism (1,000 runs), golden set of 20 races in `tests/golden/`, properties. App: services and routes with a test database; e2e smoke `scripts/smoke-testnet.mjs`.
+Contract: per ENGINEERING.md 3. Gas budgets: `create_player` <= 40 TGas, `mint_drone` <= 10, player actions <= 15 each, `reveal_pack` <= 30, `commit_batch` (50) <= 30, `settle_batch` (50) <= 150. Only settlement gas is asserted in sandbox tests: `settle_batch` stays under its budget, which sets the chunk size. Every other method's gas is measured once in the testnet pass and recorded in HANDOFF.md, not asserted. Engine: determinism (1,000 runs), golden set of 20 races in `tests/golden/`, properties. App: per ENGINEERING.md 3 (adapter, scheduler, Zod schemas; no route or service suites); e2e smoke `scripts/smoke-testnet.mjs`.
 
 ## 14. Threat model
 
