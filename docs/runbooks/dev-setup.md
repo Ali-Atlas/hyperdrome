@@ -106,3 +106,66 @@ Never commit a `.env*` file; `.env.example` is the template. Copy it to `.env.lo
 ### MegaETH baseline (removed in T8)
 
 `DEPLOYER_PRIVATE_KEY`, `MEGAETH_RPC_URL`, `TREASURY_ADDRESS`, `DRONE_CONTRACT_ADDRESS`, `VOLT_CONTRACT_ADDRESS`, `SKIN_CONTRACT_ADDRESS`, `MOD_CONTRACT_ADDRESS`, `MARKETPLACE_CONTRACT_ADDRESS`, `SETTLEMENT_CONTRACT_ADDRESS`, `PACKS_CONTRACT_ADDRESS`, `NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS`, `NEXT_PUBLIC_VOLT_CONTRACT_ADDRESS`, `NEXT_PUBLIC_MARKETPLACE_CONTRACT_ADDRESS`.
+
+## NEAR testnet
+
+Accounts and keys created in T2 (DECISIONS.md 3.6). Testnet only. Explorer links:
+
+| Account                   | Role                        | Explorer                                                      |
+| ------------------------- | --------------------------- | ------------------------------------------------------------- |
+| `hyperdrome.testnet`      | Parent account and treasury | https://testnet.nearblocks.io/address/hyperdrome.testnet      |
+| `game.hyperdrome.testnet` | Game contract account       | https://testnet.nearblocks.io/address/game.hyperdrome.testnet |
+
+Transactions: `https://testnet.nearblocks.io/txns/<hash>`.
+
+### Where keys live
+
+Keys live only in `~/.near-credentials/testnet/` on the operator's machine (near-cli-rs legacy keychain), mode 600, never in the repo.
+
+| File                                                                                 | Key                                                          | Permission                                                                                   |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `hyperdrome.testnet.json` (and `hyperdrome.testnet/ed25519_<pubkey>.json`)           | Parent account key                                           | Full access                                                                                  |
+| `game.hyperdrome.testnet.json` (and `game.hyperdrome.testnet/ed25519_<pubkey>.json`) | Contract account key, for deploys and account administration | Full access                                                                                  |
+| `hyperdrome.testnet-settlement.json`                                                 | Settlement signer on `game.hyperdrome.testnet`               | Function call: `commit_batch`, `settle_batch` on `game.hyperdrome.testnet`, allowance 5 NEAR |
+
+Full-access keys are never loaded by application code (ENGINEERING.md section 4).
+
+### Check the accounts
+
+```sh
+near account view-account-summary hyperdrome.testnet network-config testnet now
+near account list-keys game.hyperdrome.testnet network-config testnet now
+```
+
+### Top up
+
+- Parent: request testnet NEAR at https://near-faucet.io for `hyperdrome.testnet`. near-cli-rs can also create a faucet-sponsored helper account and delete it with the parent as beneficiary, which moves the helper's balance to the parent:
+
+  ```sh
+  near account create-account sponsor-by-faucet-service hd-fund-1.testnet autogenerate-new-keypair save-to-legacy-keychain network-config testnet create
+  near account delete-account hd-fund-1.testnet beneficiary hyperdrome.testnet network-config testnet sign-with-legacy-keychain send
+  ```
+
+- Contract account, from the parent:
+
+  ```sh
+  near tokens hyperdrome.testnet send-near game.hyperdrome.testnet '10 NEAR' network-config testnet sign-with-legacy-keychain send
+  ```
+
+- Settlement key allowance: an allowance cannot be raised in place. Add a new function-call key with the same contract and methods, then delete the old one (key rotation runbook, `docs/runbooks/key-rotation.md`, once written).
+
+### Export a key for the app's env
+
+`export-account ... using-private-key` prints the private key the keychain holds for an account. For both accounts that is the **full-access** key, so use it for deploys and administration only, never in the app's env:
+
+```sh
+near account export-account game.hyperdrome.testnet using-private-key network-config testnet
+```
+
+The app signs settlement with the function-call key, which is not in the keychain's account file. Read it from its own file:
+
+```sh
+node -p "require(process.env.HOME + '/.near-credentials/testnet/hyperdrome.testnet-settlement.json').private_key"
+```
+
+Paste the value into the app's env (a Vercel encrypted env var; the variable name is defined in SPEC.md) and never into a committed file. Clear the terminal afterwards.
