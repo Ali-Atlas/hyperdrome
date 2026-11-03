@@ -60,16 +60,16 @@ gitleaks version
 
 Each gate runs locally and in CI (`.github/workflows/ci.yml`). Scope follows the ratchet in ENGINEERING.md section 6: `scripts/changed-files.mjs` lists the files created or changed since the `pre-hackathon` tag, plus everything under `tests/`, `lib/near/` and `contracts/hyperdrome/`. Both lint and format:check need the tag, so CI checks out full history.
 
-| Command                                                                                                                                                      | What it checks                                                                                                                                                                                                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run lint`                                                                                                                                               | ESLint (`eslint-config-next`, `eslint:recommended`, `eslint-config-prettier`) on the whole repo, every rule as an error, 0 warnings allowed. Untouched baseline files have the rules they broke at the tag switched off; touching a file brings it under every rule. |
-| `npm run format:check`                                                                                                                                       | Prettier on the ratchet scope. `npm run format` writes the fixes. Baseline files outside the scope are left alone.                                                                                                                                                   |
-| `npm run typecheck`                                                                                                                                          | `tsc -p tsconfig.typecheck.json --noEmit`: strict JSDoc type checking of `types/`, `tests/` and `lib/near/`, plus the files they import.                                                                                                                             |
-| `npm test`                                                                                                                                                   | Vitest on `tests/**/*.test.js`. The baseline `npm run test:economy` stays separate until T4.                                                                                                                                                                         |
-| `npm run build`                                                                                                                                              | `next build`. Needs `DATABASE_URL` at build time; a placeholder works.                                                                                                                                                                                               |
-| `cargo fmt --check`, `cargo clippy --target wasm32-unknown-unknown -- -D warnings`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo audit` | Contract gates, in `contracts/hyperdrome/` (see Contract below). Plain `cargo clippy` cannot compile: near-sdk 5.27+ refuses a host build that is not a test build.                                                                                                  |     |
+| Command                                                                                                                                                      | What it checks                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint`                                                                                                                                               | ESLint (`eslint-config-next`, `eslint:recommended`, `eslint-config-prettier`) on the whole repo, every rule as an error, 0 warnings allowed. Untouched baseline files have the rules they broke at the tag switched off; touching a file brings it under every rule.                                                                    |
+| `npm run format:check`                                                                                                                                       | Prettier on the ratchet scope. `npm run format` writes the fixes. Baseline files outside the scope are left alone.                                                                                                                                                                                                                      |
+| `npm run typecheck`                                                                                                                                          | `tsc -p tsconfig.typecheck.json --noEmit`: strict JSDoc type checking of the paths in its `include` (types, tests, `lib/near`, `lib/game-engine`, `lib/db` client and schema, `lib/auth`, `lib/http`, the bootstrap and demo services and routes), plus the files they import. JSX is not type-checked (no React types in the project). |
+| `npm test`                                                                                                                                                   | Vitest on `tests/**/*.test.js`. The bootstrap service tests need a migrated non-Neon Postgres in `DATABASE_URL` (CI's service; locally see Test database below); outside CI they skip without one and never run against Neon.                                                                                                           |
+| `npm run build`                                                                                                                                              | `next build`. Needs `DATABASE_URL` at build time; a placeholder works.                                                                                                                                                                                                                                                                  |
+| `cargo fmt --check`, `cargo clippy --target wasm32-unknown-unknown -- -D warnings`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo audit` | Contract gates, in `contracts/hyperdrome/` (see Contract below). Plain `cargo clippy` cannot compile: near-sdk 5.27+ refuses a host build that is not a test build.                                                                                                                                                                     |     |
 
-CI also runs gitleaks over the full history and `npm audit --audit-level=high`. The audit step reports without failing until T8 removes the MegaETH dependencies.
+CI also runs gitleaks over the full history and `npm audit --audit-level=high` (blocking). The app job runs a Postgres 17 service and `npm run db:migrate` before the tests.
 
 ### Pre-commit hook
 
@@ -82,26 +82,45 @@ husky runs `.husky/pre-commit` on every commit:
 
 Never commit a `.env*` file; `.env.example` is the template. Copy it to `.env.local` for local runs. `types/env.d.ts` declares the same keys for type checking.
 
-### Build-time placeholders (CI)
+### CI
 
-| Variable                  | CI value                                                                    |
-| ------------------------- | --------------------------------------------------------------------------- |
-| `DATABASE_URL`            | `postgresql://ci:ci@localhost:5432/ci` (placeholder, no database behind it) |
-| `NEXT_TELEMETRY_DISABLED` | `1`                                                                         |
+| Variable                  | CI value                                                                |
+| ------------------------- | ----------------------------------------------------------------------- |
+| `DATABASE_URL`            | `postgresql://ci:ci@localhost:5432/ci` (the Postgres service, migrated) |
+| `NEXT_TELEMETRY_DISABLED` | `1`                                                                     |
 
-### Read by the app today
+### App, auth and database (SPEC.md 15)
 
-| Variable            | Purpose                                                                                  |
-| ------------------- | ---------------------------------------------------------------------------------------- |
-| `DATABASE_URL`      | Neon Postgres pooled connection string. Required at build time.                          |
-| `PROD_DATABASE_URL` | Production database for the ops scripts in `scripts/` and `lib/onchain/`.                |
-| `NEXTAUTH_SECRET`   | Auth.js session encryption secret.                                                       |
-| `NEXTAUTH_URL`      | Canonical public URL for Auth.js; read by the library, listed in `.env.example`.         |
-| `RESEND_API_KEY`    | Resend key for magic-link email.                                                         |
-| `CRON_SECRET`       | Shared secret for the race cron endpoint.                                                |
-| `ADMIN_EMAILS`      | Comma-separated admin allowlist.                                                         |
-| `ALLOW_LOCAL_SEED`  | Set by `npm run seed:dev` so the production seed script runs against the local database. |
-| `NODE_ENV`          | Set by Next.js and Node tooling.                                                         |
+| Variable                               | Purpose                                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                         | Neon pooled connection string. Required at build time (any Postgres URL works for a build). |
+| `AUTH_SECRET`                          | Auth.js secret (`openssl rand -base64 32`); also guards the server-only demo sign-in.       |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Google OAuth client; Auth.js reads them by name.                                            |
+| `AUTH_RESEND_KEY`                      | Resend API key for the magic link; Auth.js reads it by name.                                |
+| `CRON_SECRET`                          | Shared secret for the race cron endpoint (`openssl rand -hex 32`).                          |
+| `ADMIN_EMAILS`                         | Comma-separated admin allowlist.                                                            |
+| `PUSHER_*`, `NEXT_PUBLIC_PUSHER_*`     | Pusher Channels app (from T11).                                                             |
+| `NODE_ENV`                             | Set by Next.js and Node tooling.                                                            |
+
+### First run against a new Neon database
+
+1. Neon (console.neon.tech): create a project (or a branch per environment), open Connect, copy the pooled connection string into `DATABASE_URL`.
+2. Google Cloud console, APIs and Services, Credentials: create an OAuth client ID (web application) with the authorized redirect URI `http://localhost:3000/api/auth/callback/google` (and `<app url>/api/auth/callback/google` per deployed environment); copy the client id and secret into `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`.
+3. Resend (resend.com): create an API key for `AUTH_RESEND_KEY`. The sender is `onboarding@resend.dev`, which delivers only to the email address of the Resend account (Resend knowledge base, "403 error using resend.dev domain") until a domain is verified at resend.com/domains and the `from` in `lib/auth/index.js` changes to it.
+4. `AUTH_SECRET`: `openssl rand -base64 32`. `KEY_ENCRYPTION_KEY` and `ADMIN_KEY_ENCRYPTION_KEY`: `openssl rand -hex 32` each, generated once per environment, different from each other, never committed. Losing them makes every stored player key unreadable.
+5. `NEAR_OPS_KEY` and `NEAR_SETTLEMENT_KEY`: see Export a key for the app's env.
+6. `npm run db:migrate` (applies `drizzle/`), then `npm run dev`. Schema changes: edit `lib/db/schema.js`, `npm run db:generate -- --name <change>`, commit the new migration, `npm run db:migrate`.
+
+### Test database
+
+The bootstrap service tests (`tests/bootstrap/`) run against any migrated Postgres that is not Neon. A throwaway local cluster, if Postgres 16+ binaries are installed:
+
+```sh
+initdb -D tmp/pg -U ci --auth=trust && pg_ctl -D tmp/pg -o "-p 54329 -k $PWD/tmp" -l tmp/pg.log start
+createdb -h 127.0.0.1 -p 54329 -U ci ci
+DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm run db:migrate
+DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm test
+```
 
 ### Chain adapter (`lib/near`, SPEC.md 6 and 15)
 
@@ -122,10 +141,6 @@ Testnet integration run of the adapter (creates a throwaway `p-t7<hex>` player; 
 ```sh
 NEAR_TESTNET_INTEGRATION=1 npx vitest run tests/near/testnet.integration.test.js
 ```
-
-### MegaETH baseline (removed in T8)
-
-`DEPLOYER_PRIVATE_KEY`, `MEGAETH_RPC_URL`, `TREASURY_ADDRESS`, `DRONE_CONTRACT_ADDRESS`, `VOLT_CONTRACT_ADDRESS`, `SKIN_CONTRACT_ADDRESS`, `MOD_CONTRACT_ADDRESS`, `MARKETPLACE_CONTRACT_ADDRESS`, `SETTLEMENT_CONTRACT_ADDRESS`, `PACKS_CONTRACT_ADDRESS`, `NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS`, `NEXT_PUBLIC_VOLT_CONTRACT_ADDRESS`, `NEXT_PUBLIC_MARKETPLACE_CONTRACT_ADDRESS`.
 
 ## NEAR testnet
 

@@ -77,6 +77,13 @@ describe.skipIf(!enabled)('chain adapter on testnet', () => {
         is_team: false,
       });
 
+      // The bootstrap resolves an unknown create_player by hash under the owner (SPEC.md 12).
+      const resolved = await near.resolveOutcome(accountId, 0, created.txHash, { senderId: OWNER });
+      report(
+        `resolveOutcome(create_player) applied=${resolved.applied} result=${JSON.stringify(resolved.applied && resolved.result)}`
+      );
+      expect(resolved).toMatchObject({ applied: true, result: true, txHash: created.txHash });
+
       const keys = await accessKeys(accountId);
       report(`keys: ${JSON.stringify(keys.map((k) => [k.public_key, k.access_key.permission]))}`);
       expect(keys).toHaveLength(2);
