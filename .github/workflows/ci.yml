@@ -87,6 +87,10 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-audit
+      # The sandbox tests build the wasm through cargo-near-build, which runs `cargo near`.
+      - if: steps.detect.outputs.present == 'true'
+        name: Install cargo-near 0.22.0
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
       - if: steps.detect.outputs.present == 'true'
         run: cargo fmt --check
       # near-sdk 5.27+ refuses a plain host build of a contract crate, so `cargo clippy` without
