@@ -3,6 +3,7 @@
 Instructions for any coding agent working in this repository. CLAUDE.md points here, so Claude Code and Codex read the same rules.
 
 ## Read first, in this order
+
 1. SPEC.md (behavior, data, interfaces, constants; source of truth)
 2. BUILD_PLAN.md (the task you are on, with its acceptance list)
 3. ENGINEERING.md (standards)
@@ -12,6 +13,7 @@ Instructions for any coding agent working in this repository. CLAUDE.md points h
 Do not explore the codebase to find configuration or parameters. If SPEC.md does not have it, stop and say so; the fix is to add it to SPEC.md, never to guess. Nothing under `docs/archive/` is current.
 
 ## Working rules
+
 - One task per session, from BUILD_PLAN.md, on its own branch `task/<id>-<slug>`. Do not start the next task.
 - Write the acceptance list into the PR description before coding.
 - Run before finishing: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `cargo test` plus `cargo clippy -- -D warnings` for contract work. A task is not done while any of these fail.
@@ -24,6 +26,7 @@ Do not explore the codebase to find configuration or parameters. If SPEC.md does
 - Finish by appending a HANDOFF.md entry: date, task id, what changed (files), what was verified (commands and results), what is open.
 
 ## Never
+
 - Commit secrets, keys, `.env*` files or database URLs. Keys live in environment variables.
 - Push to `main`, force-push, or rewrite history.
 - Deploy to mainnet, spend tokens, or sign anything with a full-access key from application code.
@@ -32,9 +35,11 @@ Do not explore the codebase to find configuration or parameters. If SPEC.md does
 - Mark a task done with failing checks, skipped tests, or `TODO` without an issue reference.
 
 ## Commits and PRs
+
 - Conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, scoped to the task. Small commits.
 - PR title `[T<id>] <summary>`. PR body: acceptance list with check marks, verification commands and output, SPEC.md sections touched, sources for external values.
 
 ## Repository map
+
 - `app/` Next.js routes and pages. `components/` UI. `services/` DB access. `lib/game-engine/` pure simulation. `lib/near/` chain adapter. `contracts/hyperdrome/` Rust contract. `tests/` app and engine tests. `docs/runbooks/` operations. `docs/archive/` superseded MegaETH-era docs. `scripts/` seeds and ops.
 - Scratch and temporary files go in `tmp/` (git-ignored), never in the tree.
