@@ -50,7 +50,23 @@ function literalGlob(path) {
   return path.replace(/[\\*?[\]{}()!+@]/g, '\\$&');
 }
 
-const grandfathered = listGrandfatheredFiles().map(literalGlob);
+/**
+ * Baseline pages that T8 edits only to remove MegaETH (and to mount the bootstrap on the
+ * dashboard). T11 rebuilds them, so they keep the baseline-violation exemption although touched
+ * (DECISIONS.md 5.15). Every other rule still applies. Remove an entry when T11 rebuilds the page.
+ */
+const PENDING_T11_REBUILD = [
+  'app/page.jsx',
+  'app/dashboard/page.jsx',
+  'app/drones/[droneId]/page.jsx',
+  'app/marketplace/page.jsx',
+  'app/races/[raceId]/page.jsx',
+  'components/ui/NavShell/index.jsx',
+];
+
+const grandfathered = [...new Set([...listGrandfatheredFiles(), ...PENDING_T11_REBUILD])].map(
+  literalGlob
+);
 
 export default defineConfig([
   globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
