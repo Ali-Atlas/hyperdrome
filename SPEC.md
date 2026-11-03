@@ -89,7 +89,7 @@ Supply: unlimited instances. A mod is one token; it is bound to at most one dron
 ### 2.6 Skins (catalog, image-backed, `public/skins/<rarity>/<slug>.webp`)
 
 Common (8): bone, cobalt, dusk, ember, frost, rust, shadow, venom. Rare (8): anodized_blaze, arctic_fury, chrome_fury, copper_king, gunmetal_storm, jade_circuit, midnight_oil, titanium_ghost. Epic (8): crystal_phantom, dragon_scale, frozen_abyss, iridescent_wraith, liquid_mercury, obsidian_core, solar_flare, void_bloom. Legendary (8): apex_predator, celestial, diamond_hands (file diamond_hand.webp), gilded_throne, kraken, necromancer, samurai, valiant.
-Supply caps per template (new, tunable): common 10, rare 6, epic 4, legendary 3. When a rarity has no supply left, packs mint a placeholder skin of that rarity (name from the placeholder pools in the baseline `services/pack.service.js`, image `/placeholder/`), unlimited.
+Supply caps per template (new, tunable): common 10, rare 6, epic 4, legendary 3. When a rarity has no supply left, packs mint a placeholder skin of that rarity (name from the placeholder pools in the baseline `services/pack.service.js`, carried into the contract's `constants/names.rs`; image `/placeholder/`), unlimited. A placeholder is stored with template 0, its rarity and its name, and never counts against supply.
 Equip rule: legendary skins equip on any tier; other skins equip only where a tier render exists: ember tier 1; chrome_fury, crystal_phantom, dragon_scale, frozen_abyss, obsidian_core tier 4. (Carried from baseline; tier renders are the content gap.)
 Cosmetic only. Bound to at most one drone, permanently.
 
@@ -113,7 +113,7 @@ Items: drones, skins, mods. Rake 10% to treasury, 90% to seller. Minimum price 1
 
 ### 2.10 AI teams (new)
 
-4 teams. Per team: 3 drones (levels 4, 5, 8), 2 bound skins and 3 bound mods spread across them, 20,000 Volts. Caps: per transaction 5,000 Volts, per day 15,000 Volts, enforced on-chain. Reserve floor 5,000 Volts (the team never spends below it).
+4 teams. Per team: 3 drones (levels 4, 5, 8), 2 bound skins and 3 bound mods spread across them, 20,000 Volts. Caps: per transaction 5,000 Volts, per day 15,000 Volts, enforced on-chain on every Volt debit of a team account (`allocate_stats`, `buy`, `open_pack`, `vendor_buy_drone`); the day is `block_timestamp_ms / 86_400_000`; a team with no budget row has zero caps; regular players are never cap-checked. Reserve floor 5,000 Volts (the team never spends below it).
 
 ## 3. Architecture
 
@@ -171,7 +171,7 @@ PackCommit { buyer: AccountId, kind: Skin|Mod, tier: u8, hash: [u8;32], height: 
 TeamBudget { per_tx: u128, per_day: u128, spent: u128, day: u32 }
 ```
 
-Token ids: drones `d:<n>`, skins `s:<n>`, mods `m:<n>`, with n starting at 1. Template ids are 1-based in the 2.5 and 2.6 listing order: mods 1-26; skins 1-32 (common 1-8, rare 9-16, epic 17-24, legendary 25-32). 0 means "none" in `stats_hash` and snapshots. Rarity ids: common 0, rare 1, epic 2, legendary 3. Bots are drones owned by the contract account. Stats order is the 9 stats in 2.1 order.
+Token ids: drones `d:<n>`, skins `s:<n>`, mods `m:<n>`, with n starting at 1. Template ids are 1-based in the 2.5 and 2.6 listing order: mods 1-26; skins 1-32 (common 1-8, rare 9-16, epic 17-24, legendary 25-32). 0 means "none" in `stats_hash` and snapshots, and is the stored template of a placeholder skin, so an equipped placeholder hashes as an empty skin slot. Rarity ids: common 0, rare 1, epic 2, legendary 3. Bots are drones owned by the contract account. Stats order is the 9 stats in 2.1 order.
 
 ### 4.3 Standards
 
@@ -185,21 +185,21 @@ Owner (predecessor == owner_id):
 - `create_player(slug: String, admin_pk: PublicKey, play_pk: PublicKey, is_team: bool) -> Promise`: creates `p-<slug>.<current>` (or `<slug>.<current>` when is_team) with CreateAccount, Transfer 0.05 NEAR, AddKey full-access admin_pk, AddKey function-call play_pk (receiver current, methods per 4.1, allowance 1 NEAR); then registers the player in a callback that returns true when the account was created. Panics "bad slug" if slug is not `[a-z0-9]{3,20}`, "exists" if the player is already registered.
 - `register_player(account_id)`: FT storage registration and Player row; idempotent.
 - `mint_drone(owner, name, level: u8, stats: [u8;9], active_hint: bool) -> TokenId`: validates level in 1-20 ("bad level"), each stat >= 1 ("bad stat") and <= cap(level) ("over cap"), sum <= TSB(level) ("tsb exceeded"); elo 1000; emits NftMint and `drone_minted`. `active_hint` is not stored (active flags live in the database).
-- `mint_item(owner, kind, template: u16, placeholder_name: Option<String>) -> TokenId`: enforces skin supply caps unless placeholder ("no supply"); "bad template" for an unknown template or a placeholder name on a mod; emits NftMint and `item_minted`.
+- `mint_item(owner, kind, template: u16, placeholder_name: Option<String>) -> TokenId`: enforces skin supply caps unless placeholder ("no supply"); a placeholder skin takes its rarity from `template` and is stored with template 0; "bad template" for an unknown template or a placeholder name on a mod; emits NftMint and `item_minted`.
 - `mint_volts(to, amount)`: emits FtMint.
 - `set_team_budget(account, per_tx, per_day)`; `set_paused(bool)`; `set_base_uri(base_uri: Option<String>)` sets `nft_metadata.base_uri`.
 
-Player (predecessor is a registered player; every method takes `seq: u64` which must equal `player.seq + 1`, then stores it; panics "bad seq" otherwise; panics "paused" when paused):
+Player (predecessor is a registered player, else "not player"; every method takes `seq: u64` which must equal `player.seq + 1`, then stores it; panics "bad seq" otherwise; panics "paused" when paused). Every Volt debit goes through one spend path: balance check ("insufficient volts"), then the team cap check if the caller is a team (2.10, "cap exceeded"), then the burn or payment. Methods on a drone check, in order: exists ("not found"), not listed ("listed"), caller owns it ("not owner"), not locked ("locked").
 
-- `allocate_stats(drone, stats: [u8;9], seq)`: owner check; no decrease; each <= cap; sum <= TSB; cost per 2.1 debited from Volts; drone not locked; emits `stats_allocated`.
-- `equip(drone, item: Option<TokenId>, kind, seq)`: owner check; item bound to this drone; skin tier rule 2.6; drone not locked; emits `equipped`.
+- `allocate_stats(drone, stats: [u8;9], seq)`: owner check; drone not locked; no decrease ("stat decrease"); each <= cap ("over cap"); sum <= TSB ("tsb exceeded"); cost per 2.1 burned (FtBurn, none when 0); team cap check if the caller is a team; adds the cost to `invested`; emits `stats_allocated`.
+- `equip(drone, item: Option<TokenId>, kind, seq)`: owner check; drone not locked; `None` clears the slot; an item must exist and be of `kind` ("not found"), be bound to this drone ("not owner") and, for skins, pass the tier rule 2.6 ("tier"); emits `equipped`.
 - `bind(drone, item, seq)`: owner owns both; item unbound; not listed; sets both sides; auto-equips if the slot is empty, the drone is not locked and (for skins) the 2.6 tier rule allows it; emits `item_bound`, plus `equipped` when it auto-equips.
-- `list(token, price, seq)`: owner check; price >= 10; not bound (for items); not already listed; token moves to contract escrow (internal transfer to current account, drone keeps racing and keeps `in_batch`); emits `listed`.
-- `buy(token, seq)`: listing active; buyer != seller; Volts >= price; team cap check if buyer is a team; debit buyer, credit seller 90%, treasury 10%; transfer token (and bound items) to buyer; remove listing; emits `sold` plus NftTransfer and FtTransfer events.
-- `cancel(token, seq)`: seller check; token returns; emits `cancelled`.
-- `open_pack(kind, tier, hash: [u8;32], seq) -> u64`: price per 2.7 debited (FtBurn); team cap check; stores PackCommit with current height; emits `pack_committed`.
-- `reveal_pack(pack_id, secret: [u8;32], seq)`: buyer check; `env::block_height() > height`; `sha256(secret) == hash`; result = sha256(secret ++ env::random_seed() ++ pack_id LE bytes); three rolls r_i = u32 from bytes [4i..4i+4] / 2^32; rarity per 2.7; template uniform among the rarity's templates with supply left (skins) or all templates of that rarity (mods); mint 3 items to buyer; marks revealed; emits `pack_opened` with the token ids.
-- `vendor_buy_drone(seq)`: 3,500 Volts burned; stats from random_seed per 2.1; plus one common skin and one common mod minted and bound; emits `drone_minted`.
+- `list(token, price, seq)`: price >= 10 ("low price"); token exists ("not found"); not already listed ("listed"); owner check; not bound (for items, "bound item"); token and a drone's bound items move to contract escrow (internal transfer to current account, one NftTransfer; drone keeps racing and keeps `in_batch`); emits `listed`.
+- `buy(token, seq)`: listing active ("not listed"); buyer != seller ("self buy"); Volts >= price; team cap check if buyer is a team; internal transfers buyer -> seller price - fee and buyer -> treasury fee, fee = floor(price / 10) (two FtTransfer); transfer token (and bound items) to buyer (one NftTransfer); remove listing; emits `sold`.
+- `cancel(token, seq)`: listing active ("not listed"); seller check ("not owner"); token (and bound items) returns (NftTransfer); emits `cancelled`.
+- `open_pack(kind, tier, hash: [u8;32], seq) -> u64`: tier 0 starter, 1 premium, 2 legendary ("bad tier" otherwise); price per 2.7 burned (FtBurn); team cap check; stores PackCommit with current height; returns the pack id (from 1); emits `pack_committed`.
+- `reveal_pack(pack_id, secret: [u8;32], seq)`: pack exists ("not found"); buyer check ("not owner"); not yet revealed ("bad reveal"); `env::block_height() > height` ("too early"); `sha256(secret) == hash` ("bad reveal"); result = sha256(secret ++ env::random_seed() ++ pack_id LE bytes). Byte map for slot i in 0..3, all little-endian: rarity roll r_i = u32 at bytes [4i, 4i+4) / 2^32; template pick = u32 at bytes [12+4i, 16+4i); placeholder name pick = u16 at bytes [24+2i, 26+2i). Rarity per 2.7: the first entry whose cumulative bp exceeds floor(r_i * 10,000). Template = candidates[pick mod len], candidates in template id order: the rarity's skins with supply left, or all mods of that rarity; with no skin left, a placeholder (template 0, name = pool[name pick mod pool len]). Mints the 3 items to the buyer (NftMint and `item_minted` each); marks revealed; emits `pack_opened` with the token ids.
+- `vendor_buy_drone(seq) -> TokenId`: 3,500 Volts burned (FtBurn); team cap check if the caller is a team; seed = sha256(env::random_seed() ++ new token id UTF-8) (the chain seed is per block; the token id separates purchases in one block); a stream of u32 LE values, block k = sha256(seed ++ k as u32 LE), drawn in order: 9 stat rolls 1 + (u32 mod 5); while the sum exceeds TSB(1), one draw picks a stat above 1 (index = u32 mod count, in stat order) and lowers it by 1, at most sum - 29 steps; then skin pick, mod pick, placeholder name pick, name word, letter, digit. Name `WORD-<LETTER><DIGIT>` from the baseline `drone-names.js` word pool (not unique; the token id is the identity). One common skin (uniform among commons with supply left, else a common placeholder) and one common mod (uniform among commons), both minted, bound and not equipped. Emits `drone_minted`, `item_minted` twice and `item_bound` twice, with their NftMint events.
 
 Settlement (predecessor == current account):
 
@@ -224,7 +224,7 @@ Lock rule: a drone is locked when `in_batch` is set and `block_timestamp_ms >= c
 
 ### 4.8 Errors
 
-Panic messages are short lowercase strings and are the contract's API for failure paths: `paused`, `bad seq`, `not owner`, `not player`, `locked`, `bound item`, `listed`, `not listed`, `self buy`, `insufficient volts`, `over cap`, `cap exceeded`, `tsb exceeded`, `stat decrease`, `tier`, `bad slug`, `exists`, `state drift`, `bad reveal`, `too early`, `settled`, `not implemented`, `not found`, `same owner`, `bad level`, `bad stat`, `bad template`, `no supply`.
+Panic messages are short lowercase strings and are the contract's API for failure paths: `paused`, `bad seq`, `not owner`, `not player`, `locked`, `bound item`, `listed`, `not listed`, `self buy`, `insufficient volts`, `over cap`, `cap exceeded`, `tsb exceeded`, `stat decrease`, `tier`, `bad slug`, `exists`, `state drift`, `bad reveal`, `too early`, `settled`, `not implemented`, `not found`, `same owner`, `bad level`, `bad stat`, `bad template`, `no supply`, `low price`, `bad tier`. `over cap` is the per-stat cap (2.1); `cap exceeded` is a team spend cap (2.10); `low price` is a listing under 10 Volts; `bad tier` is an unknown pack tier.
 
 ## 5. Engine (`lib/game-engine`, pure JS)
 
