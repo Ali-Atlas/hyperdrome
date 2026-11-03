@@ -7,7 +7,7 @@
  * legendaries cloned per user, real `simulateRace`-driven race history.
  *
  * Plain JS, no Next.js imports - the engine functions
- * (`simulateRace`, `calculateNewElo`, `calculateRacePoints`) are pure and
+ * (`simulateRace`, `calculateNewElo`, `computeWinnerPayout`) are pure and
  * the schema is loaded by relative path so the file works under both
  * `node --env-file=.env.local` and inside the Next.js runtime.
  */
@@ -17,29 +17,19 @@ import { neon } from '@neondatabase/serverless';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import * as schema from '../lib/db/schema.js';
 import { canEquipSkin } from '../lib/utils.js';
-import {
-  simulateRace,
-  randomWeather,
-  randomTimeOfDay,
-} from '../lib/game-engine/race-simulator.js';
+import { simulateRace, randomWeather, randomTimeOfDay } from '../lib/game-engine/race-simulator.js';
 import {
   calculateNewElo,
-  calculateRacePoints,
+  calculateXPToNextLevel,
+  computeWinnerPayout,
 } from '../lib/game-engine/economy.js';
+import { raceDrone } from '../lib/game-engine/mods.js';
+import { randomBytes } from 'node:crypto';
 import { generateUniqueDroneName } from '../lib/game-engine/drone-names.js';
 import { buildStats } from '../lib/game-engine/drone-stats.js';
 
-const {
-  users,
-  drones,
-  skins,
-  mods,
-  droneSkins,
-  droneMods,
-  tracks,
-  races,
-  droneOwnershipHistory,
-} = schema;
+const { users, drones, skins, mods, droneSkins, droneMods, tracks, races, droneOwnershipHistory } =
+  schema;
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */
@@ -64,14 +54,26 @@ const XP_PER_LOSS = 4;
  * name in race results.
  */
 const DEMO_DRONES = [
-  { archetype: 'STRIKER', level: 18, active: true,  profile: 'speedster',   equippedSkinPolicy: 'diamond' },
-  { archetype: 'RUNNER',  level: 3,  active: true,  profile: 'balanced',    equippedSkinPolicy: 'ember' },
-  { archetype: 'VIPER',   level: 17, active: true,  profile: 'cornerer',    equippedSkinPolicy: 'tier4_rotation' },
-  { archetype: 'SCOUT',   level: 12, active: false, profile: 'allrounder' },
-  { archetype: 'BOLT',    level: 7,  active: false, profile: 'speedster' },
-  { archetype: 'HAWK',    level: 16, active: false, profile: 'nightHunter' },
-  { archetype: 'PHANTOM', level: 5,  active: false, profile: 'balanced' },
-  { archetype: 'GHOST',   level: 14, active: false, profile: 'tank' },
+  {
+    archetype: 'STRIKER',
+    level: 18,
+    active: true,
+    profile: 'speedster',
+    equippedSkinPolicy: 'diamond',
+  },
+  { archetype: 'RUNNER', level: 3, active: true, profile: 'balanced', equippedSkinPolicy: 'ember' },
+  {
+    archetype: 'VIPER',
+    level: 17,
+    active: true,
+    profile: 'cornerer',
+    equippedSkinPolicy: 'tier4_rotation',
+  },
+  { archetype: 'SCOUT', level: 12, active: false, profile: 'allrounder' },
+  { archetype: 'BOLT', level: 7, active: false, profile: 'speedster' },
+  { archetype: 'HAWK', level: 16, active: false, profile: 'nightHunter' },
+  { archetype: 'PHANTOM', level: 5, active: false, profile: 'balanced' },
+  { archetype: 'GHOST', level: 14, active: false, profile: 'tank' },
 ];
 
 /** demoIndex % 5 -> which tier-4 epic equips on VIPER. */
@@ -130,7 +132,7 @@ async function pickVaultSkinTemplatesByRarity(db, rarity, n, excludeNames = new 
     (s) =>
       s.imageUrl?.startsWith('/skins/') &&
       s.imageUrl?.endsWith('.webp') &&
-      !excludeNames.has(s.name),
+      !excludeNames.has(s.name)
   );
   const seenNames = new Set();
   const distinct = [];
@@ -151,14 +153,11 @@ async function pickVaultSkinTemplatesByRarity(db, rarity, n, excludeNames = new 
  *  caller has already cloned (e.g. a legendary placeholder whose name
  *  matches a previously-assigned legendary). */
 async function pickPlaceholderSkinTemplates(db, n, excludeNames = new Set()) {
-  const all = await db
-    .select()
-    .from(skins)
-    .where(isNull(skins.userId));
+  const all = await db.select().from(skins).where(isNull(skins.userId));
   const placeholders = all.filter(
     (s) =>
       !(s.imageUrl?.startsWith('/skins/') && s.imageUrl?.endsWith('.webp')) &&
-      !excludeNames.has(s.name),
+      !excludeNames.has(s.name)
   );
   const shuffled = [...placeholders].sort(() => Math.random() - 0.5);
   const seen = new Set();
@@ -250,11 +249,9 @@ async function cloneMod(db, userId, template) {
  */
 async function runRealRaces(db, demoDrone, allBots, allTracks) {
   const eligibleTracks = allTracks.filter(
-    (t) => demoDrone.level >= t.levelMin && demoDrone.level <= t.levelMax,
+    (t) => demoDrone.level >= t.levelMin && demoDrone.level <= t.levelMax
   );
-  const eligibleBots = allBots.filter(
-    (b) => Math.abs(b.level - demoDrone.level) <= 3,
-  );
+  const eligibleBots = allBots.filter((b) => Math.abs(b.level - demoDrone.level) <= 3);
   if (eligibleTracks.length === 0 || eligibleBots.length === 0) {
     return { wins: 0, losses: 0, points: 0, finalElo: demoDrone.eloRating };
   }
@@ -273,8 +270,8 @@ async function runRealRaces(db, demoDrone, allBots, allTracks) {
   for (let i = 0; i < RACES_PER_DRONE; i += 1) {
     const track = pick(eligibleTracks);
     const bot = pick(eligibleBots);
-    const weather = randomWeather();
-    const timeOfDay = randomTimeOfDay();
+    const weather = randomWeather(Math.random);
+    const timeOfDay = randomTimeOfDay(Math.random);
 
     // Randomise drone1/drone2 slot so the demo doesn't always sit in the
     // same column on the race detail page.
@@ -283,27 +280,39 @@ async function runRealRaces(db, demoDrone, allBots, allTracks) {
     const drone1 = demoFirst ? demoView : bot;
     const drone2 = demoFirst ? bot : demoView;
 
-    const result = simulateRace(drone1, drone2, track, weather, timeOfDay);
+    const engineResult = simulateRace({
+      seed: randomBytes(32).toString('hex'),
+      raceId: `demo:${i}`,
+      droneA: raceDrone(drone1, 0),
+      droneB: raceDrone(drone2, 0),
+      track,
+      weather,
+      timeOfDay,
+    });
+    const result = {
+      winnerId: engineResult.winner === 'a' ? drone1.id : drone2.id,
+      drone1Time: engineResult.timeAms / 1000,
+      drone2Time: engineResult.timeBms / 1000,
+      raceLog: engineResult.log,
+    };
     const demoWon = result.winnerId === demoDrone.id;
 
     const winnerEloBefore = demoWon ? droneElo : bot.eloRating;
     const loserEloBefore = demoWon ? bot.eloRating : droneElo;
-    const { newWinnerElo, newLoserElo } = calculateNewElo(
-      winnerEloBefore,
-      loserEloBefore,
-    );
-    const pointsAwarded = calculateRacePoints(
-      track.difficulty,
-      winnerEloBefore,
-      loserEloBefore,
-    );
+    const { newWinnerElo, newLoserElo } = calculateNewElo(winnerEloBefore, loserEloBefore);
+    const pointsAwarded = computeWinnerPayout({
+      winnerLevel: (demoWon ? demoDrone : bot).level ?? 1,
+      difficulty: track.difficulty ?? 0,
+      winnerElo: winnerEloBefore,
+      loserElo: loserEloBefore,
+      winnerTimeMs: demoWon === demoFirst ? engineResult.timeAms : engineResult.timeBms,
+      loserTimeMs: demoWon === demoFirst ? engineResult.timeBms : engineResult.timeAms,
+    });
 
     const drone1EloBefore = demoFirst ? droneElo : bot.eloRating;
     const drone2EloBefore = demoFirst ? bot.eloRating : droneElo;
-    const drone1EloAfter =
-      result.winnerId === drone1.id ? newWinnerElo : newLoserElo;
-    const drone2EloAfter =
-      result.winnerId === drone2.id ? newWinnerElo : newLoserElo;
+    const drone1EloAfter = result.winnerId === drone1.id ? newWinnerElo : newLoserElo;
+    const drone2EloAfter = result.winnerId === drone2.id ? newWinnerElo : newLoserElo;
 
     // Spread races across the past ~30 days so the dashboard timeline
     // doesn't show 80 races stacked at 'just now'.
@@ -387,10 +396,7 @@ async function equipClonedSkin(db, drone, skinRow) {
     skinId: skinRow.id,
     isEquipped: true,
   });
-  await db
-    .update(drones)
-    .set({ appliedSkinId: skinRow.id })
-    .where(eq(drones.id, drone.id));
+  await db.update(drones).set({ appliedSkinId: skinRow.id }).where(eq(drones.id, drone.id));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -444,7 +450,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
       name,
       level: d.level,
       xp: 0,
-      xpToNextLevel: 300 * d.level * d.level,
+      xpToNextLevel: calculateXPToNextLevel(d.level),
       totalStatBudget: tsb,
       ...stats,
       active: d.active,
@@ -455,7 +461,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   }
   const insertedDrones = await db.insert(drones).values(droneRows).returning();
   const droneByArchetype = Object.fromEntries(
-    insertedDrones.map((d, i) => [DEMO_DRONES[i].archetype, d]),
+    insertedDrones.map((d, i) => [DEMO_DRONES[i].archetype, d])
   );
   counts.drones = insertedDrones.length;
 
@@ -465,7 +471,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
       droneId: d.id,
       ownerUserId: userId,
       transactionType: 'creation',
-    })),
+    }))
   );
 
   // 4a. STRIKER -> Diamond Hands (legendary, always equippable).
@@ -496,8 +502,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   }
 
   // 4c. VIPER -> rotated tier-4 epic.
-  const viperSkinName =
-    VIPER_SKIN_ROTATION[demoIndex % VIPER_SKIN_ROTATION.length];
+  const viperSkinName = VIPER_SKIN_ROTATION[demoIndex % VIPER_SKIN_ROTATION.length];
   const viperTemplate = await findVaultSkinByName(db, viperSkinName);
   const viperClone = await cloneSkin(db, userId, viperTemplate);
   if (viperClone) {
@@ -534,8 +539,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
 
   // 6. Unbound legendary mod, same rotation-scan pattern as step 5.
   for (let off = 0; off < LEGENDARY_MOD_ROTATION.length; off += 1) {
-    const candidate =
-      LEGENDARY_MOD_ROTATION[(demoIndex + off) % LEGENDARY_MOD_ROTATION.length];
+    const candidate = LEGENDARY_MOD_ROTATION[(demoIndex + off) % LEGENDARY_MOD_ROTATION.length];
     if (usedModNames.has(candidate)) continue;
     const tmpl = await findVaultModByName(db, candidate);
     if (!tmpl) continue;
@@ -551,11 +555,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   // so a legendary placeholder (Chimera / Phoenix Reborn / Dragonlord /
   // Onyx Sovereign) can't double up with the Diamond Hands or rotation
   // legendary the user already received.
-  const placeholders = await pickPlaceholderSkinTemplates(
-    db,
-    randInt(2, 3),
-    usedSkinNames,
-  );
+  const placeholders = await pickPlaceholderSkinTemplates(db, randInt(2, 3), usedSkinNames);
   for (const t of placeholders) {
     const cloned = await cloneSkin(db, userId, t);
     if (cloned) {
@@ -567,12 +567,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   // 8. 2-3 unbound mods (common/rare mix). Both picks now exclude the
   // legendary mod name from step 6, plus any common/rare names already
   // pulled in this loop.
-  const unboundCommonMods = await pickVaultModsByRarity(
-    db,
-    'common',
-    randInt(1, 2),
-    usedModNames,
-  );
+  const unboundCommonMods = await pickVaultModsByRarity(db, 'common', randInt(1, 2), usedModNames);
   for (const t of unboundCommonMods) {
     const cloned = await cloneMod(db, userId, t);
     if (cloned) {
@@ -592,12 +587,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   // 9. SCOUT collection: 1 bound-but-not-equipped skin. excludeNames
   // (was excludeIds, which never matched because vault id != clone id)
   // now actually filters out names already cloned for this user.
-  const scoutTemplates = await pickVaultSkinTemplatesByRarity(
-    db,
-    'rare',
-    1,
-    usedSkinNames,
-  );
+  const scoutTemplates = await pickVaultSkinTemplatesByRarity(db, 'rare', 1, usedSkinNames);
   if (scoutTemplates.length > 0) {
     const cloned = await cloneSkin(db, userId, scoutTemplates[0]);
     if (cloned) {
@@ -627,10 +617,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
   }
 
   // 11. Real race history.
-  const allBots = await db
-    .select()
-    .from(drones)
-    .where(eq(drones.isBot, true));
+  const allBots = await db.select().from(drones).where(eq(drones.isBot, true));
   const allTracks = await db.select().from(tracks);
   if (allBots.length === 0 || allTracks.length === 0) {
     return counts;
@@ -667,9 +654,7 @@ export async function seedDemoAccount({ db, userId, demoIndex }) {
     .set({
       totalRaces: userTotalRaces,
       totalWins: userTotalWins,
-      eloRating:
-        1000 +
-        Math.round((userTotalWins - (userTotalRaces - userTotalWins)) / 2),
+      eloRating: 1000 + Math.round((userTotalWins - (userTotalRaces - userTotalWins)) / 2),
     })
     .where(eq(users.id, userId));
 
