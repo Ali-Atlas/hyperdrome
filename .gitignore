@@ -43,3 +43,6 @@ next-env.d.ts
 # contracts (Hardhat project for MegaETH)
 contracts/.env
 contracts/node_modules
+
+# scratch
+/tmp/
