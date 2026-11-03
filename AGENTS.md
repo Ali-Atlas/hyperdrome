@@ -38,6 +38,7 @@ Do not explore the codebase to find configuration or parameters. If SPEC.md does
 
 - Conventional commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, scoped to the task. Small commits.
 - PR title `[T<id>] <summary>`. PR body: acceptance list with check marks, verification commands and output, SPEC.md sections touched, sources for external values.
+- Dates in HANDOFF.md and DECISIONS.md are the local date, America/New_York.
 
 ## Repository map
 
