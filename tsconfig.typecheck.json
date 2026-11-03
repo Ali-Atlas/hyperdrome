@@ -35,6 +35,7 @@
     "lib/validators/gameplay.js",
     "lib/metadata/**/*.js",
     "services/action.service.js",
+    "services/action-lease.js",
     "services/chain-cache.service.js",
     "services/gameplay.service.js",
     "services/pack-open.service.js",

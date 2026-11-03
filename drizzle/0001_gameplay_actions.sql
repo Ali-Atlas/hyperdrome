@@ -23,6 +23,7 @@ CREATE TABLE "rate_limits" (
 --> statement-breakpoint
 ALTER TABLE "demo_signups" DISABLE ROW LEVEL SECURITY;--> statement-breakpoint
 DROP TABLE "demo_signups" CASCADE;--> statement-breakpoint
+ALTER TABLE "actions" ADD COLUMN "tx_hashes" jsonb;--> statement-breakpoint
 ALTER TABLE "actions" ADD COLUMN "result" jsonb;--> statement-breakpoint
 ALTER TABLE "actions" ADD COLUMN "error" text;--> statement-breakpoint
 ALTER TABLE "actions" ADD COLUMN "http_status" integer;--> statement-breakpoint

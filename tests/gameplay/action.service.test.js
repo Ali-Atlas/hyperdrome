@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { schema } from '../../lib/db/index.js';
 import { CHAIN_ERRORS } from '../../lib/http/chain-errors.js';
-import { ContractPanicError } from '../../lib/near/errors.js';
+import { ContractPanicError, RpcUnknownOutcomeError } from '../../lib/near/errors.js';
 import { runPlayerAction } from '../../services/action.service.js';
 import { createMockNear, dbEnabled, ev, newPlayer, testDb } from './setup.js';
 
@@ -201,5 +201,111 @@ describe.skipIf(!dbEnabled)('runPlayerAction', () => {
       status: 409,
       body: { error: 'Your racing account is still being set up.' },
     });
+  });
+
+  it('resends under the pinned seq, never a new one', async () => {
+    const { near, applied } = chain();
+    const { user, accountId } = await newPlayer(db, near);
+    const actionId = randomUUID();
+
+    near.mock.failNextSend('lost');
+    expect((await allocate(user.id, actionId, near)).status).toBe(202);
+    const pinned = (await row(actionId)).seq;
+    expect(pinned).toBe(1);
+
+    expect((await allocate(user.id, actionId, near)).status).toBe(200);
+    const sends = near.mock.calls.filter((c) => c.kind === 'player');
+    expect(sends.map((c) => c.args.seq)).toEqual([1]);
+    expect(applied()).toBe(1);
+    expect(near.mock.player(accountId)?.seq).toBe(1);
+  });
+
+  it('finishes from the first transaction when it lands while the resend is in flight', async () => {
+    const { near, applied } = chain();
+    const { user, accountId } = await newPlayer(db, near);
+    const actionId = randomUUID();
+    /** @type {string | null} */
+    let landed = null;
+    let call = 0;
+    const racy = {
+      ...near,
+      /** @type {typeof near.callAsPlayer} */
+      callAsPlayer: async (acct, key, method, args, options) => {
+        call += 1;
+        // First send: broadcast, outcome unknown.
+        if (call === 1) throw new RpcUnknownOutcomeError({ txHash: 'H1', accountId: acct, seq: 1 });
+        // The replay's resend: H1 lands first, so the resend (same seq) is rejected.
+        landed = (await near.callAsPlayer(acct, key, method, args, options)).txHash;
+        return near.callAsPlayer(acct, key, method, args, options);
+      },
+      /** @type {typeof near.resolveOutcome} */
+      resolveOutcome: (acct, seq, hash, opts) =>
+        near.resolveOutcome(acct, seq, hash === 'H1' && landed ? landed : hash, opts),
+    };
+
+    expect((await allocate(user.id, actionId, racy)).status).toBe(202);
+    const replay = await allocate(user.id, actionId, racy);
+    expect(replay.status).toBe(200);
+    expect(replay.body.txHash).toBe(landed);
+    expect(applied()).toBe(1);
+    expect(near.mock.player(accountId)?.seq).toBe(1);
+    expect(await allocate(user.id, actionId, racy)).toEqual(replay);
+  });
+
+  it('never sends under a new seq once its seq was used by another action', async () => {
+    const { near, applied } = chain();
+    const { user, accountId } = await newPlayer(db, near);
+    const actionId = randomUUID();
+
+    near.mock.failNextSend('lost');
+    expect((await allocate(user.id, actionId, near)).status).toBe(202);
+    near.mock.applyPlayerCall(accountId, 'equip', { seq: 1 });
+
+    const replay = await allocate(user.id, actionId, near);
+    expect(replay.status).toBe(409);
+    expect(String(replay.body.error)).toMatch(/could not be confirmed/);
+    expect(applied()).toBe(0);
+    expect((await row(actionId)).status).toBe('failed');
+  });
+
+  it('keeps the hashes and answers 202 when the chain cannot be read', async () => {
+    const { near, applied } = chain();
+    const { user } = await newPlayer(db, near);
+    const actionId = randomUUID();
+
+    near.mock.failNextSend('applied');
+    const first = await allocate(user.id, actionId, near);
+    const down = {
+      ...near,
+      nextSeq: async () => {
+        throw new Error('rpc timeout');
+      },
+    };
+    const replay = await allocate(user.id, actionId, down);
+    expect(replay).toEqual({
+      status: 202,
+      body: { pending: true, actionId, txHash: first.body.txHash },
+    });
+    expect((await row(actionId)).txHashes).toEqual([first.body.txHash]);
+
+    expect((await allocate(user.id, actionId, near)).status).toBe(200);
+    expect(applied()).toBe(1);
+  });
+
+  it('refuses a replayed action id with different args', async () => {
+    const { near } = chain();
+    const { user } = await newPlayer(db, near);
+    const actionId = randomUUID();
+    expect((await allocate(user.id, actionId, near)).status).toBe(200);
+    const changed = await runPlayerAction(
+      {
+        userId: user.id,
+        actionId,
+        method: 'allocate_stats',
+        args: { drone: 'd:2', stats: [2, 1, 1, 1, 1, 1, 1, 1, 1] },
+      },
+      { db, near }
+    );
+    expect(changed.status).toBe(409);
   });
 });

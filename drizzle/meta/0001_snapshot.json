@@ -1,5 +1,5 @@
 {
-  "id": "ac8aaf53-cd06-485e-a5ab-e915cbfb8dbc",
+  "id": "ab1c9779-6fcc-418c-b3f5-e4b0c40fa5c3",
   "prevId": "94adfdd9-a83b-4e8a-a10c-82f802123e34",
   "version": "7",
   "dialect": "postgresql",
@@ -143,6 +143,12 @@
         "tx_hash": {
           "name": "tx_hash",
           "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tx_hashes": {
+          "name": "tx_hashes",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

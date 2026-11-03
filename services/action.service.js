@@ -6,13 +6,14 @@
  * 2. answers a replayed action id from its stored response (no second chain call);
  * 3. takes a per-user lease (`users.action_claimed_at`, conditional UPDATE, 30 s), so one player
  *    never has two chain calls in flight (they would carry the same seq and access-key nonce);
- * 4. records the action (`actions` row, id = the action id) before sending;
- * 5. sends it with the player's play key, or, for a row left pending with a transaction hash,
- *    resolves that transaction first;
+ * 4. records the action (`actions` row, id = the action id) and pins its seq before sending;
+ * 5. sends it with the player's play key under that seq. Every resend of the action carries the
+ *    same seq, so at most one of its transactions can ever apply; once the seq is used on chain,
+ *    the action is resolved from its own transaction hashes and never sent under another seq;
  * 6. stores the outcome: applied with its response, failed with the mapped panic, or pending with
- *    the hash and seq when the outcome is unknown (202; the replay resolves it).
+ *    the hashes when the outcome is unknown (202; the replay resolves it).
  */
-import { and, eq, isNull, lt, or } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
 import { mapChainError } from '@/lib/http/chain-errors.js';
 import { getNear } from '@/lib/near';
@@ -22,14 +23,12 @@ import {
   RpcUnknownOutcomeError,
   TransactionFailedError,
 } from '@/lib/near/errors.js';
+import { claimLease, releaseLease } from './action-lease.js';
 
 const { users, actions } = schema;
 
-/** How long one action holds the user's lease before another request may take it. */
-export const ACTION_LEASE_MS = 30_000;
-
-/** Panics that say "try again" rather than "this action is wrong"; the row stays retryable. */
-const ALWAYS_TRANSIENT = ['bad seq'];
+/** Answer for an action whose seq was used on chain by none of its known transactions. */
+const UNCONFIRMED = 'This action could not be confirmed. Check your items, then try again.';
 
 /**
  * @typedef {{ status: number, body: Record<string, unknown> }} ActionResponse
@@ -72,7 +71,7 @@ export async function runPlayerAction(action, deps = {}) {
 
   const earlier = await findAction(db, actionId);
   if (earlier) {
-    const conflict = mismatch(earlier, userId, method);
+    const conflict = mismatch(earlier, action);
     if (conflict) return conflict;
     if (earlier.status !== 'pending') return storedResponse(earlier);
   }
@@ -100,15 +99,12 @@ export async function runPlayerAction(action, deps = {}) {
       })
       .onConflictDoNothing();
     const row = await findAction(db, actionId);
-    const conflict = row ? mismatch(row, userId, method) : null;
+    const conflict = row ? mismatch(row, action) : null;
     if (!row || conflict) return conflict ?? reject(500, 'The action could not be recorded.');
     if (row.status !== 'pending') return storedResponse(row);
     return await settle(ctx, row);
   } finally {
-    await db
-      .update(users)
-      .set({ actionClaimedAt: null })
-      .where(and(eq(users.id, userId), eq(users.actionClaimedAt, lease)));
+    await releaseLease(db, userId, lease);
   }
 }
 
@@ -123,24 +119,79 @@ export async function runPlayerAction(action, deps = {}) {
  */
 
 /**
- * Resolve a pending row's earlier transaction if it has one, else send; store the outcome.
+ * Pin the action's seq on its first send; on a resend, check that seq on chain first. While the
+ * seq is unused, (re)send under it; once it is used, finish from whichever of the action's own
+ * transactions applied, or answer that the action could not be confirmed.
  * @param {Ctx} ctx
  * @param {ActionRow} row
  * @returns {Promise<ActionResponse>}
  */
 async function settle(ctx, row) {
   const { near, action, accountId } = ctx;
+  const hashes = /** @type {string[]} */ (row.txHashes ?? []);
+  let seq = row.seq;
   try {
-    if (row.txHash && row.seq !== null) {
-      const outcome = await near.resolveOutcome(accountId, row.seq, row.txHash);
-      if (outcome.applied) return await applied(ctx, outcome);
-      await update(ctx, { txHash: null, seq: null });
+    const next = await near.nextSeq(accountId);
+    if (seq === null) {
+      seq = next;
+      await update(ctx, { seq });
+    } else if (next > seq) {
+      const found = await appliedAttempt(ctx, seq, hashes);
+      if (found) return await applied(ctx, found);
+      await finish(ctx, 409, UNCONFIRMED, row.txHash);
+      return reject(409, UNCONFIRMED);
+    } else if (next < seq) {
+      return pendingAnswer(ctx, row.txHash);
     }
-    const sent = await near.callAsPlayer(accountId, ctx.playKeyEnc, action.method, action.args);
+  } catch (err) {
+    console.error({
+      scope: 'action',
+      msg: 'seq check failed',
+      actionId: action.actionId,
+      err: String(err),
+    });
+    return hashes.length > 0
+      ? pendingAnswer(ctx, row.txHash)
+      : reject(503, 'The chain is not responding. Try again shortly.');
+  }
+  try {
+    const sent = await near.callAsPlayer(accountId, ctx.playKeyEnc, action.method, action.args, {
+      seq,
+    });
     return await applied(ctx, sent);
   } catch (err) {
-    return failed(ctx, err);
+    return failed(ctx, err, seq, hashes);
   }
+}
+
+/**
+ * The applied outcome among the action's transactions, all sent under `seq`, or null. A
+ * transaction that executed and failed (a panic reverts it) did not apply.
+ * @param {Ctx} ctx
+ * @param {number} seq
+ * @param {string[]} hashes
+ */
+async function appliedAttempt(ctx, seq, hashes) {
+  for (const hash of hashes) {
+    try {
+      const outcome = await ctx.near.resolveOutcome(ctx.accountId, seq, hash);
+      if (outcome.applied) return outcome;
+    } catch (err) {
+      if (!(err instanceof ContractPanicError) && !(err instanceof TransactionFailedError))
+        throw err;
+    }
+  }
+  return null;
+}
+
+/**
+ * 202 for an action whose outcome is not known yet; the same request again resolves it.
+ * @param {Ctx} ctx
+ * @param {string | null} txHash
+ * @returns {ActionResponse}
+ */
+function pendingAnswer(ctx, txHash) {
+  return { status: 202, body: { pending: true, actionId: ctx.action.actionId, txHash } };
 }
 
 /**
@@ -183,26 +234,33 @@ async function applied(ctx, res) {
 }
 
 /**
- * Store (or keep retryable) a failure and answer with its status.
+ * Store a failure, or keep the row pending (seq and hashes kept) when the action may still apply
+ * or may be sent again under its seq.
  * @param {Ctx} ctx
  * @param {unknown} err
+ * @param {number} seq the action's pinned seq
+ * @param {string[]} hashes the action's earlier transactions
  * @returns {Promise<ActionResponse>}
  */
-async function failed(ctx, err) {
+async function failed(ctx, err, seq, hashes) {
   const { action } = ctx;
   if (err instanceof RpcUnknownOutcomeError) {
-    await update(ctx, { txHash: err.txHash, seq: err.seq ?? null });
-    return {
-      status: 202,
-      body: { pending: true, actionId: action.actionId, txHash: err.txHash },
-    };
+    await update(ctx, { txHash: err.txHash, txHashes: [...hashes, err.txHash] });
+    return pendingAnswer(ctx, err.txHash);
   }
   if (err instanceof ContractPanicError) {
     const mapped = mapChainError(err.panic);
-    if ([...ALWAYS_TRANSIENT, ...(action.transient ?? [])].includes(err.panic)) {
-      await update(ctx, { txHash: null, seq: null });
+    if (err.panic === 'bad seq') {
+      // The seq was used meanwhile: by an earlier transaction of this action, or by another.
+      try {
+        const found = await appliedAttempt(ctx, seq, hashes);
+        if (found) return await applied(ctx, found);
+      } catch {
+        return pendingAnswer(ctx, hashes.at(-1) ?? null);
+      }
       return reject(mapped.status, mapped.error);
     }
+    if ((action.transient ?? []).includes(err.panic)) return reject(mapped.status, mapped.error);
     await finish(ctx, mapped.status, mapped.error, err.txHash ?? null);
     return reject(mapped.status, mapped.error);
   }
@@ -211,8 +269,8 @@ async function failed(ctx, err) {
     await finish(ctx, 502, error, err.txHash);
     return reject(502, error);
   }
-  // Not sent, or rejected before execution: the row stays pending without a hash, so a replay
-  // of the same action id sends it again.
+  // Not sent, or rejected before execution: the row stays pending under its seq, so the same
+  // request sends it again and can still apply it only once.
   console.error({
     scope: 'action',
     msg: 'action not sent',
@@ -220,7 +278,6 @@ async function failed(ctx, err) {
     method: action.method,
     err: String(err),
   });
-  await update(ctx, { txHash: null, seq: null });
   if (err instanceof KeyAllowanceError) {
     return reject(503, 'Your account cannot send actions right now. Try again later.');
   }
@@ -257,15 +314,31 @@ async function findAction(db, actionId) {
 }
 
 /**
- * A replayed action id must belong to the same user and method.
+ * A replayed action id must come from the same user with the same method and args.
  * @param {ActionRow} row
- * @param {string} userId
- * @param {string} method
+ * @param {PlayerAction} action
  * @returns {ActionResponse | null}
  */
-function mismatch(row, userId, method) {
-  if (row.userId === userId && row.method === method) return null;
-  return reject(409, 'This action id was already used for a different action.');
+function mismatch(row, action) {
+  const same =
+    row.userId === action.userId &&
+    row.method === action.method &&
+    canonical(row.args) === canonical(action.recordArgs ?? action.args);
+  return same ? null : reject(409, 'This action id was already used for a different action.');
+}
+
+/**
+ * JSON with sorted object keys (jsonb does not keep key order).
+ * @param {unknown} value
+ * @returns {string}
+ */
+function canonical(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
+  }
+  return JSON.stringify(value ?? null);
 }
 
 /**
@@ -281,28 +354,4 @@ function storedResponse(row) {
     };
   }
   return reject(row.httpStatus ?? 422, row.error ?? 'The game rejected this action.');
-}
-
-/**
- * Take the user's action lease when no live claim exists.
- * @param {any} db
- * @param {string} userId
- * @returns {Promise<Date | null>} the lease token, or null when another action holds it
- */
-async function claimLease(db, userId) {
-  const now = new Date();
-  const [row] = await db
-    .update(users)
-    .set({ actionClaimedAt: now })
-    .where(
-      and(
-        eq(users.id, userId),
-        or(
-          isNull(users.actionClaimedAt),
-          lt(users.actionClaimedAt, new Date(now.getTime() - ACTION_LEASE_MS))
-        )
-      )
-    )
-    .returning({ id: users.id });
-  return row ? now : null;
 }
