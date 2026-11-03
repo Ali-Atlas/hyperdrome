@@ -36,26 +36,20 @@ Scope rule (the ratchet): these standards apply in full to every file created or
 
 ## 3. Testing
 
-CI runs all of the following on every PR. A red check blocks merge.
+Tests go where a bug costs money, is invisible, or cannot be fixed after the fact. CI runs all of them on every PR; a red check blocks merge.
 
-### Contract (near-sandbox)
+### Required
 
-- Every public method: the success path and every failure path, named after the rule (unauthorized caller, wrong owner, over spend cap, bound item moved alone, batch settled twice, duplicate action id, insufficient Volts, listing not active).
-- Gas: each batch-settlement test asserts `gas_burnt` is under the budget set in SPEC.md.
-- Events: each state change asserts the exact event emitted.
-- Upgrade: a test deploys V1, writes state, deploys V2 and runs `migrate()`.
+- Contract (near-sandbox): every public method's success path; every failure path that guards money, ownership, settlement or idempotency (unauthorized caller, wrong owner, over cap, cap exceeded, insufficient Volts, bound item moved alone, listed, locked, bad seq, settled twice, state drift). Exact event asserted for mints, burns, transfers and settlement. Settlement gas asserted under the SPEC 13 budget. Upgrade test: deploy V1, write state, deploy V2, migrate.
+- Engine: determinism (1,000 identical runs); golden replays in `tests/golden/`, updated in the same PR with the reason; the property bounds that exist.
+- Adapter (`lib/near`): key encryption round trip and tamper cases; seq and unknown-outcome resolution; event and error parsing from fixtures. One integration run on testnet per adapter change, recorded in HANDOFF.md.
+- Scheduler: cannot double-fire a tick; cannot settle a batch twice; a failed phase leaves the batch retryable.
+- Zod schemas for every mutation body, unit-tested.
+- One end-to-end smoke script on testnet (create account, allocate, equip, enter a batch, settle, verify on-chain state and the explorer link), run before every deploy and recorded in HANDOFF.md.
 
-### Engine
+### Not required
 
-- Determinism: the same seed, drones, track and conditions produce byte-identical results across 1,000 runs.
-- Golden replays: a fixed set of recorded races checked into `tests/golden/`; any engine change that alters a result updates the golden file in the same PR with the reason in the description.
-- Property tests: scores stay within bounds, segment times stay within `[0.8, 8.0]`, payouts are never negative, mod effects stay within clamp.
-
-### App
-
-- Service tests against a test database (schema pushed fresh per run).
-- Route tests for every mutation: auth required, ownership enforced, Zod rejection, idempotent replay returns the first result.
-- One end-to-end smoke script against testnet: create account, allocate, equip, enter a batch, settle, verify on-chain state and the explorer link. Run before every deploy and recorded in HANDOFF.md.
+Route tests per mutation, service tests against a test database, exact events for cosmetic state changes, failure paths for cosmetic rules, tests of lint rules or mocks, simulated outages. Add one only when a reviewer asks, with the reason in the PR.
 
 ### Definition of done for a PR
 
