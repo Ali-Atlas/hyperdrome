@@ -2,6 +2,12 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-02 docs/testing-standard: risk-based testing standard (PR #19, merged 303dea8)
+
+- Changed: `ENGINEERING.md` section 3 replaced (from "## 3. Testing" up to "### Definition of done for a PR", which is unchanged) with the Required and Not required lists; `DECISIONS.md` 1.11 (testing is risk-based); `SPEC.md` 13 App clause now points to ENGINEERING.md 3 (adapter, scheduler, Zod schemas; no route or service suites). ENGINEERING.md 6 Tests row unchanged.
+- Verified: `npm run lint`, `typecheck`, `format:check` exit 0; `npm test` 8 files, 42 tests passed; `npm run build` exit 0 with the CI placeholder `DATABASE_URL`. No contract code touched, so no cargo checks. CI on PR #19: app, contract and security all passed.
+- Open: nothing.
+
 ## 2026-11-03 T4 Engine: seeded PRNG, mods, client-safe log, economy fixes
 
 - Changed (new): `lib/game-engine/prng.js` (xoshiro128\*\*, `fromSeed`), `sha256.js` (pure JS, for browser replay), `templates.js` (26 mod templates, mirror of `catalog.rs`), `mods.js` (`applyMod`, `raceDrone`, specials), `stats-hash.js`; `scripts/generate-golden.mjs`; `tests/golden/races.json` (20 races), `tests/golden/stats-hash.json` (5 vectors); `tests/engine/{prng,stats-hash,templates,race-simulator,properties,economy}.test.js`; `tests/validators.test.js`.
