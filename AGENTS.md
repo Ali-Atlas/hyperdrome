@@ -29,7 +29,7 @@ Do not explore the codebase to find configuration or parameters. If SPEC.md does
 
 - Commit secrets, keys, `.env*` files or database URLs. Keys live in environment variables.
 - Push to `main`, force-push, or rewrite history.
-- Deploy to mainnet, spend tokens, or sign anything with a full-access key from application code.
+- Deploy to mainnet, spend tokens, or sign anything with a full-access key from application code (one exception: `lib/near` `rotatePlayKey`, which opens a player's admin key for a single DeleteKey + AddKey transaction; DECISIONS.md 2.22).
 - Edit art assets under `public/`, or baseline game constants, without a SPEC.md change that says so.
 - Add a dependency without a line in the PR description saying why.
 - Mark a task done with failing checks, skipped tests, or `TODO` without an issue reference.

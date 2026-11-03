@@ -74,7 +74,7 @@ Assets: player items and Volts, the treasury, the settlement authority, player k
 
 ### Keys and custody
 
-- Least privilege everywhere. Player keys: function-call only, scoped to the game contract and the listed methods, zero deposit. Settlement key: `commit_batch` and `settle_batch` only. AI-team keys: scoped like player keys, with on-chain spend caps. Full-access keys: deploys and account administration only, never loaded by application code.
+- Least privilege everywhere. Player keys: function-call only, scoped to the game contract and the listed methods, zero deposit. Settlement key: `commit_batch` and `settle_batch` only. AI-team keys: scoped like player keys, with on-chain spend caps. Full-access keys: deploys and account administration only, never loaded by application code, with one named exception: `lib/near` `rotatePlayKey` opens a player's admin key for a single DeleteKey + AddKey transaction that replaces that player's play key (DECISIONS.md 2.22).
 - Player secret keys are encrypted at rest with AES-256-GCM under `KEY_ENCRYPTION_KEY`; admin keys under a separate `ADMIN_KEY_ENCRYPTION_KEY`. Both are Vercel encrypted env vars. Rotation runbook in `docs/runbooks/key-rotation.md`: one transaction deletes the old key and adds the new one; rotation is tested in CI against the sandbox.
 - Every environment (local, preview, production) has its own NEAR accounts, database, Pusher app and secrets. Nothing is shared with the MegaETH deployment or the live hyperdrome.vercel.app database.
 
