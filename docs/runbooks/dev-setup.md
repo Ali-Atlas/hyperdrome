@@ -60,14 +60,14 @@ gitleaks version
 
 Each gate runs locally and in CI (`.github/workflows/ci.yml`). Scope follows the ratchet in ENGINEERING.md section 6: `scripts/changed-files.mjs` lists the files created or changed since the `pre-hackathon` tag, plus everything under `tests/`, `lib/near/` and `contracts/hyperdrome/`. Both lint and format:check need the tag, so CI checks out full history.
 
-| Command                                                                         | What it checks                                                                                                                                                                                                                                                       |
-| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run lint`                                                                  | ESLint (`eslint-config-next`, `eslint:recommended`, `eslint-config-prettier`) on the whole repo, every rule as an error, 0 warnings allowed. Untouched baseline files have the rules they broke at the tag switched off; touching a file brings it under every rule. |
-| `npm run format:check`                                                          | Prettier on the ratchet scope. `npm run format` writes the fixes. Baseline files outside the scope are left alone.                                                                                                                                                   |
-| `npm run typecheck`                                                             | `tsc -p tsconfig.typecheck.json --noEmit`: strict JSDoc type checking of `types/`, `tests/` and `lib/near/`, plus the files they import.                                                                                                                             |
-| `npm test`                                                                      | Vitest on `tests/**/*.test.js`. The baseline `npm run test:economy` stays separate until T4.                                                                                                                                                                         |
-| `npm run build`                                                                 | `next build`. Needs `DATABASE_URL` at build time; a placeholder works.                                                                                                                                                                                               |
-| `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, `cargo audit` | Contract gates, in `contracts/hyperdrome/`. CI skips them until `contracts/hyperdrome/Cargo.toml` exists.                                                                                                                                                            |
+| Command                                                                                                                                                      | What it checks                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint`                                                                                                                                               | ESLint (`eslint-config-next`, `eslint:recommended`, `eslint-config-prettier`) on the whole repo, every rule as an error, 0 warnings allowed. Untouched baseline files have the rules they broke at the tag switched off; touching a file brings it under every rule. |
+| `npm run format:check`                                                                                                                                       | Prettier on the ratchet scope. `npm run format` writes the fixes. Baseline files outside the scope are left alone.                                                                                                                                                   |
+| `npm run typecheck`                                                                                                                                          | `tsc -p tsconfig.typecheck.json --noEmit`: strict JSDoc type checking of `types/`, `tests/` and `lib/near/`, plus the files they import.                                                                                                                             |
+| `npm test`                                                                                                                                                   | Vitest on `tests/**/*.test.js`. The baseline `npm run test:economy` stays separate until T4.                                                                                                                                                                         |
+| `npm run build`                                                                                                                                              | `next build`. Needs `DATABASE_URL` at build time; a placeholder works.                                                                                                                                                                                               |
+| `cargo fmt --check`, `cargo clippy --target wasm32-unknown-unknown -- -D warnings`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo audit` | Contract gates, in `contracts/hyperdrome/` (see Contract below). Plain `cargo clippy` cannot compile: near-sdk 5.27+ refuses a host build that is not a test build.                                                                                                  |     |
 
 CI also runs gitleaks over the full history and `npm audit --audit-level=high`. The audit step reports without failing until T8 removes the MegaETH dependencies.
 
@@ -109,12 +109,13 @@ Never commit a `.env*` file; `.env.example` is the template. Copy it to `.env.lo
 
 ## NEAR testnet
 
-Accounts and keys created in T2 (DECISIONS.md 3.6). Testnet only. Explorer links:
+Accounts and keys created in T2 and T3 (DECISIONS.md 3.6). Testnet only. Explorer links:
 
-| Account                   | Role                        | Explorer                                                      |
-| ------------------------- | --------------------------- | ------------------------------------------------------------- |
-| `hyperdrome.testnet`      | Parent account and treasury | https://testnet.nearblocks.io/address/hyperdrome.testnet      |
-| `game.hyperdrome.testnet` | Game contract account       | https://testnet.nearblocks.io/address/game.hyperdrome.testnet |
+| Account                           | Role                        | Explorer                                                              |
+| --------------------------------- | --------------------------- | --------------------------------------------------------------------- |
+| `hyperdrome.testnet`              | Parent account and treasury | https://testnet.nearblocks.io/address/hyperdrome.testnet              |
+| `game.hyperdrome.testnet`         | Game contract account       | https://testnet.nearblocks.io/address/game.hyperdrome.testnet         |
+| `p-smoke.game.hyperdrome.testnet` | T3 smoke player             | https://testnet.nearblocks.io/address/p-smoke.game.hyperdrome.testnet |
 
 Transactions: `https://testnet.nearblocks.io/txns/<hash>`.
 
@@ -122,11 +123,13 @@ Transactions: `https://testnet.nearblocks.io/txns/<hash>`.
 
 Keys live only in `~/.near-credentials/testnet/` on the operator's machine (near-cli-rs legacy keychain), mode 600, never in the repo.
 
-| File                                                                                 | Key                                                          | Permission                                                                                   |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `hyperdrome.testnet.json` (and `hyperdrome.testnet/ed25519_<pubkey>.json`)           | Parent account key                                           | Full access                                                                                  |
-| `game.hyperdrome.testnet.json` (and `game.hyperdrome.testnet/ed25519_<pubkey>.json`) | Contract account key, for deploys and account administration | Full access                                                                                  |
-| `hyperdrome.testnet-settlement.json`                                                 | Settlement signer on `game.hyperdrome.testnet`               | Function call: `commit_batch`, `settle_batch` on `game.hyperdrome.testnet`, allowance 5 NEAR |
+| File                                                                                 | Key                                                            | Permission                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hyperdrome.testnet.json` (and `hyperdrome.testnet/ed25519_<pubkey>.json`)           | Parent account key                                             | Full access                                                                                                                                                                                 |
+| `game.hyperdrome.testnet.json` (and `game.hyperdrome.testnet/ed25519_<pubkey>.json`) | Contract account key, for deploys and account administration   | Full access                                                                                                                                                                                 |
+| `hyperdrome.testnet-settlement.json`                                                 | Settlement signer on `game.hyperdrome.testnet`                 | Function call: `commit_batch`, `settle_batch` on `game.hyperdrome.testnet`, allowance 5 NEAR                                                                                                |
+| `hyperdrome.testnet-ops.json`                                                        | Ops key on `hyperdrome.testnet` (the owner), for owner methods | Function call: `create_player`, `register_player`, `mint_drone`, `mint_item`, `mint_volts`, `set_team_budget`, `set_paused`, `set_base_uri` on `game.hyperdrome.testnet`, allowance 10 NEAR |
+| `p-smoke.game.hyperdrome.testnet-admin.json`, `-play.json`                           | Smoke player's admin and play keys                             | Full access; function call on the play methods, allowance 1 NEAR                                                                                                                            |
 
 Full-access keys are never loaded by application code (ENGINEERING.md section 4).
 
@@ -152,7 +155,7 @@ near account list-keys game.hyperdrome.testnet network-config testnet now
   near tokens hyperdrome.testnet send-near game.hyperdrome.testnet '10 NEAR' network-config testnet sign-with-legacy-keychain send
   ```
 
-- Settlement key allowance: an allowance cannot be raised in place. Add a new function-call key with the same contract and methods, then delete the old one (key rotation runbook, `docs/runbooks/key-rotation.md`, once written).
+- Settlement and ops key allowances: an allowance cannot be raised in place. Add a new function-call key with the same contract and methods, then delete the old one (key rotation runbook, `docs/runbooks/key-rotation.md`, once written).
 
 ### Export a key for the app's env
 
@@ -162,10 +165,66 @@ near account list-keys game.hyperdrome.testnet network-config testnet now
 near account export-account game.hyperdrome.testnet using-private-key network-config testnet
 ```
 
-The app signs settlement with the function-call key, which is not in the keychain's account file. Read it from its own file:
+The app signs with the function-call keys, which are not in the keychain's account files. Read each from its own file:
 
 ```sh
-node -p "require(process.env.HOME + '/.near-credentials/testnet/hyperdrome.testnet-settlement.json').private_key"
+node -p "require(process.env.HOME + '/.near-credentials/testnet/hyperdrome.testnet-settlement.json').private_key"  # NEAR_SETTLEMENT_KEY
+node -p "require(process.env.HOME + '/.near-credentials/testnet/hyperdrome.testnet-ops.json').private_key"         # NEAR_OPS_KEY
 ```
 
-Paste the value into the app's env (a Vercel encrypted env var; the variable name is defined in SPEC.md) and never into a committed file. Clear the terminal afterwards.
+Paste each value into the app's env (Vercel encrypted env vars `NEAR_SETTLEMENT_KEY` and `NEAR_OPS_KEY`, SPEC.md 15) and never into a committed file. Clear the terminal afterwards.
+
+## Contract
+
+The crate is `contracts/hyperdrome` (SPEC.md 4). Run these from that directory with `~/.cargo/bin` on `PATH` (`. "$HOME/.cargo/env"`).
+
+### Build and test
+
+```sh
+cargo near build non-reproducible-wasm                   # target/near/hyperdrome.wasm and the ABI
+cargo test                                               # unit tests and near-sandbox tests
+cargo clippy --target wasm32-unknown-unknown -- -D warnings
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+cargo audit                                              # .cargo/audit.toml lists the one ignored advisory and why
+```
+
+The sandbox tests build the wasm with cargo-near-build and download a neard sandbox binary on first run. They print the gas burnt by `create_player`, `mint_drone` and `bind` and assert the SPEC.md 13 budgets.
+
+### Deploy
+
+First deploy (runs `new`), signed by the contract account's full-access key:
+
+```sh
+cargo near deploy build-non-reproducible-wasm game.hyperdrome.testnet \
+  with-init-call new json-args '{"owner_id":"hyperdrome.testnet","treasury_id":"hyperdrome.testnet"}' \
+  prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-legacy-keychain send
+```
+
+Upgrade (keeps state; `migrate` is `#[private]`, so it runs in the deploy transaction):
+
+```sh
+cargo near deploy build-non-reproducible-wasm game.hyperdrome.testnet \
+  with-init-call migrate json-args '{}' \
+  prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-legacy-keychain send
+```
+
+### Owner calls with the ops key
+
+Owner methods take no deposit, so the ops function-call key signs them:
+
+```sh
+near contract call-function as-transaction game.hyperdrome.testnet mint_volts \
+  json-args '{"to":"p-smoke.game.hyperdrome.testnet","amount":"1000"}' \
+  prepaid-gas '30.0 Tgas' attached-deposit '0 NEAR' sign-as hyperdrome.testnet network-config testnet \
+  sign-with-access-key-file ~/.near-credentials/testnet/hyperdrome.testnet-ops.json send
+```
+
+Views need no key:
+
+```sh
+near contract call-function as-read-only game.hyperdrome.testnet nft_tokens_for_owner \
+  json-args '{"account_id":"p-smoke.game.hyperdrome.testnet"}' network-config testnet now
+```
+
+New keypairs (ops, settlement, a player's admin and play keys) are generated locally and written straight to `~/.near-credentials/testnet/<name>.json` with mode 600, one file per role, so each is easy to find, export and rotate. Only the public key is printed; it is registered with `add-key ... use-manually-provided-public-key` or passed to `create_player`. (near-cli-rs's own `save-to-legacy-keychain` never overwrites an existing `<account>.json`; it adds the key under `<account>/`, next to the full-access keys.)
