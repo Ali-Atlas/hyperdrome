@@ -232,16 +232,20 @@ Panic messages are short lowercase strings and are the contract's API for failur
 
 ## 6. Server and chain adapter (`lib/near`)
 
-near-api-js 7.4.0, Node 22+. Nothing outside `lib/near` imports it. Interface (JSDoc):
+near-api-js 7.4.0, Node 22+. Nothing outside `lib/near` imports it (ESLint `hyperdrome/near-boundary`). Files: `config.js` (env, Zod), `provider.js`, `keys.js`, `events.js`, `errors.js`, `explorer.js`, `adapter.js` (real), `mock.js` (in-memory, same interface), `index.js` (`getNear()` returns the process singleton; `NEAR_ADAPTER=mock` selects the mock). Interface (JSDoc types in `index.js`); every call returns `{ txHash, result, events }`, `events` being the parsed `EVENT_JSON` logs in receipt order:
 
-- `createPlayerAccount({ slug, isTeam }) -> { accountId, adminKey, playKey, txHash }` (calls `create_player` with the ops key; keys generated locally, encrypted, returned for storage).
-- `callAsPlayer(accountId, method, args, { gas = 30 TGas }) -> { txHash, result, events }`; loads the player's play key, signs, sends with `waitUntil: 'EXECUTED'`, parses `EVENT_JSON` logs.
-- `callAsOps(method, args)`, `callAsSettlement(method, args, { gas })`.
-- `view(method, args)`; `getConstants()` cached per process.
-- `nextSeq(accountId)`: reads `get_player(...).seq` on-chain; the server passes `seq + 1`. On timeout or unknown outcome, re-read seq to learn whether the action applied.
-- `explorerTx(hash)`, `explorerAccount(id)`.
-- RPC: `FailoverRpcProvider([FastNear with API key, Lava])`, 10 s timeout.
-  Keys: `playKeyEnc` and `adminKeyEnc` are AES-256-GCM (12-byte IV, 16-byte tag) under `KEY_ENCRYPTION_KEY` and `ADMIN_KEY_ENCRYPTION_KEY`; `key_version` on the row.
+- `createPlayerAccount({ slug, isTeam }) -> { accountId, playKeyEnc, adminKeyEnc, keyVersion: 1, txHash }`: generates both ed25519 keypairs locally, calls `create_player` with the ops key (60 TGas), returns the keys sealed for storage. `AccountCreateError` if the callback returns false. On `RpcUnknownOutcomeError` the sealed keys are on `err.pending`, so the caller can store them before resolving.
+- `callAsPlayer(accountId, playKeyEnc, method, args, { gas = 30 TGas })`: opens the play key, reads `get_player(account).seq` and sends `seq + 1` in the args (the caller never supplies seq).
+- `callAsOps(method, args, { gas = 30 TGas })` (signed by `NEAR_OWNER_ID` with `NEAR_OPS_KEY`); `callAsSettlement(method, args, { gas = 200 TGas })` (signed by `NEAR_GAME_ID` with `NEAR_SETTLEMENT_KEY`).
+- `view(method, args)` (optimistic finality; if every provider fails, one more failover round; contract panics are not retried); `getConstants()` cached per process.
+- `nextSeq(accountId)`: the seq the next player call carries (`get_player(...).seq + 1`); panics `not player` when unregistered.
+- `resolveOutcome(accountId, seq, txHash)`: after `RpcUnknownOutcomeError`, if the on-chain seq reached `seq`, fetches the transaction by hash and returns `{ applied: true, txHash, result, events }`; otherwise (or if that transaction failed with `bad seq`) `{ applied: false }`, so the caller may retry.
+- `rotatePlayKey(accountId, adminKeyEnc, { keyVersion }) -> { playKeyEnc, keyVersion: keyVersion + 1, txHash }`: the only code path that opens an admin key; one transaction signed with it: DeleteKey for every function-call key scoped to the game contract, AddKey for a new play key (methods per 4.1, 1 NEAR allowance).
+- `explorerTx(hash)` = `<explorer>/txns/<hash>`, `explorerAccount(id)` = `<explorer>/address/<id>`.
+- `sealSecret(bytes, keyHex, aad)`, `openSecret(blob, keyHex, aad)`: AES-256-GCM, 12-byte IV, 16-byte tag, key = 64 hex chars; blob = base64(version byte 1 ++ IV ++ tag ++ ciphertext); AAD = the row it belongs to (the account id for keys). Play keys under `KEY_ENCRYPTION_KEY`, admin keys under `ADMIN_KEY_ENCRYPTION_KEY`; `key_version` on the row. Also used for batch seeds.
+- Sending: transactions are built and signed in the adapter (hash known before sending), sent with `waitUntil: 'EXECUTED'` (the transaction's block is final and every non-refund receipt has executed), deposit always 0. After a send timeout the adapter looks the transaction up by hash (3 attempts) before raising `RpcUnknownOutcomeError`.
+- Errors (`errors.js`): `ContractPanicError` (`panic` = the 4.8 string, `method`, `txHash`), `KeyAllowanceError` (NotEnoughAllowance), `NonceError` (InvalidNonce; ops and settlement reset their nonce cache), `RpcUnknownOutcomeError` (`txHash`, `accountId`, `seq`), `AccountCreateError`, `TransactionFailedError` (a non-panic failure). Other errors propagate unchanged. Logging is `console.error({ scope: 'near', msg, ...fields })` only.
+- RPC: near-api-js `FailoverRpcProvider` over `NEAR_RPC_URL` then `NEAR_RPC_FAILOVER_URL` (defaults in 15), each call raced against a 10 s timeout (near-api-js has none), 2 retries inside a provider. `NEAR_RPC_API_KEY`, when set, is sent as `Authorization: Bearer` to whichever URL is FastNear.
   Scheduler (`/api/races/run`, Vercel cron `*/3 * * * *`, CRON_SECRET): claim `cron_ticks(slot)`; phase 0 teams; phase 1 settle; phase 2 commit; each chain call idempotent by `batch_id`; on failure the batch stays in its state and the next tick retries.
   Matchmaking input: DB `drones.active` plus on-chain `in_batch == null`.
   Seed: 32 random bytes from `crypto.randomBytes`, stored AES-encrypted in `batches.seed_enc` until settled, then stored plain for replay.
@@ -280,8 +284,8 @@ Assets: items, Volts, treasury, settlement authority, player keys, upgrade autho
 
 ## 15. Versions and environment
 
-Rust 1.93.0; near-sdk and near-contract-standards 5.29.1; cargo-near 0.22.0; near-cli-rs 0.30.1; near-sandbox 0.4.0; near-api 0.8.6; near-api-js 7.4.0; Node 24 (>= 22.22.2); Next.js 16.4.4; Pusher. RPC primary `https://rpc.testnet.fastnear.com` (key), failover `https://neart.lava.build`. Explorer `https://testnet.nearblocks.io`.
-Env: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_RESEND_KEY`, `CRON_SECRET`, `NEAR_NETWORK=testnet`, `NEAR_RPC_URL`, `NEAR_RPC_API_KEY`, `NEAR_RPC_FAILOVER_URL`, `NEAR_OWNER_ID`, `NEAR_GAME_ID`, `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`, `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY`, `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER`, `NEXT_PUBLIC_PUSHER_KEY`, `NEXT_PUBLIC_PUSHER_CLUSTER`, `NEXT_PUBLIC_EXPLORER_URL`, `ADMIN_EMAILS`.
+Rust 1.93.0; near-sdk and near-contract-standards 5.29.1; cargo-near 0.22.0; near-cli-rs 0.30.1; near-sandbox 0.4.0; near-api 0.8.6; near-api-js 7.4.0; Node 24 (>= 22.22.2); Next.js 16.4.4; Pusher. RPC primary `https://near-testnet.drpc.org` (dRPC public, keyless), failover `https://test.rpc.fastnear.com` (FastNear, keyless; `NEAR_RPC_API_KEY` optional); both are the defaults when the env vars are unset. Explorer `https://testnet.nearblocks.io`.
+Env: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_RESEND_KEY`, `CRON_SECRET`, `NEAR_NETWORK=testnet`, `NEAR_RPC_URL`, `NEAR_RPC_API_KEY`, `NEAR_RPC_FAILOVER_URL`, `NEAR_OWNER_ID`, `NEAR_GAME_ID`, `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`, `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY`, `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER`, `NEXT_PUBLIC_PUSHER_KEY`, `NEXT_PUBLIC_PUSHER_CLUSTER`, `NEXT_PUBLIC_EXPLORER_URL`, `ADMIN_EMAILS`, `NEAR_ADAPTER` (`real` default, `mock` for tests), `NEAR_TESTNET_INTEGRATION` (`1` runs the testnet integration test).
 
 ## 16. Out of scope
 
