@@ -5,12 +5,14 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import { listGrandfatheredFiles } from './scripts/changed-files.mjs';
 
 /**
- * Rules the untouched baseline breaks at the `pre-hackathon` tag. They are switched off only
- * for grandfathered files (ENGINEERING.md section 6); a file a task touches leaves that list
- * and gets every rule as an error.
+ * Rules the untouched baseline breaks, including rules added by later linter upgrades. They are
+ * switched off only for grandfathered files (ENGINEERING.md section 6); a file a task touches
+ * leaves that list and gets every rule as an error.
  */
 const BASELINE_VIOLATIONS = [
   '@next/next/no-img-element',
+  // Added in eslint-config-next 16.4; the baseline dashboard page breaks it.
+  '@next/next/no-location-assign-relative-destination',
   'jsx-a11y/role-supports-aria-props',
   'no-empty',
   'no-irregular-whitespace',

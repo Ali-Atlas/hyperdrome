@@ -49,13 +49,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: 'false'
+          # Same version as the local pre-commit hook (docs/runbooks/dev-setup.md). The action's
+          # default (8.24.3) ignores the [[allowlists]] syntax in .gitleaks.toml.
+          GITLEAKS_VERSION: '8.30.1'
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
       - name: npm audit
         # until T8 removes the MegaETH dependencies
-        # next, next-auth, @auth/drizzle-adapter and zod also fail it; T8 alone does not clear it.
+        # The remaining high advisories are all in wagmi, @rainbow-me/rainbowkit, ethers and viem (T2).
         continue-on-error: true
         run: npm audit --audit-level=high
 
