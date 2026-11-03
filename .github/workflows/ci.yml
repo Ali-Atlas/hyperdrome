@@ -72,7 +72,7 @@ jobs:
         working-directory: .
         run: echo "present=${{ hashFiles('contracts/hyperdrome/Cargo.toml') != '' }}" >> "$GITHUB_OUTPUT"
       - if: steps.detect.outputs.present == 'true'
-        uses: dtolnay/rust-toolchain@1.93.0
+        uses: dtolnay/rust-toolchain@1.120.0
         with:
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
