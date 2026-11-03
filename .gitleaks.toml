@@ -1,0 +1,13 @@
+title = "Hyperdrome gitleaks config"
+
+[extend]
+useDefault = true
+
+# Vendored NEAR agent skills (skills-lock.json) document API calls with a literal
+# `YOUR_API_KEY` placeholder. Allow only that placeholder, and only in those files.
+[[allowlists]]
+description = "YOUR_API_KEY placeholder in vendored agent skills"
+condition = "AND"
+paths = ['''^\.agents/skills/''']
+regexTarget = "match"
+regexes = ['''Bearer YOUR_API_KEY''']
