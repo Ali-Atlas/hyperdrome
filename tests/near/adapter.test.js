@@ -200,6 +200,34 @@ describe('real adapter over a fake RPC', () => {
     expect(res.events.map((e) => e.event)).toEqual(['item_bound']);
   });
 
+  it('resolves InvalidNonce from the failover by the hash when the first node already executed the send', async () => {
+    const event = {
+      standard: 'nep141',
+      version: '1.0.0',
+      event: 'ft_mint',
+      data: [{ owner_id: PLAYER, amount: '5' }],
+    };
+    const executed = () => ({
+      result: outcome({
+        hash: 'x',
+        status: { SuccessValue: '' },
+        receiptLogs: [[`EVENT_JSON:${JSON.stringify(event)}`]],
+      }),
+    });
+    const nonce = invalidTx({ InvalidNonce: { tx_nonce: 6, ak_nonce: 6 } });
+    const { near, primary, failover } = await adapterOver(
+      chain({ send: () => 'hang', tx: executed }),
+      chain({ send: () => nonce, tx: executed })
+    );
+    const res = await near.callAsOps('mint_volts', { to: PLAYER, amount: '5' });
+    expect(res.events.map((e) => e.event)).toEqual(['ft_mint']);
+    expect(res.txHash).toMatch(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/);
+    expect(failover.requests.filter((r) => r.method === 'send_tx')).toHaveLength(1);
+    const lookups = [...primary.requests, ...failover.requests].filter((r) => r.method === 'tx');
+    expect(lookups.length).toBeGreaterThan(0);
+    expect(lookups.every((r) => JSON.stringify(r.params).includes(res.txHash))).toBe(true);
+  });
+
   it('nextSeq panics `not player` for an unregistered account', async () => {
     const { near } = await adapterOver(chain({ seq: null }));
     await expect(near.nextSeq(PLAYER)).rejects.toMatchObject({ panic: 'not player' });
