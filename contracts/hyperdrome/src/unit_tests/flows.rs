@@ -15,13 +15,13 @@ use crate::types::ItemKind;
 
 const DAY_MS: u64 = 86_400_000;
 
-fn account(name: &str) -> AccountId {
+pub(super) fn account(name: &str) -> AccountId {
     name.parse()
         .unwrap_or_else(|e| panic!("bad test account {name}: {e}"))
 }
 
 /// Sets the caller, time and block height; the random seed varies with the height.
-fn as_caller(caller: &str, now_ms: u64, height: u64) {
+pub(super) fn as_caller(caller: &str, now_ms: u64, height: u64) {
     let seed = [u8::try_from(height % 256).unwrap_or(0); 32];
     testing_env!(
         VMContextBuilder::new()

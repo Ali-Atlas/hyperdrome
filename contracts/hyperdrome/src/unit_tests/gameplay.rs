@@ -1,11 +1,65 @@
+use near_sdk::serde_json::{self, Value};
+
 use crate::constants::names::{DRONE_NAME_WORDS, PLACEHOLDER_SKIN_NAMES};
 use crate::constants::tables::PACK_TIERS;
 use crate::constants::{COMMON, EPIC, LEGENDARY, RARE};
 use crate::hashing::{
-    HashStream, SlotDraw, pick_index, roll_rarity, slot_draw, vendor_roll, vendor_seed,
+    HashStream, SlotDraw, pick_index, roll_rarity, slot_draw, stats_hash_bytes, vendor_roll,
+    vendor_seed,
 };
 use crate::math::{is_locked_at, stat_sum};
 use crate::packs::vendor_name;
+use crate::unit_tests::flows::{account, as_caller};
+
+/// T4's golden vectors (repo-root `tests/golden/stats-hash.json`), shared with the engine.
+const GOLDEN_STATS_HASH: &str = include_str!("../../../../tests/golden/stats-hash.json");
+
+fn golden_vectors() -> Vec<Value> {
+    let file: Value = serde_json::from_str(GOLDEN_STATS_HASH)
+        .unwrap_or_else(|e| panic!("stats-hash.json does not parse: {e}"));
+    file["vectors"].as_array().cloned().unwrap_or_default()
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[test]
+fn stats_hash_matches_every_golden_vector() {
+    let vectors = golden_vectors();
+    assert_eq!(vectors.len(), 5, "T4 committed 5 vectors");
+    for v in &vectors {
+        let stats: [u8; 9] = serde_json::from_value(v["stats"].clone())
+            .unwrap_or_else(|e| panic!("{}: stats: {e}", v["note"]));
+        let template = |key: &str| {
+            u16::try_from(v[key].as_u64().unwrap_or(u64::MAX))
+                .unwrap_or_else(|e| panic!("{}: {key}: {e}", v["note"]))
+        };
+        assert_eq!(
+            hex(&stats_hash_bytes(&stats, template("mod"), template("skin"))),
+            v["hex"].as_str().unwrap_or_default(),
+            "{}",
+            v["note"]
+        );
+    }
+}
+
+#[test]
+fn stats_hash_view_matches_golden_vector_0() {
+    let v = &golden_vectors()[0];
+    as_caller("owner.testnet", 0, 1);
+    let mut c = crate::Contract::new(account("owner.testnet"), account("owner.testnet"));
+    let stats: [u8; 9] = serde_json::from_value(v["stats"].clone()).unwrap_or_default();
+    let drone = c.mint_drone(account("p-a.game.testnet"), "T".to_string(), 1, stats, true);
+    assert_eq!((v["mod"].as_u64(), v["skin"].as_u64()), (Some(0), Some(0)));
+    let view = c.stats_hash(drone).unwrap_or_else(|| panic!("no drone"));
+    assert_eq!(
+        hex(&view),
+        v["hex"].as_str().unwrap_or_default(),
+        "{}",
+        v["note"]
+    );
+}
 
 #[test]
 fn lock_boundary_is_120_seconds_after_commit() {
