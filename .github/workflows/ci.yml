@@ -37,6 +37,10 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # gitleaks-action lists the PR's commits through the API.
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
         with:
