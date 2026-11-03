@@ -231,11 +231,11 @@ fn skin_equip_tier_rule() {
         "legendary on any tier"
     );
     assert!(
-        skin_equippable(&skin(25, LEGENDARY, true), 3),
+        skin_equippable(&skin(0, LEGENDARY, true), 3),
         "legendary placeholder on any tier"
     );
     assert!(
-        !skin_equippable(&skin(4, COMMON, true), 1),
+        !skin_equippable(&skin(0, COMMON, true), 1),
         "common placeholder has no render"
     );
 }
