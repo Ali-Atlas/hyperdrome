@@ -1,6 +1,7 @@
 //! Sandbox tests for the T3 surface (SPEC.md 4 and 13): init, migrate, create_player, mints and
 //! events, standard views, the bound-item transfer rules and access control.
 
+#[allow(dead_code)] // each test binary uses a subset of the shared helpers
 mod common;
 
 use common::{Env, R, assert_fails, done, event, events, ok, tgas};
@@ -367,6 +368,16 @@ async fn mints_emit_events_and_enforce_rules() -> R<()> {
         catalog["skins"][24]["minted"], 3,
         "placeholders do not count against supply"
     );
+    let placeholder: Value = env.view("get_item", json!({ "token": "s:5" })).await?;
+    assert_eq!(
+        (
+            placeholder["template"].as_u64(),
+            placeholder["rarity"].as_u64(),
+            placeholder["placeholder_name"].as_str()
+        ),
+        (Some(0), Some(3), Some("Static Ghost")),
+        "a placeholder stores template 0 and the rarity of the template passed"
+    );
     let token: Value = env.view("nft_token", json!({ "token_id": "d:1" })).await?;
     assert_eq!(
         token["metadata"]["media"],
@@ -570,15 +581,6 @@ async fn bound_items_move_only_with_their_drone() -> R<()> {
     done(
         env.call(&env.owner, "set_paused", json!({ "paused": false }))
             .await,
-    );
-    assert_fails(
-        env.play(
-            &mut b,
-            "allocate_stats",
-            json!({ "drone": "d:1", "stats": ([2u8; 9]) }),
-        )
-        .await,
-        "not implemented",
     );
     Ok(())
 }
