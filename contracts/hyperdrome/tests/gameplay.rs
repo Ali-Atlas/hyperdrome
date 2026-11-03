@@ -1,16 +1,14 @@
 //! Sandbox tests for the T5 player methods (SPEC.md 4.4): the shared guard, stats, equip,
-//! marketplace escrow, packs, vendor drones, team caps, and one full flow. Gas budgets per
-//! SPEC.md 13. The `locked` path needs `commit_batch` and is covered in T6; the lock boundary is a
+//! marketplace escrow, packs, vendor drones, team caps, and one full flow. Gas is printed, not
+//! asserted (SPEC.md 13: only settlement gas is). The `locked` path needs `commit_batch` and is covered in T6; the lock boundary is a
 //! unit test here.
 
 #[allow(dead_code)] // each test binary uses a subset of the shared helpers
 mod common;
 
-use common::{Env, R, TestPlayer, assert_fails, done, event, events_named, ok, within_gas};
+use common::{Env, R, TestPlayer, assert_fails, done, event, events_named, ok, record_gas};
 use near_sdk::serde_json::{Value, json};
 
-const PLAYER_ACTION_BUDGET_TGAS: f64 = 15.0;
-const REVEAL_BUDGET_TGAS: f64 = 30.0;
 const SECRET: [u8; 32] = [7; 32];
 const ONES: [u8; 9] = [1; 9];
 
@@ -131,7 +129,7 @@ async fn allocate_stats_spends_volts_and_enforces_rules() -> R<()> {
             json!({ "drone": d, "stats": stats }),
         )
         .await)?;
-    within_gas(&out, "allocate_stats", PLAYER_ACTION_BUDGET_TGAS);
+    record_gas(&out, "allocate_stats");
     assert_eq!(
         event(&out, "hyperdrome", "stats_allocated")["data"],
         json!({ "drone": d, "stats": stats, "cost": 15 })
@@ -202,7 +200,7 @@ async fn equip_swaps_bound_items_and_stats_hash_follows() -> R<()> {
             json!({ "drone": d, "item": mod_rare, "kind": "mod" }),
         )
         .await)?;
-    within_gas(&out, "equip", PLAYER_ACTION_BUDGET_TGAS);
+    record_gas(&out, "equip");
     assert_eq!(
         event(&out, "hyperdrome", "equipped")["data"],
         json!({ "drone": d, "kind": "mod", "item": mod_rare })
@@ -259,7 +257,7 @@ async fn equip_swaps_bound_items_and_stats_hash_follows() -> R<()> {
     let out = ok(env
         .play(&mut a, "bind", json!({ "drone": d2, "item": ghost }))
         .await)?;
-    within_gas(&out, "bind", PLAYER_ACTION_BUDGET_TGAS);
+    record_gas(&out, "bind");
     assert_eq!(
         drone(&env, &d2).await?["hot"]["equipped_skin"],
         json!(ghost)
@@ -310,7 +308,7 @@ async fn marketplace_escrows_sells_and_cancels() -> R<()> {
     let out = ok(env
         .play(&mut seller, "list", json!({ "token": d, "price": "100" }))
         .await)?;
-    within_gas(&out, "list", PLAYER_ACTION_BUDGET_TGAS);
+    record_gas(&out, "list");
     assert_eq!(
         event(&out, "hyperdrome", "listed")["data"],
         json!({ "token": d, "seller": seller.id, "price": "100" })
@@ -369,7 +367,7 @@ async fn marketplace_escrows_sells_and_cancels() -> R<()> {
     );
 
     let out = ok(env.play(&mut buyer, "buy", json!({ "token": d })).await)?;
-    within_gas(&out, "buy", PLAYER_ACTION_BUDGET_TGAS);
+    record_gas(&out, "buy");
     assert_eq!(
         event(&out, "hyperdrome", "sold")["data"],
         json!({ "token": d, "seller": seller.id, "buyer": buyer.id, "price": "100", "fee": "10" })
@@ -416,7 +414,7 @@ async fn marketplace_escrows_sells_and_cancels() -> R<()> {
     let out = ok(env
         .play(&mut seller, "cancel", json!({ "token": loose }))
         .await)?;
-    within_gas(&out, "cancel", PLAYER_ACTION_BUDGET_TGAS);
+    record_gas(&out, "cancel");
     assert_eq!(
         event(&out, "hyperdrome", "cancelled")["data"],
         json!({ "token": loose })
@@ -461,7 +459,7 @@ async fn packs_commit_then_reveal_in_a_later_block() -> R<()> {
             json!({ "kind": "skin", "tier": 0, "hash": hash }),
         )
         .await)?;
-    within_gas(&out, "open_pack", PLAYER_ACTION_BUDGET_TGAS);
+    record_gas(&out, "open_pack");
     let pack_id: u64 = out.clone().json()?;
     assert_eq!(pack_id, 1);
     assert_eq!(
@@ -509,7 +507,7 @@ async fn packs_commit_then_reveal_in_a_later_block() -> R<()> {
             json!({ "pack_id": 1, "secret": SECRET }),
         )
         .await)?;
-    within_gas(&out, "reveal_pack", REVEAL_BUDGET_TGAS);
+    record_gas(&out, "reveal_pack");
     let opened = event(&out, "hyperdrome", "pack_opened")["data"].clone();
     assert_eq!(opened["pack_id"], 1);
     let tokens: Vec<String> = near_sdk::serde_json::from_value(opened["tokens"].clone())?;
@@ -545,7 +543,7 @@ async fn packs_commit_then_reveal_in_a_later_block() -> R<()> {
 
     // Premium mod capsule: slot 1 is rare; mods come from the rarity's templates.
     let (_, out) = open_and_reveal(&env, &mut p, "mod", 1).await?;
-    within_gas(&out, "reveal_pack (mods)", REVEAL_BUDGET_TGAS);
+    record_gas(&out, "reveal_pack (mods)");
     let tokens: Vec<String> = near_sdk::serde_json::from_value(
         event(&out, "hyperdrome", "pack_opened")["data"]["tokens"].clone(),
     )?;
@@ -588,7 +586,7 @@ async fn vendor_drone_rolls_stats_and_binds_a_common_kit() -> R<()> {
     let env = Env::start().await?;
     let mut p = env.funded_player("vendor", false, 4_000).await?;
     let out = ok(env.play(&mut p, "vendor_buy_drone", json!({})).await)?;
-    within_gas(&out, "vendor_buy_drone", PLAYER_ACTION_BUDGET_TGAS);
+    record_gas(&out, "vendor_buy_drone");
     let d: String = out.clone().json()?;
     assert_eq!(
         event(&out, "nep141", "ft_burn")["data"][0],

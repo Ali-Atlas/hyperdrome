@@ -371,12 +371,10 @@ pub fn tgas(out: &ExecutionFinalResult) -> f64 {
     out.total_gas_burnt.as_gas() as f64 / 1e12
 }
 
-/// Asserts `out` succeeded within `budget` TGas and prints the measured gas (collected for the PR).
-#[track_caller]
-pub fn within_gas(out: &ExecutionFinalResult, method: &str, budget: f64) {
-    let gas = tgas(out);
-    println!("GAS {method} {gas:.3} TGas");
-    assert!(gas <= budget, "{method} used {gas} TGas, budget {budget}");
+/// Prints the gas `out` burnt. SPEC.md 13 asserts only settlement gas; other methods are measured
+/// on testnet and recorded in HANDOFF.md, so this records without asserting.
+pub fn record_gas(out: &ExecutionFinalResult, method: &str) {
+    println!("GAS {method} {:.3} TGas", tgas(out));
 }
 
 /// The NEP-297 events of `standard` named `name`, in log order.
