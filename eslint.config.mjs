@@ -92,6 +92,28 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // All chain access goes through lib/near (AGENTS.md, ENGINEERING.md 2).
+    name: 'hyperdrome/near-boundary',
+    files: ['**/*.js', '**/*.jsx', '**/*.mjs', '**/*.cjs'],
+    ignores: ['lib/near/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'near-api-js', message: 'Import the chain adapter from @/lib/near instead.' },
+          ],
+          patterns: [
+            {
+              group: ['near-api-js/*'],
+              message: 'Import the chain adapter from @/lib/near instead.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   ...(grandfathered.length > 0
     ? [
         {
