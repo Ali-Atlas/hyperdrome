@@ -55,7 +55,7 @@ jobs:
           cache: npm
       - name: npm audit
         # until T8 removes the MegaETH dependencies
-        # next, next-auth, @auth/drizzle-adapter and zod also fail it; T8 alone does not clear it.
+        # The remaining high advisories are all in wagmi, @rainbow-me/rainbowkit, ethers and viem (T2).
         continue-on-error: true
         run: npm audit --audit-level=high
 
