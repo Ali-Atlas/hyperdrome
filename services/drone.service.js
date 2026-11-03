@@ -82,8 +82,8 @@ export async function getDroneById(droneId) {
       .where(
         and(
           eq(races.status, 'completed'),
-          or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)),
-        ),
+          or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId))
+        )
       )
       .orderBy(desc(races.createdAt))
       .limit(10),
@@ -128,9 +128,7 @@ export async function getDroneById(droneId) {
           username: row.owner.username,
           // Lower-cased so explorer / Blockscout-style URLs are
           // case-insensitive without an EIP-55 round-trip on the client.
-          walletAddress: row.owner.walletAddress
-            ? row.owner.walletAddress.toLowerCase()
-            : null,
+          walletAddress: row.owner.walletAddress ? row.owner.walletAddress.toLowerCase() : null,
         }
       : null,
     appliedSkin: row.skin,
@@ -195,11 +193,7 @@ const STAT_SNAKE_TO_CAMEL = {
  * @param {Record<string, number>} statChanges - snake_case keys from API
  */
 export async function allocateStats(droneId, userId, statChanges) {
-  const [drone] = await db
-    .select()
-    .from(drones)
-    .where(eq(drones.id, droneId))
-    .limit(1);
+  const [drone] = await db.select().from(drones).where(eq(drones.id, droneId)).limit(1);
 
   if (!drone) throw new ApiError('Drone not found', 404);
   if (drone.userId !== userId) {
@@ -233,10 +227,7 @@ export async function allocateStats(droneId, userId, statChanges) {
     .limit(1);
   if (result.totalCost > 0 && walletRow?.walletAddress) {
     try {
-      const burnResult = await burnVoltFromWallet(
-        walletRow.walletAddress,
-        result.totalCost,
-      );
+      const burnResult = await burnVoltFromWallet(walletRow.walletAddress, result.totalCost);
       upgradeTxHash = burnResult?.txHash ?? null;
     } catch (err) {
       console.error('[allocateStats] on-chain VOLT burn failed - upgrade rejected', {
@@ -248,7 +239,7 @@ export async function allocateStats(droneId, userId, statChanges) {
       throw new ApiError(
         'On-chain VOLT burn failed; upgrade rejected. Check your wallet balance and try again.',
         402,
-        { reason: err?.shortMessage ?? err?.message ?? 'unknown' },
+        { reason: err?.shortMessage ?? err?.message ?? 'unknown' }
       );
     }
   }
@@ -266,8 +257,7 @@ export async function allocateStats(droneId, userId, statChanges) {
   // Build the drone SET payload: only stat columns that changed, plus the
   // running total_points_invested counter for display/marketplace value.
   const dronePayload = {
-    totalPointsInvested:
-      (drone.totalPointsInvested ?? 0) + result.totalCost,
+    totalPointsInvested: (drone.totalPointsInvested ?? 0) + result.totalCost,
   };
   for (const [snake, value] of Object.entries(statChanges ?? {})) {
     const camel = STAT_SNAKE_TO_CAMEL[snake] ?? snake;
@@ -301,11 +291,7 @@ export async function allocateStats(droneId, userId, statChanges) {
  * @param {boolean} active
  */
 export async function toggleActive(droneId, userId, active) {
-  const [drone] = await db
-    .select()
-    .from(drones)
-    .where(eq(drones.id, droneId))
-    .limit(1);
+  const [drone] = await db.select().from(drones).where(eq(drones.id, droneId)).limit(1);
 
   if (!drone) throw new ApiError('Drone not found', 404);
   if (drone.userId !== userId) {
@@ -363,11 +349,7 @@ export function getDronePerformanceSummary(droneStats) {
  * @returns {Promise<{ leveledUp: boolean, newLevel: number, newTSB: number, bonusPointsAwarded: number }>}
  */
 export async function checkAndLevelUp(droneId) {
-  const [drone] = await db
-    .select()
-    .from(drones)
-    .where(eq(drones.id, droneId))
-    .limit(1);
+  const [drone] = await db.select().from(drones).where(eq(drones.id, droneId)).limit(1);
 
   if (!drone) throw new ApiError('Drone not found', 404);
 

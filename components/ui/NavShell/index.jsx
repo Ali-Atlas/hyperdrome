@@ -26,22 +26,18 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import { useUpcomingRaces } from '@/lib/upcoming-races-store';
 import { useAccount, useDisconnect } from 'wagmi';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
-import {
-  wasWalletAuthed,
-  markWalletAuthed,
-  clearWalletAuthCache,
-} from '@/lib/wallet-auth-cache';
+import { wasWalletAuthed, markWalletAuthed, clearWalletAuthCache } from '@/lib/wallet-auth-cache';
 import styles from './NavShell.module.css';
 
 const NAV_LINKS = [
-  { href: '/dashboard',   label: 'Dashboard',   Icon: LayoutDashboard },
-  { href: '/drones',      label: 'My Drones',   Icon: Cpu },
-  { href: '/races',       label: 'Races',       Icon: Flag },
-  { href: '/tracks',      label: 'Tracks',      Icon: Map },
+  { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { href: '/drones', label: 'My Drones', Icon: Cpu },
+  { href: '/races', label: 'Races', Icon: Flag },
+  { href: '/tracks', label: 'Tracks', Icon: Map },
   { href: '/leaderboard', label: 'Leaderboard', Icon: Trophy },
   { href: '/marketplace', label: 'Marketplace', Icon: Store },
-  { href: '/guide',       label: 'Guide',       Icon: BookOpen },
-  { href: '/faq',         label: 'FAQ',         Icon: HelpCircle },
+  { href: '/guide', label: 'Guide', Icon: BookOpen },
+  { href: '/faq', label: 'FAQ', Icon: HelpCircle },
 ];
 
 // Module-scope cache of `${userId}:${addressLower}` keys already POSTed to
@@ -178,11 +174,7 @@ function WalletButton({ onSignOut }) {
 
   if (!isConnected) {
     return (
-      <button
-        type="button"
-        className={styles.walletBtn}
-        onClick={openConnectModal}
-      >
+      <button type="button" className={styles.walletBtn} onClick={openConnectModal}>
         Connect Wallet
       </button>
     );
@@ -192,11 +184,7 @@ function WalletButton({ onSignOut }) {
 
   function handleViewExplorer() {
     setMenuOpen(false);
-    window.open(
-      `${EXPLORER_BASE}/address/${address}`,
-      '_blank',
-      'noopener,noreferrer',
-    );
+    window.open(`${EXPLORER_BASE}/address/${address}`, '_blank', 'noopener,noreferrer');
   }
 
   async function handleCopyAddress() {
@@ -245,42 +233,38 @@ function WalletButton({ onSignOut }) {
   // desktop sidebar (whose trigger sits low enough that an absolute or
   // even fixed-but-contained menu was extending past the visible area).
   // Gated on `mounted` so the createPortal call doesn't fire during SSR.
-  const menu = menuOpen && menuPos && mounted
-    ? createPortal(
-        <div
-          ref={menuRef}
-          className={styles.walletMenu}
-          role="menu"
-          style={menuPos}
-        >
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.walletMenuItem}
-            onClick={handleViewExplorer}
-          >
-            View on Explorer
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.walletMenuItem}
-            onClick={handleCopyAddress}
-          >
-            Copy Address
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={`${styles.walletMenuItem} ${styles.walletMenuItemDanger}`}
-            onClick={handleDisconnect}
-          >
-            Disconnect
-          </button>
-        </div>,
-        document.body,
-      )
-    : null;
+  const menu =
+    menuOpen && menuPos && mounted
+      ? createPortal(
+          <div ref={menuRef} className={styles.walletMenu} role="menu" style={menuPos}>
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.walletMenuItem}
+              onClick={handleViewExplorer}
+            >
+              View on Explorer
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className={styles.walletMenuItem}
+              onClick={handleCopyAddress}
+            >
+              Copy Address
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className={`${styles.walletMenuItem} ${styles.walletMenuItemDanger}`}
+              onClick={handleDisconnect}
+            >
+              Disconnect
+            </button>
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
     <>
@@ -408,10 +392,7 @@ function HeaderConnectWallet() {
           // for the full reasoning.
           const ttlMs = 30_000;
           try {
-            window.sessionStorage.setItem(
-              'volts:awaiting-mint-until',
-              String(Date.now() + ttlMs),
-            );
+            window.sessionStorage.setItem('volts:awaiting-mint-until', String(Date.now() + ttlMs));
             // Flag that bootstrap was kicked here so the self-heal
             // hook (useBootstrapSelfHeal) doesn't fire a redundant
             // second call on the next page mount in this tab.
@@ -422,13 +403,11 @@ function HeaderConnectWallet() {
           window.dispatchEvent(
             new CustomEvent('volts:awaiting-mint', {
               detail: { ttlMs },
-            }),
+            })
           );
           fetch('/api/auth/wallet/bootstrap', { method: 'POST' })
             .then(() => {
-              window.dispatchEvent(
-                new CustomEvent('volts:update', { detail: {} }),
-              );
+              window.dispatchEvent(new CustomEvent('volts:update', { detail: {} }));
             })
             .catch((err) => {
               console.warn('[wallet] bootstrap kick-off failed:', err);
@@ -453,23 +432,14 @@ function HeaderConnectWallet() {
 
   if (isConnected) {
     return (
-      <button
-        type="button"
-        className={styles.connectWallet}
-        disabled
-        aria-busy="true"
-      >
+      <button type="button" className={styles.connectWallet} disabled aria-busy="true">
         Signing in...
       </button>
     );
   }
 
   return (
-    <button
-      type="button"
-      className={styles.connectWallet}
-      onClick={() => openConnectModal?.()}
-    >
+    <button type="button" className={styles.connectWallet} onClick={() => openConnectModal?.()}>
       Connect Wallet
     </button>
   );
@@ -542,9 +512,7 @@ export default function NavShell({ children }) {
   const renderUserArea = () =>
     user ? (
       <div className={styles.userArea}>
-        <div className={styles.username}>
-          {user.username ?? user.email}
-        </div>
+        <div className={styles.username}>{user.username ?? user.email}</div>
         <div className={styles.pointsRow}>
           <div className={styles.points}>
             <VoltIcon size={14} style={{ marginRight: 4 }} />
@@ -552,11 +520,7 @@ export default function NavShell({ children }) {
           </div>
           {isWalletUser && <WalletButton onSignOut={onSignOut} />}
         </div>
-        <button
-          type="button"
-          className={styles.signOut}
-          onClick={onSignOut}
-        >
+        <button type="button" className={styles.signOut} onClick={onSignOut}>
           <LogOut size={14} aria-hidden="true" />
           <span>Sign Out</span>
         </button>
@@ -570,12 +534,7 @@ export default function NavShell({ children }) {
       {/* Desktop sidebar */}
       <aside className={styles.sidebar} aria-label="Primary">
         <Link href="/dashboard" className={styles.logo}>
-          <Hexagon
-            size={18}
-            strokeWidth={3}
-            className={styles.logoIcon}
-            aria-hidden="true"
-          />
+          <Hexagon size={18} strokeWidth={3} className={styles.logoIcon} aria-hidden="true" />
           <span className={styles.logoTextGroup}>
             <span className={styles.logoText}>Hyperdrome</span>
             <span className={styles.logoBeta}>beta</span>
@@ -597,9 +556,7 @@ export default function NavShell({ children }) {
         </button>
         {user ? (
           <div className={styles.mobileUser}>
-            <span className={styles.mobileUsername}>
-              {user.username ?? user.email}
-            </span>
+            <span className={styles.mobileUsername}>{user.username ?? user.email}</span>
             <span className={styles.mobileSep}>|</span>
             <span className={styles.mobilePoints}>
               <VoltIcon size={13} style={{ marginRight: 4 }} />
@@ -616,11 +573,7 @@ export default function NavShell({ children }) {
 
       {/* Mobile drawer */}
       {open && (
-        <div
-          className={styles.overlay}
-          onClick={() => setOpen(false)}
-          role="presentation"
-        >
+        <div className={styles.overlay} onClick={() => setOpen(false)} role="presentation">
           <aside
             className={styles.drawer}
             onClick={(e) => e.stopPropagation()}
@@ -628,16 +581,11 @@ export default function NavShell({ children }) {
           >
             <div className={styles.drawerHeader}>
               <span className={styles.logo}>
-                <Hexagon
-            size={18}
-            strokeWidth={3}
-            className={styles.logoIcon}
-            aria-hidden="true"
-          />
+                <Hexagon size={18} strokeWidth={3} className={styles.logoIcon} aria-hidden="true" />
                 <span className={styles.logoTextGroup}>
-            <span className={styles.logoText}>Hyperdrome</span>
-            <span className={styles.logoBeta}>beta</span>
-          </span>
+                  <span className={styles.logoText}>Hyperdrome</span>
+                  <span className={styles.logoBeta}>beta</span>
+                </span>
               </span>
             </div>
             <nav className={styles.nav}>{renderLinks()}</nav>
@@ -688,7 +636,7 @@ const STRATEGY_LOCK_LEAD_MS = 60 * 1000;
  * here. */
 const CB_STORAGE = {
   batchAt: 'nav.countdown.batchAt',
-  paused:  'nav.countdown.paused',
+  paused: 'nav.countdown.paused',
 };
 
 /* Drop a cached batchAt that's more than 5 minutes old. The race cycle
@@ -706,14 +654,18 @@ function readCachedBatchAt() {
     if (!Number.isFinite(ts)) return null;
     if (ts < Date.now() - CB_BATCH_TTL_MS) return null;
     return ts;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 function readCachedPaused() {
   if (typeof window === 'undefined') return false;
   try {
     return sessionStorage.getItem(CB_STORAGE.paused) === 'true';
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 function writeCache(key, value) {
@@ -722,12 +674,11 @@ function writeCache(key, value) {
     if (value == null) {
       sessionStorage.removeItem(key);
     } else {
-      sessionStorage.setItem(
-        key,
-        typeof value === 'string' ? value : JSON.stringify(value),
-      );
+      sessionStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
     }
-  } catch { /* quota / privacy mode - safe to ignore */ }
+  } catch {
+    /* quota / privacy mode - safe to ignore */
+  }
 }
 
 function CountdownBar() {
@@ -781,9 +732,7 @@ function CountdownBar() {
         } else if (body?.data) {
           setPaused(false);
           writeCache(CB_STORAGE.paused, 'false');
-          nextBatchAt = body.data.nextRaceAt
-            ? new Date(body.data.nextRaceAt).getTime()
-            : null;
+          nextBatchAt = body.data.nextRaceAt ? new Date(body.data.nextRaceAt).getTime() : null;
           setBatchAt(nextBatchAt);
           writeCache(CB_STORAGE.batchAt, nextBatchAt != null ? String(nextBatchAt) : null);
         }
@@ -798,8 +747,7 @@ function CountdownBar() {
       // server-processing window; fast-poll until a fresh future
       // timestamp comes back.
       const remaining = nextBatchAt != null ? nextBatchAt - Date.now() : 0;
-      const delay =
-        remaining > 100 ? Math.min(remaining + 100, SLOW_MS) : FAST_MS;
+      const delay = remaining > 100 ? Math.min(remaining + 100, SLOW_MS) : FAST_MS;
       timerId = setTimeout(tick, delay);
     };
 
@@ -843,36 +791,26 @@ function CountdownBar() {
         <>
           <span className={styles.countdownItem}>
             {batchExpired ? (
-              <span className={styles.countdownInProgress}>
-                RACING IN PROGRESS
-              </span>
+              <span className={styles.countdownInProgress}>RACING IN PROGRESS</span>
             ) : (
               <>
                 <span className={styles.countdownLabel}>Next Auto-Race in</span>
-                <span className={styles.countdownValue}>
-                  {batchText ?? '--:--'}
-                </span>
+                <span className={styles.countdownValue}>{batchText ?? '--:--'}</span>
               </>
             )}
           </span>
           <span className={styles.countdownSep} aria-hidden="true">
             ·
           </span>
-          <span
-            className={`${styles.countdownItem} ${styles.countdownItemStrategyLock}`}
-          >
+          <span className={`${styles.countdownItem} ${styles.countdownItemStrategyLock}`}>
             {strategyLockExpired ? (
-              <span
-                className={`${styles.countdownLockedText} ${styles.countdownValueWarning}`}
-              >
+              <span className={`${styles.countdownLockedText} ${styles.countdownValueWarning}`}>
                 LOCKED IN
               </span>
             ) : (
               <>
                 <span className={styles.countdownLabel}>Strategy Lock in</span>
-                <span
-                  className={`${styles.countdownValue} ${styles.countdownValueWarning}`}
-                >
+                <span className={`${styles.countdownValue} ${styles.countdownValueWarning}`}>
                   {strategyLockText ?? '--:--'}
                 </span>
               </>
@@ -882,10 +820,7 @@ function CountdownBar() {
               between Next Round and Strategy Lock so all three footer
               sections share one separator style. Hidden at the smallest
               mobile breakpoint via `.countdownSepRaces`. */}
-          <span
-            className={`${styles.countdownSep} ${styles.countdownSepRaces}`}
-            aria-hidden="true"
-          >
+          <span className={`${styles.countdownSep} ${styles.countdownSepRaces}`} aria-hidden="true">
             ·
           </span>
           <span className={styles.countdownRacesGroup}>
@@ -901,18 +836,11 @@ function CountdownBar() {
             {[0, 1, 2].map((i) => {
               const race = upcomingRaces[i];
               return race ? (
-                <Link
-                  key={race.id}
-                  href={`/races/${race.id}`}
-                  className={styles.countdownRaceLink}
-                >
+                <Link key={race.id} href={`/races/${race.id}`} className={styles.countdownRaceLink}>
                   {i + 1}
                 </Link>
               ) : (
-                <span
-                  key={`races-slot-${i}`}
-                  className={styles.countdownRaceSlotEmpty}
-                >
+                <span key={`races-slot-${i}`} className={styles.countdownRaceSlotEmpty}>
                   {i + 1}
                 </span>
               );
@@ -923,4 +851,3 @@ function CountdownBar() {
     </div>
   );
 }
-

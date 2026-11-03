@@ -4,11 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, ChevronDown, ChevronUp, ChevronRight, X, Check } from 'lucide-react';
-import {
-  useAccount,
-  usePublicClient,
-  useWriteContract,
-} from 'wagmi';
+import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -20,12 +16,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
 import { useVoltApproval } from '@/hooks/useVoltApproval';
-import {
-  cn,
-  getLevelColor,
-  getLevelTier,
-  getLegendaryTheme,
-} from '@/lib/utils';
+import { cn, getLevelColor, getLevelTier, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
@@ -78,8 +69,7 @@ const PACK_DEFS = [
     price: 12_000,
     variant: 'purple',
     contents: '3 Skins - 1 Rare guaranteed, 2 wild slots',
-    description:
-      'Guaranteed rare plus two wild slots that can land any rarity.',
+    description: 'Guaranteed rare plus two wild slots that can land any rarity.',
     pills: [{ label: 'Most Popular', tone: 'accent' }],
     slots: [
       { variant: 'rare' },
@@ -101,8 +91,7 @@ const PACK_DEFS = [
     price: 60_000,
     variant: 'gold',
     contents: '3 Skins - 1 high-tier slot + 2 wild slots',
-    description:
-      'Slot 1 lands legendary or epic. Two wild slots that lean rare or epic.',
+    description: 'Slot 1 lands legendary or epic. Two wild slots that lean rare or epic.',
     slots: [
       { variant: 'rainbow', mystery: true },
       { variant: 'rainbow', mystery: true },
@@ -127,8 +116,8 @@ const PACK_DEFS = [
  *   Premium   → 1 G rare   + 2× wild (40/35/20/5)     → 3 rare, 2 common, 1 epic.
  *   Legendary → slot 1 (45L/55E) + 2× wild (55/40/5)  → 2 legendary, 2 epic, 2 rare. */
 const PREVIEW_DISTRIBUTION = {
-  starter:   ['common', 'common', 'common', 'common', 'common', 'rare'],
-  premium:   ['rare', 'rare', 'rare', 'common', 'common', 'epic'],
+  starter: ['common', 'common', 'common', 'common', 'common', 'rare'],
+  premium: ['rare', 'rare', 'rare', 'common', 'common', 'epic'],
   legendary: ['legendary', 'legendary', 'epic', 'epic', 'rare', 'rare'],
 };
 
@@ -167,18 +156,28 @@ function pickPreviewSamples(packId, pool) {
  * reuse the cursor-walks-shuffled-list pattern (no duplicates per row). */
 const MOD_TEMPLATE_NAMES = {
   common: [
-    'Streamline Plate', 'Grip Pads', 'Quick Charge', 'Shock Absorber',
-    'Steady Module', 'Night Lens', 'Rain Shield', 'Wind Fin',
-    'Light Frame', 'Tracker Coil',
+    'Streamline Plate',
+    'Grip Pads',
+    'Quick Charge',
+    'Shock Absorber',
+    'Steady Module',
+    'Night Lens',
+    'Rain Shield',
+    'Wind Fin',
+    'Light Frame',
+    'Tracker Coil',
   ],
   rare: [
-    'Aero Shell', 'Grip Coating', 'Storm Plating', 'Night Optics',
-    'Turbo Intake', 'Endurance Core', 'Aileron Kit', 'Stabilizer Brace',
+    'Aero Shell',
+    'Grip Coating',
+    'Storm Plating',
+    'Night Optics',
+    'Turbo Intake',
+    'Endurance Core',
+    'Aileron Kit',
+    'Stabilizer Brace',
   ],
-  epic: [
-    'Plasma Core', 'Stealth Aero', 'Typhoon Module', 'Predator Lens',
-    'Iron Hull',
-  ],
+  epic: ['Plasma Core', 'Stealth Aero', 'Typhoon Module', 'Predator Lens', 'Iron Hull'],
   legendary: ['Phantom Drive', 'Quantum Sync', 'Storm Rider'],
 };
 
@@ -219,12 +218,48 @@ const LIVE_TICKER = {
  *  to nudge bigger purchases. All buttons stay disabled until token-
  *  payment integration ships. */
 const POINTS_OPTIONS = [
-  { id: 1, points: 500,    price: 50,    tier: 'teal',   bonus: null,           chest: '/chests/chest-teal.webp' },
-  { id: 2, points: 1200,   price: 100,   tier: 'teal',   bonus: '+20% BONUS',   chest: '/chests/chest-teal.webp' },
-  { id: 3, points: 3500,   price: 250,   tier: 'purple', bonus: '+40% BONUS',   chest: '/chests/chest-purple.webp' },
-  { id: 4, points: 8000,   price: 500,   tier: 'purple', bonus: '+60% BONUS',   chest: '/chests/chest-purple.webp' },
-  { id: 5, points: 22000,  price: 1000,  tier: 'gold',   bonus: '+100% BONUS',  chest: '/chests/chest-gold.webp' },
-  { id: 6, points: 60000,  price: 2500,  tier: 'gold',   bonus: '+140% BONUS',  chest: '/chests/chest-gold.webp', bestValue: true },
+  { id: 1, points: 500, price: 50, tier: 'teal', bonus: null, chest: '/chests/chest-teal.webp' },
+  {
+    id: 2,
+    points: 1200,
+    price: 100,
+    tier: 'teal',
+    bonus: '+20% BONUS',
+    chest: '/chests/chest-teal.webp',
+  },
+  {
+    id: 3,
+    points: 3500,
+    price: 250,
+    tier: 'purple',
+    bonus: '+40% BONUS',
+    chest: '/chests/chest-purple.webp',
+  },
+  {
+    id: 4,
+    points: 8000,
+    price: 500,
+    tier: 'purple',
+    bonus: '+60% BONUS',
+    chest: '/chests/chest-purple.webp',
+  },
+  {
+    id: 5,
+    points: 22000,
+    price: 1000,
+    tier: 'gold',
+    bonus: '+100% BONUS',
+    chest: '/chests/chest-gold.webp',
+  },
+  {
+    id: 6,
+    points: 60000,
+    price: 2500,
+    tier: 'gold',
+    bonus: '+140% BONUS',
+    chest: '/chests/chest-gold.webp',
+    bestValue: true,
+  },
 ];
 
 const RARITY_LIST = ['common', 'rare', 'epic', 'legendary'];
@@ -246,9 +281,9 @@ const RARITY_LABELS = {
 //   premium:   1 G rare   + wild 40/35/20/5     → R 100, C 40, E 20, L 5
 //   legendary: slot 1 L 45/E 55 + wild 55/40/5  → L 45, E 55, R 55
 const PACK_ODDS = {
-  starter:   { common: 100, rare: 17,   epic: 2.5, legendary: 0.5 },
-  premium:   { common: 40,  rare: 100,  epic: 20,  legendary: 5 },
-  legendary: { common: 0,   rare: 55,   epic: 55,  legendary: 45 },
+  starter: { common: 100, rare: 17, epic: 2.5, legendary: 0.5 },
+  premium: { common: 40, rare: 100, epic: 20, legendary: 5 },
+  legendary: { common: 0, rare: 55, epic: 55, legendary: 45 },
 };
 
 /* Capsule (mod) packs - same slot recipe as skin packs, priced lower.
@@ -269,8 +304,7 @@ const CAPSULE_PACK_DEFS = [
     name: 'Premium Capsule',
     price: 6_000,
     variant: 'purple',
-    description:
-      'Guaranteed rare mod plus two wild slots leaning rare or epic.',
+    description: 'Guaranteed rare mod plus two wild slots leaning rare or epic.',
     pills: [{ label: 'Most Popular', tone: 'accent' }],
     buttonVariant: 'primary',
   },
@@ -279,8 +313,7 @@ const CAPSULE_PACK_DEFS = [
     name: 'Legendary Capsule',
     price: 30_000,
     variant: 'gold',
-    description:
-      'Slot 1 lands legendary or epic. Two wild slots that lean rare or epic.',
+    description: 'Slot 1 lands legendary or epic. Two wild slots that lean rare or epic.',
     buttonVariant: 'gold',
   },
 ];
@@ -289,18 +322,17 @@ const CAPSULE_PACK_DEFS = [
 // the aggregate odds match. Map keyed by capsule id (with `capsule-`
 // prefix) for the marketplace's per-card odds bar.
 const CAPSULE_PACK_ODDS = {
-  'capsule-starter':   PACK_ODDS.starter,
-  'capsule-premium':   PACK_ODDS.premium,
+  'capsule-starter': PACK_ODDS.starter,
+  'capsule-premium': PACK_ODDS.premium,
   'capsule-legendary': PACK_ODDS.legendary,
 };
 
 // Capsule preview cards mirror the skin pack distribution one-for-one.
 const CAPSULE_PREVIEW_DISTRIBUTION = {
-  'capsule-starter':   PREVIEW_DISTRIBUTION.starter,
-  'capsule-premium':   PREVIEW_DISTRIBUTION.premium,
+  'capsule-starter': PREVIEW_DISTRIBUTION.starter,
+  'capsule-premium': PREVIEW_DISTRIBUTION.premium,
   'capsule-legendary': PREVIEW_DISTRIBUTION.legendary,
 };
-
 
 export default function MarketplacePage() {
   const { user } = useSession();
@@ -423,8 +455,7 @@ export default function MarketplacePage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        item_type:
-          tab === 'drones' ? 'drone' : tab === 'mods' ? 'mod' : 'skin',
+        item_type: tab === 'drones' ? 'drone' : tab === 'mods' ? 'mod' : 'skin',
         limit: '60',
       });
       if (filters.minPrice) params.set('min_price', filters.minPrice);
@@ -440,8 +471,7 @@ export default function MarketplacePage() {
   const fetchTransactions = useCallback(async () => {
     try {
       const params = new URLSearchParams({
-        item_type:
-          tab === 'drones' ? 'drone' : tab === 'mods' ? 'mod' : 'skin',
+        item_type: tab === 'drones' ? 'drone' : tab === 'mods' ? 'mod' : 'skin',
         status: 'sold',
         limit: '100',
         page: String(salesPage),
@@ -465,9 +495,15 @@ export default function MarketplacePage() {
     if (!user?.id) return;
     try {
       const [drones, skins, mods] = await Promise.all([
-        fetch('/api/drones').then((r) => r.json()).catch(() => null),
-        fetch('/api/skins').then((r) => r.json()).catch(() => null),
-        fetch('/api/mods').then((r) => r.json()).catch(() => null),
+        fetch('/api/drones')
+          .then((r) => r.json())
+          .catch(() => null),
+        fetch('/api/skins')
+          .then((r) => r.json())
+          .catch(() => null),
+        fetch('/api/mods')
+          .then((r) => r.json())
+          .catch(() => null),
       ]);
       if (drones?.data) setOwnedInactive(drones.data.filter((d) => !d.active));
       if (skins?.data) {
@@ -481,12 +517,20 @@ export default function MarketplacePage() {
     }
   }, [user?.id]);
 
-  useEffect(() => { fetchListings(); }, [fetchListings]);
-  useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
-  useEffect(() => { fetchMine(); }, [fetchMine]);
+  useEffect(() => {
+    fetchListings();
+  }, [fetchListings]);
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
+  useEffect(() => {
+    fetchMine();
+  }, [fetchMine]);
   // Reset the sales pagination when the user switches tabs so they
   // don't land on a non-existent page for the new item type.
-  useEffect(() => { setSalesPage(1); }, [tab]);
+  useEffect(() => {
+    setSalesPage(1);
+  }, [tab]);
 
   // Pre-fill the cancel modal's modify-price input with the listing's
   // current price each time the modal opens. Reset the in-flight error
@@ -499,11 +543,8 @@ export default function MarketplacePage() {
   }, [cancelModal]);
 
   const myActiveListings = useMemo(
-    () =>
-      listings.filter(
-        (l) => l.sellerId === user?.id && l.status === 'active',
-      ),
-    [listings, user?.id],
+    () => listings.filter((l) => l.sellerId === user?.id && l.status === 'active'),
+    [listings, user?.id]
   );
 
   const filteredListings = useMemo(() => {
@@ -537,7 +578,7 @@ export default function MarketplacePage() {
           l.drone?.name?.toLowerCase().includes(q) ||
           l.skin?.name?.toLowerCase().includes(q) ||
           l.mod?.name?.toLowerCase().includes(q) ||
-          l.seller?.username?.toLowerCase().includes(q),
+          l.seller?.username?.toLowerCase().includes(q)
       );
     }
 
@@ -564,10 +605,7 @@ export default function MarketplacePage() {
       // Mirrors the CSS: minmax(165px, 1fr) with 8px gap.
       const CARD_MIN = 165;
       const GAP = 8;
-      const cols = Math.max(
-        1,
-        Math.floor((width + GAP) / (CARD_MIN + GAP)),
-      );
+      const cols = Math.max(1, Math.floor((width + GAP) / (CARD_MIN + GAP)));
       setColumns(cols);
     };
     recalc();
@@ -583,7 +621,7 @@ export default function MarketplacePage() {
   const BASE_ROWS_PER_PAGE = 3;
   const ROWS_PER_PAGE = Math.max(
     BASE_ROWS_PER_PAGE,
-    Math.ceil(MIN_PAGE_SIZE / Math.max(1, columns)),
+    Math.ceil(MIN_PAGE_SIZE / Math.max(1, columns))
   );
   const PAGE_SIZE = columns * ROWS_PER_PAGE;
 
@@ -591,18 +629,11 @@ export default function MarketplacePage() {
     setPage(1);
   }, [tab, view, filters, search]);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredListings.length / PAGE_SIZE),
-  );
+  const totalPages = Math.max(1, Math.ceil(filteredListings.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pagedListings = useMemo(
-    () =>
-      filteredListings.slice(
-        (safePage - 1) * PAGE_SIZE,
-        safePage * PAGE_SIZE,
-      ),
-    [filteredListings, safePage, PAGE_SIZE],
+    () => filteredListings.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filteredListings, safePage, PAGE_SIZE]
   );
   // Invisible slots that pad the last page up to PAGE_SIZE so the grid
   // keeps the same height and the pagination below never jumps.
@@ -686,11 +717,7 @@ export default function MarketplacePage() {
         setBuyError(body?.error || 'Purchase failed');
         return;
       }
-      const itemName =
-        buyModal.drone?.name ??
-        buyModal.mod?.name ??
-        buyModal.skin?.name ??
-        'Item';
+      const itemName = buyModal.drone?.name ?? buyModal.mod?.name ?? buyModal.skin?.name ?? 'Item';
       setBuySuccess({ name: itemName });
       setBuyStatus(null);
       if (useUserSigned) {
@@ -705,14 +732,12 @@ export default function MarketplacePage() {
         window.dispatchEvent(
           new CustomEvent('volts:update', {
             detail: { balance: body.data.balance },
-          }),
+          })
         );
       }
       // Refresh listings in the background while the success view holds
       // for ~1.5s, then close the modal cleanly.
-      Promise.all([fetchListings(), fetchTransactions(), fetchMine()]).catch(
-        () => {},
-      );
+      Promise.all([fetchListings(), fetchTransactions(), fetchMine()]).catch(() => {});
       setTimeout(() => {
         setBuyModal(null);
         setBuySuccess(null);
@@ -766,10 +791,7 @@ export default function MarketplacePage() {
     if (!cancelModal || cancelPending) return;
     setCancelPending(true);
     try {
-      const res = await fetch(
-        `/api/marketplace/${cancelModal.id}/cancel`,
-        { method: 'POST' },
-      );
+      const res = await fetch(`/api/marketplace/${cancelModal.id}/cancel`, { method: 'POST' });
       const body = await res.json();
       if (!res.ok) {
         showToast(body?.error || 'Cancel failed', 'error');
@@ -820,9 +842,8 @@ export default function MarketplacePage() {
     }
   };
 
-  const fee = listingPrice ? Math.floor(Number(listingPrice) * 0.10) : 0;
+  const fee = listingPrice ? Math.floor(Number(listingPrice) * 0.1) : 0;
   const payout = listingPrice ? Number(listingPrice) - fee : 0;
-
 
   // Pack flow handlers. ONE modal stays mounted from open → confirm →
   // ready → opened → close; only the inner content re-renders. State
@@ -873,12 +894,10 @@ export default function MarketplacePage() {
         window.dispatchEvent(
           new CustomEvent('volts:update', {
             detail: { balance: body.data.balance },
-          }),
+          })
         );
       }
-      setPackFlow((f) =>
-        f ? { ...f, stage: 'ready', awarded, pending: false } : f,
-      );
+      setPackFlow((f) => (f ? { ...f, stage: 'ready', awarded, pending: false } : f));
     } catch (err) {
       showToast(String(err), 'error');
       setPackFlow((f) => (f ? { ...f, pending: false } : f));
@@ -910,12 +929,10 @@ export default function MarketplacePage() {
         window.dispatchEvent(
           new CustomEvent('volts:update', {
             detail: { balance: body.data.balance },
-          }),
+          })
         );
       }
-      setPackFlow((f) =>
-        f ? { ...f, stage: 'ready', awarded, pending: false } : f,
-      );
+      setPackFlow((f) => (f ? { ...f, stage: 'ready', awarded, pending: false } : f));
     } catch (err) {
       showToast(String(err), 'error');
       setPackFlow((f) => (f ? { ...f, pending: false } : f));
@@ -986,7 +1003,7 @@ export default function MarketplacePage() {
                       aria-selected={selected}
                       className={cn(
                         styles.tabsDropdownOption,
-                        selected && styles.tabsDropdownOptionActive,
+                        selected && styles.tabsDropdownOptionActive
                       )}
                       onClick={() => {
                         setTab(value);
@@ -996,7 +1013,7 @@ export default function MarketplacePage() {
                       <span
                         className={cn(
                           styles.tabsDropdownRadio,
-                          selected && styles.tabsDropdownRadioActive,
+                          selected && styles.tabsDropdownRadioActive
                         )}
                         aria-hidden="true"
                       />
@@ -1069,145 +1086,86 @@ export default function MarketplacePage() {
             </span>
             <span className={styles.balanceValueWrap}>
               <VoltIcon size={13} />
-              <span className={styles.balanceValue}>
-                {userPoints.toLocaleString()}
-              </span>
+              <span className={styles.balanceValue}>{userPoints.toLocaleString()}</span>
             </span>
           </div>
         </div>
 
         {/* ---- Sub-toolbar: view toggle + search (hidden on Packs/Points tabs) ---- */}
         {tab !== 'packs' && tab !== 'points' && (
-        <div className={styles.subToolbar}>
-          <div className={styles.viewToggle} role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === 'all'}
-              className={cn(
-                styles.viewTab,
-                view === 'all' && styles.viewTabActive,
-              )}
-              onClick={() => setView('all')}
-            >
-              All Listings
-            </button>
-            {user && (
+          <div className={styles.subToolbar}>
+            <div className={styles.viewToggle} role="tablist">
               <button
                 type="button"
                 role="tab"
-                aria-selected={view === 'mine'}
-                className={cn(
-                  styles.viewTab,
-                  view === 'mine' && styles.viewTabActive,
-                )}
-                onClick={() => setView('mine')}
+                aria-selected={view === 'all'}
+                className={cn(styles.viewTab, view === 'all' && styles.viewTabActive)}
+                onClick={() => setView('all')}
               >
-                Your Listings<span className={styles.viewTabCount}>({myActiveListings.length})</span>
+                All Listings
               </button>
-            )}
+              {user && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={view === 'mine'}
+                  className={cn(styles.viewTab, view === 'mine' && styles.viewTabActive)}
+                  onClick={() => setView('mine')}
+                >
+                  Your Listings
+                  <span className={styles.viewTabCount}>({myActiveListings.length})</span>
+                </button>
+              )}
+            </div>
+            <div className={styles.searchWrap}>
+              <Search size={13} className={styles.searchIcon} aria-hidden="true" />
+              <input
+                type="search"
+                className={styles.searchInput}
+                placeholder="Search listings..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
           </div>
-          <div className={styles.searchWrap}>
-            <Search
-              size={13}
-              className={styles.searchIcon}
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              className={styles.searchInput}
-              placeholder="Search listings..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
         )}
 
         {/* ---- Main layout: sticky filter rail + grid / packs showcase ---- */}
-        <div
-          className={cn(
-            styles.body,
-            (tab === 'packs' || tab === 'points') && styles.bodyPacks,
-          )}
-        >
+        <div className={cn(styles.body, (tab === 'packs' || tab === 'points') && styles.bodyPacks)}>
           {tab !== 'packs' && tab !== 'points' && (
-          <aside
-            className={cn(
-              styles.filters,
-              !filtersOpen && styles.filtersCollapsed,
-            )}
-          >
-            {/* Mobile-only collapse trigger. Desktop CSS hides it via
+            <aside className={cn(styles.filters, !filtersOpen && styles.filtersCollapsed)}>
+              {/* Mobile-only collapse trigger. Desktop CSS hides it via
                 display: none and forces .filtersInner to render regardless
                 of the .filtersCollapsed class. */}
-            <button
-              type="button"
-              className={styles.filtersToggle}
-              onClick={() => setFiltersOpen((o) => !o)}
-              aria-expanded={filtersOpen}
-              aria-controls="marketplace-filters-body"
-            >
-              <span>Filters</span>
-              <ChevronDown
-                size={14}
-                aria-hidden="true"
-                className={cn(
-                  styles.filtersToggleIcon,
-                  filtersOpen && styles.filtersToggleIconOpen,
-                )}
-              />
-            </button>
-            <div
-              id="marketplace-filters-body"
-              className={styles.filtersInner}
-            >
-              <div className={styles.filterBody}>
-                <div className={styles.filterGroup}>
-                  <label className={styles.filterLabel}>Price (volts)</label>
-                  <div className={styles.rangeRow}>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      className={styles.rangeInput}
-                      placeholder="Min"
-                      value={filters.minPrice}
-                      onChange={(e) =>
-                        setFilters((f) => ({ ...f, minPrice: e.target.value }))
-                      }
-                    />
-                    <span className={styles.rangeDash} aria-hidden="true">
-                      -
-                    </span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      className={styles.rangeInput}
-                      placeholder="Max"
-                      value={filters.maxPrice}
-                      onChange={(e) =>
-                        setFilters((f) => ({ ...f, maxPrice: e.target.value }))
-                      }
-                    />
-                  </div>
-                </div>
-
-                {tab === 'drones' && (
+              <button
+                type="button"
+                className={styles.filtersToggle}
+                onClick={() => setFiltersOpen((o) => !o)}
+                aria-expanded={filtersOpen}
+                aria-controls="marketplace-filters-body"
+              >
+                <span>Filters</span>
+                <ChevronDown
+                  size={14}
+                  aria-hidden="true"
+                  className={cn(
+                    styles.filtersToggleIcon,
+                    filtersOpen && styles.filtersToggleIconOpen
+                  )}
+                />
+              </button>
+              <div id="marketplace-filters-body" className={styles.filtersInner}>
+                <div className={styles.filterBody}>
                   <div className={styles.filterGroup}>
-                    <label className={styles.filterLabel}>Level</label>
+                    <label className={styles.filterLabel}>Price (volts)</label>
                     <div className={styles.rangeRow}>
                       <input
                         type="number"
                         inputMode="numeric"
                         className={styles.rangeInput}
                         placeholder="Min"
-                        value={filters.minLevel}
-                        onChange={(e) =>
-                          setFilters((f) => ({
-                            ...f,
-                            minLevel: e.target.value,
-                          }))
-                        }
+                        value={filters.minPrice}
+                        onChange={(e) => setFilters((f) => ({ ...f, minPrice: e.target.value }))}
                       />
                       <span className={styles.rangeDash} aria-hidden="true">
                         -
@@ -1217,122 +1175,146 @@ export default function MarketplacePage() {
                         inputMode="numeric"
                         className={styles.rangeInput}
                         placeholder="Max"
-                        value={filters.maxLevel}
-                        onChange={(e) =>
-                          setFilters((f) => ({
-                            ...f,
-                            maxLevel: e.target.value,
-                          }))
-                        }
+                        value={filters.maxPrice}
+                        onChange={(e) => setFilters((f) => ({ ...f, maxPrice: e.target.value }))}
                       />
                     </div>
                   </div>
-                )}
 
-                {tab === 'drones' && (
-                  <div className={styles.filterGroup}>
-                    <label className={styles.filterLabel}>Includes</label>
-                    <div className={styles.checkList}>
-                      <label className={styles.check}>
+                  {tab === 'drones' && (
+                    <div className={styles.filterGroup}>
+                      <label className={styles.filterLabel}>Level</label>
+                      <div className={styles.rangeRow}>
                         <input
-                          type="checkbox"
-                          checked={filters.hasSkins}
+                          type="number"
+                          inputMode="numeric"
+                          className={styles.rangeInput}
+                          placeholder="Min"
+                          value={filters.minLevel}
                           onChange={(e) =>
                             setFilters((f) => ({
                               ...f,
-                              hasSkins: e.target.checked,
+                              minLevel: e.target.value,
                             }))
                           }
                         />
-                        <span className={styles.checkText}>Skins</span>
-                      </label>
-                      <label className={styles.check}>
+                        <span className={styles.rangeDash} aria-hidden="true">
+                          -
+                        </span>
                         <input
-                          type="checkbox"
-                          checked={filters.hasMods}
+                          type="number"
+                          inputMode="numeric"
+                          className={styles.rangeInput}
+                          placeholder="Max"
+                          value={filters.maxLevel}
                           onChange={(e) =>
                             setFilters((f) => ({
                               ...f,
-                              hasMods: e.target.checked,
+                              maxLevel: e.target.value,
                             }))
                           }
                         />
-                        <span className={styles.checkText}>Mods</span>
-                      </label>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {(tab === 'skins' || tab === 'mods') && (
-                  <div className={styles.filterGroup}>
-                    <label className={styles.filterLabel}>Rarity</label>
-                    <div className={styles.checkList}>
-                      {RARITY_LIST.map((r) => (
-                        <label key={r} className={styles.check}>
+                  {tab === 'drones' && (
+                    <div className={styles.filterGroup}>
+                      <label className={styles.filterLabel}>Includes</label>
+                      <div className={styles.checkList}>
+                        <label className={styles.check}>
                           <input
                             type="checkbox"
-                            checked={filters.rarities.includes(r)}
+                            checked={filters.hasSkins}
                             onChange={(e) =>
                               setFilters((f) => ({
                                 ...f,
-                                rarities: e.target.checked
-                                  ? [...f.rarities, r]
-                                  : f.rarities.filter((x) => x !== r),
+                                hasSkins: e.target.checked,
                               }))
                             }
                           />
-                          <span
-                            className={cn(
-                              styles.checkText,
-                              styles[`rarity_${r}`],
-                            )}
-                          >
-                            {RARITY_LABELS[r]}
-                          </span>
+                          <span className={styles.checkText}>Skins</span>
                         </label>
-                      ))}
+                        <label className={styles.check}>
+                          <input
+                            type="checkbox"
+                            checked={filters.hasMods}
+                            onChange={(e) =>
+                              setFilters((f) => ({
+                                ...f,
+                                hasMods: e.target.checked,
+                              }))
+                            }
+                          />
+                          <span className={styles.checkText}>Mods</span>
+                        </label>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <div className={styles.filterGroup}>
-                  <label className={styles.filterLabel}>Sort By</label>
-                  <select
-                    className={styles.select}
-                    value={filters.sort}
-                    onChange={(e) =>
-                      setFilters((f) => ({ ...f, sort: e.target.value }))
+                  {(tab === 'skins' || tab === 'mods') && (
+                    <div className={styles.filterGroup}>
+                      <label className={styles.filterLabel}>Rarity</label>
+                      <div className={styles.checkList}>
+                        {RARITY_LIST.map((r) => (
+                          <label key={r} className={styles.check}>
+                            <input
+                              type="checkbox"
+                              checked={filters.rarities.includes(r)}
+                              onChange={(e) =>
+                                setFilters((f) => ({
+                                  ...f,
+                                  rarities: e.target.checked
+                                    ? [...f.rarities, r]
+                                    : f.rarities.filter((x) => x !== r),
+                                }))
+                              }
+                            />
+                            <span className={cn(styles.checkText, styles[`rarity_${r}`])}>
+                              {RARITY_LABELS[r]}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className={styles.filterGroup}>
+                    <label className={styles.filterLabel}>Sort By</label>
+                    <select
+                      className={styles.select}
+                      value={filters.sort}
+                      onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value }))}
+                    >
+                      <option value="curated">Featured</option>
+                      <option value="rarity">Rarity</option>
+                      <option value="newest">Newest</option>
+                      <option value="priceLow">Price: Low to High</option>
+                      <option value="priceHigh">Price: High to Low</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={styles.clearBtn}
+                    onClick={() =>
+                      setFilters({
+                        minPrice: '',
+                        maxPrice: '',
+                        minLevel: '',
+                        maxLevel: '',
+                        rarities: [],
+                        hasSkins: false,
+                        hasMods: false,
+                        sort: 'curated',
+                      })
                     }
                   >
-                    <option value="curated">Featured</option>
-                    <option value="rarity">Rarity</option>
-                    <option value="newest">Newest</option>
-                    <option value="priceLow">Price: Low to High</option>
-                    <option value="priceHigh">Price: High to Low</option>
-                  </select>
+                    Clear Filters
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  className={styles.clearBtn}
-                  onClick={() =>
-                    setFilters({
-                      minPrice: '',
-                      maxPrice: '',
-                      minLevel: '',
-                      maxLevel: '',
-                      rarities: [],
-                      hasSkins: false,
-                      hasMods: false,
-                      sort: 'curated',
-                    })
-                  }
-                >
-                  Clear Filters
-                </button>
               </div>
-            </div>
-          </aside>
+            </aside>
           )}
 
           <div className={styles.content}>
@@ -1345,7 +1327,7 @@ export default function MarketplacePage() {
                 onOpen={(packId) =>
                   openPackFlow(
                     'skin',
-                    PACK_DEFS.find((p) => p.id === packId),
+                    PACK_DEFS.find((p) => p.id === packId)
                   )
                 }
                 onOpenCapsule={(pack) => openPackFlow('capsule', pack)}
@@ -1401,19 +1383,11 @@ export default function MarketplacePage() {
                       never jumps up. aria-hidden keeps screen readers
                       focused on real listings only. */}
                   {Array.from({ length: placeholderCount }).map((_, i) => (
-                    <div
-                      key={`ph-${i}`}
-                      className={styles.cardPlaceholder}
-                      aria-hidden="true"
-                    />
+                    <div key={`ph-${i}`} className={styles.cardPlaceholder} aria-hidden="true" />
                   ))}
                 </div>
                 {totalPages > 1 && (
-                  <Pagination
-                    page={safePage}
-                    totalPages={totalPages}
-                    onPageChange={setPage}
-                  />
+                  <Pagination page={safePage} totalPages={totalPages} onPageChange={setPage} />
                 )}
               </>
             )}
@@ -1507,10 +1481,7 @@ export default function MarketplacePage() {
             <div className={styles.typeToggle}>
               <button
                 type="button"
-                className={cn(
-                  styles.typeBtn,
-                  listingType === 'drone' && styles.typeBtnActive,
-                )}
+                className={cn(styles.typeBtn, listingType === 'drone' && styles.typeBtnActive)}
                 onClick={() => {
                   setListingType('drone');
                   setListingItemId('');
@@ -1520,10 +1491,7 @@ export default function MarketplacePage() {
               </button>
               <button
                 type="button"
-                className={cn(
-                  styles.typeBtn,
-                  listingType === 'skin' && styles.typeBtnActive,
-                )}
+                className={cn(styles.typeBtn, listingType === 'skin' && styles.typeBtnActive)}
                 onClick={() => {
                   setListingType('skin');
                   setListingItemId('');
@@ -1533,10 +1501,7 @@ export default function MarketplacePage() {
               </button>
               <button
                 type="button"
-                className={cn(
-                  styles.typeBtn,
-                  listingType === 'mod' && styles.typeBtnActive,
-                )}
+                className={cn(styles.typeBtn, listingType === 'mod' && styles.typeBtnActive)}
                 onClick={() => {
                   setListingType('mod');
                   setListingItemId('');
@@ -1549,7 +1514,11 @@ export default function MarketplacePage() {
 
           <div className={styles.listFormRow}>
             <label className={styles.listFormPickerLabel}>
-              {listingType === 'drone' ? 'Choose drone' : listingType === 'skin' ? 'Choose skin' : 'Choose mod'}
+              {listingType === 'drone'
+                ? 'Choose drone'
+                : listingType === 'skin'
+                  ? 'Choose skin'
+                  : 'Choose mod'}
               <span className={styles.listFormPickerLabelHint}>
                 {listingType === 'drone' ? '(must be inactive)' : '(unbound only)'}
               </span>
@@ -1638,9 +1607,7 @@ export default function MarketplacePage() {
             flow={packFlow}
             walletConnected={walletConnected}
             onConfirm={
-              packFlow.kind === 'skin'
-                ? confirmSkinPackPurchase
-                : confirmCapsulePackPurchase
+              packFlow.kind === 'skin' ? confirmSkinPackPurchase : confirmCapsulePackPurchase
             }
             onOpen={handleOpenPack}
             onEquip={handleEquip}
@@ -1675,7 +1642,7 @@ function Pagination({ page, totalPages, onPageChange }) {
           >
             {p}
           </button>
-        ),
+        )
       )}
       <button
         type="button"
@@ -1716,8 +1683,7 @@ const TAPE_RARITY_RANK = { common: 1, rare: 2, epic: 3, legendary: 4 };
 
 const TAPE_SORT_GETTERS = {
   type: (t) => t.itemType ?? '',
-  item: (t) =>
-    (t.drone?.name ?? t.skin?.name ?? t.mod?.name ?? '').toLowerCase(),
+  item: (t) => (t.drone?.name ?? t.skin?.name ?? t.mod?.name ?? '').toLowerCase(),
   rarity: (t) =>
     TAPE_RARITY_RANK[
       t.skin?.rarity ??
@@ -1772,10 +1738,7 @@ function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
   const stats = useMemo(() => {
     const count = transactions.length;
     if (!count) return { count: 0, volume: 0, avg: 0 };
-    const volume = transactions.reduce(
-      (sum, t) => sum + Number(t.price || 0),
-      0,
-    );
+    const volume = transactions.reduce((sum, t) => sum + Number(t.price || 0), 0);
     return { count, volume, avg: Math.round(volume / count) };
   }, [transactions]);
 
@@ -1793,16 +1756,12 @@ function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
           </span>
           <span className={styles.tapeStatSep} aria-hidden="true" />
           <span className={styles.tapeStat}>
-            <span className={styles.tapeStatValue}>
-              {stats.volume.toLocaleString()}
-            </span>
+            <span className={styles.tapeStatValue}>{stats.volume.toLocaleString()}</span>
             <span className={styles.tapeStatLabel}>volume</span>
           </span>
           <span className={styles.tapeStatSep} aria-hidden="true" />
           <span className={styles.tapeStat}>
-            <span className={styles.tapeStatValue}>
-              {stats.avg.toLocaleString()}
-            </span>
+            <span className={styles.tapeStatValue}>{stats.avg.toLocaleString()}</span>
             <span className={styles.tapeStatLabel}>avg</span>
           </span>
         </div>
@@ -1833,12 +1792,7 @@ function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
             <SortLabel sort={sort} colKey="time" onClick={handleSortClick}>
               Time
             </SortLabel>
-            <SortLabel
-              sort={sort}
-              colKey="price"
-              onClick={handleSortClick}
-              alignEnd
-            >
+            <SortLabel sort={sort} colKey="price" onClick={handleSortClick} alignEnd>
               Price
             </SortLabel>
           </div>
@@ -1848,18 +1802,13 @@ function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
                 t.drone?.name ??
                 t.skin?.name ??
                 t.mod?.name ??
-                (t.itemType === 'drone'
-                  ? 'Drone'
-                  : t.itemType === 'mod'
-                    ? 'Mod'
-                    : 'Skin');
+                (t.itemType === 'drone' ? 'Drone' : t.itemType === 'mod' ? 'Mod' : 'Skin');
               const rarity =
                 t.itemType === 'skin'
                   ? t.skin?.rarity
                   : t.itemType === 'mod'
                     ? t.mod?.rarity
-                    : t.drone?.appliedSkin?.rarity ??
-                      droneLevelRarity(t.drone?.level);
+                    : (t.drone?.appliedSkin?.rarity ?? droneLevelRarity(t.drone?.level));
               const sellerName = t.seller?.username ?? '-';
               const buyerName = t.buyer?.username ?? '-';
               const when = formatRelativeTime(t.soldAt ?? t.createdAt);
@@ -1869,18 +1818,13 @@ function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
                     className={cn(
                       styles.tapeTypePill,
                       rarity && styles[`rarity_${rarity}`],
-                      t.itemType === 'drone' && styles.tapePillDrone,
+                      t.itemType === 'drone' && styles.tapePillDrone
                     )}
                   >
                     {t.itemType}
                   </span>
                   <span className={styles.tapeName}>{name}</span>
-                  <span
-                    className={cn(
-                      styles.tapeRarity,
-                      rarity && styles[`tapeRarity_${rarity}`],
-                    )}
-                  >
+                  <span className={cn(styles.tapeRarity, rarity && styles[`tapeRarity_${rarity}`])}>
                     {rarity ?? '-'}
                   </span>
                   <span className={styles.tapeSeller}>{sellerName}</span>
@@ -1908,12 +1852,7 @@ function SalesTape({ transactions, page, hasMore, onPrev, onNext }) {
             Previous
           </button>
           <span className={styles.tapePageLabel}>Page {page}</span>
-          <button
-            type="button"
-            className={styles.tapePageBtn}
-            onClick={onNext}
-            disabled={!hasMore}
-          >
+          <button type="button" className={styles.tapePageBtn} onClick={onNext} disabled={!hasMore}>
             Next
           </button>
         </div>
@@ -1935,24 +1874,17 @@ function SortLabel({ sort, colKey, onClick, alignEnd, children }) {
         styles.tapeColLabel,
         styles.tapeColLabelBtn,
         isActive && styles.tapeColLabelActive,
-        alignEnd && styles.tapeColLabelEnd,
+        alignEnd && styles.tapeColLabelEnd
       )}
-      aria-sort={
-        isActive
-          ? sort.dir === 'asc'
-            ? 'ascending'
-            : 'descending'
-          : 'none'
-      }
+      aria-sort={isActive ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
     >
       <span>{children}</span>
-      {isActive && (
-        sort.dir === 'asc' ? (
+      {isActive &&
+        (sort.dir === 'asc' ? (
           <ChevronUp size={9} aria-hidden="true" />
         ) : (
           <ChevronDown size={9} aria-hidden="true" />
-        )
-      )}
+        ))}
     </button>
   );
 }
@@ -2003,15 +1935,9 @@ function PacksShowcase({ userPoints, openingId, onOpen, onOpenCapsule }) {
   const premium = PACK_DEFS.find((p) => p.id === 'premium');
   const starter = PACK_DEFS.find((p) => p.id === 'starter');
 
-  const capsuleLegendary = CAPSULE_PACK_DEFS.find(
-    (p) => p.id === 'capsule-legendary',
-  );
-  const capsulePremium = CAPSULE_PACK_DEFS.find(
-    (p) => p.id === 'capsule-premium',
-  );
-  const capsuleStarter = CAPSULE_PACK_DEFS.find(
-    (p) => p.id === 'capsule-starter',
-  );
+  const capsuleLegendary = CAPSULE_PACK_DEFS.find((p) => p.id === 'capsule-legendary');
+  const capsulePremium = CAPSULE_PACK_DEFS.find((p) => p.id === 'capsule-premium');
+  const capsuleStarter = CAPSULE_PACK_DEFS.find((p) => p.id === 'capsule-starter');
 
   // Fetch the image-backed skin catalog once on mount; group by rarity
   // and feed it to each pack's preview row. Catalog excludes the legacy
@@ -2057,7 +1983,7 @@ function PacksShowcase({ userPoints, openingId, onOpen, onOpenCapsule }) {
       premium: pickPreviewSamples('premium', skinPool),
       legendary: pickPreviewSamples('legendary', skinPool),
     }),
-    [skinPool],
+    [skinPool]
   );
 
   const packProps = (pack) => ({
@@ -2075,10 +2001,7 @@ function PacksShowcase({ userPoints, openingId, onOpen, onOpenCapsule }) {
           type="button"
           role="tab"
           aria-selected={packsView === 'skins'}
-          className={cn(
-            styles.packsViewWord,
-            packsView === 'skins' && styles.packsViewWordActive,
-          )}
+          className={cn(styles.packsViewWord, packsView === 'skins' && styles.packsViewWordActive)}
           onClick={() => setPacksView('skins')}
         >
           Skins
@@ -2089,7 +2012,7 @@ function PacksShowcase({ userPoints, openingId, onOpen, onOpenCapsule }) {
           aria-selected={packsView === 'capsules'}
           className={cn(
             styles.packsViewWord,
-            packsView === 'capsules' && styles.packsViewWordActive,
+            packsView === 'capsules' && styles.packsViewWordActive
           )}
           onClick={() => setPacksView('capsules')}
         >
@@ -2135,12 +2058,7 @@ function LiveTicker() {
       <span className={styles.tickerPull}>
         <strong className={styles.tickerUser}>{t.lastPull.username}</strong>
         <span className={styles.tickerPullText}> pulled </span>
-        <span
-          className={cn(
-            styles.tickerPullRarity,
-            styles[`rarity_${t.lastPull.rarity}`],
-          )}
-        >
+        <span className={cn(styles.tickerPullRarity, styles[`rarity_${t.lastPull.rarity}`])}>
           Legendary: {t.lastPull.name}
         </span>
       </span>
@@ -2163,11 +2081,7 @@ function PointsShowcase() {
         </div>
         <div className={styles.pointsGrid}>
           {POINTS_OPTIONS.map((opt) => (
-            <PointsCard
-              key={opt.id}
-              opt={opt}
-              onSelect={() => setVoltsModal(opt)}
-            />
+            <PointsCard key={opt.id} opt={opt} onSelect={() => setVoltsModal(opt)} />
           ))}
         </div>
       </div>
@@ -2179,12 +2093,7 @@ function PointsShowcase() {
         className={styles.voltsModal}
         overlayClassName={styles.voltsOverlay}
       >
-        {voltsModal && (
-          <VoltsModalBody
-            opt={voltsModal}
-            onClose={() => setVoltsModal(null)}
-          />
-        )}
+        {voltsModal && <VoltsModalBody opt={voltsModal} onClose={() => setVoltsModal(null)} />}
       </Modal>
     </>
   );
@@ -2214,16 +2123,9 @@ function PointsCard({ opt, onSelect }) {
           Pills cluster at the BOTTOM of the area (justify-content:
           flex-end), so absent pills become empty space above. */}
       <div className={styles.pointsPillsArea}>
-        {opt.bestValue && (
-          <span className={styles.pointsBestValuePill}>BEST VALUE</span>
-        )}
+        {opt.bestValue && <span className={styles.pointsBestValuePill}>BEST VALUE</span>}
         {opt.bonus && (
-          <span
-            className={cn(
-              styles.pointsBonusPill,
-              styles[`pointsBonusPill_${opt.tier}`],
-            )}
-          >
+          <span className={cn(styles.pointsBonusPill, styles[`pointsBonusPill_${opt.tier}`])}>
             {opt.bonus}
           </span>
         )}
@@ -2232,7 +2134,7 @@ function PointsCard({ opt, onSelect }) {
         className={cn(
           styles.chestFrame,
           styles[`chestFrame_${opt.tier}`],
-          opt.bestValue && styles.chestFrameBestValue,
+          opt.bestValue && styles.chestFrameBestValue
         )}
       >
         <img
@@ -2241,25 +2143,15 @@ function PointsCard({ opt, onSelect }) {
           className={styles.pointsChestImg}
         />
       </div>
-      <div
-        className={cn(
-          styles.pointsAmount,
-          styles[`pointsAmount_${opt.tier}`],
-        )}
-      >
+      <div className={cn(styles.pointsAmount, styles[`pointsAmount_${opt.tier}`])}>
         <VoltIcon size={28} className={styles.pointsAmountIcon} style={{ color: 'currentColor' }} />
         {opt.points.toLocaleString()}
       </div>
-      <div className={styles.pointsPrice}>
-        {opt.price.toLocaleString()} $TOKEN
-      </div>
+      <div className={styles.pointsPrice}>{opt.price.toLocaleString()} $TOKEN</div>
       <button
         type="button"
         data-stop-card-click=""
-        className={cn(
-          styles.pointsBuyBtn,
-          styles[`pointsBuyBtn_${opt.tier}`],
-        )}
+        className={cn(styles.pointsBuyBtn, styles[`pointsBuyBtn_${opt.tier}`])}
         onClick={(e) => {
           e.stopPropagation();
           onSelect();
@@ -2300,14 +2192,10 @@ function VoltsModalBody({ opt, onClose }) {
           className={cn(
             styles.chestFrame,
             styles[`chestFrame_${opt.tier}`],
-            opt.bestValue && styles.chestFrameBestValue,
+            opt.bestValue && styles.chestFrameBestValue
           )}
         >
-          <img
-            src={opt.chest}
-            alt=""
-            className={styles.pointsChestImg}
-          />
+          <img src={opt.chest} alt="" className={styles.pointsChestImg} />
         </div>
       </div>
 
@@ -2317,24 +2205,16 @@ function VoltsModalBody({ opt, onClose }) {
           {opt.points.toLocaleString()}
         </h3>
         {opt.bonus && (
-          <span
-            className={cn(
-              styles.pointsBonusPill,
-              styles[`pointsBonusPill_${opt.tier}`],
-            )}
-          >
+          <span className={cn(styles.pointsBonusPill, styles[`pointsBonusPill_${opt.tier}`])}>
             {opt.bonus}
           </span>
         )}
       </div>
 
-      <div className={styles.voltsPrice}>
-        {opt.price.toLocaleString()} $TOKEN
-      </div>
+      <div className={styles.voltsPrice}>{opt.price.toLocaleString()} $TOKEN</div>
 
       <p className={styles.voltsHint}>
-        Volts spend instantly across the marketplace, packs, and stat
-        upgrades.
+        Volts spend instantly across the marketplace, packs, and stat upgrades.
       </p>
 
       <div className={styles.voltsActions}>
@@ -2342,11 +2222,7 @@ function VoltsModalBody({ opt, onClose }) {
           Cancel
         </Button>
         <Button variant="primary" onClick={onClose}>
-          {canAfford ? (
-            'Buy Now'
-          ) : (
-            <>Need +{shortBy.toLocaleString()} $TOKEN</>
-          )}
+          {canAfford ? 'Buy Now' : <>Need +{shortBy.toLocaleString()} $TOKEN</>}
         </Button>
       </div>
     </div>
@@ -2366,7 +2242,7 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
         styles.packCard,
         styles[`pack_${pack.variant}`],
         styles.packCardHero,
-        styles.packCard_legendary,
+        styles.packCard_legendary
       )}
     >
       <div className={styles.heroGrid}>
@@ -2382,28 +2258,18 @@ function LegendaryHero({ pack, canAfford, pointsShort, isOpening, onOpen }) {
           </div>
           <div className={styles.packTopRight}>
             <div className={styles.pillRowSpacer} aria-hidden="true" />
-            <h3
-              className={cn(styles.packCardName, styles.packCardName_legendary)}
-            >
-              {pack.name}
-            </h3>
-            <p
-              className={cn(
-                styles.packCardDescription,
-                styles.legendaryDescription,
-              )}
-            >
+            <h3 className={cn(styles.packCardName, styles.packCardName_legendary)}>{pack.name}</h3>
+            <p className={cn(styles.packCardDescription, styles.legendaryDescription)}>
               {pack.description}
             </p>
             <p
               className={cn(
                 styles.packCardDescription,
                 styles.legendaryDescription,
-                styles.legendaryTagline,
+                styles.legendaryTagline
               )}
             >
-              The only way to pull{' '}
-              <span className={styles.legendarySkinName}>Mach Zero</span>,{' '}
+              The only way to pull <span className={styles.legendarySkinName}>Mach Zero</span>,{' '}
               <span className={styles.legendarySkinName}>Overdrive</span>, or{' '}
               <span className={styles.legendarySkinName}>Apex Prime</span>.
             </p>
@@ -2481,9 +2347,7 @@ function spawnParticle() {
       left = -25 + Math.random() * 150;
       top = -10 + Math.random() * 125;
       attempts += 1;
-    } while (
-      left >= 10 && left <= 90 && top >= 10 && top <= 90 && attempts < 8
-    );
+    } while (left >= 10 && left <= 90 && top >= 10 && top <= 90 && attempts < 8);
   } else {
     left = 15 + Math.random() * 70;
     top = 15 + Math.random() * 70;
@@ -2542,7 +2406,7 @@ function LegendaryParticles() {
           className={cn(
             styles.particle,
             styles[`particle_${p.size}`],
-            styles[`particle_${p.color}`],
+            styles[`particle_${p.color}`]
           )}
           style={{
             left: `${p.left}%`,
@@ -2561,11 +2425,7 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
   const tone = pack.id === 'premium' ? 'premium' : 'starter';
   return (
     <article
-      className={cn(
-        styles.packCard,
-        styles[`pack_${pack.variant}`],
-        styles[`packCard_${tone}`],
-      )}
+      className={cn(styles.packCard, styles[`pack_${pack.variant}`], styles[`packCard_${tone}`])}
     >
       <div className={styles.packTopRow}>
         <div className={styles.packTopLeft}>
@@ -2581,10 +2441,7 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
           {pack.pills ? (
             <div className={styles.pillRow}>
               {pack.pills.map((p, i) => (
-                <span
-                  key={i}
-                  className={cn(styles.pill, styles[`pill_${p.tone}`])}
-                >
+                <span key={i} className={cn(styles.pill, styles[`pill_${p.tone}`])}>
                   {p.label}
                 </span>
               ))}
@@ -2594,9 +2451,7 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
                same y across packs that don't carry pills. */
             <div className={styles.pillRowSpacer} aria-hidden="true" />
           )}
-          <h3 className={cn(styles.packCardName, styles[`packCardName_${tone}`])}>
-            {pack.name}
-          </h3>
+          <h3 className={cn(styles.packCardName, styles[`packCardName_${tone}`])}>{pack.name}</h3>
           <p className={styles.packCardDescription}>{pack.description}</p>
           <OddsText packId={pack.id} />
           <span className={styles.packPriceLarge}>
@@ -2612,7 +2467,7 @@ function PackCard({ pack, canAfford, pointsShort, isOpening, onOpen }) {
             className={cn(
               styles.packBtn,
               tone === 'premium' && styles.packBtnPurple,
-              tone === 'starter' && styles.packBtnTeal,
+              tone === 'starter' && styles.packBtnTeal
             )}
           >
             {!canAfford ? (
@@ -2655,7 +2510,9 @@ function PossibleCard({ item }) {
     <div className={cn(styles.possibleCard, styles[`possibleCard_${item.rarity}`])}>
       <div className={styles.possibleInner}>
         {isLegendary ? (
-          <span className={styles.possibleL} aria-hidden="true">L</span>
+          <span className={styles.possibleL} aria-hidden="true">
+            L
+          </span>
         ) : (
           <SkinThumb
             skin={item}
@@ -2666,15 +2523,12 @@ function PossibleCard({ item }) {
         )}
       </div>
       <span className={styles.possibleName}>{item.name}</span>
-      <span
-        className={cn(styles.possibleRarity, styles[`rarity_${item.rarity}`])}
-      >
+      <span className={cn(styles.possibleRarity, styles[`rarity_${item.rarity}`])}>
         {RARITY_LABELS[item.rarity]}
       </span>
     </div>
   );
 }
-
 
 /* -------------------------------------------------------------------------- */
 /* Capsule (mod) packs                                                         */
@@ -2693,7 +2547,7 @@ function CapsuleHero({ pack, onOpen }) {
         styles.packCard,
         styles[`pack_${pack.variant}`],
         styles.packCardHero,
-        styles.packCard_legendary,
+        styles.packCard_legendary
       )}
     >
       <div className={styles.heroGrid}>
@@ -2709,17 +2563,8 @@ function CapsuleHero({ pack, onOpen }) {
           </div>
           <div className={styles.packTopRight}>
             <div className={styles.pillRowSpacer} aria-hidden="true" />
-            <h3
-              className={cn(styles.packCardName, styles.packCardName_legendary)}
-            >
-              {pack.name}
-            </h3>
-            <p
-              className={cn(
-                styles.packCardDescription,
-                styles.legendaryDescription,
-              )}
-            >
+            <h3 className={cn(styles.packCardName, styles.packCardName_legendary)}>{pack.name}</h3>
+            <p className={cn(styles.packCardDescription, styles.legendaryDescription)}>
               {pack.description}
             </p>
             {/* Parallel tagline to the legendary skin pack so the price +
@@ -2730,11 +2575,10 @@ function CapsuleHero({ pack, onOpen }) {
               className={cn(
                 styles.packCardDescription,
                 styles.legendaryDescription,
-                styles.legendaryTagline,
+                styles.legendaryTagline
               )}
             >
-              The only way to pull{' '}
-              <span className={styles.legendarySkinName}>Phantom Drive</span>,{' '}
+              The only way to pull <span className={styles.legendarySkinName}>Phantom Drive</span>,{' '}
               <span className={styles.legendarySkinName}>Quantum Sync</span>, or{' '}
               <span className={styles.legendarySkinName}>Storm Rider</span>.
             </p>
@@ -2776,11 +2620,7 @@ function CapsuleCard({ pack, onOpen }) {
   const imgSlug = pack.id.replace('capsule-', 'capsule_');
   return (
     <article
-      className={cn(
-        styles.packCard,
-        styles[`pack_${pack.variant}`],
-        styles[`packCard_${tone}`],
-      )}
+      className={cn(styles.packCard, styles[`pack_${pack.variant}`], styles[`packCard_${tone}`])}
     >
       <div className={styles.packTopRow}>
         <div className={styles.packTopLeft}>
@@ -2796,10 +2636,7 @@ function CapsuleCard({ pack, onOpen }) {
           {pack.pills ? (
             <div className={styles.pillRow}>
               {pack.pills.map((p, i) => (
-                <span
-                  key={i}
-                  className={cn(styles.pill, styles[`pill_${p.tone}`])}
-                >
+                <span key={i} className={cn(styles.pill, styles[`pill_${p.tone}`])}>
                   {p.label}
                 </span>
               ))}
@@ -2807,9 +2644,7 @@ function CapsuleCard({ pack, onOpen }) {
           ) : (
             <div className={styles.pillRowSpacer} aria-hidden="true" />
           )}
-          <h3 className={cn(styles.packCardName, styles[`packCardName_${tone}`])}>
-            {pack.name}
-          </h3>
+          <h3 className={cn(styles.packCardName, styles[`packCardName_${tone}`])}>{pack.name}</h3>
           <p className={styles.packCardDescription}>{pack.description}</p>
           <OddsText packId={pack.id} odds={CAPSULE_PACK_ODDS[pack.id]} />
           <span className={styles.packPriceLarge}>
@@ -2823,7 +2658,7 @@ function CapsuleCard({ pack, onOpen }) {
             className={cn(
               styles.packBtn,
               tone === 'premium' && styles.packBtnPurple,
-              tone === 'starter' && styles.packBtnTeal,
+              tone === 'starter' && styles.packBtnTeal
             )}
           >
             Buy Pack
@@ -2861,16 +2696,10 @@ function CapsulePossibleCard({ sample }) {
   return (
     <div className={cn(styles.possibleCard, styles[`possibleCard_${rarity}`])}>
       <div className={styles.possibleInner}>
-        <ModPlaceholder
-          rarity={rarity}
-          size={120}
-          className={styles.possibleModChip}
-        />
+        <ModPlaceholder rarity={rarity} size={120} className={styles.possibleModChip} />
       </div>
       <span className={styles.possibleName}>{name}</span>
-      <span
-        className={cn(styles.possibleRarity, styles[`rarity_${rarity}`])}
-      >
+      <span className={cn(styles.possibleRarity, styles[`rarity_${rarity}`])}>
         {RARITY_LABELS[rarity]}
       </span>
     </div>
@@ -2907,9 +2736,7 @@ function OddsText({ packId, odds: oddsProp }) {
           <span className={cn(styles.oddsTextLabel, styles[`rarity_${r}`])}>
             {RARITY_LABELS[r]}
           </span>{' '}
-          <span className={styles.oddsTextValue}>
-            {formatOddsPct(odds[r])}%
-          </span>
+          <span className={styles.oddsTextValue}>{formatOddsPct(odds[r])}%</span>
           {i < entries.length - 1 && (
             <span className={styles.oddsTextSep} aria-hidden="true">
               ·
@@ -2925,14 +2752,7 @@ function OddsText({ packId, odds: oddsProp }) {
 /* Listing card                                                               */
 /* -------------------------------------------------------------------------- */
 
-function ListingCard({
-  listing,
-  isOwner,
-  canAfford,
-  pointsShort,
-  onBuy,
-  onCancel,
-}) {
+function ListingCard({ listing, isOwner, canAfford, pointsShort, onBuy, onCancel }) {
   const router = useRouter();
   const isDrone = listing.itemType === 'drone';
   const isMod = listing.itemType === 'mod';
@@ -2953,21 +2773,12 @@ function ListingCard({
     }
   };
 
-  const rarityClass =
-    !isDrone && rarity
-      ? styles[`card_${rarity}`]
-      : '';
+  const rarityClass = !isDrone && rarity ? styles[`card_${rarity}`] : '';
 
-  const itemName = isDrone
-    ? drone?.name
-    : isMod
-      ? mod?.name
-      : skin?.name;
+  const itemName = isDrone ? drone?.name : isMod ? mod?.name : skin?.name;
 
   const levelClass =
-    isDrone && drone?.level != null
-      ? styles[`card_level_${getLevelTier(drone.level)}`]
-      : '';
+    isDrone && drone?.level != null ? styles[`card_level_${getLevelTier(drone.level)}`] : '';
 
   const legendaryTheme =
     isDrone && drone?.appliedSkin?.rarity === 'legendary'
@@ -3010,7 +2821,7 @@ function ListingCard({
         isMod && styles.cardMod,
         isOwner && styles.cardMine,
         !isDrone && rarity === 'legendary' && styles.cardLegendaryShimmer,
-        legendaryTheme && styles.skinRarity_legendary,
+        legendaryTheme && styles.skinRarity_legendary
       )}
       style={legendaryStyle}
       role="button"
@@ -3035,17 +2846,9 @@ function ListingCard({
 
       <div className={styles.listingImage}>
         {isDrone ? (
-          <DroneImage
-            drone={drone}
-            alt={drone?.name ?? 'Drone'}
-            className={styles.droneImg}
-          />
+          <DroneImage drone={drone} alt={drone?.name ?? 'Drone'} className={styles.droneImg} />
         ) : isMod ? (
-          <ModPlaceholder
-            rarity={rarity}
-            size={92}
-            className={styles.listingImageMod}
-          />
+          <ModPlaceholder rarity={rarity} size={92} className={styles.listingImageMod} />
         ) : (
           <SkinSlot skin={skin} rarity={rarity} alt={skin?.name} />
         )}
@@ -3055,10 +2858,7 @@ function ListingCard({
         <div className={styles.listingTitleRow}>
           <span className={styles.listingName}>{itemName ?? 'Unknown'}</span>
           {isDrone && drone?.level != null && (
-            <span
-              className={styles.listingLevel}
-              style={{ color: getLevelColor(drone.level) }}
-            >
+            <span className={styles.listingLevel} style={{ color: getLevelColor(drone.level) }}>
               LV {drone.level}
             </span>
           )}
@@ -3082,35 +2882,25 @@ function ListingCard({
             </div>
           )}
 
-          {isMod && mod?.description && (
-            <div className={styles.modDesc}>{mod.description}</div>
-          )}
+          {isMod && mod?.description && <div className={styles.modDesc}>{mod.description}</div>}
 
-          {!isDrone && (
-            <div className={styles.compat}>Compatible with any drone</div>
-          )}
+          {!isDrone && <div className={styles.compat}>Compatible with any drone</div>}
         </div>
 
         <div className={styles.priceRow}>
           <VoltIcon size={13} />
-          <span className={styles.price}>
-            {listing.price.toLocaleString()}
-          </span>
+          <span className={styles.price}>{listing.price.toLocaleString()}</span>
         </div>
 
         {isDrone && drone ? (
           <div className={styles.collectionRow}>
             <span className={styles.collectionItem}>
               <span className={styles.collectionLabel}>MODS</span>
-              <span className={styles.collectionCountMod}>
-                {drone.boundModCount ?? 0}
-              </span>
+              <span className={styles.collectionCountMod}>{drone.boundModCount ?? 0}</span>
             </span>
             <span className={styles.collectionItem}>
               <span className={styles.collectionLabel}>SKINS</span>
-              <span className={styles.collectionCountSkin}>
-                {drone.boundSkinCount ?? 0}
-              </span>
+              <span className={styles.collectionCountSkin}>{drone.boundSkinCount ?? 0}</span>
             </span>
           </div>
         ) : (
@@ -3222,7 +3012,7 @@ function ListingItemPicker({ kind, items, selectedId, onSelect }) {
             className={cn(
               styles.listFormCard,
               tierClass,
-              isSelected && styles.listFormCardSelected,
+              isSelected && styles.listFormCardSelected
             )}
             onClick={() => onSelect(isSelected ? '' : String(item.id))}
             aria-pressed={isSelected}
@@ -3243,9 +3033,7 @@ function ListingItemPicker({ kind, items, selectedId, onSelect }) {
             </div>
             <div className={styles.listFormCardName}>{item.name}</div>
             <div className={styles.listFormCardMeta}>
-              {kind === 'drone'
-                ? `LV ${item.level}`
-                : RARITY_LABELS[item.rarity] ?? item.rarity}
+              {kind === 'drone' ? `LV ${item.level}` : (RARITY_LABELS[item.rarity] ?? item.rarity)}
             </div>
           </button>
         );
@@ -3266,14 +3054,7 @@ function SkinSlot({ skin, rarity, alt }) {
   // SkinMini diamond/prism — same shape as the pack-preview cards. Wrap
   // gives the rarity-tinted SVG room to breathe inside the listing's
   // image slot without imposing an aspect ratio at this level.
-  return (
-    <SkinThumb
-      skin={skin}
-      rarity={rarity}
-      alt={alt}
-      className={styles.skinImg}
-    />
-  );
+  return <SkinThumb skin={skin} rarity={rarity} alt={alt} className={styles.skinImg} />;
 }
 
 /* Open-envelope-pointing-down swatch placeholder. Five corners: a narrow
@@ -3283,14 +3064,9 @@ function SkinSlot({ skin, rarity, alt }) {
    from the spine. Fills + strokes inherit currentColor (set per rarity by
    the wrapper) so all variants share one SVG. */
 function MarketplaceSkinPlaceholder({ rarity }) {
-  const rarityClass = rarity
-    ? styles[`skinPlaceholder_${rarity}`]
-    : styles.skinPlaceholder_common;
+  const rarityClass = rarity ? styles[`skinPlaceholder_${rarity}`] : styles.skinPlaceholder_common;
   return (
-    <span
-      className={cn(styles.skinPlaceholderWrap, rarityClass)}
-      aria-hidden="true"
-    >
+    <span className={cn(styles.skinPlaceholderWrap, rarityClass)} aria-hidden="true">
       <svg viewBox="0 0 200 158" className={styles.skinPlaceholderSvg}>
         {/* Back wall facet (between the two folds). */}
         <polygon points="14,14 186,14 100,148" fill="currentColor" fillOpacity="0.22" />
@@ -3310,12 +3086,22 @@ function MarketplaceSkinPlaceholder({ rarity }) {
         />
         {/* V fold lines from the top corners to the apex. */}
         <line
-          x1="14" y1="14" x2="100" y2="148"
-          stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.7"
+          x1="14"
+          y1="14"
+          x2="100"
+          y2="148"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeOpacity="0.7"
         />
         <line
-          x1="186" y1="14" x2="100" y2="148"
-          stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.7"
+          x1="186"
+          y1="14"
+          x2="100"
+          y2="148"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeOpacity="0.7"
         />
       </svg>
     </span>
@@ -3328,7 +3114,7 @@ function MarketplaceSkinPlaceholder({ rarity }) {
 
 function StatMiniBar({ label, value }) {
   // Stats are bounded ~1-100 in-game; clamp for display safety.
-  const pct = Math.max(0, Math.min(100, (Number(value) || 0)));
+  const pct = Math.max(0, Math.min(100, Number(value) || 0));
   return (
     <div className={styles.statBar}>
       <span className={styles.statBarLabel}>{label}</span>
@@ -3410,11 +3196,7 @@ function CancelModalBody({
         <span className={styles.purchaseHeroShadow} aria-hidden="true" />
         <div className={styles.purchaseHeroFloat}>
           {isDrone && drone && (
-            <DroneImage
-              drone={drone}
-              alt={drone.name}
-              className={styles.purchaseHeroImg}
-            />
+            <DroneImage drone={drone} alt={drone.name} className={styles.purchaseHeroImg} />
           )}
           {isMod && mod && (
             <span className={styles.purchaseHeroMod}>
@@ -3435,20 +3217,12 @@ function CancelModalBody({
       <div className={styles.purchaseTitleRow}>
         <h3 className={styles.purchaseName}>{itemName}</h3>
         {isDrone && drone?.level != null && (
-          <span
-            className={styles.purchaseLevel}
-            style={{ color: getLevelColor(drone.level) }}
-          >
+          <span className={styles.purchaseLevel} style={{ color: getLevelColor(drone.level) }}>
             LV {drone.level}
           </span>
         )}
         {!isDrone && rarity && (
-          <span
-            className={cn(
-              styles.purchaseRarityTag,
-              styles[`rarity_${rarity}`],
-            )}
-          >
+          <span className={cn(styles.purchaseRarityTag, styles[`rarity_${rarity}`])}>
             {RARITY_LABELS[rarity]}
           </span>
         )}
@@ -3458,9 +3232,7 @@ function CancelModalBody({
 
       <div className={styles.purchasePriceRow}>
         <VoltIcon size={24} />
-        <span className={styles.purchasePrice}>
-          {listing.price.toLocaleString()}
-        </span>
+        <span className={styles.purchasePrice}>{listing.price.toLocaleString()}</span>
       </div>
 
       <div className={styles.cancelEditBlock}>
@@ -3488,9 +3260,7 @@ function CancelModalBody({
         {updatePending ? 'Updating...' : 'Update Price'}
       </button>
 
-      {updateError && (
-        <div className={styles.cancelUpdateError}>{updateError}</div>
-      )}
+      {updateError && <div className={styles.cancelUpdateError}>{updateError}</div>}
 
       <p className={styles.cancelPrompt}>Cancel this listing?</p>
 
@@ -3595,9 +3365,7 @@ function PurchaseModalBody({
       : (RARITY_GLOW[rarity] ?? RARITY_GLOW.common);
 
   const totalRaces = (drone?.wins ?? 0) + (drone?.losses ?? 0);
-  const winRate = totalRaces > 0
-    ? Math.round(((drone?.wins ?? 0) / totalRaces) * 100)
-    : 0;
+  const winRate = totalRaces > 0 ? Math.round(((drone?.wins ?? 0) / totalRaces) * 100) : 0;
 
   // CTA is always the accent teal across drone / skin / mod purchases -
   // it's the universal "confirm" colour and stays consistent with every
@@ -3631,11 +3399,7 @@ function PurchaseModalBody({
         <span className={styles.purchaseHeroShadow} aria-hidden="true" />
         <div className={styles.purchaseHeroFloat}>
           {isDrone && drone && (
-            <DroneImage
-              drone={drone}
-              alt={drone.name}
-              className={styles.purchaseHeroImg}
-            />
+            <DroneImage drone={drone} alt={drone.name} className={styles.purchaseHeroImg} />
           )}
           {isMod && mod && (
             <span className={styles.purchaseHeroMod}>
@@ -3663,39 +3427,24 @@ function PurchaseModalBody({
           <div className={styles.purchaseTitleRow}>
             <h3 className={styles.purchaseName}>{itemName}</h3>
             {isDrone && drone?.level != null && (
-              <span
-                className={styles.purchaseLevel}
-                style={{ color: getLevelColor(drone.level) }}
-              >
+              <span className={styles.purchaseLevel} style={{ color: getLevelColor(drone.level) }}>
                 LV {drone.level}
               </span>
             )}
             {isMod && mod?.rarity && (
-              <span
-                className={cn(
-                  styles.purchaseRarityTag,
-                  styles[`rarity_${mod.rarity}`],
-                )}
-              >
+              <span className={cn(styles.purchaseRarityTag, styles[`rarity_${mod.rarity}`])}>
                 {RARITY_LABELS[mod.rarity]}
               </span>
             )}
             {isSkin && skin?.rarity && (
-              <span
-                className={cn(
-                  styles.purchaseRarityTag,
-                  styles[`rarity_${skin.rarity}`],
-                )}
-              >
+              <span className={cn(styles.purchaseRarityTag, styles[`rarity_${skin.rarity}`])}>
                 {RARITY_LABELS[skin.rarity]}
               </span>
             )}
           </div>
 
           {isMod && mod && (mod.specialAbility || mod.description) && (
-            <div className={styles.purchaseModDesc}>
-              {mod.specialAbility ?? mod.description}
-            </div>
+            <div className={styles.purchaseModDesc}>{mod.specialAbility ?? mod.description}</div>
           )}
 
           {isDrone && drone && (
@@ -3720,10 +3469,7 @@ function PurchaseModalBody({
           )}
 
           {isDrone && drone?.id && (
-            <Link
-              href={`/drones/${drone.id}`}
-              className={styles.purchaseDroneDetailsLink}
-            >
+            <Link href={`/drones/${drone.id}`} className={styles.purchaseDroneDetailsLink}>
               View drone details →
             </Link>
           )}
@@ -3732,17 +3478,13 @@ function PurchaseModalBody({
             <div className={styles.purchaseCompat}>Compatible with any drone</div>
           )}
 
-          {sellerName && (
-            <div className={styles.purchaseSeller}>Listed by {sellerName}</div>
-          )}
+          {sellerName && <div className={styles.purchaseSeller}>Listed by {sellerName}</div>}
 
           <hr className={styles.purchaseDivider} aria-hidden="true" />
 
           <div className={styles.purchasePriceRow}>
             <VoltIcon size={24} />
-            <span className={styles.purchasePrice}>
-              {listing.price.toLocaleString()}
-            </span>
+            <span className={styles.purchasePrice}>{listing.price.toLocaleString()}</span>
           </div>
           <div className={styles.purchaseBalance}>
             Your balance: <VoltIcon size={12} />
@@ -3751,19 +3493,12 @@ function PurchaseModalBody({
 
           <button
             type="button"
-            className={cn(
-              styles.purchaseCta,
-              !canAfford && styles.purchaseCtaShort,
-            )}
+            className={cn(styles.purchaseCta, !canAfford && styles.purchaseCtaShort)}
             style={{ '--cta-bg': ctaBg, '--cta-text': ctaText }}
             onClick={onConfirm}
             disabled={!canAfford || pending}
           >
-            {pending
-              ? statusToLabel(status)
-              : !canAfford
-                ? 'Not enough Volts'
-                : 'Confirm Purchase'}
+            {pending ? statusToLabel(status) : !canAfford ? 'Not enough Volts' : 'Confirm Purchase'}
           </button>
 
           {error && <div className={styles.purchaseError}>{error}</div>}
@@ -3810,23 +3545,14 @@ function PackFlowModalBody({ flow, walletConnected, onConfirm, onOpen, onEquip, 
   // glowColor still drives the rarity-tinted aura, sparks, burst, and fog
   // via `--glow-color` set on the stage element. The action button is plain
   // teal `<Button variant="primary">` to match every other modal button.
-  const glowColor =
-    tier === 'legendary'
-      ? '#FFD700'
-      : tier === 'premium'
-        ? '#BB86FC'
-        : '#03DAC6';
+  const glowColor = tier === 'legendary' ? '#FFD700' : tier === 'premium' ? '#BB86FC' : '#03DAC6';
   const imgSrc =
     kind === 'skin'
       ? `/skin_packs/${pack.id}_pack.webp`
       : `/capsules/${pack.id.replace('capsule-', 'capsule_')}.webp`;
 
   const title =
-    stage === 'confirm'
-      ? pack.name
-      : stage === 'ready'
-        ? 'Ready to Open'
-        : 'Pack Opened';
+    stage === 'confirm' ? pack.name : stage === 'ready' ? 'Ready to Open' : 'Pack Opened';
 
   let buttonLabel;
   let buttonAction;
@@ -3875,23 +3601,13 @@ function PackFlowModalBody({ flow, walletConnected, onConfirm, onOpen, onEquip, 
             {/* Paint stack: pack (z2) under the orb (z3) which grows from
                 the pack's center, then burst (z4) + fog (z5) overlay at
                 explosion, cards (z6) on top once they fade in. */}
-            <img
-              src={imgSrc}
-              alt=""
-              className={styles.flowExplodingPack}
-              aria-hidden="true"
-            />
+            <img src={imgSrc} alt="" className={styles.flowExplodingPack} aria-hidden="true" />
             <span className={styles.flowOrb} aria-hidden="true" />
             <span className={styles.flowBurst} aria-hidden="true" />
             <span className={styles.flowFog} aria-hidden="true" />
             <div className={styles.flowCards}>
               {(awarded ?? []).map((item, i) => (
-                <FlowRevealCard
-                  key={item.id ?? i}
-                  item={item}
-                  kind={kind}
-                  index={i}
-                />
+                <FlowRevealCard key={item.id ?? i} item={item} kind={kind} index={i} />
               ))}
             </div>
           </div>
@@ -3903,11 +3619,7 @@ function PackFlowModalBody({ flow, walletConnected, onConfirm, onOpen, onEquip, 
         style={{ visibility: stage === 'opened' ? 'hidden' : 'visible' }}
         aria-hidden={stage === 'opened' ? 'true' : undefined}
       >
-        <h3
-          className={cn(styles.purchaseName, styles[`packCardName_${tier}`])}
-        >
-          {title}
-        </h3>
+        <h3 className={cn(styles.purchaseName, styles[`packCardName_${tier}`])}>{title}</h3>
       </div>
 
       {/* Price block: ALWAYS rendered, even on ready/opened. visibility is
@@ -3964,20 +3676,12 @@ function PackFlowModalBody({ flow, walletConnected, onConfirm, onOpen, onEquip, 
 function FlowRevealCard({ item, kind, index }) {
   return (
     <div
-      className={cn(
-        styles.possibleCard,
-        styles[`possibleCard_${item.rarity}`],
-        styles.flowCard,
-      )}
+      className={cn(styles.possibleCard, styles[`possibleCard_${item.rarity}`], styles.flowCard)}
       style={{ animationDelay: `${1300 + index * 140}ms` }}
     >
       <div className={styles.possibleInner}>
         {kind === 'capsule' ? (
-          <ModPlaceholder
-            rarity={item.rarity}
-            size={72}
-            className={styles.possibleSkinThumb}
-          />
+          <ModPlaceholder rarity={item.rarity} size={72} className={styles.possibleSkinThumb} />
         ) : (
           // Revealed skin card shows the actual skin image when one is
           // available (SkinThumb resolves real /skins/...webp URLs and
@@ -3994,15 +3698,9 @@ function FlowRevealCard({ item, kind, index }) {
         )}
       </div>
       <span className={styles.possibleName}>{item.name}</span>
-      <span
-        className={cn(
-          styles.possibleRarity,
-          styles[`rarity_${item.rarity}`],
-        )}
-      >
+      <span className={cn(styles.possibleRarity, styles[`rarity_${item.rarity}`])}>
         {RARITY_LABELS[item.rarity]}
       </span>
     </div>
   );
 }
-

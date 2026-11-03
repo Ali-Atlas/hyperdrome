@@ -61,25 +61,14 @@ const MIN_LISTING_PRICE = 10;
  */
 export async function createListing(userId, itemType, itemId, price) {
   if (!Number.isInteger(price) || price < MIN_LISTING_PRICE) {
-    throw new ApiError(
-      `Minimum listing price is ${MIN_LISTING_PRICE} points`,
-      400,
-    );
+    throw new ApiError(`Minimum listing price is ${MIN_LISTING_PRICE} points`, 400);
   }
   if (itemType === 'drone') {
-    const [drone] = await db
-      .select()
-      .from(drones)
-      .where(eq(drones.id, itemId))
-      .limit(1);
+    const [drone] = await db.select().from(drones).where(eq(drones.id, itemId)).limit(1);
     if (!drone) throw new ApiError('Drone not found', 404);
     if (drone.userId !== userId) throw new ApiError('You do not own this drone', 403);
   } else if (itemType === 'skin') {
-    const [skin] = await db
-      .select()
-      .from(skins)
-      .where(eq(skins.id, itemId))
-      .limit(1);
+    const [skin] = await db.select().from(skins).where(eq(skins.id, itemId)).limit(1);
     if (!skin) throw new ApiError('Skin not found', 404);
     if (skin.userId !== userId) throw new ApiError('You do not own this skin', 403);
     const [boundRow] = await db
@@ -90,15 +79,11 @@ export async function createListing(userId, itemType, itemId, price) {
     if (boundRow) {
       throw new ApiError(
         'This skin is bound to a drone and transfers with it - list the drone instead',
-        400,
+        400
       );
     }
   } else {
-    const [mod] = await db
-      .select()
-      .from(mods)
-      .where(eq(mods.id, itemId))
-      .limit(1);
+    const [mod] = await db.select().from(mods).where(eq(mods.id, itemId)).limit(1);
     if (!mod) throw new ApiError('Mod not found', 404);
     if (mod.userId !== userId) throw new ApiError('You do not own this mod', 403);
     const [boundRow] = await db
@@ -109,7 +94,7 @@ export async function createListing(userId, itemType, itemId, price) {
     if (boundRow) {
       throw new ApiError(
         'This mod is bound to a drone and transfers with it - list the drone instead',
-        400,
+        400
       );
     }
   }
@@ -150,13 +135,16 @@ export async function createListing(userId, itemType, itemId, price) {
       listing.onchainListingId = onchain.listingId;
       listing.listTxHash = onchain.txHash;
     } catch (err) {
-      console.error('[marketplace] on-chain listItem failed - DB row remains, on-chain not mirrored', {
-        listingId: listing.id,
-        itemType,
-        itemId,
-        tokenId,
-        err,
-      });
+      console.error(
+        '[marketplace] on-chain listItem failed - DB row remains, on-chain not mirrored',
+        {
+          listingId: listing.id,
+          itemType,
+          itemId,
+          tokenId,
+          err,
+        }
+      );
     }
   }
 
@@ -218,7 +206,7 @@ export async function buyListing(buyerId, listingId, opts = {}) {
     if (listing.onchainListingId == null) {
       throw new ApiError(
         'This listing has no on-chain twin; user-signed buy is not applicable',
-        400,
+        400
       );
     }
     await verifyBuyTx({
@@ -228,11 +216,7 @@ export async function buyListing(buyerId, listingId, opts = {}) {
     });
   }
 
-  const [buyer] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, buyerId))
-    .limit(1);
+  const [buyer] = await db.select().from(users).where(eq(users.id, buyerId)).limit(1);
   if (!buyer) throw new ApiError('Buyer not found', 404);
   // Only enforce DB-side affordability for the server-signed path. In the
   // user-signed branch the on-chain transferFrom has already executed; the
@@ -242,7 +226,7 @@ export async function buyListing(buyerId, listingId, opts = {}) {
     throw new ApiError('Insufficient volts', 400);
   }
 
-  const platformFee = Math.floor(listing.price * 0.10);
+  const platformFee = Math.floor(listing.price * 0.1);
   const sellerPayout = listing.price - platformFee;
 
   // Atomic claim: only the first UPDATE with status='active' succeeds
@@ -254,12 +238,7 @@ export async function buyListing(buyerId, listingId, opts = {}) {
       soldAt: new Date(),
       platformFee,
     })
-    .where(
-      and(
-        eq(marketplaceListings.id, listingId),
-        eq(marketplaceListings.status, 'active'),
-      ),
-    )
+    .where(and(eq(marketplaceListings.id, listingId), eq(marketplaceListings.status, 'active')))
     .returning();
 
   if (claimed.length === 0) {
@@ -288,8 +267,8 @@ export async function buyListing(buyerId, listingId, opts = {}) {
         and(
           eq(droneOwnershipHistory.droneId, listing.droneId),
           eq(droneOwnershipHistory.ownerUserId, listing.sellerId),
-          sql`${droneOwnershipHistory.endDate} IS NULL`,
-        ),
+          sql`${droneOwnershipHistory.endDate} IS NULL`
+        )
       );
 
     // Transfer drone, deactivate on sale. The applied skin pointer +
@@ -310,10 +289,7 @@ export async function buyListing(buyerId, listingId, opts = {}) {
       .where(eq(droneSkins.droneId, listing.droneId));
     const boundSkinIds = boundSkinRows.map((r) => r.skinId);
     if (boundSkinIds.length > 0) {
-      await db
-        .update(skins)
-        .set({ userId: buyerId })
-        .where(inArray(skins.id, boundSkinIds));
+      await db.update(skins).set({ userId: buyerId }).where(inArray(skins.id, boundSkinIds));
     }
 
     // Bound mods transfer with the drone. Re-home every mod in the drone's
@@ -324,10 +300,7 @@ export async function buyListing(buyerId, listingId, opts = {}) {
       .where(eq(droneMods.droneId, listing.droneId));
     const boundModIds = boundModRows.map((r) => r.modId);
     if (boundModIds.length > 0) {
-      await db
-        .update(mods)
-        .set({ userId: buyerId })
-        .where(inArray(mods.id, boundModIds));
+      await db.update(mods).set({ userId: buyerId }).where(inArray(mods.id, boundModIds));
     }
 
     // New ownership row for buyer
@@ -338,15 +311,9 @@ export async function buyListing(buyerId, listingId, opts = {}) {
       pricePaid: listing.price,
     });
   } else if (listing.itemType === 'skin' && listing.skinId) {
-    await db
-      .update(skins)
-      .set({ userId: buyerId })
-      .where(eq(skins.id, listing.skinId));
+    await db.update(skins).set({ userId: buyerId }).where(eq(skins.id, listing.skinId));
   } else if (listing.itemType === 'mod' && listing.modId) {
-    await db
-      .update(mods)
-      .set({ userId: buyerId })
-      .where(eq(mods.id, listing.modId));
+    await db.update(mods).set({ userId: buyerId }).where(eq(mods.id, listing.modId));
   }
 
   // On-chain mirror: forward the buy to the marketplace contract when
@@ -363,11 +330,14 @@ export async function buyListing(buyerId, listingId, opts = {}) {
         priceInVolts: listing.price,
       });
     } catch (err) {
-      console.error('[marketplace] on-chain buyItem failed - DB sale recorded, on-chain not mirrored', {
-        listingId,
-        onchainListingId: listing.onchainListingId,
-        err,
-      });
+      console.error(
+        '[marketplace] on-chain buyItem failed - DB sale recorded, on-chain not mirrored',
+        {
+          listingId,
+          onchainListingId: listing.onchainListingId,
+          err,
+        }
+      );
     }
   }
 
@@ -412,11 +382,14 @@ export async function cancelListing(userId, listingId) {
     try {
       await cancelListingOnchain(listing.onchainListingId);
     } catch (err) {
-      console.error('[marketplace] on-chain cancelListing failed - DB cancelled, NFT may still be in escrow', {
-        listingId,
-        onchainListingId: listing.onchainListingId,
-        err,
-      });
+      console.error(
+        '[marketplace] on-chain cancelListing failed - DB cancelled, NFT may still be in escrow',
+        {
+          listingId,
+          onchainListingId: listing.onchainListingId,
+          err,
+        }
+      );
     }
   }
 
@@ -525,25 +498,21 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
     .from(marketplaceListings)
     .where(and(...conditions));
 
-  const rows = status === 'sold'
-    ? await baseQuery
-        .orderBy(desc(marketplaceListings.soldAt))
-        .limit(limit)
-        .offset(offset)
-    : usePostFetchSort
-      ? await baseQuery
-          .orderBy(desc(marketplaceListings.createdAt))
-          .limit(CURATED_FETCH_CAP)
-      : await baseQuery
-          .orderBy(
-            sort === 'priceLow'
-              ? marketplaceListings.price
-              : sort === 'priceHigh'
-                ? desc(marketplaceListings.price)
-                : desc(marketplaceListings.createdAt),
-          )
-          .limit(limit)
-          .offset(offset);
+  const rows =
+    status === 'sold'
+      ? await baseQuery.orderBy(desc(marketplaceListings.soldAt)).limit(limit).offset(offset)
+      : usePostFetchSort
+        ? await baseQuery.orderBy(desc(marketplaceListings.createdAt)).limit(CURATED_FETCH_CAP)
+        : await baseQuery
+            .orderBy(
+              sort === 'priceLow'
+                ? marketplaceListings.price
+                : sort === 'priceHigh'
+                  ? desc(marketplaceListings.price)
+                  : desc(marketplaceListings.createdAt)
+            )
+            .limit(limit)
+            .offset(offset);
 
   if (rows.length === 0) return [];
 
@@ -554,61 +523,49 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
   const buyerIds = [...new Set(rows.map((r) => r.buyerId).filter(Boolean))];
   const userIds = [...new Set([...sellerIds, ...buyerIds])];
 
-  const [
-    droneRows,
-    skinRows,
-    modRows,
-    userRows,
-    droneSkinCounts,
-    droneModCounts,
-  ] = await Promise.all([
-    droneIds.length
-      ? db
-          .select({ drone: drones, appliedSkin: skins })
-          .from(drones)
-          .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
-          .where(inArray(drones.id, droneIds))
-      : Promise.resolve([]),
-    skinIds.length
-      ? db.select().from(skins).where(inArray(skins.id, skinIds))
-      : Promise.resolve([]),
-    modIds.length
-      ? db.select().from(mods).where(inArray(mods.id, modIds))
-      : Promise.resolve([]),
-    userIds.length
-      ? db
-          .select({ id: users.id, username: users.username })
-          .from(users)
-          .where(inArray(users.id, userIds))
-      : Promise.resolve([]),
-    droneIds.length
-      ? db
-          .select({
-            droneId: droneSkins.droneId,
-            count: sql`COUNT(*)::int`.as('count'),
-          })
-          .from(droneSkins)
-          .where(inArray(droneSkins.droneId, droneIds))
-          .groupBy(droneSkins.droneId)
-      : Promise.resolve([]),
-    droneIds.length
-      ? db
-          .select({
-            droneId: droneMods.droneId,
-            count: sql`COUNT(*)::int`.as('count'),
-          })
-          .from(droneMods)
-          .where(inArray(droneMods.droneId, droneIds))
-          .groupBy(droneMods.droneId)
-      : Promise.resolve([]),
-  ]);
+  const [droneRows, skinRows, modRows, userRows, droneSkinCounts, droneModCounts] =
+    await Promise.all([
+      droneIds.length
+        ? db
+            .select({ drone: drones, appliedSkin: skins })
+            .from(drones)
+            .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
+            .where(inArray(drones.id, droneIds))
+        : Promise.resolve([]),
+      skinIds.length
+        ? db.select().from(skins).where(inArray(skins.id, skinIds))
+        : Promise.resolve([]),
+      modIds.length ? db.select().from(mods).where(inArray(mods.id, modIds)) : Promise.resolve([]),
+      userIds.length
+        ? db
+            .select({ id: users.id, username: users.username })
+            .from(users)
+            .where(inArray(users.id, userIds))
+        : Promise.resolve([]),
+      droneIds.length
+        ? db
+            .select({
+              droneId: droneSkins.droneId,
+              count: sql`COUNT(*)::int`.as('count'),
+            })
+            .from(droneSkins)
+            .where(inArray(droneSkins.droneId, droneIds))
+            .groupBy(droneSkins.droneId)
+        : Promise.resolve([]),
+      droneIds.length
+        ? db
+            .select({
+              droneId: droneMods.droneId,
+              count: sql`COUNT(*)::int`.as('count'),
+            })
+            .from(droneMods)
+            .where(inArray(droneMods.droneId, droneIds))
+            .groupBy(droneMods.droneId)
+        : Promise.resolve([]),
+    ]);
 
-  const skinCountMap = Object.fromEntries(
-    droneSkinCounts.map((r) => [r.droneId, r.count]),
-  );
-  const modCountMap = Object.fromEntries(
-    droneModCounts.map((r) => [r.droneId, r.count]),
-  );
+  const skinCountMap = Object.fromEntries(droneSkinCounts.map((r) => [r.droneId, r.count]));
+  const modCountMap = Object.fromEntries(droneModCounts.map((r) => [r.droneId, r.count]));
 
   const droneMap = Object.fromEntries(
     droneRows.map(({ drone, appliedSkin }) => [
@@ -619,7 +576,7 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
         boundSkinCount: skinCountMap[drone.id] ?? 0,
         boundModCount: modCountMap[drone.id] ?? 0,
       },
-    ]),
+    ])
   );
   const skinMap = Object.fromEntries(skinRows.map((s) => [s.id, s]));
   const modMap = Object.fromEntries(modRows.map((m) => [m.id, m]));
@@ -631,7 +588,7 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
     skin: r.skinId ? skinMap[r.skinId] : null,
     mod: r.modId ? modMap[r.modId] : null,
     seller: userMap[r.sellerId] ?? null,
-    buyer: r.buyerId ? userMap[r.buyerId] ?? null : null,
+    buyer: r.buyerId ? (userMap[r.buyerId] ?? null) : null,
   }));
 
   if (!usePostFetchSort) return enriched;
@@ -660,12 +617,7 @@ export async function getUserListings(userId) {
   return db
     .select()
     .from(marketplaceListings)
-    .where(
-      and(
-        eq(marketplaceListings.sellerId, userId),
-        eq(marketplaceListings.status, 'active'),
-      ),
-    )
+    .where(and(eq(marketplaceListings.sellerId, userId), eq(marketplaceListings.status, 'active')))
     .orderBy(desc(marketplaceListings.createdAt));
 }
 
@@ -676,12 +628,9 @@ export async function getTransactionHistory(userId, limit = 20) {
     .from(marketplaceListings)
     .where(
       and(
-        or(
-          eq(marketplaceListings.sellerId, userId),
-          eq(marketplaceListings.buyerId, userId),
-        ),
-        eq(marketplaceListings.status, 'sold'),
-      ),
+        or(eq(marketplaceListings.sellerId, userId), eq(marketplaceListings.buyerId, userId)),
+        eq(marketplaceListings.status, 'sold')
+      )
     )
     .orderBy(desc(marketplaceListings.soldAt))
     .limit(limit);

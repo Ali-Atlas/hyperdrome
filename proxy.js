@@ -34,9 +34,7 @@ export async function proxy(request) {
     // only entry). Dev: pass through so the magic-link form can render
     // for unauthenticated users - the auth gate below would otherwise
     // redirect them straight back to /, making the link feel dead.
-    return IS_DEV
-      ? NextResponse.next()
-      : NextResponse.redirect(new URL('/', request.url));
+    return IS_DEV ? NextResponse.next() : NextResponse.redirect(new URL('/', request.url));
   }
 
   if (pathname.startsWith('/api/auth')) return NextResponse.next();

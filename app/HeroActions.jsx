@@ -38,12 +38,7 @@ export default function HeroActions() {
 
   return (
     <div className={styles.cluster}>
-      <button
-        type="button"
-        onClick={handleDemo}
-        disabled={loading}
-        className={styles.primary}
-      >
+      <button type="button" onClick={handleDemo} disabled={loading} className={styles.primary}>
         {loading ? 'Loading...' : 'Play Demo'}
       </button>
       {error && (
