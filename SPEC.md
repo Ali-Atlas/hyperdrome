@@ -131,12 +131,12 @@ Account `game.hyperdrome.testnet`, Rust, near-sdk 5.29.1, one crate at `contract
 
 ### 4.1 Accounts and keys
 
-| Account                          | Keys                                                                                                                                                                                                             | Purpose                               |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| hyperdrome.testnet               | full-access (offline, deploys and admin); ops function-call key -> game contract, methods `create_player,register_player,mint_drone,mint_item,mint_volts,set_team_budget,set_paused`, allowance 10 NEAR          | owner, treasury                       |
-| game.hyperdrome.testnet          | full-access (deploys only, offline); settlement function-call key -> itself, methods `commit_batch,settle_batch`, allowance 5 NEAR                                                                               | contract, parent of players and teams |
-| p-<slug>.game.hyperdrome.testnet | admin full-access (server-held, encrypted, rotation only); play function-call key -> game contract, methods `allocate_stats,equip,bind,list,buy,cancel,open_pack,reveal_pack,vendor_buy_drone`, allowance 1 NEAR | player                                |
-| <name>.game.hyperdrome.testnet   | same as player                                                                                                                                                                                                   | AI team                               |
+| Account                          | Keys                                                                                                                                                                                                                 | Purpose                               |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| hyperdrome.testnet               | full-access (offline, deploys and admin); ops function-call key -> game contract, methods `create_player,register_player,mint_drone,mint_item,mint_volts,set_team_budget,set_paused,set_base_uri`, allowance 10 NEAR | owner, treasury                       |
+| game.hyperdrome.testnet          | full-access (deploys only, offline); settlement function-call key -> itself, methods `commit_batch,settle_batch`, allowance 5 NEAR                                                                                   | contract, parent of players and teams |
+| p-<slug>.game.hyperdrome.testnet | admin full-access (server-held, encrypted, rotation only); play function-call key -> game contract, methods `allocate_stats,equip,bind,list,buy,cancel,open_pack,reveal_pack,vendor_buy_drone`, allowance 1 NEAR     | player                                |
+| <name>.game.hyperdrome.testnet   | same as player                                                                                                                                                                                                       | AI team                               |
 
 Player and team accounts are created by the contract (`create_player`) with 0.05 NEAR. Function-call keys cannot attach deposits, so no player method takes a deposit. `ft_transfer`, `nft_transfer`, `storage_*` require 1 yocto and are therefore unreachable from play keys.
 
@@ -153,6 +153,7 @@ StateV1 {
   drones_cold: LookupMap<TokenId, VersionedDroneCold>,
   items: LookupMap<TokenId, VersionedItem>,
   listings: LookupMap<TokenId, Listing>,
+  active_listings: IterableSet<TokenId>,   // active listing ids, for get_listings paging
   batches: LookupMap<u64, VersionedBatch>,
   packs: LookupMap<u64, PackCommit>,
   teams: LookupMap<AccountId, TeamBudget>,
@@ -170,29 +171,29 @@ PackCommit { buyer: AccountId, kind: Skin|Mod, tier: u8, hash: [u8;32], height: 
 TeamBudget { per_tx: u128, per_day: u128, spent: u128, day: u32 }
 ```
 
-Token ids: drones `d:<n>`, skins `s:<n>`, mods `m:<n>`. Bots are drones owned by the contract account. Stats order is the 9 stats in 2.1 order.
+Token ids: drones `d:<n>`, skins `s:<n>`, mods `m:<n>`, with n starting at 1. Template ids are 1-based in the 2.5 and 2.6 listing order: mods 1-26; skins 1-32 (common 1-8, rare 9-16, epic 17-24, legendary 25-32). 0 means "none" in `stats_hash` and snapshots. Rarity ids: common 0, rare 1, epic 2, legendary 3. Bots are drones owned by the contract account. Stats order is the 9 stats in 2.1 order.
 
 ### 4.3 Standards
 
 NEP-141 Volts: name "Volts", symbol "VOLT", decimals 0, icon none. `ft_transfer` standard (1 yocto). Storage registration is done by the contract for every player in `register_player` (contract pays).
-NEP-171/177/178/181 via `NonFungibleToken`. `nft_transfer` and `nft_transfer_call` by hand: panic "bound item" if the token is a skin or mod with `bound_to`; if the token is a drone, transfer it, then `internal_transfer_unguarded` every bound skin and mod, clear approvals on all, emit one `NftTransfer` listing every moved token; panic "listed" if the token is listed; panic "in locked batch" if `in_batch` is set and the batch is locked. `nft_token` returns metadata with `extra` = JSON summary (level, elo, tier, equipped). `nft_metadata.base_uri` = the app's `/api/metadata`. Token `media` = `<base_uri>/<token_id>/image`.
+NEP-171/177/178/181 via `NonFungibleToken`. `nft_transfer` and `nft_transfer_call` by hand: panic "bound item" if the token is a skin or mod with `bound_to`; if the token is a drone, transfer it, then `internal_transfer_unguarded` every bound skin and mod, clear approvals on all, emit one `NftTransfer` listing every moved token; panic "listed" if the token is listed; panic "locked" if `in_batch` is set and the batch is locked. `nft_token` returns metadata with `extra` = JSON summary (level, elo, tier, equipped). NFT collection metadata: spec `nft-1.0.0`, name "Hyperdrome", symbol "HDROME". `nft_metadata.base_uri` = the app's `/api/metadata`, set by the owner with `set_base_uri` (null until the app URL exists). Token `media` = `<base_uri>/<token_id>/image`, null while `base_uri` is null.
 
 ### 4.4 Methods
 
 Owner (predecessor == owner_id):
 
-- `create_player(slug: String, admin_pk: PublicKey, play_pk: PublicKey, is_team: bool) -> Promise`: creates `p-<slug>.<current>` (or `<slug>.<current>` when is_team) with CreateAccount, Transfer 0.05 NEAR, AddKey full-access admin_pk, AddKey function-call play_pk (receiver current, methods per 4.1, allowance 1 NEAR); then registers the player. Panics if slug is not `[a-z0-9]{3,20}`.
+- `create_player(slug: String, admin_pk: PublicKey, play_pk: PublicKey, is_team: bool) -> Promise`: creates `p-<slug>.<current>` (or `<slug>.<current>` when is_team) with CreateAccount, Transfer 0.05 NEAR, AddKey full-access admin_pk, AddKey function-call play_pk (receiver current, methods per 4.1, allowance 1 NEAR); then registers the player in a callback that returns true when the account was created. Panics "bad slug" if slug is not `[a-z0-9]{3,20}`, "exists" if the player is already registered.
 - `register_player(account_id)`: FT storage registration and Player row; idempotent.
-- `mint_drone(owner, name, level: u8, stats: [u8;9], active_hint: bool) -> TokenId`: validates sum <= TSB(level) and each <= cap(level); elo 1000; emits NftMint and `drone_minted`.
-- `mint_item(owner, kind, template: u16, placeholder_name: Option<String>) -> TokenId`: enforces skin supply caps unless placeholder; emits NftMint and `item_minted`.
+- `mint_drone(owner, name, level: u8, stats: [u8;9], active_hint: bool) -> TokenId`: validates level in 1-20 ("bad level"), each stat >= 1 ("bad stat") and <= cap(level) ("over cap"), sum <= TSB(level) ("tsb exceeded"); elo 1000; emits NftMint and `drone_minted`. `active_hint` is not stored (active flags live in the database).
+- `mint_item(owner, kind, template: u16, placeholder_name: Option<String>) -> TokenId`: enforces skin supply caps unless placeholder ("no supply"); "bad template" for an unknown template or a placeholder name on a mod; emits NftMint and `item_minted`.
 - `mint_volts(to, amount)`: emits FtMint.
-- `set_team_budget(account, per_tx, per_day)`; `set_paused(bool)`.
+- `set_team_budget(account, per_tx, per_day)`; `set_paused(bool)`; `set_base_uri(base_uri: Option<String>)` sets `nft_metadata.base_uri`.
 
 Player (predecessor is a registered player; every method takes `seq: u64` which must equal `player.seq + 1`, then stores it; panics "bad seq" otherwise; panics "paused" when paused):
 
 - `allocate_stats(drone, stats: [u8;9], seq)`: owner check; no decrease; each <= cap; sum <= TSB; cost per 2.1 debited from Volts; drone not locked; emits `stats_allocated`.
 - `equip(drone, item: Option<TokenId>, kind, seq)`: owner check; item bound to this drone; skin tier rule 2.6; drone not locked; emits `equipped`.
-- `bind(drone, item, seq)`: owner owns both; item unbound; not listed; sets both sides; auto-equips if the slot is empty and the drone is not locked; emits `item_bound`.
+- `bind(drone, item, seq)`: owner owns both; item unbound; not listed; sets both sides; auto-equips if the slot is empty, the drone is not locked and (for skins) the 2.6 tier rule allows it; emits `item_bound`, plus `equipped` when it auto-equips.
 - `list(token, price, seq)`: owner check; price >= 10; not bound (for items); not already listed; token moves to contract escrow (internal transfer to current account, drone keeps racing and keeps `in_batch`); emits `listed`.
 - `buy(token, seq)`: listing active; buyer != seller; Volts >= price; team cap check if buyer is a team; debit buyer, credit seller 90%, treasury 10%; transfer token (and bound items) to buyer; remove listing; emits `sold` plus NftTransfer and FtTransfer events.
 - `cancel(token, seq)`: seller check; token returns; emits `cancelled`.
@@ -223,7 +224,7 @@ Lock rule: a drone is locked when `in_batch` is set and `block_timestamp_ms >= c
 
 ### 4.8 Errors
 
-Panic messages are short lowercase strings and are the contract's API for failure paths: `paused`, `bad seq`, `not owner`, `not player`, `locked`, `bound item`, `listed`, `not listed`, `self buy`, `insufficient volts`, `over cap`, `cap exceeded`, `tsb exceeded`, `stat decrease`, `tier`, `bad slug`, `exists`, `state drift`, `bad reveal`, `too early`, `settled`, `not implemented`.
+Panic messages are short lowercase strings and are the contract's API for failure paths: `paused`, `bad seq`, `not owner`, `not player`, `locked`, `bound item`, `listed`, `not listed`, `self buy`, `insufficient volts`, `over cap`, `cap exceeded`, `tsb exceeded`, `stat decrease`, `tier`, `bad slug`, `exists`, `state drift`, `bad reveal`, `too early`, `settled`, `not implemented`, `not found`, `same owner`, `bad level`, `bad stat`, `bad template`, `no supply`.
 
 ## 5. Engine (`lib/game-engine`, pure JS)
 
