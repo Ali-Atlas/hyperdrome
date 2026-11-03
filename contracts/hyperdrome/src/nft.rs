@@ -58,10 +58,10 @@ impl Contract {
         let owner_id = self
             .token_owner(token_id)
             .unwrap_or_else(|| env::panic_str("not found"));
-        let moving = self.tokens_moving_with(token_id);
 
-        let nft = &mut self.s_mut().nft;
-        let approvals = nft
+        let approvals = self
+            .s_mut()
+            .nft
             .approvals_by_id
             .as_mut()
             .map(|a| a.remove(token_id).unwrap_or_default());
@@ -74,24 +74,45 @@ impl Contract {
             );
         }
         require!(&owner_id != receiver_id, "same owner");
+        let authorized = (sender_id != &owner_id).then_some(sender_id);
+        self.move_with_bound(
+            &owner_id,
+            receiver_id,
+            token_id,
+            authorized,
+            memo.as_deref(),
+        );
+        (owner_id, approvals)
+    }
+
+    /// Moves `token_id` (and, for a drone, every bound item) from `owner_id` to `receiver_id`,
+    /// clears their approvals and emits one nft_transfer listing every moved token. Checks no
+    /// rules: callers (`guarded_transfer`, the marketplace escrow) enforce them first.
+    pub(crate) fn move_with_bound(
+        &mut self,
+        owner_id: &AccountId,
+        receiver_id: &AccountId,
+        token_id: &TokenId,
+        authorized_id: Option<&AccountId>,
+        memo: Option<&str>,
+    ) {
+        let moving = self.tokens_moving_with(token_id);
+        let nft = &mut self.s_mut().nft;
         for t in &moving {
-            if t != token_id
-                && let Some(by_id) = nft.approvals_by_id.as_mut()
-            {
+            if let Some(by_id) = nft.approvals_by_id.as_mut() {
                 by_id.remove(t);
             }
-            nft.internal_transfer_unguarded(t, &owner_id, receiver_id);
+            nft.internal_transfer_unguarded(t, owner_id, receiver_id);
         }
         let ids: Vec<&str> = moving.iter().map(String::as_str).collect();
         NftTransfer {
-            old_owner_id: &owner_id,
+            old_owner_id: owner_id,
             new_owner_id: receiver_id,
             token_ids: &ids,
-            authorized_id: (sender_id != &owner_id).then_some(sender_id.as_ref()),
-            memo: memo.as_deref(),
+            authorized_id: authorized_id.map(|a| a.as_ref()),
+            memo,
         }
         .emit();
-        (owner_id, approvals)
     }
 
     /// Token metadata built from state. Media needs `base_uri` (set with `set_base_uri`).

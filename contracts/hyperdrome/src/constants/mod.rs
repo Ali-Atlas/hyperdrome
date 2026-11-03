@@ -2,6 +2,7 @@
 //! `get_constants()` and never redefines them.
 
 pub mod catalog;
+pub mod names;
 pub mod tables;
 
 /// Rarity ids, used as indices into per-rarity tables.
@@ -56,6 +57,17 @@ pub const LOSER_LEVEL_DIVISOR: u128 = 4;
 // Marketplace (SPEC.md 2.8).
 pub const MARKET_RAKE_BP: u128 = 1_000;
 pub const MARKET_MIN_PRICE: u128 = 10;
+
+// Packs (SPEC.md 2.7; reveal byte map in SPEC.md 4.4 `reveal_pack`).
+pub const PACK_SLOTS: usize = 3;
+/// Rarity roll of slot i: u32 LE at bytes [4i, 4i + 4) of the reveal result.
+pub const PACK_ROLL_OFFSET: usize = 0;
+/// Template pick of slot i: u32 LE at bytes [12 + 4i, 16 + 4i).
+pub const PACK_PICK_OFFSET: usize = 12;
+/// Placeholder name pick of slot i: u16 LE at bytes [24 + 2i, 26 + 2i).
+pub const PACK_NAME_OFFSET: usize = 24;
+/// Pack odds are in basis points.
+pub const ODDS_SCALE_BP: u64 = 10_000;
 
 // AI teams (SPEC.md 2.10).
 pub const TEAM_COUNT: u8 = 4;

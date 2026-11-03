@@ -5,9 +5,12 @@ pub mod constants;
 pub mod constants_view;
 pub mod events;
 pub mod ft;
+pub mod hashing;
+pub mod market;
 pub mod math;
 pub mod nft;
 pub mod owner;
+pub mod packs;
 pub mod player;
 pub mod settlement;
 pub mod types;
@@ -26,9 +29,9 @@ use near_sdk::collections::LazyOption;
 use near_sdk::store::{IterableSet, LookupMap};
 use near_sdk::{AccountId, PanicOnDefault, env, near, require};
 
-use crate::constants::{
-    NFT_NAME, NFT_SYMBOL, STRATEGY_WINDOW_MS, VOLTS_DECIMALS, VOLTS_NAME, VOLTS_SYMBOL,
-};
+use crate::constants::{NFT_NAME, NFT_SYMBOL, VOLTS_DECIMALS, VOLTS_NAME, VOLTS_SYMBOL};
+use crate::hashing::stats_hash_bytes;
+use crate::math::is_locked_at;
 use crate::types::{
     Batch, DroneCold, DroneHot, Item, Listing, PackCommit, Player, StorageKey, TeamBudget,
     VersionedBatch, VersionedDroneCold, VersionedDroneHot, VersionedItem, VersionedPlayer,
@@ -205,7 +208,7 @@ impl Contract {
     /// Lock rule (SPEC.md 4.4): in an unsettled batch and at least 120 s past its commit.
     pub(crate) fn is_locked(&self, hot: &DroneHot) -> bool {
         hot.in_batch.and_then(|id| self.batch(id)).is_some_and(|b| {
-            !b.settled && env::block_timestamp_ms() >= b.committed_at_ms + STRATEGY_WINDOW_MS
+            !b.settled && is_locked_at(b.committed_at_ms, env::block_timestamp_ms())
         })
     }
 
@@ -220,18 +223,10 @@ impl Contract {
     pub(crate) fn stats_hash_of(&self, token_id: &TokenId) -> Option<[u8; 32]> {
         let hot = self.drone_hot(token_id)?;
         let cold = self.drone_cold(token_id)?;
-        let mut bytes = Vec::with_capacity(13);
-        bytes.extend_from_slice(&cold.stats);
-        bytes.extend_from_slice(
-            &self
-                .equipped_template(hot.equipped_mod.as_ref())
-                .to_le_bytes(),
-        );
-        bytes.extend_from_slice(
-            &self
-                .equipped_template(hot.equipped_skin.as_ref())
-                .to_le_bytes(),
-        );
-        Some(env::sha256_array(&bytes))
+        Some(stats_hash_bytes(
+            &cold.stats,
+            self.equipped_template(hot.equipped_mod.as_ref()),
+            self.equipped_template(hot.equipped_skin.as_ref()),
+        ))
     }
 }
