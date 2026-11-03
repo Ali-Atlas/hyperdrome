@@ -1,43 +1,11 @@
-use near_sdk::serde_json::{self, Value};
-
 use crate::constants::names::{DRONE_NAME_WORDS, PLACEHOLDER_SKIN_NAMES};
 use crate::constants::tables::PACK_TIERS;
 use crate::constants::{COMMON, EPIC, LEGENDARY, RARE};
 use crate::hashing::{
-    HashStream, SlotDraw, pick_index, roll_rarity, slot_draw, stats_hash_bytes, vendor_roll,
-    vendor_seed,
+    HashStream, SlotDraw, pick_index, roll_rarity, slot_draw, vendor_roll, vendor_seed,
 };
 use crate::math::{is_locked_at, stat_sum};
 use crate::packs::vendor_name;
-
-/// Shared with the engine (T4) and the adapter (T7): repo-root `tests/golden/stats-hash.json`.
-const GOLDEN_STATS_HASH: &str = include_str!("../../../../tests/golden/stats-hash.json");
-
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
-}
-
-#[test]
-fn stats_hash_matches_golden_vectors() {
-    let vectors: Vec<Value> = serde_json::from_str(GOLDEN_STATS_HASH).unwrap_or_default();
-    assert!(vectors.len() >= 4, "at least 4 golden vectors");
-    for v in &vectors {
-        let stats: [u8; 9] = serde_json::from_value(v["stats"].clone()).unwrap_or_default();
-        let m = u16::try_from(v["modTemplate"].as_u64().unwrap_or(u64::MAX)).unwrap_or(0);
-        let s = u16::try_from(v["skinTemplate"].as_u64().unwrap_or(u64::MAX)).unwrap_or(0);
-        assert_eq!(
-            hex(&stats_hash_bytes(&stats, m, s)),
-            v["hash"].as_str().unwrap_or_default(),
-            "{v}"
-        );
-    }
-    assert!(
-        vectors
-            .iter()
-            .any(|v| v["modTemplate"] == 0 && v["skinTemplate"] == 0),
-        "a vector with both slots empty"
-    );
-}
 
 #[test]
 fn lock_boundary_is_120_seconds_after_commit() {

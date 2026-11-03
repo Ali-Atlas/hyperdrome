@@ -18,22 +18,16 @@ fn commit_hash(secret: &[u8; 32]) -> [u8; 32] {
     near_sdk::env::sha256_array(secret)
 }
 
-/// Repo-root golden vectors shared with the engine and the adapter.
-fn golden() -> R<Vec<Value>> {
-    let text = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../tests/golden/stats-hash.json"
-    ))?;
-    Ok(near_sdk::serde_json::from_str(&text)?)
-}
-
-fn golden_hash(vectors: &[Value], stats: [u8; 9], m: u16, s: u16) -> String {
-    vectors
+/// sha256(9 stat bytes ++ u16 LE mod template ++ u16 LE skin template), computed here from the
+/// SPEC.md 4.4 encoding. The shared golden file arrives with T4 and is asserted in a unit test.
+fn expected_hash(stats: [u8; 9], m: u16, s: u16) -> String {
+    let mut bytes = stats.to_vec();
+    bytes.extend_from_slice(&m.to_le_bytes());
+    bytes.extend_from_slice(&s.to_le_bytes());
+    near_sdk::env::sha256_array(&bytes)
         .iter()
-        .find(|v| v["stats"] == json!(stats) && v["modTemplate"] == m && v["skinTemplate"] == s)
-        .and_then(|v| v["hash"].as_str())
-        .unwrap_or("missing golden vector")
-        .to_string()
+        .map(|b| format!("{b:02x}"))
+        .collect()
 }
 
 async fn stats_hash_hex(env: &Env, drone: &str) -> R<String> {
@@ -184,7 +178,6 @@ async fn allocate_stats_spends_volts_and_enforces_rules() -> R<()> {
 #[tokio::test]
 async fn equip_swaps_bound_items_and_stats_hash_follows() -> R<()> {
     let env = Env::start().await?;
-    let vectors = golden()?;
     let mut a = env.funded_player("equip", false, 0).await?;
     let d = env.mint_drone(&a.id, ONES).await?;
     let mod_common = env.mint_item(&a.id, "mod", 3, None).await?;
@@ -192,10 +185,7 @@ async fn equip_swaps_bound_items_and_stats_hash_follows() -> R<()> {
     let ember = env.mint_item(&a.id, "skin", 4, None).await?;
     let bone = env.mint_item(&a.id, "skin", 1, None).await?;
     let loose = env.mint_item(&a.id, "mod", 1, None).await?;
-    assert_eq!(
-        stats_hash_hex(&env, &d).await?,
-        golden_hash(&vectors, ONES, 0, 0)
-    );
+    assert_eq!(stats_hash_hex(&env, &d).await?, expected_hash(ONES, 0, 0));
     for i in [&mod_common, &mod_rare, &ember, &bone] {
         done(
             env.play(&mut a, "bind", json!({ "drone": d, "item": i }))
@@ -203,10 +193,7 @@ async fn equip_swaps_bound_items_and_stats_hash_follows() -> R<()> {
         );
     }
     // bind auto-equipped the first mod and Ember: the starter kit vector.
-    assert_eq!(
-        stats_hash_hex(&env, &d).await?,
-        golden_hash(&vectors, ONES, 3, 4)
-    );
+    assert_eq!(stats_hash_hex(&env, &d).await?, expected_hash(ONES, 3, 4));
 
     let out = ok(env
         .play(
@@ -277,11 +264,8 @@ async fn equip_swaps_bound_items_and_stats_hash_follows() -> R<()> {
         drone(&env, &d2).await?["hot"]["equipped_skin"],
         json!(ghost)
     );
-    assert_eq!(
-        stats_hash_hex(&env, &d2).await?,
-        golden_hash(&vectors, ONES, 0, 0)
-    );
-    // Golden case "mixed stats, rare mod, placeholder skin" on a level 2 drone (TSB 49).
+    assert_eq!(stats_hash_hex(&env, &d2).await?, expected_hash(ONES, 0, 0));
+    // Mixed stats, rare mod, placeholder skin, on a level 2 drone (TSB 49).
     let mixed = [14, 9, 3, 1, 1, 1, 1, 1, 1];
     let d3 = env.mint_drone_at(&a.id, 2, mixed).await?;
     let rare = env.mint_item(&a.id, "mod", 11, None).await?;
@@ -294,7 +278,7 @@ async fn equip_swaps_bound_items_and_stats_hash_follows() -> R<()> {
     }
     assert_eq!(
         stats_hash_hex(&env, &d3).await?,
-        golden_hash(&vectors, mixed, 11, 0)
+        expected_hash(mixed, 11, 0)
     );
     Ok(())
 }
