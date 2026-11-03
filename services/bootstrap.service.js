@@ -1,8 +1,10 @@
 /**
  * Player bootstrap (SPEC.md 12): a state machine on `users.bootstrap_state`
- * (`none -> account -> minted -> done`). Each step is idempotent and resumable. A request first
- * claims a lease (`bootstrap_claimed_at`) with a conditional UPDATE, so two concurrent requests
- * never act at once; every transition is an `UPDATE ... WHERE bootstrap_state = <expected>`.
+ * (`none -> account -> minted -> done`). Each call makes at most one transition, so every request
+ * fits the route's time limit; the dashboard calls again until `done`. Each step is idempotent and
+ * resumable. A request first claims a lease (`bootstrap_claimed_at`) with a conditional UPDATE, so
+ * two concurrent requests never act at once; every transition is an
+ * `UPDATE ... WHERE bootstrap_state = <expected>`.
  */
 import { randomInt } from 'node:crypto';
 import { and, eq, isNull, lt, ne, or } from 'drizzle-orm';
@@ -19,7 +21,10 @@ import { ensureStarterKit, bindStarterKit, findStarterDrone } from './bootstrap-
 
 const { users } = schema;
 
-/** How long a claim holds before another request may take over a stalled bootstrap. */
+/**
+ * How long a claim holds before another request may take over a stalled bootstrap; longer than the
+ * route's 60 s `maxDuration`, so a live call is never overtaken.
+ */
 export const CLAIM_LEASE_MS = 120_000;
 
 /** Slug attempts before giving up (the base, then random suffixes on `exists`). */
@@ -50,7 +55,7 @@ export class BootstrapConflictError extends Error {
  */
 
 /**
- * Run (or resume) the bootstrap for a user and report where it stands.
+ * Make the next bootstrap transition for a user (at most one) and report where it stands.
  * @param {string} userId
  * @param {{ db?: any, near?: import('@/lib/near').NearAdapter, pickModTemplate?: () => number }} [deps]
  * @returns {Promise<BootstrapStatus>}
@@ -71,12 +76,12 @@ export async function runBootstrap(userId, deps = {}) {
   };
   try {
     let user = claimed;
-    if (user.bootstrapState === 'none') user = await createAccount(ctx, user);
-    if (user.bootstrapState === 'account') {
+    if (user.bootstrapState === 'none') {
+      user = await createAccount(ctx, user);
+    } else if (user.bootstrapState === 'account') {
       await ensureStarterKit(ctx, /** @type {string} */ (user.nearAccountId));
       user = await advance(ctx, 'account', { bootstrapState: 'minted' });
-    }
-    if (user.bootstrapState === 'minted') {
+    } else if (user.bootstrapState === 'minted') {
       const points = await bindStarterKit(ctx, user);
       user = await advance(ctx, 'minted', { bootstrapState: 'done', points });
     }
