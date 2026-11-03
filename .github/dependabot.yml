@@ -13,11 +13,6 @@ updates:
       # react and react-dom must stay on the same version; bump them together manually.
       - dependency-name: react
       - dependency-name: react-dom
-      # MegaETH dependencies, removed in T8.
-      - dependency-name: wagmi
-      - dependency-name: viem
-      - dependency-name: ethers
-      - dependency-name: '@rainbow-me/*'
   - package-ecosystem: cargo
     directory: /contracts/hyperdrome
     schedule:

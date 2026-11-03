@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, ChevronDown, ChevronUp, ChevronRight, X, Check } from 'lucide-react';
-import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -15,30 +14,12 @@ import EmptyState from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
-import { useVoltApproval } from '@/hooks/useVoltApproval';
 import { cn, getLevelColor, getLevelTier, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import SkinThumb from '@/components/ui/SkinThumb';
 import styles from './page.module.css';
-
-/**
- * On-chain marketplace constants for the user-signed buy flow. The
- * address is read from the NEXT_PUBLIC_ env at module load (build time
- * for Next.js). The ABI fragment only needs `buyItem(uint256)` because
- * VOLT approval lives in the dedicated useVoltApproval hook.
- */
-const MARKETPLACE_ADDRESS = process.env.NEXT_PUBLIC_MARKETPLACE_CONTRACT_ADDRESS;
-const MARKETPLACE_BUY_ABI = [
-  {
-    type: 'function',
-    name: 'buyItem',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'listingId', type: 'uint256' }],
-    outputs: [],
-  },
-];
 
 const PACK_DEFS = [
   {
@@ -372,11 +353,7 @@ export default function MarketplacePage() {
   // Mobile filter aside is collapsed by default. Desktop CSS hides the
   // toggle button and forces the inner to render regardless of this flag.
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // VOLT balance comes from the shared `useVoltBalance` hook so it
-  // matches NavShell, the stat editor, and the drone manager exactly.
-  // The hook listens on `volts:update` (which every buy handler below
-  // already dispatches), polls `/api/volt/balance` for wallet-connected
-  // users, and falls back to `user.points` for demo accounts.
+  // Shared `useVoltBalance` (session points plus `volts:update` events), same as NavShell.
   const { balance: userPoints } = useVoltBalance();
   const [listings, setListings] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -416,22 +393,6 @@ export default function MarketplacePage() {
   // (approving / buying / confirming / recording). Cleared between buys.
   const [buyStatus, setBuyStatus] = useState(null);
 
-  // wagmi wiring for the user-signed buy. usePublicClient gives us the
-  // viem client we use to imperatively wait for receipts after writing.
-  // useWriteContract gives us writeContractAsync, the Promise-returning
-  // sibling of writeContract that lets handleBuy stay in a single async
-  // function rather than splintering across React state machines.
-  const { address: walletAddress, isConnected: walletConnected } = useAccount();
-  const publicClient = usePublicClient();
-  const { writeContractAsync } = useWriteContract();
-  // Pre-bind VOLT approval to the open buy modal's price. The hook
-  // tolerates null/undefined inputs (returns sensible defaults) so it's
-  // safe to render unconditionally; it only fires reads / writes once
-  // the user opens a modal AND we have a wallet + spender.
-  const buyApproval = useVoltApproval({
-    spender: MARKETPLACE_ADDRESS,
-    amount: buyModal?.price ?? null,
-  });
   const [listModal, setListModal] = useState(false);
   const [listingType, setListingType] = useState('drone');
   const [listingItemId, setListingItemId] = useState('');
@@ -651,66 +612,16 @@ export default function MarketplacePage() {
   const handleBuy = async () => {
     if (!buyModal || buyPending) return;
 
-    // User-signed flow only fires when (a) the listing has an on-chain
-    // twin we can call buyItem against, (b) the user has a connected
-    // wallet, and (c) the marketplace address is configured. Everything
-    // else (demo accounts, listings without onchainListingId, missing
-    // env) falls back to the legacy server-signed mirror.
-    const useUserSigned =
-      buyModal.onchainListingId != null &&
-      walletConnected &&
-      !!walletAddress &&
-      !!MARKETPLACE_ADDRESS;
-
     setBuyPending(true);
     setBuyError(null);
-    setBuyStatus(useUserSigned ? 'preparing' : 'recording');
+    setBuyStatus('recording');
 
     try {
-      let userTxHash = null;
-
-      if (useUserSigned) {
-        // Step 1: VOLT approval. Skip when allowance already covers the
-        // price (the hook's `needsApproval` flag already reflects the
-        // on-chain read).
-        if (buyApproval.needsApproval) {
-          setBuyStatus('approving');
-          showToast('Open your wallet to approve VOLT spending', 'info');
-          const approveHash = await buyApproval.approve();
-          if (!approveHash) {
-            setBuyError(buyApproval.error || 'Approval was rejected');
-            return;
-          }
-          setBuyStatus('approve-pending');
-          await publicClient.waitForTransactionReceipt({ hash: approveHash });
-        }
-
-        // Step 2: Buy. writeContractAsync returns the tx hash; we wait
-        // for the receipt before telling the server, so by the time the
-        // server's verifyBuyTx runs the receipt is definitely available
-        // on the same Carrot RPC the server uses.
-        setBuyStatus('signing');
-        showToast('Confirm purchase in your wallet', 'info');
-        const buyHash = await writeContractAsync({
-          abi: MARKETPLACE_BUY_ABI,
-          address: MARKETPLACE_ADDRESS,
-          functionName: 'buyItem',
-          args: [BigInt(buyModal.onchainListingId)],
-        });
-        setBuyStatus('tx-pending');
-        showToast('Confirming on-chain...', 'info');
-        await publicClient.waitForTransactionReceipt({ hash: buyHash });
-        userTxHash = buyHash;
-        setBuyStatus('recording');
-      }
-
-      // Server side: records the sale in DB, transfers ownership, fires
-      // ownership-history rows. When userTxHash is provided it verifies
-      // the receipt + ItemSold event before any DB write.
+      // 501 until T10 moves trading to the contract; the error shows in the modal.
       const res = await fetch(`/api/marketplace/${buyModal.id}/buy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userTxHash ? { userTxHash } : {}),
+        body: JSON.stringify({}),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -720,9 +631,6 @@ export default function MarketplacePage() {
       const itemName = buyModal.drone?.name ?? buyModal.mod?.name ?? buyModal.skin?.name ?? 'Item';
       setBuySuccess({ name: itemName });
       setBuyStatus(null);
-      if (useUserSigned) {
-        showToast('Purchase confirmed', 'success');
-      }
       // Reflect the post-purchase balance returned by the buy route so the
       // marketplace's volts display updates immediately, AND fire the
       // volts:update event so the NavShell's balance updates too.
@@ -743,15 +651,7 @@ export default function MarketplacePage() {
         setBuySuccess(null);
       }, 2000);
     } catch (err) {
-      // wagmi / viem errors carry `shortMessage` for the human-readable
-      // bit ("User rejected the request.", "execution reverted: not
-      // active", etc.). Fall through to the raw message + String() for
-      // anything else.
-      const raw = err?.shortMessage ?? err?.message ?? String(err);
-      const friendly = /user rejected|user denied|rejected the request/i.test(raw)
-        ? 'Transaction rejected'
-        : raw;
-      setBuyError(friendly);
+      setBuyError(err?.message ?? String(err));
       setBuyStatus(null);
     } finally {
       setBuyPending(false);
@@ -1424,7 +1324,6 @@ export default function MarketplacePage() {
             success={buySuccess}
             error={buyError}
             status={buyStatus}
-            walletConnected={walletConnected}
             onConfirm={handleBuy}
             onClose={closePurchaseModal}
           />
@@ -1605,7 +1504,6 @@ export default function MarketplacePage() {
         {packFlow && (
           <PackFlowModalBody
             flow={packFlow}
-            walletConnected={walletConnected}
             onConfirm={
               packFlow.kind === 'skin' ? confirmSkinPackPurchase : confirmCapsulePackPurchase
             }
@@ -3287,32 +3185,11 @@ function CancelModalBody({
 }
 
 /**
- * Map a user-signed buy stage to a human-readable CTA label. Stages
- * mirror the orchestration in handleBuy:
- *   preparing       - between click and the first wallet popup
- *   approving       - waiting on the user to confirm `approve` in MetaMask
- *   approve-pending - approve tx in mempool, waiting for receipt
- *   signing         - waiting on the user to confirm `buyItem` in MetaMask
- *   tx-pending      - buyItem tx in mempool, waiting for receipt
- *   recording       - server is verifying + writing DB rows
- *   null            - legacy server-signed path (no granular stages)
+ * CTA label while a buy is in flight.
+ * @param {string | null} status
  */
 function statusToLabel(status) {
-  switch (status) {
-    case 'approving':
-      return 'Approve in wallet...';
-    case 'approve-pending':
-      return 'Approving VOLT...';
-    case 'signing':
-      return 'Confirm in wallet...';
-    case 'tx-pending':
-      return 'Confirming on-chain...';
-    case 'recording':
-      return 'Recording sale...';
-    case 'preparing':
-    default:
-      return 'Processing...';
-  }
+  return status === 'recording' ? 'Recording sale...' : 'Processing...';
 }
 
 /**
@@ -3328,17 +3205,9 @@ function PurchaseModalBody({
   success,
   error,
   status,
-  walletConnected,
   onConfirm,
   onClose,
 }) {
-  // DB-only listings never made it on-chain (item not minted, or the
-  // seller's listItem call failed). For wallet users, the buy will go
-  // through the legacy server-signed path - their wallet VOLT won't
-  // move. Surface that so the testnet wallet display matches what's
-  // actually happening. Demo users (no walletConnected) don't see the
-  // notice because their economy is DB-only by design.
-  const isOffChainBuy = walletConnected && listing.onchainListingId == null;
   const isDrone = listing.itemType === 'drone';
   const isMod = listing.itemType === 'mod';
   const isSkin = listing.itemType === 'skin';
@@ -3503,12 +3372,6 @@ function PurchaseModalBody({
 
           {error && <div className={styles.purchaseError}>{error}</div>}
 
-          {isOffChainBuy && (
-            <p className={styles.purchaseDisclaimer}>
-              This is a pre-on-chain item. Your wallet VOLT won&apos;t be charged.
-            </p>
-          )}
-
           <p className={styles.purchaseFee}>10% marketplace fee included</p>
         </>
       )}
@@ -3535,7 +3398,7 @@ function PurchaseModalBody({
 /* loading prop for the spinner.                                                */
 /* -------------------------------------------------------------------------- */
 
-function PackFlowModalBody({ flow, walletConnected, onConfirm, onOpen, onEquip, onClose }) {
+function PackFlowModalBody({ flow, onConfirm, onOpen, onEquip, onClose }) {
   const { stage, kind, pack, awarded, pending } = flow;
   const tier = pack.id.includes('legendary')
     ? 'legendary'
@@ -3636,21 +3499,6 @@ function PackFlowModalBody({ flow, walletConnected, onConfirm, onOpen, onEquip, 
           <span>{pack.price.toLocaleString()}</span>
         </div>
       </div>
-
-      {/* Off-chain disclaimer for wallet users on the confirm stage. Pack
-          and capsule flows currently route through the legacy DB-only
-          /api/marketplace/(packs|capsules)/open path - wallet VOLT
-          isn't moved. Visibility-toggled (matching the price block
-          above) so the modal layout stays stable across stages. */}
-      {walletConnected && (
-        <p
-          className={styles.purchaseDisclaimer}
-          style={{ visibility: showPrice ? 'visible' : 'hidden' }}
-          aria-hidden={showPrice ? undefined : 'true'}
-        >
-          This is a pre-on-chain item. Your wallet VOLT won&apos;t be charged.
-        </p>
-      )}
 
       <div className={styles.flowActionRow}>
         <Button

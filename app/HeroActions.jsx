@@ -7,7 +7,7 @@ import styles from './HeroActions.module.css';
  * Hero primary CTA. Single PLAY DEMO button - opens a pre-seeded off-chain
  * account and redirects to /dashboard. The CONNECT WALLET secondary entry
  * point lives in the top-right corner of the landing page (see
- * `app/HeroConnectWallet.jsx`), keeping the hero center focused on the
+ * `app/HeroSignIn.jsx`), keeping the hero center focused on the
  * primary action.
  *
  * Background audio for the hero is owned by `app/HeroAudio.jsx`

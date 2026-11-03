@@ -2,7 +2,7 @@
 
 import { use, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Trophy, Bot, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { Trophy, Bot, ChevronLeft, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -454,18 +454,6 @@ export default function RaceDetailPage({ params }) {
             <span className={styles.metaId}>{shortId(race.id)}</span>
             <span className={styles.metaDivider} aria-hidden="true" />
             <span className={styles.metaTimestamp}>{formatTimestamp(race.createdAt)}</span>
-            {race.settleTxHash && (
-              <a
-                href={`https://megaeth-testnet-v2.blockscout.com/tx/${race.settleTxHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.settleLink}
-                title={`On-chain settlement tx ${race.settleTxHash}`}
-              >
-                <ExternalLink size={10} aria-hidden="true" />
-                View
-              </a>
-            )}
           </div>
           {isComplete ? (
             /* Chronological prev/next across the user's COMPLETED races,

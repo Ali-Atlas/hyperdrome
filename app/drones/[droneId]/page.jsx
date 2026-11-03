@@ -19,7 +19,6 @@ import {
   ShoppingCart,
   Check,
   X,
-  ExternalLink,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
@@ -543,15 +542,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
     }
   };
 
-  // On-chain mint surface lives at /api/drones/[droneId]/mint (server-side
-  // mint from the deployer wallet). The drone detail page only needs to
-  // know whether this drone has been minted so the meta row can render
-  // a "View on MegaETH" link out to the block explorer.
-  const isMinted = drone.tokenId != null;
-  const explorerUrl = isMinted
-    ? `https://megaeth-testnet-v2.blockscout.com/token/${process.env.NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS}/instance/${drone.tokenId}`
-    : null;
-
   const performance = useMemo(
     () => analyzeDronePerformance(editedStats, drone.level),
     [editedStats, drone.level]
@@ -599,18 +589,6 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
               <div className={styles.droneNameBlock}>
                 <div className={styles.droneNameRow}>
                   <div className={styles.droneName}>{drone.name}</div>
-                  {isMinted && (
-                    <a
-                      href={explorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.nftMetaLink}
-                      title={`Token #${drone.tokenId} on MegaETH`}
-                    >
-                      <ExternalLink size={10} aria-hidden="true" />
-                      View
-                    </a>
-                  )}
                   {isOwner &&
                     (() => {
                       // Effective state: pending overlay shows the OLD
@@ -659,47 +637,27 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     LV {drone.level}
                   </span>
                   <span className={styles.metaSep}>|</span>
-                  {drone.owner?.walletAddress ? (
-                    /* Wallet-auth user: "Owner:" stays as plain meta text
-                       (matches the non-wallet branch below), only the
-                       truncated address itself is the clickable Blockscout
-                       link. */
-                    <span className={styles.metaOwner}>
-                      Owner:{' '}
-                      <a
-                        href={`https://megaeth-testnet-v2.blockscout.com/address/${drone.owner.walletAddress}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.ownerAddressLink}
-                        title={`Owner address ${drone.owner.walletAddress}`}
-                      >
-                        {drone.owner.walletAddress.slice(0, 6)}...
-                        {drone.owner.walletAddress.slice(-4)}
-                      </a>
-                    </span>
-                  ) : (
-                    <span className={styles.metaOwner}>
-                      Owner:{' '}
-                      {drone.owner?.username ? (
-                        !isOwner && drone.owner.id ? (
-                          <Link
-                            href={`/profile/${drone.owner.id}`}
-                            className={styles.ownerBadgePlayer}
-                          >
-                            {drone.owner.username}
-                          </Link>
-                        ) : isOwner ? (
-                          drone.owner.username
-                        ) : (
-                          <span className={styles.ownerBadgePlayer}>{drone.owner.username}</span>
-                        )
-                      ) : drone.isBot ? (
-                        <span className={styles.ownerBadgeBot}>Bot</span>
+                  <span className={styles.metaOwner}>
+                    Owner:{' '}
+                    {drone.owner?.username ? (
+                      !isOwner && drone.owner.id ? (
+                        <Link
+                          href={`/profile/${drone.owner.id}`}
+                          className={styles.ownerBadgePlayer}
+                        >
+                          {drone.owner.username}
+                        </Link>
+                      ) : isOwner ? (
+                        drone.owner.username
                       ) : (
-                        '-'
-                      )}
-                    </span>
-                  )}
+                        <span className={styles.ownerBadgePlayer}>{drone.owner.username}</span>
+                      )
+                    ) : drone.isBot ? (
+                      <span className={styles.ownerBadgeBot}>Bot</span>
+                    ) : (
+                      '-'
+                    )}
+                  </span>
                 </div>
               </div>
 
