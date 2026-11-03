@@ -1,8 +1,6 @@
 /**
- * `process.env` keys the code reads, from `git grep 'process.env.'` (2026-11-02) plus the chain adapter's
- * SPEC.md 15 names (T7).
- * All are optional: the code checks for missing values at runtime.
- * docs/runbooks/dev-setup.md lists what each one is for.
+ * `process.env` keys: exactly the SPEC.md 15 names. All are optional here; the code checks for
+ * missing values at runtime. docs/runbooks/dev-setup.md says what each one is for.
  */
 declare namespace NodeJS {
   interface ProcessEnv {
@@ -10,14 +8,14 @@ declare namespace NodeJS {
 
     // App, auth and database
     readonly DATABASE_URL?: string;
-    readonly PROD_DATABASE_URL?: string;
-    readonly NEXTAUTH_SECRET?: string;
-    readonly RESEND_API_KEY?: string;
+    readonly AUTH_SECRET?: string;
+    readonly AUTH_GOOGLE_ID?: string;
+    readonly AUTH_GOOGLE_SECRET?: string;
+    readonly AUTH_RESEND_KEY?: string;
     readonly CRON_SECRET?: string;
     readonly ADMIN_EMAILS?: string;
-    readonly ALLOW_LOCAL_SEED?: string;
 
-    // Chain adapter (SPEC.md 15)
+    // Chain adapter
     readonly NEAR_NETWORK?: 'testnet' | 'mainnet';
     readonly NEAR_RPC_URL?: string;
     readonly NEAR_RPC_API_KEY?: string;
@@ -34,19 +32,12 @@ declare namespace NodeJS {
     /** `1` runs tests/near/testnet.integration.test.js against testnet. */
     readonly NEAR_TESTNET_INTEGRATION?: string;
 
-    // MegaETH baseline, removed with the MegaETH dependencies in T8
-    readonly DEPLOYER_PRIVATE_KEY?: string;
-    readonly MEGAETH_RPC_URL?: string;
-    readonly TREASURY_ADDRESS?: string;
-    readonly DRONE_CONTRACT_ADDRESS?: string;
-    readonly VOLT_CONTRACT_ADDRESS?: string;
-    readonly SKIN_CONTRACT_ADDRESS?: string;
-    readonly MOD_CONTRACT_ADDRESS?: string;
-    readonly MARKETPLACE_CONTRACT_ADDRESS?: string;
-    readonly SETTLEMENT_CONTRACT_ADDRESS?: string;
-    readonly PACKS_CONTRACT_ADDRESS?: string;
-    readonly NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS?: string;
-    readonly NEXT_PUBLIC_VOLT_CONTRACT_ADDRESS?: string;
-    readonly NEXT_PUBLIC_MARKETPLACE_CONTRACT_ADDRESS?: string;
+    // Pusher
+    readonly PUSHER_APP_ID?: string;
+    readonly PUSHER_KEY?: string;
+    readonly PUSHER_SECRET?: string;
+    readonly PUSHER_CLUSTER?: string;
+    readonly NEXT_PUBLIC_PUSHER_KEY?: string;
+    readonly NEXT_PUBLIC_PUSHER_CLUSTER?: string;
   }
 }

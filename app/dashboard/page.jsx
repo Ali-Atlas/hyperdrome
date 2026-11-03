@@ -17,6 +17,7 @@ import ConditionPill from '@/components/ui/ConditionPill';
 import VoltIcon from '@/components/ui/VoltIcon';
 import { useSession } from '@/hooks/useSession';
 import { useUpcomingRaces } from '@/lib/upcoming-races-store';
+import BootstrapPanel from './BootstrapPanel';
 import styles from './page.module.css';
 
 const RADAR_AXES = [
@@ -351,6 +352,7 @@ export default function DashboardPage() {
   return (
     <NavShell>
       <div className={styles.page}>
+        {user && user.bootstrapState !== 'done' && <BootstrapPanel />}
         {bannerVisible && (
           <div className={cn(styles.banner, bannerExiting && styles.bannerExiting)} role="status">
             <span className={styles.bannerIconWrap} aria-hidden="true">
