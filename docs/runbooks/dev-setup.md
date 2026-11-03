@@ -145,11 +145,12 @@ NEAR_TESTNET_INTEGRATION=1 npx vitest run tests/near/testnet.integration.test.js
 
 Accounts and keys created in T2 and T3 (DECISIONS.md 3.6). Testnet only. Explorer links:
 
-| Account                           | Role                        | Explorer                                                              |
-| --------------------------------- | --------------------------- | --------------------------------------------------------------------- |
-| `hyperdrome.testnet`              | Parent account and treasury | https://testnet.nearblocks.io/address/hyperdrome.testnet              |
-| `game.hyperdrome.testnet`         | Game contract account       | https://testnet.nearblocks.io/address/game.hyperdrome.testnet         |
-| `p-smoke.game.hyperdrome.testnet` | T3 smoke player             | https://testnet.nearblocks.io/address/p-smoke.game.hyperdrome.testnet |
+| Account                            | Role                                    | Explorer                                                               |
+| ---------------------------------- | --------------------------------------- | ---------------------------------------------------------------------- |
+| `hyperdrome.testnet`               | Parent account and treasury             | https://testnet.nearblocks.io/address/hyperdrome.testnet               |
+| `game.hyperdrome.testnet`          | Game contract account                   | https://testnet.nearblocks.io/address/game.hyperdrome.testnet          |
+| `p-smoke.game.hyperdrome.testnet`  | T3 smoke player                         | https://testnet.nearblocks.io/address/p-smoke.game.hyperdrome.testnet  |
+| `p-smokeb.game.hyperdrome.testnet` | T5 smoke counterparty (lists for `buy`) | https://testnet.nearblocks.io/address/p-smokeb.game.hyperdrome.testnet |
 
 Transactions: `https://testnet.nearblocks.io/txns/<hash>`.
 
@@ -164,6 +165,7 @@ Keys live only in `~/.near-credentials/testnet/` on the operator's machine (near
 | `hyperdrome.testnet-settlement.json`                                                 | Settlement signer on `game.hyperdrome.testnet`                 | Function call: `commit_batch`, `settle_batch` on `game.hyperdrome.testnet`, allowance 5 NEAR                                                                                                |
 | `hyperdrome.testnet-ops.json`                                                        | Ops key on `hyperdrome.testnet` (the owner), for owner methods | Function call: `create_player`, `register_player`, `mint_drone`, `mint_item`, `mint_volts`, `set_team_budget`, `set_paused`, `set_base_uri` on `game.hyperdrome.testnet`, allowance 10 NEAR |
 | `p-smoke.game.hyperdrome.testnet-admin.json`, `-play.json`                           | Smoke player's admin and play keys                             | Full access; function call on the play methods, allowance 1 NEAR                                                                                                                            |
+| `p-smokeb.game.hyperdrome.testnet-admin.json`, `-play.json`                          | Second smoke player's admin and play keys                      | Full access; function call on the play methods, allowance 1 NEAR                                                                                                                            |
 
 Full-access keys are never loaded by application code (ENGINEERING.md section 4).
 

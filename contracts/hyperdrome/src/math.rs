@@ -3,8 +3,8 @@
 use crate::constants::catalog::{ModTemplate, mod_template};
 use crate::constants::tables::{ELO_DIFF_CLAMP, ELO_SCALE, POW10, POW10_STEP};
 use crate::constants::{
-    CAP_BASE, CAP_PER_LEVEL_TENTHS, ELO_K, STAT_MAX, STAT_MIN, TIER_LEVELS, TIER_MAX, TSB_BASE,
-    TSB_PER_LEVEL, XP_PER_LEVEL_SQUARED,
+    CAP_BASE, CAP_PER_LEVEL_TENTHS, ELO_K, STAT_MAX, STAT_MIN, STRATEGY_WINDOW_MS, TIER_LEVELS,
+    TIER_MAX, TSB_BASE, TSB_PER_LEVEL, XP_PER_LEVEL_SQUARED,
 };
 
 /// Total stat budget: TSB(L) = 9 + 20 * L.
@@ -33,6 +33,12 @@ pub fn allocation_cost(from: &[u8; 9], to: &[u8; 9]) -> Option<u64> {
             }
             Some(total + (a..b).map(upgrade_cost).sum::<u64>())
         })
+}
+
+/// Lock rule (SPEC.md 4.4): a drone in an unsettled batch committed at `committed_at_ms` is locked
+/// from `committed_at_ms + 120_000` on.
+pub fn is_locked_at(committed_at_ms: u64, now_ms: u64) -> bool {
+    now_ms >= committed_at_ms.saturating_add(STRATEGY_WINDOW_MS)
 }
 
 /// XP needed to go from level `L` to `L + 1`: 200 * L * L.
