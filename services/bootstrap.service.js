@@ -12,6 +12,7 @@ import {
   AccountCreateError,
   ContractPanicError,
   RpcUnknownOutcomeError,
+  TransactionFailedError,
 } from '@/lib/near/errors.js';
 import { slugFromUsername, slugWithSuffix } from '@/lib/validators/player-slug.js';
 import { ensureStarterKit, bindStarterKit, findStarterDrone } from './bootstrap-kit.js';
@@ -166,13 +167,30 @@ async function advance(ctx, from, set) {
  * @returns {Promise<UserRow>}
  */
 async function createAccount(ctx, user) {
-  const pending = /** @type {PendingAttempt[]} */ (user.bootstrapPending ?? []);
-  for (const attempt of pending) {
-    const adopted = await adoptIfLanded(ctx, attempt);
-    if (adopted) return adopted;
-  }
+  const stored = /** @type {PendingAttempt[]} */ (user.bootstrapPending ?? []);
+  let pending = stored;
 
-  const base = pending.at(-1)?.slug ?? slugFromUsername(user.username);
+  /**
+   * Resolve stored attempts: adopt the first that landed, drop the ones that failed.
+   * @param {PendingAttempt[]} attempts
+   */
+  const resolveStored = async (attempts) => {
+    for (const attempt of attempts) {
+      const resolved = await resolveAttempt(ctx, attempt);
+      if (resolved === 'failed') {
+        pending = pending.filter((a) => a !== attempt);
+        await advance(ctx, 'none', { bootstrapPending: pending.length > 0 ? pending : null });
+      } else if (resolved) {
+        return resolved;
+      }
+    }
+    return null;
+  };
+
+  const adopted = await resolveStored(stored);
+  if (adopted) return adopted;
+
+  const base = stored.at(-1)?.slug ?? slugFromUsername(user.username);
   let slug = base;
   for (let i = 0; i < SLUG_ATTEMPTS; i += 1) {
     try {
@@ -187,10 +205,8 @@ async function createAccount(ctx, user) {
       const taken = err instanceof ContractPanicError && err.panic === 'exists';
       if (!taken && !(err instanceof AccountCreateError)) throw err;
       // A stored attempt with this slug may have landed after all.
-      for (const attempt of pending.filter((a) => a.slug === slug)) {
-        const adopted = await adoptIfLanded(ctx, attempt);
-        if (adopted) return adopted;
-      }
+      const late = await resolveStored(pending.filter((a) => a.slug === slug));
+      if (late) return late;
       slug = slugWithSuffix(base);
     }
   }
@@ -198,16 +214,25 @@ async function createAccount(ctx, user) {
 }
 
 /**
- * Adopt a stored attempt if its `create_player` transaction executed and returned true.
+ * Resolve a stored attempt: adopt it (the stored row) if its `create_player` executed and returned
+ * true; `'failed'` if it executed and failed (a panic such as `exists` when another player took
+ * the slug, a non-panic failure, or a false callback), so it can be dropped; null while unknown.
  * @param {Ctx} ctx
  * @param {PendingAttempt} attempt
- * @returns {Promise<UserRow | null>}
+ * @returns {Promise<UserRow | 'failed' | null>}
  */
-async function adoptIfLanded(ctx, attempt) {
-  const outcome = await ctx.near.resolveOutcome(attempt.accountId, 0, attempt.txHash, {
-    senderId: ctx.near.ownerId,
-  });
-  if (!outcome.applied || outcome.result !== true) return null;
+async function resolveAttempt(ctx, attempt) {
+  let outcome;
+  try {
+    outcome = await ctx.near.resolveOutcome(attempt.accountId, 0, attempt.txHash, {
+      senderId: ctx.near.ownerId,
+    });
+  } catch (err) {
+    if (err instanceof ContractPanicError || err instanceof TransactionFailedError) return 'failed';
+    throw err;
+  }
+  if (!outcome.applied) return null;
+  if (outcome.result !== true) return 'failed';
   return keysStored(ctx, attempt);
 }
 

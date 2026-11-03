@@ -6,6 +6,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createDb, isNeonUrl, schema } from '../../lib/db/index.js';
+import { ContractPanicError } from '../../lib/near/errors.js';
 import { BootstrapPendingError, runBootstrap } from '../../services/bootstrap.service.js';
 import { createFakeGame } from './fake-game.js';
 
@@ -178,6 +179,44 @@ describe.skipIf(!enabled)('bootstrap service', () => {
     expect(after.nearAccountId).toBe(`p-${slug}.game.mock.testnet`);
     expect(after.playKeyEnc).toBe(user.bootstrapPending[0].playKeyEnc);
     expect(after.bootstrapPending).toBeNull();
+  });
+
+  it('drops a stored attempt whose create_player failed and creates under a suffixed slug', async () => {
+    const game = createFakeGame();
+    const { id, slug } = await newUser();
+    // Another player took the slug, so the stored attempt executed and panicked `exists`.
+    const taken = await game.near.createPlayerAccount({ slug, isTeam: false });
+    const failedTx = 'mocktx-failed-create';
+    await db
+      .update(users)
+      .set({
+        bootstrapPending: [
+          {
+            accountId: taken.accountId,
+            playKeyEnc: 'p',
+            adminKeyEnc: 'a',
+            keyVersion: 1,
+            txHash: failedTx,
+            slug,
+          },
+        ],
+      })
+      .where(eq(users.id, id));
+    const resolve = game.near.resolveOutcome.bind(game.near);
+    game.near.resolveOutcome = async (accountId, seq, txHash, options) => {
+      if (txHash === failedTx)
+        throw new ContractPanicError('exists', { method: 'create_player', txHash });
+      return resolve(accountId, seq, txHash, options);
+    };
+
+    expect((await run(id, game)).state).toBe('done');
+
+    const { user } = await rows(id);
+    expect(user.nearAccountId).toMatch(
+      new RegExp(`^p-${slug}[0-9a-f]{4}\\.game\\.mock\\.testnet$`)
+    );
+    expect(user.nearAccountId).not.toBe(taken.accountId);
+    expect(user.bootstrapPending).toBeNull();
   });
 
   it('two concurrent calls on a fresh user make exactly one create_player', async () => {
