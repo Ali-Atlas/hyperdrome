@@ -33,7 +33,7 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
     - Transaction list from the FastNear transactions API (`tx.test.fastnear.com/v0/account`); the NearBlocks API returned no rows for player accounts.
 - Open:
   - Google sign-in not run end to end: no OAuth client in `.env.local` yet. It differs from Play Demo only before the bootstrap (adapter `createUser`, then the same `POST /api/auth/bootstrap`). BUILD_PLAN.md's T8 row still says "Google, Resend" (plan text, not changed).
-  - T6: starter Ember cap exemption (SPEC 2.2, 2.6); until then Ember's 10 supply ends bootstrap after 8 more players on testnet (`s:2` used by the Play Demo run).
+  - T6: starter Ember cap exemption (SPEC 2.2, 2.6); until then Ember's 10 supply ends bootstrap after 4 more players on testnet (`get_catalog` 2026-11-03 after the main merge: template 4 cap 10, minted 6; `s:2` is the Play Demo run's).
   - T9/T10/T11: the services and pages in DECISIONS 5.15 keep MegaETH-free minimal edits only; dead CSS selectors from the removed wallet UI (`.walletBtn`, `.nftMetaLink`, `.settleLink`, `.ownerAddressLink`, `.connectWallet` naming) go with the rebuild; gameplay routes (allocate, equip, bind, packs, capsules, toggle) are still DB-only until T10; `races.race_log` stays next to the new `log` until T9 writes `log`.
   - Remaining seeds (`lib/db/seed*.js`, `scripts/seed-*.js` and the content scripts) use Neon's driver and write DB-only rows; they run only against a Neon branch and are superseded by T13. `services/track.service.js` uses the Neon raw `sql` tag, so track pages need a Neon URL locally.
   - JSX is not type-checked (no `@types/react`); new `.jsx` files are linted only.
