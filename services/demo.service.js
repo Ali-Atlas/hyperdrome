@@ -1,9 +1,10 @@
 import { createHash, randomInt } from 'node:crypto';
-import { and, eq, gt, like, sql } from 'drizzle-orm';
+import { like, sql } from 'drizzle-orm';
 import { db as maybeDb, schema } from '@/lib/db';
 import { DEMO_NAME_PREFIX } from '@/lib/auth';
+import { hitRateLimit } from './rate-limit.service.js';
 
-const { users, demoSignups } = schema;
+const { users } = schema;
 const db = /** @type {import('@/lib/db').Db} */ (maybeDb);
 
 /** Default lifetime ceiling on demo accounts; each costs a NEAR account and a starter kit. */
@@ -34,9 +35,10 @@ export async function countDemoUsers() {
 }
 
 /**
- * Record a demo sign-up attempt for an IP and say whether it is within the per-IP limit. The row
- * is written first and the window counted after, so concurrent requests on any instance cannot all
- * slip under the limit. Only sha256(AUTH_SECRET ++ ip) is stored.
+ * Count a demo sign-up attempt for an IP in the shared `rate_limits` table (fixed one-hour
+ * window) and say whether it is within the per-IP limit. The counter is incremented before it is
+ * compared, so concurrent requests on any instance cannot all slip under the limit. The bucket
+ * carries only sha256(AUTH_SECRET ++ ip), never the raw IP.
  * @param {string} ip
  * @returns {Promise<boolean>}
  */
@@ -44,17 +46,10 @@ export async function recordDemoSignup(ip) {
   const secret = process.env.AUTH_SECRET;
   if (!secret) throw new Error('AUTH_SECRET is not set');
   const ipHash = createHash('sha256').update(secret).update(ip).digest('hex');
-  await db.insert(demoSignups).values({ ipHash });
-  const [row] = await db
-    .select({ count: sql`count(*)::int` })
-    .from(demoSignups)
-    .where(
-      and(
-        eq(demoSignups.ipHash, ipHash),
-        gt(demoSignups.createdAt, new Date(Date.now() - DEMO_PER_IP_WINDOW_MS))
-      )
-    );
-  return Number(row?.count ?? 0) <= DEMO_PER_IP_LIMIT;
+  return hitRateLimit(`demo:${ipHash}`, {
+    limit: DEMO_PER_IP_LIMIT,
+    windowMs: DEMO_PER_IP_WINDOW_MS,
+  });
 }
 
 /**
