@@ -18,10 +18,22 @@ updates:
       - dependency-name: viem
       - dependency-name: ethers
       - dependency-name: '@rainbow-me/*'
+      # TypeScript majors change the type checker; bump deliberately in a dedicated task.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      # @types/node tracks the Node 24 runtime (SPEC.md section 15).
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      # lucide-react minors add and rename icons; patches only.
+      - dependency-name: lucide-react
+        update-types: ['version-update:semver-minor']
   - package-ecosystem: cargo
     directory: /contracts/hyperdrome
     schedule:
       interval: weekly
+    ignore:
+      # near-api is pinned at 0.8.6 (SPEC.md section 15).
+      - dependency-name: near-api
   - package-ecosystem: github-actions
     directory: /
     schedule:
