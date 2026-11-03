@@ -1,0 +1,7 @@
+# cargo audit settings for the contract crate.
+[advisories]
+# crypto-bigint 0.5.5 (timing variability) reaches this crate only through near-sdk's host-side
+# unit-testing runtime (near-vm-runner -> elliptic-curve). It is not in the wasm32 contract build:
+# `cargo tree -e normal --target wasm32-unknown-unknown -i crypto-bigint` prints nothing.
+# Re-check when near-sdk is upgraded.
+ignore = ["RUSTSEC-2026-0387"]

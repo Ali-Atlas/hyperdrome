@@ -80,13 +80,21 @@ jobs:
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
       - if: steps.detect.outputs.present == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/hyperdrome
+      - if: steps.detect.outputs.present == 'true'
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-audit
       - if: steps.detect.outputs.present == 'true'
         run: cargo fmt --check
+      # near-sdk 5.27+ refuses a plain host build of a contract crate, so `cargo clippy` without
+      # a target cannot compile. Lint the wasm contract build and the host test build instead.
       - if: steps.detect.outputs.present == 'true'
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
+      - if: steps.detect.outputs.present == 'true'
+        run: cargo clippy --all-targets -- -D warnings
       - if: steps.detect.outputs.present == 'true'
         run: cargo test
       - if: steps.detect.outputs.present == 'true'
