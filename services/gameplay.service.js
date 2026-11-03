@@ -296,11 +296,12 @@ export async function setDroneActive({ userId, droneId, active }, deps = {}) {
       .from(drones)
       .where(and(eq(drones.userId, userId), eq(drones.active, true)));
     if (Number(count) >= slots) {
+      const have = `You already have ${slots} active ${slots === 1 ? 'drone' : 'drones'}.`;
       return reject(
         409,
         slots >= 3
-          ? `You already have ${slots} active drones. Deactivate one to activate this drone.`
-          : `You already have ${slots} active drones. Run more races to unlock another slot.`
+          ? `${have} Deactivate one to activate this drone.`
+          : `${have} Deactivate one, or race more to unlock another slot.`
       );
     }
   }

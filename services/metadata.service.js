@@ -79,7 +79,8 @@ async function loadToken(db, token) {
 export async function tokenMetadata(token, { origin, db = defaultDb }) {
   const found = await loadToken(db, token);
   if (!found) return null;
-  const media = `${origin}/api/metadata/${encodeURIComponent(token)}/image`;
+  // Same form as the contract's `media` (`<base_uri>/<token_id>/image`); token ids are URL-safe.
+  const media = `${origin}/api/metadata/${token}/image`;
   const common = { media, media_hash: null, copies: 1 };
   if (found.kind === 'drone') {
     const { drone, skin, mod } = found;
