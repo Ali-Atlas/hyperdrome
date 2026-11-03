@@ -1,3 +1,12 @@
+/** Sent on every response (ENGINEERING.md 4, SPEC.md 14). */
+const SECURITY_HEADERS = [
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
@@ -17,6 +26,12 @@ const nextConfig = {
    */
   async headers() {
     return [
+      {
+        // Security headers on every route (ENGINEERING.md 4). Values from the Next.js 16
+        // headers guide; HSTS without `preload`, which needs a registrable domain we own.
+        source: '/:path*',
+        headers: SECURITY_HEADERS,
+      },
       {
         source: '/:slug*.:ext(webp|png|jpg|svg|mp4|woff2)',
         headers: [
