@@ -15,5 +15,11 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["types/**/*.d.ts", "tests/**/*.js", "lib/near/**/*.js", "lib/game-engine/**/*.js"]
+  "include": [
+    "types/**/*.d.ts",
+    "tests/**/*.js",
+    "lib/near/**/*.js",
+    "lib/game-engine/**/*.js",
+    "tests/near/**/*.js"
+  ]
 }
