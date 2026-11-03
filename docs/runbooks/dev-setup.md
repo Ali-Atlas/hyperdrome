@@ -99,6 +99,7 @@ Never commit a `.env*` file; `.env.example` is the template. Copy it to `.env.lo
 | `AUTH_RESEND_KEY`                      | Resend API key for the magic link; Auth.js reads it by name.                                |
 | `CRON_SECRET`                          | Shared secret for the race cron endpoint (`openssl rand -hex 32`).                          |
 | `ADMIN_EMAILS`                         | Comma-separated admin allowlist.                                                            |
+| `DEMO_ACCOUNT_CAP`                     | Lifetime Play Demo accounts (default 100). Raise it before judging if demo use is high.     |
 | `PUSHER_*`, `NEXT_PUBLIC_PUSHER_*`     | Pusher Channels app (from T11).                                                             |
 | `NODE_ENV`                             | Set by Next.js and Node tooling.                                                            |
 

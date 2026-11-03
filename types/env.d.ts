@@ -14,6 +14,8 @@ declare namespace NodeJS {
     readonly AUTH_RESEND_KEY?: string;
     readonly CRON_SECRET?: string;
     readonly ADMIN_EMAILS?: string;
+    /** Lifetime Play Demo accounts; default 100. */
+    readonly DEMO_ACCOUNT_CAP?: string;
 
     // Chain adapter
     readonly NEAR_NETWORK?: 'testnet' | 'mainnet';
