@@ -221,4 +221,16 @@ describe.skipIf(!dbEnabled)('marketplace actions and the event cache', () => {
       (await setDroneActive({ userId: user.id, droneId: second.id, active: true }, { db })).status
     ).toBe(200);
   });
+
+  it('lets parallel toggles fill only the free slots', async () => {
+    const near = createMockNear();
+    const { user } = await newPlayer(db, near);
+    const fleet = await Promise.all([1, 2, 3, 4, 5].map(() => newDrone(db, user.id)));
+    const results = await Promise.all(
+      fleet.map((d) => setDroneActive({ userId: user.id, droneId: d.id, active: true }, { db }))
+    );
+    expect(results.filter((r) => r.status === 200)).toHaveLength(1);
+    const active = await db.select().from(drones).where(eq(drones.userId, user.id));
+    expect(active.filter((/** @type {any} */ d) => d.active)).toHaveLength(1);
+  });
 });

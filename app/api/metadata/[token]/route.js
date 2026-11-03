@@ -12,11 +12,23 @@ const CACHE = 'public, max-age=60, s-maxage=60';
  */
 export async function GET(request, context) {
   const { token } = await context.params;
-  const id = decodeURIComponent(token);
-  if (!tokenIdSchema.safeParse(id).success) {
+  const id = safeDecode(token);
+  if (!id || !tokenIdSchema.safeParse(id).success) {
     return Response.json({ error: 'Token not found.' }, { status: 404 });
   }
   const metadata = await tokenMetadata(id, { origin: new URL(request.url).origin });
   if (!metadata) return Response.json({ error: 'Token not found.' }, { status: 404 });
   return Response.json(metadata, { headers: { 'Cache-Control': CACHE } });
+}
+
+/**
+ * The decoded path segment, or null when its percent-encoding is malformed.
+ * @param {string} segment
+ */
+function safeDecode(segment) {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
 }

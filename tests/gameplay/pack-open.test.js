@@ -158,4 +158,42 @@ describe.skipIf(!dbEnabled)('openPack', () => {
     expect(res).toEqual({ status: 402, body: { error: 'Not enough Volts.' } });
     expect(near.mock.calls.some((c) => c.method === 'reveal_pack')).toBe(false);
   });
+
+  it('keeps the minted tokens when the cache update fails', async () => {
+    const near = createMockNear();
+    let nextPack = Math.floor(Math.random() * 1e9);
+    near.mock.on('open_pack', () => ({ result: ++nextPack, events: [] }));
+    near.mock.on('reveal_pack', (/** @type {any} */ args, { accountId }) => ({
+      events: [
+        // An unknown template makes the cache update throw.
+        ev('item_minted', {
+          token: `m:${nextPack}9`,
+          owner: accountId,
+          kind: 'mod',
+          template: 99,
+          rarity: 0,
+        }),
+        ev('pack_opened', { pack_id: args.pack_id, tokens: [`m:${nextPack}9`] }),
+      ],
+    }));
+    const { user } = await newPlayer(db, near);
+    const actionId = randomUUID();
+    const res = await open(user.id, actionId, near);
+    expect(res.status).toBe(200);
+    expect(res.body.tokens).toEqual([`m:${nextPack}9`]);
+    const [row] = await db.select().from(packOpens).where(eq(packOpens.actionId, actionId));
+    expect(row.tokens).toEqual([`m:${nextPack}9`]);
+  });
+
+  it('removes the pack row when the commit fails for good', async () => {
+    const near = createMockNear();
+    near.mock.on('open_pack', () => {
+      throw new ContractPanicError('insufficient volts', { method: 'open_pack' });
+    });
+    const { user } = await newPlayer(db, near);
+    const actionId = randomUUID();
+    expect((await open(user.id, actionId, near)).status).toBe(402);
+    expect(await db.select().from(packOpens).where(eq(packOpens.actionId, actionId))).toEqual([]);
+    expect((await open(user.id, actionId, near)).status).toBe(402);
+  });
 });

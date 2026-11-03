@@ -16,7 +16,7 @@ import { getNear } from '@/lib/near';
 import { runPlayerAction } from './action.service.js';
 import { applyEvents } from './chain-cache.service.js';
 
-const { users, packOpens, skins, mods } = schema;
+const { users, actions, packOpens, skins, mods } = schema;
 
 /** Wait before the one retry of a reveal that came in too early. */
 export const REVEAL_RETRY_MS = 1_000;
@@ -76,6 +76,12 @@ export async function openPack({ userId, actionId, kind, tier }, deps = {}) {
     return reject(409, 'Your racing account is still being set up.');
   }
 
+  // An open whose commit failed for good has no pack row; replays get the stored answer.
+  const [earlier] = await d.db.select().from(actions).where(eq(actions.id, actionId));
+  if (earlier?.status === 'failed' && earlier.userId === userId && earlier.method === 'open_pack') {
+    return reject(earlier.httpStatus ?? 422, earlier.error ?? 'The game rejected this action.');
+  }
+
   await d.db
     .insert(packOpens)
     .values({
@@ -104,7 +110,16 @@ export async function openPack({ userId, actionId, kind, tier }, deps = {}) {
       },
       d
     );
-    if (opened.status !== 200) return opened;
+    if (opened.status !== 200) {
+      // A commit that finally failed leaves no pack behind; a retryable one keeps its secret.
+      const [act] = await d.db.select().from(actions).where(eq(actions.id, actionId));
+      if (act?.status === 'failed') {
+        await d.db
+          .delete(packOpens)
+          .where(and(eq(packOpens.actionId, actionId), eq(packOpens.status, 'pending')));
+      }
+      return opened;
+    }
     commit = {
       packId: Number(opened.body.result),
       txHash: /** @type {string} */ (opened.body.txHash),
@@ -150,11 +165,21 @@ async function reveal(d, userId, actionId, packId, secret) {
         recordArgs: { pack_id: packId },
         transient: ['too early'],
         onApplied: async (events) => {
-          await applyEvents(events, d);
+          // The tokens come from the event, so they are stored even if the cache update fails.
           const opened = events.find((e) => e.event === 'pack_opened');
           const tokens = /** @type {string[]} */ (
             /** @type {{ tokens?: string[] } | undefined} */ (opened?.data)?.tokens ?? []
           );
+          try {
+            await applyEvents(events, d);
+          } catch (err) {
+            console.error({
+              scope: 'packs',
+              msg: 'cache update failed',
+              actionId,
+              err: String(err),
+            });
+          }
           return { tokens, items: await packItems(d.db, tokens) };
         },
       },

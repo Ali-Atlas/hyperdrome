@@ -15,8 +15,8 @@ const CARD_CACHE = 'public, max-age=86400, s-maxage=86400';
  */
 export async function GET(request, context) {
   const { token } = await context.params;
-  const id = decodeURIComponent(token);
-  if (!tokenIdSchema.safeParse(id).success) {
+  const id = safeDecode(token);
+  if (!id || !tokenIdSchema.safeParse(id).success) {
     return Response.json({ error: 'Token not found.' }, { status: 404 });
   }
   const image = await tokenImage(id);
@@ -36,4 +36,16 @@ export async function GET(request, context) {
       'Cache-Control': CARD_CACHE,
     },
   });
+}
+
+/**
+ * The decoded path segment, or null when its percent-encoding is malformed.
+ * @param {string} segment
+ */
+function safeDecode(segment) {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
 }

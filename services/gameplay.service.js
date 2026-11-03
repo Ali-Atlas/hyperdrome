@@ -9,6 +9,7 @@ import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
 import { activeSlotsFor } from '@/lib/game-engine/economy.js';
 import { getNear } from '@/lib/near';
+import { withUserLease } from './action-lease.js';
 import { runPlayerAction } from './action.service.js';
 import { applyEvents, tokenKind } from './chain-cache.service.js';
 
@@ -283,32 +284,35 @@ export function cancelListing({ userId, actionId, token }, deps = {}) {
  */
 export async function setDroneActive({ userId, droneId, active }, deps = {}) {
   const db = deps.db ?? defaultDb;
-  const [drone] = await db.select().from(drones).where(eq(drones.id, droneId)).limit(1);
-  if (!drone || drone.userId !== userId) return reject(404, 'Drone not found.');
-  if (active && !drone.active) {
-    const [user] = await db
-      .select({ totalRaces: users.totalRaces })
-      .from(users)
-      .where(eq(users.id, userId));
-    const slots = activeSlotsFor(user?.totalRaces ?? 0);
-    const [{ count }] = await db
-      .select({ count: sql`count(*)::int` })
-      .from(drones)
-      .where(and(eq(drones.userId, userId), eq(drones.active, true)));
-    if (Number(count) >= slots) {
-      const have = `You already have ${slots} active ${slots === 1 ? 'drone' : 'drones'}.`;
-      return reject(
-        409,
-        slots >= 3
-          ? `${have} Deactivate one to activate this drone.`
-          : `${have} Deactivate one, or race more to unlock another slot.`
-      );
+  // The count and the update run under the user's lease, so parallel toggles cannot overfill.
+  return withUserLease(db, userId, async () => {
+    const [drone] = await db.select().from(drones).where(eq(drones.id, droneId)).limit(1);
+    if (!drone || drone.userId !== userId) return reject(404, 'Drone not found.');
+    if (active && !drone.active) {
+      const [user] = await db
+        .select({ totalRaces: users.totalRaces })
+        .from(users)
+        .where(eq(users.id, userId));
+      const slots = activeSlotsFor(user?.totalRaces ?? 0);
+      const [{ count }] = await db
+        .select({ count: sql`count(*)::int` })
+        .from(drones)
+        .where(and(eq(drones.userId, userId), eq(drones.active, true)));
+      if (Number(count) >= slots) {
+        const have = `You already have ${slots} active ${slots === 1 ? 'drone' : 'drones'}.`;
+        return reject(
+          409,
+          slots >= 3
+            ? `${have} Deactivate one to activate this drone.`
+            : `${have} Deactivate one, or race more to unlock another slot.`
+        );
+      }
     }
-  }
-  const [updated] = await db
-    .update(drones)
-    .set({ active })
-    .where(eq(drones.id, droneId))
-    .returning();
-  return { status: 200, body: { data: updated } };
+    const [updated] = await db
+      .update(drones)
+      .set({ active })
+      .where(eq(drones.id, droneId))
+      .returning();
+    return { status: 200, body: { data: updated } };
+  });
 }
