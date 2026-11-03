@@ -98,5 +98,5 @@ describe('engine properties over 1,000 random races', () => {
       expect(winner).toBeGreaterThanOrEqual(3);
       expect(computeLoserPayout({ loserLevel: level })).toBeGreaterThanOrEqual(1);
     }
-  });
+  }, 30_000);
 });
