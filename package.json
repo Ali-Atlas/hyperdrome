@@ -22,7 +22,6 @@
     "seed:more-drones": "node --env-file=.env.local lib/db/seed-more-drones.js",
     "seed:prod": "node --env-file=.env.local scripts/seed-production.js",
     "seed:dev": "node --env-file=.env.local scripts/seed-dev.js",
-    "test:economy": "node lib/game-engine/economy.test.js",
     "prepare": "husky"
   },
   "dependencies": {

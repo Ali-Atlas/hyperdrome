@@ -62,6 +62,36 @@ export default defineConfig([
     files: ['**/*.ts', '**/*.tsx'],
     rules: { 'no-unused-vars': 'off', 'no-undef': 'off' },
   },
+  {
+    // The race engine is pure and replayable from its seed (ENGINEERING.md 2, SPEC.md 5). The
+    // baseline generators in lib/game-engine (drone-names, drone-spawn, drone-stats, matchmaking)
+    // are not race simulation and stay outside this rule until their replacements land.
+    name: 'hyperdrome/pure-engine',
+    files: [
+      'lib/game-engine/economy.js',
+      'lib/game-engine/mods.js',
+      'lib/game-engine/prng.js',
+      'lib/game-engine/race-simulator.js',
+      'lib/game-engine/sha256.js',
+      'lib/game-engine/stats-hash.js',
+      'lib/game-engine/templates.js',
+    ],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'Math',
+          property: 'random',
+          message: 'Use the race PRNG (lib/game-engine/prng.js).',
+        },
+        {
+          object: 'Date',
+          property: 'now',
+          message: 'The engine takes time as input, never reads it.',
+        },
+      ],
+    },
+  },
   ...(grandfathered.length > 0
     ? [
         {
