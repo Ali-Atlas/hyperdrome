@@ -1,20 +1,20 @@
-import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { randomBytes } from 'node:crypto';
+import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import {
   calculateNewElo,
   calculateXPToNextLevel,
   calculateTSB,
+  computeLoserPayout,
+  computeWinnerPayout,
 } from '@/lib/game-engine/economy.js';
+import { raceDrone } from '@/lib/game-engine/mods.js';
 import {
   getActiveDronesByBracket,
   matchDronesInBracket,
   ensureBotBackfill,
 } from '@/lib/game-engine/matchmaking.js';
-import {
-  simulateRace,
-  randomWeather,
-  randomTimeOfDay,
-} from '@/lib/game-engine/race-simulator.js';
+import { simulateRace, randomWeather, randomTimeOfDay } from '@/lib/game-engine/race-simulator.js';
 import { buildLevelDistributedStats } from '@/lib/game-engine/drone-spawn.js';
 import { generateUniqueDroneName } from '@/lib/game-engine/drone-names.js';
 import { getRandomTrack } from '@/services/track.service.js';
@@ -22,16 +22,7 @@ import { checkAndLevelUp } from '@/services/drone.service.js';
 import { ApiError } from '@/lib/api/response.js';
 import { settleEpochOnchain } from '@/lib/onchain/settlement.js';
 
-const {
-  drones,
-  users,
-  races,
-  tracks,
-  adminConfig,
-  skins,
-  mods,
-  droneOwnershipHistory,
-} = schema;
+const { drones, users, races, tracks, adminConfig, skins, mods, droneOwnershipHistory } = schema;
 
 /**
  * Every column on the `races` table EXCEPT `raceLog`. List-view consumers
@@ -78,63 +69,22 @@ async function loadConfig() {
     return Number.isFinite(n) ? n : fallback;
   };
   return {
-    raceIntervalSeconds:   num('race_interval_seconds', 120),
-    pointsPerWinBase:      num('points_per_win_base', 3),
-    pointsPerLossBase:     num('points_per_loss_base', 1),
-    xpPerWin:              num('xp_per_win', 10),
-    xpPerLoss:             num('xp_per_loss', 4),
-    botDensityMinimum:     num('bot_density_minimum', 4),
-    skinDropRateCommon:    num('skin_drop_rate_common', 0.05),
-    skinDropRateRare:      num('skin_drop_rate_rare', 0.02),
-    skinDropRateEpic:      num('skin_drop_rate_epic', 0.005),
+    raceIntervalSeconds: num('race_interval_seconds', 120),
+    xpPerWin: num('xp_per_win', 10),
+    xpPerLoss: num('xp_per_loss', 4),
+    botDensityMinimum: num('bot_density_minimum', 4),
+    skinDropRateCommon: num('skin_drop_rate_common', 0.05),
+    skinDropRateRare: num('skin_drop_rate_rare', 0.02),
+    skinDropRateEpic: num('skin_drop_rate_epic', 0.005),
     skinDropRateLegendary: num('skin_drop_rate_legendary', 0.001),
-    slot2UnlockRaces:      num('slot_2_unlock_races', 500),
-    slot3UnlockRaces:      num('slot_3_unlock_races', 2000),
+    slot2UnlockRaces: num('slot_2_unlock_races', 500),
+    slot3UnlockRaces: num('slot_3_unlock_races', 2000),
   };
 }
 
 /* -------------------------------------------------------------------------- */
 /* Payout calculation                                                         */
 /* -------------------------------------------------------------------------- */
-
-/**
- * Tiered winner payout: base + level + difficulty + upset + dominance.
- * Level cap 20 keeps levelBonus ≤ 10; difficulty 1-10 keeps difficultyBonus
- * ≤ 5; upset is uncapped (Elo gap-driven). Dominance reads the actual race
- * times to reward decisive finishes.
- */
-function computeWinnerPayout({
-  winnerDrone,
-  track,
-  winnerElo,
-  loserElo,
-  winnerTime,
-  loserTime,
-  cfg,
-}) {
-  const base = cfg.pointsPerWinBase;
-  const levelBonus = Math.floor((winnerDrone.level ?? 0) / 2);
-  const difficultyBonus = Math.floor((track.difficulty ?? 0) / 2);
-  const upsetBonus = Math.max(0, Math.floor((loserElo - winnerElo) / 100));
-  let dominanceBonus = 0;
-  const minTime = Math.min(winnerTime, loserTime);
-  if (minTime > 0) {
-    const margin = (Math.abs(winnerTime - loserTime) / minTime) * 100;
-    if (margin > 40) dominanceBonus = 5;
-    else if (margin > 20) dominanceBonus = 2;
-  }
-  return base + levelBonus + difficultyBonus + upsetBonus + dominanceBonus;
-}
-
-/**
- * Loser consolation: configured base + a level-scaled bonus so high-level
- * losses still pay out enough to feel non-zero. Level cap 20 ⇒ bonus ≤ 5.
- */
-function computeLoserPayout({ loserDrone, cfg }) {
-  const base = cfg.pointsPerLossBase;
-  const levelBonus = Math.floor((loserDrone.level ?? 0) / 4);
-  return base + levelBonus;
-}
 
 /**
  * Bump activeDroneSlots once a player crosses the configured race-count
@@ -159,10 +109,7 @@ async function maybeUnlockSlot(userId, cfg) {
   // already meets/exceeds the calculated target — saves a redundant write
   // every race once a player has been at their tier ceiling.
   if (target <= u.activeDroneSlots) return;
-  await db
-    .update(users)
-    .set({ activeDroneSlots: target })
-    .where(eq(users.id, userId));
+  await db.update(users).set({ activeDroneSlots: target }).where(eq(users.id, userId));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -175,8 +122,13 @@ async function rollSkinDropForWinner(userId, cfg) {
   let rarity = null;
   if (roll < cfg.skinDropRateLegendary) rarity = 'legendary';
   else if (roll < cfg.skinDropRateLegendary + cfg.skinDropRateEpic) rarity = 'epic';
-  else if (roll < cfg.skinDropRateLegendary + cfg.skinDropRateEpic + cfg.skinDropRateRare) rarity = 'rare';
-  else if (roll < cfg.skinDropRateLegendary + cfg.skinDropRateEpic + cfg.skinDropRateRare + cfg.skinDropRateCommon) rarity = 'common';
+  else if (roll < cfg.skinDropRateLegendary + cfg.skinDropRateEpic + cfg.skinDropRateRare)
+    rarity = 'rare';
+  else if (
+    roll <
+    cfg.skinDropRateLegendary + cfg.skinDropRateEpic + cfg.skinDropRateRare + cfg.skinDropRateCommon
+  )
+    rarity = 'common';
   if (!rarity) return null;
 
   const unowned = await db
@@ -186,10 +138,7 @@ async function rollSkinDropForWinner(userId, cfg) {
     .limit(1);
   if (unowned.length === 0) return null;
 
-  await db
-    .update(skins)
-    .set({ userId })
-    .where(eq(skins.id, unowned[0].id));
+  await db.update(skins).set({ userId }).where(eq(skins.id, unowned[0].id));
   return unowned[0];
 }
 
@@ -265,8 +214,7 @@ async function runRaceCycleInner() {
   // returns the per-race settlement payloads it was able to build (only
   // for races whose drones both have on-chain tokenIds); those get
   // batched into a single settleEpoch tx below.
-  const { executed: pendingExecuted, settlementResults } =
-    await executeReadyPendingRaces(cfg);
+  const { executed: pendingExecuted, settlementResults } = await executeReadyPendingRaces(cfg);
 
   // ON-CHAIN SETTLEMENT - one batched tx per cron tick. epochId is the
   // unix-seconds timestamp at submit time, which is unique enough given
@@ -289,17 +237,17 @@ async function runRaceCycleInner() {
             db
               .update(races)
               .set({ epochId, settleTxHash: result.txHash })
-              .where(eq(races.id, r.raceId)),
-          ),
+              .where(eq(races.id, r.raceId))
+          )
         );
         console.log(
-          `[race.service] on-chain settleEpoch ok - epoch=${epochId} races=${result.count} tx=${result.txHash}`,
+          `[race.service] on-chain settleEpoch ok - epoch=${epochId} races=${result.count} tx=${result.txHash}`
         );
       }
     } catch (err) {
       console.error(
         '[race.service] on-chain settleEpoch failed - DB results stand, settlement not mirrored',
-        { epochId, raceCount: settlementResults.length, err },
+        { epochId, raceCount: settlementResults.length, err }
       );
     }
   }
@@ -320,7 +268,7 @@ async function runRaceCycleInner() {
     const activated = await ensureBotBackfill(
       bracket,
       buckets[bracket].length,
-      cfg.botDensityMinimum,
+      cfg.botDensityMinimum
     );
     botsActivated += activated;
   }
@@ -368,8 +316,8 @@ async function createPendingRace(d1, d2, cfg) {
   // Matchmaking guarantees d1.level === d2.level.
   const raceLevel = d1.level ?? d2.level ?? null;
   const track = await getRandomTrack(raceLevel);
-  const weather = randomWeather();
-  const timeOfDay = randomTimeOfDay();
+  const weather = randomWeather(Math.random);
+  const timeOfDay = randomTimeOfDay(Math.random);
   const scheduledAt = new Date(Date.now() + PENDING_WINDOW_SECONDS * 1000);
 
   await db.insert(races).values({
@@ -407,12 +355,7 @@ async function executeReadyPendingRaces(cfg) {
   const ready = await db
     .select()
     .from(races)
-    .where(
-      and(
-        eq(races.status, 'pending'),
-        sql`${races.scheduledAt} <= NOW()`,
-      ),
-    )
+    .where(and(eq(races.status, 'pending'), sql`${races.scheduledAt} <= NOW()`))
     .orderBy(races.createdAt);
 
   // Defensive dedup. The runRaceCycle mutex prevents NEW duplicates, but
@@ -438,7 +381,7 @@ async function executeReadyPendingRaces(cfg) {
   if (duplicateIds.length > 0) {
     await db.delete(races).where(inArray(races.id, duplicateIds));
     console.warn(
-      `[race.service] removed ${duplicateIds.length} duplicate pending race(s) before execution`,
+      `[race.service] removed ${duplicateIds.length} duplicate pending race(s) before execution`
     );
   }
 
@@ -451,10 +394,7 @@ async function executeReadyPendingRaces(cfg) {
       executed += 1;
       if (settlement) settlementResults.push(settlement);
     } catch (err) {
-      console.error(
-        `[race.service] failed to execute pending race ${race.id}:`,
-        err,
-      );
+      console.error(`[race.service] failed to execute pending race ${race.id}:`, err);
     }
   }
   return { executed, settlementResults };
@@ -470,46 +410,71 @@ async function executeReadyPendingRaces(cfg) {
  */
 async function executePendingRace(pending, cfg) {
   const [d1, d2, track] = await Promise.all([
-    db.select().from(drones).where(eq(drones.id, pending.drone1Id)).limit(1).then((r) => r[0]),
-    db.select().from(drones).where(eq(drones.id, pending.drone2Id)).limit(1).then((r) => r[0]),
-    db.select().from(tracks).where(eq(tracks.id, pending.trackId)).limit(1).then((r) => r[0]),
+    db
+      .select()
+      .from(drones)
+      .where(eq(drones.id, pending.drone1Id))
+      .limit(1)
+      .then((r) => r[0]),
+    db
+      .select()
+      .from(drones)
+      .where(eq(drones.id, pending.drone2Id))
+      .limit(1)
+      .then((r) => r[0]),
+    db
+      .select()
+      .from(tracks)
+      .where(eq(tracks.id, pending.trackId))
+      .limit(1)
+      .then((r) => r[0]),
   ]);
   if (!d1 || !d2 || !track) {
     console.error(
-      `[race.service] pending race ${pending.id} references missing drone/track; skipping`,
+      `[race.service] pending race ${pending.id} references missing drone/track; skipping`
     );
     return;
   }
 
-  const result = simulateRace(d1, d2, track, pending.weather, pending.timeOfDay);
+  // Seeded engine (SPEC.md 5). Until the T9 scheduler commits seeds on-chain, each race gets a
+  // fresh random seed and no mod (mods are applied once equip is on-chain).
+  const engineResult = simulateRace({
+    seed: randomBytes(32).toString('hex'),
+    raceId: pending.id,
+    droneA: raceDrone(d1, 0),
+    droneB: raceDrone(d2, 0),
+    track,
+    weather: pending.weather,
+    timeOfDay: pending.timeOfDay,
+  });
+  const result = {
+    winnerId: engineResult.winner === 'a' ? d1.id : d2.id,
+    drone1Time: engineResult.timeAms / 1000,
+    drone2Time: engineResult.timeBms / 1000,
+    raceLog: engineResult.log,
+  };
   const winner = result.winnerId === d1.id ? d1 : d2;
   const loser = result.winnerId === d1.id ? d2 : d1;
 
   // Snapshotted ELO from the PENDING row drives both points and ELO
   // change calculations - decouples results from any drift in live
   // ELO between matchmaking and execution.
-  const winnerEloBefore =
-    winner.id === d1.id ? pending.drone1EloBefore : pending.drone2EloBefore;
-  const loserEloBefore =
-    loser.id === d1.id ? pending.drone1EloBefore : pending.drone2EloBefore;
+  const winnerEloBefore = winner.id === d1.id ? pending.drone1EloBefore : pending.drone2EloBefore;
+  const loserEloBefore = loser.id === d1.id ? pending.drone1EloBefore : pending.drone2EloBefore;
 
   const winnerTime = winner.id === d1.id ? result.drone1Time : result.drone2Time;
   const loserTime = loser.id === d1.id ? result.drone1Time : result.drone2Time;
 
   const pointsAwarded = computeWinnerPayout({
-    winnerDrone: winner,
-    track,
+    winnerLevel: winner.level ?? 0,
+    difficulty: track.difficulty ?? 0,
     winnerElo: winnerEloBefore,
     loserElo: loserEloBefore,
-    winnerTime,
-    loserTime,
-    cfg,
+    winnerTimeMs: Math.round(winnerTime * 1000),
+    loserTimeMs: Math.round(loserTime * 1000),
   });
-  const lossPayout = computeLoserPayout({ loserDrone: loser, cfg });
-  const { newWinnerElo, newLoserElo } = calculateNewElo(
-    winnerEloBefore,
-    loserEloBefore,
-  );
+  const lossPayout = computeLoserPayout({ loserLevel: loser.level ?? 0 });
+  const { newWinnerElo, newLoserElo } = calculateNewElo(winnerEloBefore, loserEloBefore);
 
   const drone1EloAfter = d1.id === winner.id ? newWinnerElo : newLoserElo;
   const drone2EloAfter = d2.id === winner.id ? newWinnerElo : newLoserElo;
@@ -646,10 +611,7 @@ async function maybeSpawnMilestoneDrone(userId) {
     .limit(1);
   if (!u) return;
 
-  const owned = await db
-    .select({ id: drones.id })
-    .from(drones)
-    .where(eq(drones.userId, userId));
+  const owned = await db.select({ id: drones.id }).from(drones).where(eq(drones.userId, userId));
   let droneCount = owned.length;
 
   for (const { races: threshold, droneCap } of MILESTONE_THRESHOLDS) {
@@ -772,9 +734,7 @@ export async function getRaces(filters = {}, pagination = {}) {
   if (filters.weather) conditions.push(eq(races.weather, filters.weather));
   if (filters.timeOfDay) conditions.push(eq(races.timeOfDay, filters.timeOfDay));
   if (filters.droneId) {
-    conditions.push(
-      or(eq(races.drone1Id, filters.droneId), eq(races.drone2Id, filters.droneId)),
-    );
+    conditions.push(or(eq(races.drone1Id, filters.droneId), eq(races.drone2Id, filters.droneId)));
   }
   if (filters.userId) {
     const userDrones = await db
@@ -784,10 +744,7 @@ export async function getRaces(filters = {}, pagination = {}) {
     if (userDrones.length === 0) return [];
     const userDroneIds = userDrones.map((d) => d.id);
     conditions.push(
-      or(
-        inArray(races.drone1Id, userDroneIds),
-        inArray(races.drone2Id, userDroneIds),
-      ),
+      or(inArray(races.drone1Id, userDroneIds), inArray(races.drone2Id, userDroneIds))
     );
   }
 
@@ -797,10 +754,7 @@ export async function getRaces(filters = {}, pagination = {}) {
   // feed reads as a queue counting down toward execution. Completed
   // races sort by createdAt DESC (newest first) so the most recent
   // results stay at the top.
-  const orderClause =
-    requestedStatus === 'pending'
-      ? races.scheduledAt
-      : desc(races.createdAt);
+  const orderClause = requestedStatus === 'pending' ? races.scheduledAt : desc(races.createdAt);
 
   // Explicit column list excludes `race_log` (jsonb) - none of the
   // list-view consumers (dashboard feed, recent results, races index,
@@ -829,10 +783,7 @@ export async function getRaces(filters = {}, pagination = {}) {
         .where(inArray(drones.id, Array.from(droneIds)))
     : [];
   const droneMap = Object.fromEntries(
-    droneList.map(({ drone, appliedSkin }) => [
-      drone.id,
-      { ...drone, appliedSkin },
-    ]),
+    droneList.map(({ drone, appliedSkin }) => [drone.id, { ...drone, appliedSkin }])
   );
 
   return rows.map(({ race, track }) => ({
@@ -892,7 +843,7 @@ export async function getRaceById(raceId) {
         appliedMod,
         owner: ownerUsername ? { username: ownerUsername } : null,
       },
-    ]),
+    ])
   );
 
   // Upset: pre-race ELO gap of 50+ in the loser's favour. Only meaningful
@@ -900,13 +851,9 @@ export async function getRaceById(raceId) {
   // forced false (the ternary below would otherwise pick drone2EloBefore
   // when winnerDroneId is null, producing nonsense).
   const winnerEloBefore =
-    race.winnerDroneId === race.drone1Id
-      ? race.drone1EloBefore
-      : race.drone2EloBefore;
+    race.winnerDroneId === race.drone1Id ? race.drone1EloBefore : race.drone2EloBefore;
   const loserEloBefore =
-    race.winnerDroneId === race.drone1Id
-      ? race.drone2EloBefore
-      : race.drone1EloBefore;
+    race.winnerDroneId === race.drone1Id ? race.drone2EloBefore : race.drone1EloBefore;
   const isUpset =
     race.winnerDroneId != null &&
     winnerEloBefore != null &&
@@ -916,16 +863,16 @@ export async function getRaceById(raceId) {
   // New track record: compare winner's time to the minimum winner time on
   // this track strictly before this race's createdAt. LEAST() picks the
   // faster of the two drone times per row; we want the min across rows.
-  const winnerTimeStr =
-    race.winnerDroneId === race.drone1Id ? race.drone1Time : race.drone2Time;
-  const winnerTime =
-    winnerTimeStr != null ? Number(winnerTimeStr) : null;
+  const winnerTimeStr = race.winnerDroneId === race.drone1Id ? race.drone1Time : race.drone2Time;
+  const winnerTime = winnerTimeStr != null ? Number(winnerTimeStr) : null;
 
   let isNewTrackRecord = false;
   if (winnerTime != null && race.trackId) {
     // drizzle-orm/neon-http `execute()` returns { rows, fields, rowCount, ... },
     // not an iterable - destructure off .rows.
-    const { rows: [best] } = await db.execute(sql`
+    const {
+      rows: [best],
+    } = await db.execute(sql`
       SELECT MIN(LEAST(drone1_time::numeric, drone2_time::numeric)) AS best_time
       FROM races
       WHERE track_id = ${race.trackId}
@@ -933,15 +880,16 @@ export async function getRaceById(raceId) {
         AND drone1_time IS NOT NULL
         AND drone2_time IS NOT NULL
     `);
-    const prevBest =
-      best?.best_time != null ? Number(best.best_time) : null;
+    const prevBest = best?.best_time != null ? Number(best.best_time) : null;
     isNewTrackRecord = prevBest == null || winnerTime < prevBest;
   }
 
   // Head-to-head: count across either drone-slot orientation, including
   // this race (keeps the tally stable as users browse old races).
   // Restricted to completed races - PENDING shouldn't count toward h2h.
-  const { rows: [h2hRow] } = await db.execute(sql`
+  const {
+    rows: [h2hRow],
+  } = await db.execute(sql`
     SELECT
       COUNT(*)::int AS total,
       SUM(CASE WHEN winner_drone_id = ${race.drone1Id} THEN 1 ELSE 0 END)::int AS drone1_wins,
@@ -1010,8 +958,8 @@ export async function getDroneRaceHistory(droneId, limit = 10) {
     .where(
       and(
         eq(races.status, 'completed'),
-        or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)),
-      ),
+        or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId))
+      )
     )
     .orderBy(desc(races.createdAt))
     .limit(limit);
@@ -1039,8 +987,8 @@ export async function getTotalRaceCount(filters = {}) {
       .where(
         and(
           eq(races.status, 'completed'),
-          or(inArray(races.drone1Id, ids), inArray(races.drone2Id, ids)),
-        ),
+          or(inArray(races.drone1Id, ids), inArray(races.drone2Id, ids))
+        )
       );
     return row?.count ?? 0;
   }
@@ -1157,7 +1105,7 @@ async function loadDronesWithJoins(droneIds) {
     rows.map(({ drone, appliedSkin, appliedMod, ownerName }) => [
       drone.id,
       { ...drone, appliedSkin, appliedMod, ownerName },
-    ]),
+    ])
   );
 }
 
@@ -1181,11 +1129,8 @@ export async function getUpcomingRacesForUser(userId) {
     .where(
       and(
         eq(races.status, 'pending'),
-        or(
-          inArray(races.drone1Id, droneIds),
-          inArray(races.drone2Id, droneIds),
-        ),
-      ),
+        or(inArray(races.drone1Id, droneIds), inArray(races.drone2Id, droneIds))
+      )
     )
     .orderBy(races.scheduledAt);
 
@@ -1215,13 +1160,7 @@ export async function getUpcomingRacesForUser(userId) {
   const droneMap = await loadDronesWithJoins(Array.from(allDroneIds));
 
   return dedupedRows.map(({ race, track }) =>
-    shapePendingRace(
-      race,
-      track,
-      droneMap[race.drone1Id],
-      droneMap[race.drone2Id],
-      userId,
-    ),
+    shapePendingRace(race, track, droneMap[race.drone1Id], droneMap[race.drone2Id], userId)
   );
 }
 
@@ -1238,10 +1177,7 @@ export async function getUpcomingRaceForDrone(droneId, viewerUserId) {
     .from(races)
     .leftJoin(tracks, eq(races.trackId, tracks.id))
     .where(
-      and(
-        eq(races.status, 'pending'),
-        or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)),
-      ),
+      and(eq(races.status, 'pending'), or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)))
     )
     .orderBy(races.scheduledAt)
     .limit(1);
@@ -1253,6 +1189,6 @@ export async function getUpcomingRaceForDrone(droneId, viewerUserId) {
     row.track,
     droneMap[row.race.drone1Id],
     droneMap[row.race.drone2Id],
-    viewerUserId,
+    viewerUserId
   );
 }

@@ -1,0 +1,3445 @@
+{
+  "engine": "SPEC.md 5",
+  "races": [
+    {
+      "input": {
+        "seed": "0b395b15e0d3fe9240853b951bb638ef8f2823ed3146069236c20d2ff2f0271c",
+        "raceId": "golden:0",
+        "statsA": [
+          8,
+          5,
+          8,
+          7,
+          10,
+          6,
+          6,
+          8,
+          11
+        ],
+        "modA": 24,
+        "statsB": [
+          13,
+          9,
+          8,
+          7,
+          6,
+          7,
+          9,
+          6,
+          4
+        ],
+        "modB": 0,
+        "trackId": 0,
+        "track": {
+          "straights": 2,
+          "turns": 2,
+          "difficulty": 1,
+          "length": "short"
+        },
+        "weather": "clear",
+        "timeOfDay": "dawn"
+      },
+      "expected": {
+        "winner": "a",
+        "timeAms": 19871,
+        "timeBms": 20010,
+        "log": [
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -31
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -111
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -130
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -134
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -106
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -153
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -172
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -172
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -92
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -157
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -153
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -138
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "1521050294ddeb3f40c746317be52a37a79b621d943c0b65670fabce2378065d",
+        "raceId": "golden:1",
+        "statsA": [
+          20,
+          12,
+          10,
+          13,
+          10,
+          7,
+          17,
+          13,
+          7
+        ],
+        "modA": 0,
+        "statsB": [
+          16,
+          12,
+          12,
+          14,
+          17,
+          8,
+          17,
+          8,
+          5
+        ],
+        "modB": 25,
+        "trackId": 3,
+        "track": {
+          "straights": 4,
+          "turns": 4,
+          "difficulty": 3,
+          "length": "medium"
+        },
+        "weather": "clouds",
+        "timeOfDay": "day"
+      },
+      "expected": {
+        "winner": "a",
+        "timeAms": 51787,
+        "timeBms": 52112,
+        "log": [
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -52
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -95
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -130
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -174
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -239
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -253
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -294
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -334
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -319
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -214
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -221
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -281
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -276
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -293
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -321
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -371
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -342
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -351
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -343
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -296
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -255
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -335
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -323
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -326
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "b130416261315850f7bd07f69f56fc8d9980f854686e66f9072723ce3cae4d9a",
+        "raceId": "golden:2",
+        "statsA": [
+          23,
+          18,
+          17,
+          20,
+          23,
+          11,
+          13,
+          23,
+          21
+        ],
+        "modA": 26,
+        "statsB": [
+          14,
+          16,
+          25,
+          15,
+          24,
+          21,
+          19,
+          18,
+          17
+        ],
+        "modB": 11,
+        "trackId": 5,
+        "track": {
+          "straights": 4,
+          "turns": 5,
+          "difficulty": 4,
+          "length": "medium"
+        },
+        "weather": "rain",
+        "timeOfDay": "dusk"
+      },
+      "expected": {
+        "winner": "a",
+        "timeAms": 66999,
+        "timeBms": 67463,
+        "log": [
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -43
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -94
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -165
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -213
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -261
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -283
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -292
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -303
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -263
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -259
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -316
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -327
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -352
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -365
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -401
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -399
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -376
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -436
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -434
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -464
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -480
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -468
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -479
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -500
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -475
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -461
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -464
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "182df9d721166a8442fa8c384e2c3ed1c09a4b7ab4e0bb23b28089625520eb20",
+        "raceId": "golden:3",
+        "statsA": [
+          20,
+          24,
+          18,
+          18,
+          21,
+          33,
+          14,
+          27,
+          34
+        ],
+        "modA": 1,
+        "statsB": [
+          21,
+          24,
+          38,
+          27,
+          18,
+          17,
+          22,
+          28,
+          14
+        ],
+        "modB": 24,
+        "trackId": 7,
+        "track": {
+          "straights": 4,
+          "turns": 6,
+          "difficulty": 5,
+          "length": "long"
+        },
+        "weather": "heavy_rain",
+        "timeOfDay": "night"
+      },
+      "expected": {
+        "winner": "b",
+        "timeAms": 94115,
+        "timeBms": 93969,
+        "log": [
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -29
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -44
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -58
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -52
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -34
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -41
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -23
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -37
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -54
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -58
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -108
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -83
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -45
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -34
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -21
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -30
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -32
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -22
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -21
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 43
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 62
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 44
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 32
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 47
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 53
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -9
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 53
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 100
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 98
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 146
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "a6a3a8cabd3eb67c16011bf6045a854374f170747046b71132ec12ecec78b5d0",
+        "raceId": "golden:4",
+        "statsA": [
+          33,
+          39,
+          27,
+          35,
+          26,
+          33,
+          28,
+          18,
+          30
+        ],
+        "modA": 25,
+        "statsB": [
+          27,
+          30,
+          27,
+          31,
+          29,
+          34,
+          32,
+          27,
+          32
+        ],
+        "modB": 19,
+        "trackId": 10,
+        "track": {
+          "straights": 3,
+          "turns": 8,
+          "difficulty": 7,
+          "length": "long"
+        },
+        "weather": "wind",
+        "timeOfDay": "dawn"
+      },
+      "expected": {
+        "winner": "a",
+        "timeAms": 121529,
+        "timeBms": 121618,
+        "log": [
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 6
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -7
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -20
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -69
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -61
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -39
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -64
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -45
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -70
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -52
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -55
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -55
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -48
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -9
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -34
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -14
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -49
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -73
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -40
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -76
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -69
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -49
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -25
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -30
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -17
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -44
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -65
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -27
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -10
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -54
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -56
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -48
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -89
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "1f0ac38e6dab6533d79743bd136d3e1be8345ed7aeebe1ca422af51e70d2744d",
+        "raceId": "golden:5",
+        "statsA": [
+          32,
+          40,
+          44,
+          34,
+          39,
+          50,
+          43,
+          39,
+          48
+        ],
+        "modA": 0,
+        "statsB": [
+          43,
+          35,
+          47,
+          37,
+          49,
+          39,
+          36,
+          41,
+          42
+        ],
+        "modB": 26,
+        "trackId": 15,
+        "track": {
+          "straights": 2,
+          "turns": 8,
+          "difficulty": 10,
+          "length": "long"
+        },
+        "weather": "haze",
+        "timeOfDay": "day"
+      },
+      "expected": {
+        "winner": "b",
+        "timeAms": 148334,
+        "timeBms": 147276,
+        "log": [
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 75
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 110
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 132
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 166
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 254
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 324
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 381
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 468
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 480
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 501
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 546
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 607
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 636
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 718
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 782
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 841
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 890
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 915
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 904
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 934
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 925
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 936
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 979
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 971
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 1004
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 1006
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 1031
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 1034
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 1047
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 1059
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "483f51b516cd4da3813a737cd378493b717bdf553368701c61a5a73b87b597cf",
+        "raceId": "golden:6",
+        "statsA": [
+          9,
+          6,
+          9,
+          8,
+          7,
+          7,
+          8,
+          4,
+          11
+        ],
+        "modA": 21,
+        "statsB": [
+          8,
+          7,
+          9,
+          7,
+          9,
+          10,
+          7,
+          7,
+          5
+        ],
+        "modB": 0,
+        "trackId": 0,
+        "track": {
+          "straights": 2,
+          "turns": 2,
+          "difficulty": 1,
+          "length": "short"
+        },
+        "weather": "fog",
+        "timeOfDay": "dusk"
+      },
+      "expected": {
+        "winner": "a",
+        "timeAms": 21088,
+        "timeBms": 21225,
+        "log": [
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 16
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 3
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -49
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -16
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 11
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 14
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -76
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -59
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -81
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -90
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -63
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -137
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "a7fbef6eb2ec61c892eb3d10f2a69382f35e94a0afac7e9628189777e640cfbf",
+        "raceId": "golden:7",
+        "statsA": [
+          13,
+          12,
+          13,
+          12,
+          14,
+          9,
+          13,
+          16,
+          7
+        ],
+        "modA": 11,
+        "statsB": [
+          9,
+          12,
+          11,
+          9,
+          10,
+          14,
+          17,
+          16,
+          11
+        ],
+        "modB": 1,
+        "trackId": 3,
+        "track": {
+          "straights": 4,
+          "turns": 4,
+          "difficulty": 3,
+          "length": "medium"
+        },
+        "weather": "clear",
+        "timeOfDay": "night"
+      },
+      "expected": {
+        "winner": "b",
+        "timeAms": 52688,
+        "timeBms": 52679,
+        "log": [
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -25
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -48
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -42
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -34
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 2
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -25
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -23
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -54
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -67
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -30
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -69
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -39
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -55
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -68
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -33
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -24
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -42
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -28
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -14
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -24
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 1
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 24
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 3
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 9
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "31910a793a07298c242f1214bfefd8b433a6e47ce4492703916b3f7c390c152d",
+        "raceId": "golden:8",
+        "statsA": [
+          19,
+          17,
+          23,
+          15,
+          15,
+          21,
+          19,
+          22,
+          18
+        ],
+        "modA": 0,
+        "statsB": [
+          24,
+          22,
+          6,
+          20,
+          23,
+          21,
+          15,
+          16,
+          22
+        ],
+        "modB": 0,
+        "trackId": 5,
+        "track": {
+          "straights": 4,
+          "turns": 5,
+          "difficulty": 4,
+          "length": "medium"
+        },
+        "weather": "clouds",
+        "timeOfDay": "dawn"
+      },
+      "expected": {
+        "winner": "b",
+        "timeAms": 67001,
+        "timeBms": 66993,
+        "log": [
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -6
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 7
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 23
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 5
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -84
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -64
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -47
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -31
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 20
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -15
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -21
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -44
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -88
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -150
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -156
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -187
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -169
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -103
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -57
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -51
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -44
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -96
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -91
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -75
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -24
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -5
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 8
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "1696890c9bbcf32f5b5fa041b99559883ef71d696a2fa85899141e8cc0642e1c",
+        "raceId": "golden:9",
+        "statsA": [
+          26,
+          19,
+          18,
+          26,
+          23,
+          15,
+          35,
+          24,
+          23
+        ],
+        "modA": 19,
+        "statsB": [
+          27,
+          29,
+          16,
+          18,
+          13,
+          25,
+          23,
+          28,
+          30
+        ],
+        "modB": 22,
+        "trackId": 7,
+        "track": {
+          "straights": 4,
+          "turns": 6,
+          "difficulty": 5,
+          "length": "long"
+        },
+        "weather": "rain",
+        "timeOfDay": "day"
+      },
+      "expected": {
+        "winner": "a",
+        "timeAms": 85841,
+        "timeBms": 86564,
+        "log": [
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -62
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -105
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -156
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -204
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -201
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -263
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -354
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -397
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -382
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -457
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -458
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -503
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -507
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -529
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -579
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -564
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -591
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -663
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -652
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -694
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -660
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -678
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -696
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -667
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -648
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -633
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -647
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -699
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -700
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -723
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "0cdae6e4a92537eea56cc0ab25e7475b5e52d7c79f770beaee04efff6963d2bf",
+        "raceId": "golden:10",
+        "statsA": [
+          40,
+          26,
+          20,
+          27,
+          24,
+          34,
+          35,
+          31,
+          32
+        ],
+        "modA": 24,
+        "statsB": [
+          33,
+          33,
+          28,
+          35,
+          33,
+          33,
+          25,
+          24,
+          25
+        ],
+        "modB": 26,
+        "trackId": 10,
+        "track": {
+          "straights": 3,
+          "turns": 8,
+          "difficulty": 7,
+          "length": "long"
+        },
+        "weather": "heavy_rain",
+        "timeOfDay": "dusk"
+      },
+      "expected": {
+        "winner": "b",
+        "timeAms": 119059,
+        "timeBms": 118104,
+        "log": [
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 75
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 170
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 202
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 227
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 221
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 195
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 243
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 320
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 404
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 477
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 534
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 586
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 599
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 621
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 628
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 601
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 629
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 660
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 741
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 822
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 848
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 950
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 914
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 904
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 894
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 926
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 932
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 935
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 910
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 948
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 916
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 931
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 956
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "b14b01159b607dad72aef2b81d5039f1d1e6ec81c1f09820d11fd46ff38a9036",
+        "raceId": "golden:11",
+        "statsA": [
+          46,
+          37,
+          28,
+          41,
+          46,
+          31,
+          51,
+          50,
+          39
+        ],
+        "modA": 13,
+        "statsB": [
+          41,
+          39,
+          36,
+          41,
+          53,
+          47,
+          39,
+          41,
+          32
+        ],
+        "modB": 0,
+        "trackId": 15,
+        "track": {
+          "straights": 2,
+          "turns": 8,
+          "difficulty": 10,
+          "length": "long"
+        },
+        "weather": "wind",
+        "timeOfDay": "night"
+      },
+      "expected": {
+        "winner": "b",
+        "timeAms": 155878,
+        "timeBms": 155688,
+        "log": [
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 19
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -45
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -84
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -58
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -60
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -115
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -120
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -134
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -145
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -116
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -156
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -102
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -124
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -162
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -204
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -249
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -197
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -211
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -244
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -212
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -158
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -98
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -100
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -82
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -55
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 36
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 129
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 150
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 181
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 190
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "bf8455c466c15e3f779a630975438cd4085ad05a4f37af790c77f07aec473449",
+        "raceId": "golden:12",
+        "statsA": [
+          8,
+          9,
+          9,
+          9,
+          7,
+          8,
+          8,
+          5,
+          6
+        ],
+        "modA": 0,
+        "statsB": [
+          5,
+          7,
+          8,
+          5,
+          6,
+          12,
+          10,
+          7,
+          9
+        ],
+        "modB": 14,
+        "trackId": 0,
+        "track": {
+          "straights": 2,
+          "turns": 2,
+          "difficulty": 1,
+          "length": "short"
+        },
+        "weather": "haze",
+        "timeOfDay": "dawn"
+      },
+      "expected": {
+        "winner": "b",
+        "timeAms": 21298,
+        "timeBms": 21199,
+        "log": [
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 45
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 10
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -19
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -36
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 17
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 18
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 10
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 31
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 72
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 97
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 100
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 99
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "610cb1f0ac15271033924ec36dcf1272ceb5d27c6c753716d3429ff7848b604e",
+        "raceId": "golden:13",
+        "statsA": [
+          14,
+          12,
+          15,
+          12,
+          12,
+          10,
+          9,
+          10,
+          15
+        ],
+        "modA": 25,
+        "statsB": [
+          13,
+          13,
+          13,
+          15,
+          9,
+          13,
+          9,
+          11,
+          13
+        ],
+        "modB": 25,
+        "trackId": 3,
+        "track": {
+          "straights": 4,
+          "turns": 4,
+          "difficulty": 3,
+          "length": "medium"
+        },
+        "weather": "fog",
+        "timeOfDay": "day"
+      },
+      "expected": {
+        "winner": "a",
+        "timeAms": 57436,
+        "timeBms": 57450,
+        "log": [
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -52
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -80
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -113
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -96
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -101
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -109
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -114
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -96
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -90
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -99
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -89
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -48
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -56
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -82
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -150
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -89
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -69
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -35
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -76
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -74
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -69
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -79
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -4
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -13
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "25b210f1fc578772e6e4371f4a6196404901526bfe4da2683302dd4040acf96c",
+        "raceId": "golden:14",
+        "statsA": [
+          18,
+          19,
+          17,
+          21,
+          20,
+          21,
+          20,
+          19,
+          14
+        ],
+        "modA": 2,
+        "statsB": [
+          17,
+          18,
+          17,
+          20,
+          22,
+          14,
+          15,
+          25,
+          21
+        ],
+        "modB": 23,
+        "trackId": 5,
+        "track": {
+          "straights": 4,
+          "turns": 5,
+          "difficulty": 4,
+          "length": "medium"
+        },
+        "weather": "clear",
+        "timeOfDay": "dusk"
+      },
+      "expected": {
+        "winner": "a",
+        "timeAms": 69889,
+        "timeBms": 69973,
+        "log": [
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -30
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -43
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -74
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -80
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -123
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -86
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -105
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -44
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -3
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 1
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -23
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 23
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 36
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 53
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 15
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -11
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -45
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 29
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 41
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 4
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 24
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -3
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -5
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -49
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -63
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 6
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -83
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "bef3d18e01d7533e310c66505594ce92abcb2e4c6f783bf7fcad666b771481d0",
+        "raceId": "golden:15",
+        "statsA": [
+          20,
+          26,
+          24,
+          25,
+          25,
+          22,
+          24,
+          16,
+          27
+        ],
+        "modA": 26,
+        "statsB": [
+          19,
+          24,
+          30,
+          23,
+          33,
+          23,
+          17,
+          26,
+          14
+        ],
+        "modB": 3,
+        "trackId": 7,
+        "track": {
+          "straights": 4,
+          "turns": 6,
+          "difficulty": 5,
+          "length": "long"
+        },
+        "weather": "clouds",
+        "timeOfDay": "night"
+      },
+      "expected": {
+        "winner": "a",
+        "timeAms": 89163,
+        "timeBms": 89352,
+        "log": [
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -16
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -4
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 28
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -56
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -38
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -58
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -51
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -39
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -47
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -50
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -66
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -110
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -105
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -104
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -90
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -124
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -211
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -183
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -213
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -199
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -150
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -141
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -177
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -224
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -221
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -211
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -207
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -165
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -211
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -189
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "7db9f337949cef17d317ad3873e2e506c031850891a42ef3d7ef9d3d4d2abba3",
+        "raceId": "golden:16",
+        "statsA": [
+          34,
+          37,
+          20,
+          27,
+          31,
+          22,
+          29,
+          37,
+          32
+        ],
+        "modA": 0,
+        "statsB": [
+          28,
+          34,
+          26,
+          33,
+          26,
+          23,
+          41,
+          33,
+          25
+        ],
+        "modB": 0,
+        "trackId": 10,
+        "track": {
+          "straights": 3,
+          "turns": 8,
+          "difficulty": 7,
+          "length": "long"
+        },
+        "weather": "rain",
+        "timeOfDay": "dawn"
+      },
+      "expected": {
+        "winner": "b",
+        "timeAms": 133402,
+        "timeBms": 132472,
+        "log": [
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 52
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 157
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 158
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 234
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 258
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 299
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 364
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 364
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 370
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 433
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 444
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 473
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 522
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 539
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 638
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 613
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 670
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 746
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 806
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 796
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 856
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 899
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 921
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 901
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 905
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 927
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 913
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 904
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 972
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 1010
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 957
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 956
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 931
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "e71f9eebf05cf6ae234ed168a33635e6143f8c0b44755b1fd2ae2b425b6cd372",
+        "raceId": "golden:17",
+        "statsA": [
+          42,
+          34,
+          37,
+          40,
+          42,
+          46,
+          39,
+          51,
+          38
+        ],
+        "modA": 16,
+        "statsB": [
+          38,
+          42,
+          39,
+          52,
+          44,
+          32,
+          40,
+          45,
+          37
+        ],
+        "modB": 5,
+        "trackId": 15,
+        "track": {
+          "straights": 2,
+          "turns": 8,
+          "difficulty": 10,
+          "length": "long"
+        },
+        "weather": "heavy_rain",
+        "timeOfDay": "day"
+      },
+      "expected": {
+        "winner": "b",
+        "timeAms": 159984,
+        "timeBms": 159626,
+        "log": [
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 14
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 115
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 133
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 201
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 198
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 185
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 253
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 239
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 232
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 245
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 298
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 346
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 341
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 352
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": 349
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 334
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 376
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 441
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 455
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 467
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 419
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 430
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 414
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 389
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 353
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": 351
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 353
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 353
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 369
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": 358
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "6e8cfb19a4b2c5b81e72f0f48bbc0cf40d814ec3d1c91df941f6a812b054f5f2",
+        "raceId": "golden:18",
+        "statsA": [
+          8,
+          5,
+          5,
+          8,
+          9,
+          6,
+          7,
+          13,
+          8
+        ],
+        "modA": 24,
+        "statsB": [
+          10,
+          7,
+          5,
+          11,
+          6,
+          2,
+          7,
+          10,
+          11
+        ],
+        "modB": 0,
+        "trackId": 0,
+        "track": {
+          "straights": 2,
+          "turns": 2,
+          "difficulty": 1,
+          "length": "short"
+        },
+        "weather": "wind",
+        "timeOfDay": "dusk"
+      },
+      "expected": {
+        "winner": "a",
+        "timeAms": 19129,
+        "timeBms": 19186,
+        "log": [
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -65
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -76
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -51
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": -73
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -97
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -97
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -67
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -84
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -89
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -94
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -58
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -57
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "seed": "5bba8522e339f08d4ebd596b0d373ed87ee9d12d1f7e775bb7e586f3540e5ff0",
+        "raceId": "golden:19",
+        "statsA": [
+          17,
+          12,
+          9,
+          10,
+          10,
+          17,
+          12,
+          11,
+          11
+        ],
+        "modA": 0,
+        "statsB": [
+          8,
+          17,
+          12,
+          13,
+          10,
+          15,
+          6,
+          14,
+          14
+        ],
+        "modB": 18,
+        "trackId": 3,
+        "track": {
+          "straights": 4,
+          "turns": 4,
+          "difficulty": 3,
+          "length": "medium"
+        },
+        "weather": "haze",
+        "timeOfDay": "night"
+      },
+      "expected": {
+        "winner": "a",
+        "timeAms": 58172,
+        "timeBms": 58268,
+        "log": [
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -19
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": -25
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 5
+          },
+          {
+            "lap": 1,
+            "type": "turn",
+            "gapMs": 34
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 37
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 47
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 7
+          },
+          {
+            "lap": 1,
+            "type": "straight",
+            "gapMs": 1
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 4
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -19
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": -58
+          },
+          {
+            "lap": 2,
+            "type": "turn",
+            "gapMs": 10
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -16
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -32
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -47
+          },
+          {
+            "lap": 2,
+            "type": "straight",
+            "gapMs": -24
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -87
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -60
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -42
+          },
+          {
+            "lap": 3,
+            "type": "turn",
+            "gapMs": -29
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -32
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -34
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -85
+          },
+          {
+            "lap": 3,
+            "type": "straight",
+            "gapMs": -96
+          }
+        ]
+      }
+    }
+  ]
+}

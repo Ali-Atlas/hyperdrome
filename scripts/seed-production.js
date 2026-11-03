@@ -34,17 +34,9 @@ import * as schema from '../lib/db/schema.js';
 import { seedDemoAccount } from './seed-demo-player.js';
 import { generateUniqueDroneName } from '../lib/game-engine/drone-names.js';
 import { buildStats } from '../lib/game-engine/drone-stats.js';
+import { calculateXPToNextLevel } from '../lib/game-engine/economy.js';
 
-const {
-  users,
-  drones,
-  skins,
-  mods,
-  tracks,
-  seasons,
-  adminConfig,
-  marketplaceListings,
-} = schema;
+const { users, drones, skins, mods, tracks, seasons, adminConfig, marketplaceListings } = schema;
 
 /* -------------------------------------------------------------------------- */
 /* Bootstrap                                                                  */
@@ -63,7 +55,7 @@ const RESOLVED_URL =
   (process.env.ALLOW_LOCAL_SEED === '1' ? process.env.DATABASE_URL : null);
 if (!RESOLVED_URL) {
   console.error(
-    'PROD_DATABASE_URL is not set. Add it to .env.local and re-run with `npm run seed:prod` (or use `npm run seed:dev` for the local DB).',
+    'PROD_DATABASE_URL is not set. Add it to .env.local and re-run with `npm run seed:prod` (or use `npm run seed:dev` for the local DB).'
   );
   process.exit(1);
 }
@@ -76,10 +68,7 @@ async function confirmProd() {
     output: process.stdout,
   });
   const answer = await new Promise((resolve) => {
-    rl.question(
-      'About to seed PRODUCTION database. Type YES to continue: ',
-      (a) => resolve(a),
-    );
+    rl.question('About to seed PRODUCTION database. Type YES to continue: ', (a) => resolve(a));
   });
   rl.close();
   if (answer !== 'YES') {
@@ -115,7 +104,7 @@ const FRESH_TRUNCATE_TABLES = [
 async function truncateForFresh() {
   const list = FRESH_TRUNCATE_TABLES.map((t) => `"${t}"`).join(', ');
   console.log(
-    `[fresh] Truncating ${FRESH_TRUNCATE_TABLES.length} tables (RESTART IDENTITY CASCADE)...`,
+    `[fresh] Truncating ${FRESH_TRUNCATE_TABLES.length} tables (RESTART IDENTITY CASCADE)...`
   );
   // sql.raw is intentional: the table list is hardcoded above, not user
   // input. TRUNCATE doesn't accept value parameters, only identifiers.
@@ -145,8 +134,8 @@ const randInt = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
  * if these tiers ever shift (legacy script mirrors the same numbers).
  */
 const PRICE_TIERS = [
-  { min: 1,  max: 5,  base:   5_000, top:  15_000 },
-  { min: 6,  max: 10, base:  40_000, top:  90_000 },
+  { min: 1, max: 5, base: 5_000, top: 15_000 },
+  { min: 6, max: 10, base: 40_000, top: 90_000 },
   { min: 11, max: 15, base: 150_000, top: 300_000 },
   { min: 16, max: 20, base: 400_000, top: 750_000 },
 ];
@@ -156,9 +145,7 @@ function priceForLevel(level) {
   if (!tier) return 5_000; // Out-of-range fallback; LV0 / LV21+ shouldn't occur.
   const span = tier.max - tier.min; // 4 (5-level tier).
   const linear =
-    span === 0
-      ? tier.base
-      : tier.base + ((tier.top - tier.base) * (level - tier.min)) / span;
+    span === 0 ? tier.base : tier.base + ((tier.top - tier.base) * (level - tier.min)) / span;
   // ±15% variance keeps prices from clustering at the level-derived
   // value. Clamp the result back into the stated tier band so the
   // variance can't push a top-of-tier roll past the published ceiling
@@ -173,13 +160,13 @@ function priceForLevel(level) {
 /* -------------------------------------------------------------------------- */
 
 const ADMIN_CONFIG_ROWS = [
-  ['racing_enabled',         'false', 'Master switch (Captain flips manually post-seed)'],
-  ['race_interval_seconds',  '180',   'Seconds between race cycles'],
-  ['points_per_win_base',    '3',     'Base points awarded to race winner'],
-  ['points_per_loss_base',   '1',     'Base points awarded to race loser'],
-  ['xp_per_win',             '10',    'XP awarded to race winner'],
-  ['xp_per_loss',             '4',    'XP awarded to race loser'],
-  ['bot_density_minimum',    '5',     'Minimum bots per bracket for matchmaking'],
+  ['racing_enabled', 'false', 'Master switch (Captain flips manually post-seed)'],
+  ['race_interval_seconds', '180', 'Seconds between race cycles'],
+  ['points_per_win_base', '3', 'Base points awarded to race winner'],
+  ['points_per_loss_base', '1', 'Base points awarded to race loser'],
+  ['xp_per_win', '10', 'XP awarded to race winner'],
+  ['xp_per_loss', '4', 'XP awarded to race loser'],
+  ['bot_density_minimum', '5', 'Minimum bots per bracket for matchmaking'],
 ];
 
 async function seedAdminConfig() {
@@ -201,7 +188,7 @@ const BOT_USERS = [
   // bracket roster (Captain B answer overrides the "3 active per bot
   // user" guideline so each bracket has the spec'd 6+ active bots).
   { username: 'BOT_ALPHA', email: 'bot_alpha@hyperdrome.bot', activeDroneSlots: 8 },
-  { username: 'BOT_BETA',  email: 'bot_beta@hyperdrome.bot',  activeDroneSlots: 8 },
+  { username: 'BOT_BETA', email: 'bot_beta@hyperdrome.bot', activeDroneSlots: 8 },
   { username: 'BOT_GAMMA', email: 'bot_gamma@hyperdrome.bot', activeDroneSlots: 12 },
   // Marketplace listing owners. Don't race - keep slots default.
   { username: 'MKT_PULSE', email: 'mkt_pulse@hyperdrome.bot', activeDroneSlots: 1 },
@@ -212,11 +199,7 @@ const BOT_USERS = [
 async function seedBotUsers() {
   let inserted = 0;
   for (const u of BOT_USERS) {
-    const [existing] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, u.email))
-      .limit(1);
+    const [existing] = await db.select().from(users).where(eq(users.email, u.email)).limit(1);
     if (existing) continue;
     await db.insert(users).values({
       username: u.username,
@@ -234,7 +217,12 @@ export async function getBotUserMap() {
   const rows = await db
     .select()
     .from(users)
-    .where(inArray(users.email, BOT_USERS.map((u) => u.email)));
+    .where(
+      inArray(
+        users.email,
+        BOT_USERS.map((u) => u.email)
+      )
+    );
   return Object.fromEntries(rows.map((r) => [r.username, r]));
 }
 
@@ -247,33 +235,33 @@ export async function getBotUserMap() {
  * brackets 3 + 4 (lvl 11-20). All active=true, isBot=true. */
 const RACING_BOTS = [
   // Bracket 1 — owner BOT_ALPHA
-  { name: 'PHANTOM-X1', level: 1, profile: 'balanced',   owner: 'BOT_ALPHA' },
-  { name: 'SHADOW-R3',  level: 2, profile: 'speedster',  owner: 'BOT_ALPHA' },
-  { name: 'VIPER-K7',   level: 3, profile: 'cornerer',   owner: 'BOT_ALPHA' },
-  { name: 'ECHO-M4',    level: 4, profile: 'tank',       owner: 'BOT_ALPHA' },
-  { name: 'PULSE-D9',   level: 4, profile: 'consistent', owner: 'BOT_ALPHA' },
-  { name: 'NOVA-B2',    level: 5, profile: 'allrounder', owner: 'BOT_ALPHA' },
+  { name: 'PHANTOM-X1', level: 1, profile: 'balanced', owner: 'BOT_ALPHA' },
+  { name: 'SHADOW-R3', level: 2, profile: 'speedster', owner: 'BOT_ALPHA' },
+  { name: 'VIPER-K7', level: 3, profile: 'cornerer', owner: 'BOT_ALPHA' },
+  { name: 'ECHO-M4', level: 4, profile: 'tank', owner: 'BOT_ALPHA' },
+  { name: 'PULSE-D9', level: 4, profile: 'consistent', owner: 'BOT_ALPHA' },
+  { name: 'NOVA-B2', level: 5, profile: 'allrounder', owner: 'BOT_ALPHA' },
   // Bracket 2 — owner BOT_BETA
-  { name: 'HAWK-W4',    level: 6,  profile: 'speedster',   owner: 'BOT_BETA' },
-  { name: 'BLADE-Z7',   level: 7,  profile: 'cornerer',    owner: 'BOT_BETA' },
-  { name: 'FANG-H3',    level: 8,  profile: 'tank',        owner: 'BOT_BETA' },
-  { name: 'DART-C9',    level: 8,  profile: 'windWalker',  owner: 'BOT_BETA' },
-  { name: 'BOLT-P5',    level: 9,  profile: 'marathoner',  owner: 'BOT_BETA' },
-  { name: 'RAGE-Q2',    level: 10, profile: 'rainRider',   owner: 'BOT_BETA' },
+  { name: 'HAWK-W4', level: 6, profile: 'speedster', owner: 'BOT_BETA' },
+  { name: 'BLADE-Z7', level: 7, profile: 'cornerer', owner: 'BOT_BETA' },
+  { name: 'FANG-H3', level: 8, profile: 'tank', owner: 'BOT_BETA' },
+  { name: 'DART-C9', level: 8, profile: 'windWalker', owner: 'BOT_BETA' },
+  { name: 'BOLT-P5', level: 9, profile: 'marathoner', owner: 'BOT_BETA' },
+  { name: 'RAGE-Q2', level: 10, profile: 'rainRider', owner: 'BOT_BETA' },
   // Bracket 3 — owner BOT_GAMMA
-  { name: 'FURY-N6',    level: 11, profile: 'nightHunter', owner: 'BOT_GAMMA' },
-  { name: 'APEX-V8',    level: 12, profile: 'consistent',  owner: 'BOT_GAMMA' },
-  { name: 'ZERO-G0',    level: 13, profile: 'allrounder',  owner: 'BOT_GAMMA' },
-  { name: 'OMEGA-X9',   level: 13, profile: 'speedster',   owner: 'BOT_GAMMA' },
-  { name: 'SIGMA-T2',   level: 14, profile: 'cornerer',    owner: 'BOT_GAMMA' },
-  { name: 'KAPPA-L1',   level: 15, profile: 'rainRider',   owner: 'BOT_GAMMA' },
+  { name: 'FURY-N6', level: 11, profile: 'nightHunter', owner: 'BOT_GAMMA' },
+  { name: 'APEX-V8', level: 12, profile: 'consistent', owner: 'BOT_GAMMA' },
+  { name: 'ZERO-G0', level: 13, profile: 'allrounder', owner: 'BOT_GAMMA' },
+  { name: 'OMEGA-X9', level: 13, profile: 'speedster', owner: 'BOT_GAMMA' },
+  { name: 'SIGMA-T2', level: 14, profile: 'cornerer', owner: 'BOT_GAMMA' },
+  { name: 'KAPPA-L1', level: 15, profile: 'rainRider', owner: 'BOT_GAMMA' },
   // Bracket 4 — owner BOT_GAMMA
-  { name: 'DELTA-Z4',   level: 16, profile: 'tank',        owner: 'BOT_GAMMA' },
-  { name: 'EPSILON-P7', level: 17, profile: 'speedster',   owner: 'BOT_GAMMA' },
-  { name: 'ZETA-M3',    level: 17, profile: 'nightHunter', owner: 'BOT_GAMMA' },
-  { name: 'ETA-W6',     level: 18, profile: 'windWalker',  owner: 'BOT_GAMMA' },
-  { name: 'THETA-C8',   level: 19, profile: 'marathoner',  owner: 'BOT_GAMMA' },
-  { name: 'IOTA-V0',    level: 20, profile: 'allrounder',  owner: 'BOT_GAMMA' },
+  { name: 'DELTA-Z4', level: 16, profile: 'tank', owner: 'BOT_GAMMA' },
+  { name: 'EPSILON-P7', level: 17, profile: 'speedster', owner: 'BOT_GAMMA' },
+  { name: 'ZETA-M3', level: 17, profile: 'nightHunter', owner: 'BOT_GAMMA' },
+  { name: 'ETA-W6', level: 18, profile: 'windWalker', owner: 'BOT_GAMMA' },
+  { name: 'THETA-C8', level: 19, profile: 'marathoner', owner: 'BOT_GAMMA' },
+  { name: 'IOTA-V0', level: 20, profile: 'allrounder', owner: 'BOT_GAMMA' },
 ];
 
 async function seedRacingBots(botUserMap) {
@@ -296,7 +284,7 @@ async function seedRacingBots(botUserMap) {
       name: def.name,
       level: def.level,
       xp: 0,
-      xpToNextLevel: 300 * def.level * def.level,
+      xpToNextLevel: calculateXPToNextLevel(def.level),
       totalStatBudget: tsb,
       ...stats,
       active: true,
@@ -314,22 +302,166 @@ async function seedRacingBots(botUserMap) {
 /* -------------------------------------------------------------------------- */
 
 const TRACK_DATA = [
-  { name: 'Horizon Express',   levelMin: 1,  levelMax: 5,  difficulty: 1,  straights: 2, turns: 2,  laps: 3, length: 'short'  },
-  { name: 'Neon Straightaway', levelMin: 1,  levelMax: 5,  difficulty: 2,  straights: 3, turns: 3,  laps: 3, length: 'medium' },
-  { name: 'Keyhole',           levelMin: 1,  levelMax: 5,  difficulty: 2,  straights: 2, turns: 2,  laps: 3, length: 'short'  },
-  { name: 'The Grid',          levelMin: 1,  levelMax: 5,  difficulty: 3,  straights: 4, turns: 4,  laps: 3, length: 'medium' },
-  { name: 'Meridian',          levelMin: 6,  levelMax: 10, difficulty: 3,  straights: 4, turns: 4,  laps: 3, length: 'medium' },
-  { name: 'Circuit Alpha',     levelMin: 6,  levelMax: 10, difficulty: 4,  straights: 4, turns: 5,  laps: 3, length: 'medium' },
-  { name: 'Crossfire',         levelMin: 6,  levelMax: 10, difficulty: 4,  straights: 3, turns: 5,  laps: 3, length: 'medium' },
-  { name: 'Iron Ribbon',       levelMin: 6,  levelMax: 10, difficulty: 5,  straights: 4, turns: 6,  laps: 3, length: 'long'   },
-  { name: 'Skyline Drift',     levelMin: 11, levelMax: 15, difficulty: 6,  straights: 3, turns: 7,  laps: 3, length: 'long'   },
-  { name: 'Helix',             levelMin: 11, levelMax: 15, difficulty: 6,  straights: 2, turns: 6,  laps: 3, length: 'medium' },
-  { name: 'Switchblade',       levelMin: 11, levelMax: 15, difficulty: 7,  straights: 3, turns: 8,  laps: 3, length: 'long'   },
-  { name: 'Phantom Circuit',   levelMin: 11, levelMax: 15, difficulty: 7,  straights: 4, turns: 7,  laps: 3, length: 'long'   },
-  { name: 'Voltage Loop',      levelMin: 16, levelMax: 20, difficulty: 8,  straights: 4, turns: 8,  laps: 3, length: 'long'   },
-  { name: 'Obsidian Maze',     levelMin: 16, levelMax: 20, difficulty: 9,  straights: 3, turns: 9,  laps: 3, length: 'long'   },
-  { name: 'Apex Descent',      levelMin: 16, levelMax: 20, difficulty: 9,  straights: 2, turns: 10, laps: 3, length: 'long'   },
-  { name: 'Tempest Run',       levelMin: 16, levelMax: 20, difficulty: 10, straights: 2, turns: 8,  laps: 3, length: 'long'   },
+  {
+    name: 'Horizon Express',
+    levelMin: 1,
+    levelMax: 5,
+    difficulty: 1,
+    straights: 2,
+    turns: 2,
+    laps: 3,
+    length: 'short',
+  },
+  {
+    name: 'Neon Straightaway',
+    levelMin: 1,
+    levelMax: 5,
+    difficulty: 2,
+    straights: 3,
+    turns: 3,
+    laps: 3,
+    length: 'medium',
+  },
+  {
+    name: 'Keyhole',
+    levelMin: 1,
+    levelMax: 5,
+    difficulty: 2,
+    straights: 2,
+    turns: 2,
+    laps: 3,
+    length: 'short',
+  },
+  {
+    name: 'The Grid',
+    levelMin: 1,
+    levelMax: 5,
+    difficulty: 3,
+    straights: 4,
+    turns: 4,
+    laps: 3,
+    length: 'medium',
+  },
+  {
+    name: 'Meridian',
+    levelMin: 6,
+    levelMax: 10,
+    difficulty: 3,
+    straights: 4,
+    turns: 4,
+    laps: 3,
+    length: 'medium',
+  },
+  {
+    name: 'Circuit Alpha',
+    levelMin: 6,
+    levelMax: 10,
+    difficulty: 4,
+    straights: 4,
+    turns: 5,
+    laps: 3,
+    length: 'medium',
+  },
+  {
+    name: 'Crossfire',
+    levelMin: 6,
+    levelMax: 10,
+    difficulty: 4,
+    straights: 3,
+    turns: 5,
+    laps: 3,
+    length: 'medium',
+  },
+  {
+    name: 'Iron Ribbon',
+    levelMin: 6,
+    levelMax: 10,
+    difficulty: 5,
+    straights: 4,
+    turns: 6,
+    laps: 3,
+    length: 'long',
+  },
+  {
+    name: 'Skyline Drift',
+    levelMin: 11,
+    levelMax: 15,
+    difficulty: 6,
+    straights: 3,
+    turns: 7,
+    laps: 3,
+    length: 'long',
+  },
+  {
+    name: 'Helix',
+    levelMin: 11,
+    levelMax: 15,
+    difficulty: 6,
+    straights: 2,
+    turns: 6,
+    laps: 3,
+    length: 'medium',
+  },
+  {
+    name: 'Switchblade',
+    levelMin: 11,
+    levelMax: 15,
+    difficulty: 7,
+    straights: 3,
+    turns: 8,
+    laps: 3,
+    length: 'long',
+  },
+  {
+    name: 'Phantom Circuit',
+    levelMin: 11,
+    levelMax: 15,
+    difficulty: 7,
+    straights: 4,
+    turns: 7,
+    laps: 3,
+    length: 'long',
+  },
+  {
+    name: 'Voltage Loop',
+    levelMin: 16,
+    levelMax: 20,
+    difficulty: 8,
+    straights: 4,
+    turns: 8,
+    laps: 3,
+    length: 'long',
+  },
+  {
+    name: 'Obsidian Maze',
+    levelMin: 16,
+    levelMax: 20,
+    difficulty: 9,
+    straights: 3,
+    turns: 9,
+    laps: 3,
+    length: 'long',
+  },
+  {
+    name: 'Apex Descent',
+    levelMin: 16,
+    levelMax: 20,
+    difficulty: 9,
+    straights: 2,
+    turns: 10,
+    laps: 3,
+    length: 'long',
+  },
+  {
+    name: 'Tempest Run',
+    levelMin: 16,
+    levelMax: 20,
+    difficulty: 10,
+    straights: 2,
+    turns: 8,
+    laps: 3,
+    length: 'long',
+  },
 ];
 
 function trackImagePath(name) {
@@ -344,11 +476,7 @@ async function seedTracks() {
   let inserted = 0;
   let skipped = 0;
   for (const t of TRACK_DATA) {
-    const [existing] = await db
-      .select()
-      .from(tracks)
-      .where(eq(tracks.name, t.name))
-      .limit(1);
+    const [existing] = await db.select().from(tracks).where(eq(tracks.name, t.name)).limit(1);
     if (existing) {
       skipped += 1;
       continue;
@@ -360,11 +488,7 @@ async function seedTracks() {
 }
 
 async function seedSeasonOne() {
-  const [existing] = await db
-    .select()
-    .from(seasons)
-    .where(eq(seasons.seasonNumber, 1))
-    .limit(1);
+  const [existing] = await db.select().from(seasons).where(eq(seasons.seasonNumber, 1)).limit(1);
   if (existing) return 0;
   const now = new Date();
   await db.insert(seasons).values({
@@ -383,41 +507,41 @@ async function seedSeasonOne() {
 /* Image-backed catalog: 8 per rarity, paths match webps in public/skins/. */
 const IMAGE_BACKED_SKINS = [
   // Commons
-  { name: 'Bone',        rarity: 'common',    imageUrl: '/skins/common/bone.webp' },
-  { name: 'Cobalt',      rarity: 'common',    imageUrl: '/skins/common/cobalt.webp' },
-  { name: 'Dusk',        rarity: 'common',    imageUrl: '/skins/common/dusk.webp' },
-  { name: 'Ember',       rarity: 'common',    imageUrl: '/skins/common/ember.webp' },
-  { name: 'Frost',       rarity: 'common',    imageUrl: '/skins/common/frost.webp' },
-  { name: 'Rust',        rarity: 'common',    imageUrl: '/skins/common/rust.webp' },
-  { name: 'Shadow',      rarity: 'common',    imageUrl: '/skins/common/shadow.webp' },
-  { name: 'Venom',       rarity: 'common',    imageUrl: '/skins/common/venom.webp' },
+  { name: 'Bone', rarity: 'common', imageUrl: '/skins/common/bone.webp' },
+  { name: 'Cobalt', rarity: 'common', imageUrl: '/skins/common/cobalt.webp' },
+  { name: 'Dusk', rarity: 'common', imageUrl: '/skins/common/dusk.webp' },
+  { name: 'Ember', rarity: 'common', imageUrl: '/skins/common/ember.webp' },
+  { name: 'Frost', rarity: 'common', imageUrl: '/skins/common/frost.webp' },
+  { name: 'Rust', rarity: 'common', imageUrl: '/skins/common/rust.webp' },
+  { name: 'Shadow', rarity: 'common', imageUrl: '/skins/common/shadow.webp' },
+  { name: 'Venom', rarity: 'common', imageUrl: '/skins/common/venom.webp' },
   // Rares
-  { name: 'Anodized Blaze', rarity: 'rare',   imageUrl: '/skins/rare/anodized_blaze.webp' },
-  { name: 'Arctic Fury',    rarity: 'rare',   imageUrl: '/skins/rare/arctic_fury.webp' },
-  { name: 'Chrome Fury',    rarity: 'rare',   imageUrl: '/skins/rare/chrome_fury.webp' },
-  { name: 'Copper King',    rarity: 'rare',   imageUrl: '/skins/rare/copper_king.webp' },
-  { name: 'Gunmetal Storm', rarity: 'rare',   imageUrl: '/skins/rare/gunmetal_storm.webp' },
-  { name: 'Jade Circuit',   rarity: 'rare',   imageUrl: '/skins/rare/jade_circuit.webp' },
-  { name: 'Midnight Oil',   rarity: 'rare',   imageUrl: '/skins/rare/midnight_oil.webp' },
-  { name: 'Titanium Ghost', rarity: 'rare',   imageUrl: '/skins/rare/titanium_ghost.webp' },
+  { name: 'Anodized Blaze', rarity: 'rare', imageUrl: '/skins/rare/anodized_blaze.webp' },
+  { name: 'Arctic Fury', rarity: 'rare', imageUrl: '/skins/rare/arctic_fury.webp' },
+  { name: 'Chrome Fury', rarity: 'rare', imageUrl: '/skins/rare/chrome_fury.webp' },
+  { name: 'Copper King', rarity: 'rare', imageUrl: '/skins/rare/copper_king.webp' },
+  { name: 'Gunmetal Storm', rarity: 'rare', imageUrl: '/skins/rare/gunmetal_storm.webp' },
+  { name: 'Jade Circuit', rarity: 'rare', imageUrl: '/skins/rare/jade_circuit.webp' },
+  { name: 'Midnight Oil', rarity: 'rare', imageUrl: '/skins/rare/midnight_oil.webp' },
+  { name: 'Titanium Ghost', rarity: 'rare', imageUrl: '/skins/rare/titanium_ghost.webp' },
   // Epics
-  { name: 'Crystal Phantom',    rarity: 'epic', imageUrl: '/skins/epic/crystal_phantom.webp' },
-  { name: 'Dragon Scale',       rarity: 'epic', imageUrl: '/skins/epic/dragon_scale.webp' },
-  { name: 'Frozen Abyss',       rarity: 'epic', imageUrl: '/skins/epic/frozen_abyss.webp' },
-  { name: 'Iridescent Wraith',  rarity: 'epic', imageUrl: '/skins/epic/iridescent_wraith.webp' },
-  { name: 'Liquid Mercury',     rarity: 'epic', imageUrl: '/skins/epic/liquid_mercury.webp' },
-  { name: 'Obsidian Core',      rarity: 'epic', imageUrl: '/skins/epic/obsidian_core.webp' },
-  { name: 'Solar Flare',        rarity: 'epic', imageUrl: '/skins/epic/solar_flare.webp' },
-  { name: 'Void Bloom',         rarity: 'epic', imageUrl: '/skins/epic/void_bloom.webp' },
+  { name: 'Crystal Phantom', rarity: 'epic', imageUrl: '/skins/epic/crystal_phantom.webp' },
+  { name: 'Dragon Scale', rarity: 'epic', imageUrl: '/skins/epic/dragon_scale.webp' },
+  { name: 'Frozen Abyss', rarity: 'epic', imageUrl: '/skins/epic/frozen_abyss.webp' },
+  { name: 'Iridescent Wraith', rarity: 'epic', imageUrl: '/skins/epic/iridescent_wraith.webp' },
+  { name: 'Liquid Mercury', rarity: 'epic', imageUrl: '/skins/epic/liquid_mercury.webp' },
+  { name: 'Obsidian Core', rarity: 'epic', imageUrl: '/skins/epic/obsidian_core.webp' },
+  { name: 'Solar Flare', rarity: 'epic', imageUrl: '/skins/epic/solar_flare.webp' },
+  { name: 'Void Bloom', rarity: 'epic', imageUrl: '/skins/epic/void_bloom.webp' },
   // Legendaries (Captain D answer: all 8)
   { name: 'Apex Predator', rarity: 'legendary', imageUrl: '/skins/legendary/apex_predator.webp' },
-  { name: 'Celestial',     rarity: 'legendary', imageUrl: '/skins/legendary/celestial.webp' },
+  { name: 'Celestial', rarity: 'legendary', imageUrl: '/skins/legendary/celestial.webp' },
   { name: 'Diamond Hands', rarity: 'legendary', imageUrl: '/skins/legendary/diamond_hand.webp' },
   { name: 'Gilded Throne', rarity: 'legendary', imageUrl: '/skins/legendary/gilded_throne.webp' },
-  { name: 'Kraken',        rarity: 'legendary', imageUrl: '/skins/legendary/kraken.webp' },
-  { name: 'Necromancer',   rarity: 'legendary', imageUrl: '/skins/legendary/necromancer.webp' },
-  { name: 'Samurai',       rarity: 'legendary', imageUrl: '/skins/legendary/samurai.webp' },
-  { name: 'Valiant',       rarity: 'legendary', imageUrl: '/skins/legendary/valiant.webp' },
+  { name: 'Kraken', rarity: 'legendary', imageUrl: '/skins/legendary/kraken.webp' },
+  { name: 'Necromancer', rarity: 'legendary', imageUrl: '/skins/legendary/necromancer.webp' },
+  { name: 'Samurai', rarity: 'legendary', imageUrl: '/skins/legendary/samurai.webp' },
+  { name: 'Valiant', rarity: 'legendary', imageUrl: '/skins/legendary/valiant.webp' },
 ];
 
 /* 70 placeholder skins: rarity-distributed, no real image (the path is
@@ -432,8 +556,8 @@ const IMAGE_BACKED_SKINS = [
  * and for fallback-render code in marketplace/drone-equip. */
 const PLACEHOLDER_RARITY_SPLIT = [
   { rarity: 'common', count: 28 },
-  { rarity: 'rare',   count: 24 },
-  { rarity: 'epic',   count: 14 },
+  { rarity: 'rare', count: 24 },
+  { rarity: 'epic', count: 14 },
   { rarity: 'legendary', count: 4 },
 ];
 
@@ -447,29 +571,80 @@ const PLACEHOLDER_RARITY_SPLIT = [
  * prod DB to themed names from this same source). */
 const PLACEHOLDER_NAME_POOLS = {
   common: [
-    'Carbon Fiber', 'Gunmetal', 'Stealth Gray', 'Arctic White', 'Obsidian',
-    'Matte Black', 'Brushed Steel', 'Copper Plate', 'Navy Blue', 'Forest Green',
-    'Desert Tan', 'Slate Gray', 'Rust Patina', 'Industrial Iron', 'Concrete',
-    'Military Olive', 'Plasma Gray', 'Alloy Silver', 'Chrome Plate', 'Warning Yellow',
-    'Flare Orange', 'Ember Red', 'Cool Blue', 'Stormcloud', 'Midnight Black',
-    'Ash Gray', 'Riveted Steel', 'Bronze Plating', 'Aluminum Finish', 'Coal Matte',
+    'Carbon Fiber',
+    'Gunmetal',
+    'Stealth Gray',
+    'Arctic White',
+    'Obsidian',
+    'Matte Black',
+    'Brushed Steel',
+    'Copper Plate',
+    'Navy Blue',
+    'Forest Green',
+    'Desert Tan',
+    'Slate Gray',
+    'Rust Patina',
+    'Industrial Iron',
+    'Concrete',
+    'Military Olive',
+    'Plasma Gray',
+    'Alloy Silver',
+    'Chrome Plate',
+    'Warning Yellow',
+    'Flare Orange',
+    'Ember Red',
+    'Cool Blue',
+    'Stormcloud',
+    'Midnight Black',
+    'Ash Gray',
+    'Riveted Steel',
+    'Bronze Plating',
+    'Aluminum Finish',
+    'Coal Matte',
   ],
   rare: [
-    'Neon Pulse', 'Cyber Stripe', 'Electric Blue', 'Hologram', 'Signal Red',
-    'Grid Runner', 'Data Stream', 'Binary Wave', 'Tron Line', 'Synthwave',
-    'Laser Mesh', 'Circuit Board', 'Prism', 'Quantum Weave', 'Plasma Core',
-    'Phantom Edge', 'Iron Veil', 'Cobalt Strike', 'Static Drift', 'Mirror Coil',
-    'Spectral Mesh', 'Voltage Husk', 'Ion Lattice', 'Nova Burst',
+    'Neon Pulse',
+    'Cyber Stripe',
+    'Electric Blue',
+    'Hologram',
+    'Signal Red',
+    'Grid Runner',
+    'Data Stream',
+    'Binary Wave',
+    'Tron Line',
+    'Synthwave',
+    'Laser Mesh',
+    'Circuit Board',
+    'Prism',
+    'Quantum Weave',
+    'Plasma Core',
+    'Phantom Edge',
+    'Iron Veil',
+    'Cobalt Strike',
+    'Static Drift',
+    'Mirror Coil',
+    'Spectral Mesh',
+    'Voltage Husk',
+    'Ion Lattice',
+    'Nova Burst',
   ],
   epic: [
-    'Inferno Phoenix', 'Tidal Surge', 'Thunder Strike', 'Void Walker',
-    'Blizzard Hunter', 'Volcanic Drift', 'Celestial Guard', 'Zephyr Dancer',
-    'Eclipse Prowler', 'Ember Coil', 'Glacial Tempest', 'Stormcaller',
-    'Riftwalker', 'Aurora Reaver',
+    'Inferno Phoenix',
+    'Tidal Surge',
+    'Thunder Strike',
+    'Void Walker',
+    'Blizzard Hunter',
+    'Volcanic Drift',
+    'Celestial Guard',
+    'Zephyr Dancer',
+    'Eclipse Prowler',
+    'Ember Coil',
+    'Glacial Tempest',
+    'Stormcaller',
+    'Riftwalker',
+    'Aurora Reaver',
   ],
-  legendary: [
-    'Chimera', 'Phoenix Reborn', 'Dragonlord', 'Onyx Sovereign',
-  ],
+  legendary: ['Chimera', 'Phoenix Reborn', 'Dragonlord', 'Onyx Sovereign'],
 };
 
 function placeholderSkinRows() {
@@ -478,9 +653,10 @@ function placeholderSkinRows() {
   for (const { rarity, count } of PLACEHOLDER_RARITY_SPLIT) {
     const pool = PLACEHOLDER_NAME_POOLS[rarity] ?? [];
     for (let i = 0; i < count; i += 1) {
-      const name = pool.length > 0
-        ? pool[i % pool.length]
-        : `Placeholder ${rarity} ${String(n).padStart(3, '0')}`;
+      const name =
+        pool.length > 0
+          ? pool[i % pool.length]
+          : `Placeholder ${rarity} ${String(n).padStart(3, '0')}`;
       out.push({
         name,
         rarity,
@@ -518,25 +694,6 @@ const VAULT_COPY_PLAN = {
   common: 50,
 };
 
-/** Catalog row + (count - 1) extra vault copies. The catalog row IS the
- *  first vault copy, so a `5 copies each` plan inserts the catalog row
- *  + 4 extras. */
-function vaultCopyRows() {
-  const out = [];
-  for (const t of IMAGE_BACKED_SKINS) {
-    const target = VAULT_COPY_PLAN[t.rarity] ?? 1;
-    for (let i = 0; i < target - 1; i += 1) {
-      out.push({
-        name: t.name,
-        rarity: t.rarity,
-        imageUrl: t.imageUrl,
-        description: `${t.name} (vault stock).`,
-      });
-    }
-  }
-  return out;
-}
-
 async function seedSkinVault() {
   // Idempotency: if catalog rows for every IMAGE_BACKED_SKIN exist
   // (counted by name+rarity), skip. Catalog presence is the witness for
@@ -548,13 +705,7 @@ async function seedSkinVault() {
     const [existing] = await db
       .select()
       .from(skins)
-      .where(
-        and(
-          eq(skins.name, t.name),
-          eq(skins.rarity, t.rarity),
-          isNull(skins.userId),
-        ),
-      )
+      .where(and(eq(skins.name, t.name), eq(skins.rarity, t.rarity), isNull(skins.userId)))
       .limit(1);
     if (existing) continue;
     await db.insert(skins).values({
@@ -573,16 +724,11 @@ async function seedSkinVault() {
   // `Legacy <Rarity> NNN` to themed pool names, so a name-prefix check
   // would think the pool is empty after rename and re-insert 70 dupes.
   // The imageUrl path `/placeholder/legacy_NNN.png` doesn't change.
-  const placeholderTarget = PLACEHOLDER_RARITY_SPLIT.reduce(
-    (s, r) => s + r.count,
-    0,
-  );
+  const placeholderTarget = PLACEHOLDER_RARITY_SPLIT.reduce((s, r) => s + r.count, 0);
   const placeholderExisting = await db
     .select()
     .from(skins)
-    .where(
-      and(isNull(skins.userId), sql`${skins.imageUrl} LIKE '/placeholder/%'`),
-    );
+    .where(and(isNull(skins.userId), sql`${skins.imageUrl} LIKE '/placeholder/%'`));
   if (placeholderExisting.length < placeholderTarget) {
     const want = placeholderSkinRows().slice(placeholderExisting.length);
     if (want.length > 0) {
@@ -598,13 +744,7 @@ async function seedSkinVault() {
     const existing = await db
       .select()
       .from(skins)
-      .where(
-        and(
-          eq(skins.name, t.name),
-          eq(skins.rarity, t.rarity),
-          isNull(skins.userId),
-        ),
-      );
+      .where(and(eq(skins.name, t.name), eq(skins.rarity, t.rarity), isNull(skins.userId)));
     const need = target - existing.length;
     if (need <= 0) continue;
     const rows = Array.from({ length: need }, () => ({
@@ -626,35 +766,85 @@ async function seedSkinVault() {
 
 const MOD_TEMPLATES = [
   // Common (10)
-  { name: 'Streamline Plate',  rarity: 'common', bonus: ['speed', 2],            penalty: ['turning', 1] },
-  { name: 'Grip Pads',         rarity: 'common', bonus: ['turning', 2],          penalty: ['speed', 1] },
-  { name: 'Quick Charge',      rarity: 'common', bonus: ['batteryCapacity', 2], penalty: ['durability', 1] },
-  { name: 'Shock Absorber',    rarity: 'common', bonus: ['durability', 2],       penalty: ['acceleration', 1] },
-  { name: 'Steady Module',     rarity: 'common', bonus: ['consistency', 2],      penalty: ['speed', 1] },
-  { name: 'Night Lens',        rarity: 'common', bonus: ['nightVision', 2],      penalty: ['rainHandling', 1] },
-  { name: 'Rain Shield',       rarity: 'common', bonus: ['rainHandling', 2],     penalty: ['windResistance', 1] },
-  { name: 'Wind Fin',          rarity: 'common', bonus: ['windResistance', 2],   penalty: ['nightVision', 1] },
-  { name: 'Light Frame',       rarity: 'common', bonus: ['acceleration', 2],     penalty: ['durability', 1] },
-  { name: 'Tracker Coil',      rarity: 'common', bonus: ['turning', 2],          penalty: ['batteryCapacity', 1] },
+  { name: 'Streamline Plate', rarity: 'common', bonus: ['speed', 2], penalty: ['turning', 1] },
+  { name: 'Grip Pads', rarity: 'common', bonus: ['turning', 2], penalty: ['speed', 1] },
+  {
+    name: 'Quick Charge',
+    rarity: 'common',
+    bonus: ['batteryCapacity', 2],
+    penalty: ['durability', 1],
+  },
+  {
+    name: 'Shock Absorber',
+    rarity: 'common',
+    bonus: ['durability', 2],
+    penalty: ['acceleration', 1],
+  },
+  { name: 'Steady Module', rarity: 'common', bonus: ['consistency', 2], penalty: ['speed', 1] },
+  { name: 'Night Lens', rarity: 'common', bonus: ['nightVision', 2], penalty: ['rainHandling', 1] },
+  {
+    name: 'Rain Shield',
+    rarity: 'common',
+    bonus: ['rainHandling', 2],
+    penalty: ['windResistance', 1],
+  },
+  { name: 'Wind Fin', rarity: 'common', bonus: ['windResistance', 2], penalty: ['nightVision', 1] },
+  { name: 'Light Frame', rarity: 'common', bonus: ['acceleration', 2], penalty: ['durability', 1] },
+  {
+    name: 'Tracker Coil',
+    rarity: 'common',
+    bonus: ['turning', 2],
+    penalty: ['batteryCapacity', 1],
+  },
   // Rare (8)
-  { name: 'Aero Shell',        rarity: 'rare', bonus: ['speed', 4],            penalty: ['turning', 2] },
-  { name: 'Grip Coating',      rarity: 'rare', bonus: ['turning', 4],          penalty: ['acceleration', 2] },
-  { name: 'Storm Plating',     rarity: 'rare', bonus: ['rainHandling', 4],     penalty: ['speed', 2] },
-  { name: 'Night Optics',      rarity: 'rare', bonus: ['nightVision', 4],      penalty: ['batteryCapacity', 2] },
-  { name: 'Turbo Intake',      rarity: 'rare', bonus: ['acceleration', 4],     penalty: ['consistency', 2] },
-  { name: 'Endurance Core',    rarity: 'rare', bonus: ['batteryCapacity', 4],  penalty: ['speed', 2] },
-  { name: 'Aileron Kit',       rarity: 'rare', bonus: ['windResistance', 4],   penalty: ['acceleration', 2] },
-  { name: 'Stabilizer Brace',  rarity: 'rare', bonus: ['consistency', 4],      penalty: ['speed', 2] },
+  { name: 'Aero Shell', rarity: 'rare', bonus: ['speed', 4], penalty: ['turning', 2] },
+  { name: 'Grip Coating', rarity: 'rare', bonus: ['turning', 4], penalty: ['acceleration', 2] },
+  { name: 'Storm Plating', rarity: 'rare', bonus: ['rainHandling', 4], penalty: ['speed', 2] },
+  {
+    name: 'Night Optics',
+    rarity: 'rare',
+    bonus: ['nightVision', 4],
+    penalty: ['batteryCapacity', 2],
+  },
+  { name: 'Turbo Intake', rarity: 'rare', bonus: ['acceleration', 4], penalty: ['consistency', 2] },
+  { name: 'Endurance Core', rarity: 'rare', bonus: ['batteryCapacity', 4], penalty: ['speed', 2] },
+  {
+    name: 'Aileron Kit',
+    rarity: 'rare',
+    bonus: ['windResistance', 4],
+    penalty: ['acceleration', 2],
+  },
+  { name: 'Stabilizer Brace', rarity: 'rare', bonus: ['consistency', 4], penalty: ['speed', 2] },
   // Epic (5)
-  { name: 'Plasma Core',       rarity: 'epic', bonus: ['acceleration', 6],     penalty: ['consistency', 4] },
-  { name: 'Stealth Aero',      rarity: 'epic', bonus: ['speed', 6],            penalty: ['durability', 4] },
-  { name: 'Typhoon Module',    rarity: 'epic', bonus: ['rainHandling', 8],     penalty: ['speed', 5] },
-  { name: 'Predator Lens',     rarity: 'epic', bonus: ['nightVision', 8],      penalty: ['batteryCapacity', 5] },
-  { name: 'Iron Hull',         rarity: 'epic', bonus: ['durability', 7],       penalty: ['turning', 4] },
+  { name: 'Plasma Core', rarity: 'epic', bonus: ['acceleration', 6], penalty: ['consistency', 4] },
+  { name: 'Stealth Aero', rarity: 'epic', bonus: ['speed', 6], penalty: ['durability', 4] },
+  { name: 'Typhoon Module', rarity: 'epic', bonus: ['rainHandling', 8], penalty: ['speed', 5] },
+  {
+    name: 'Predator Lens',
+    rarity: 'epic',
+    bonus: ['nightVision', 8],
+    penalty: ['batteryCapacity', 5],
+  },
+  { name: 'Iron Hull', rarity: 'epic', bonus: ['durability', 7], penalty: ['turning', 4] },
   // Legendary (3)
-  { name: 'Phantom Drive', rarity: 'legendary', special: 'Ignores battery degradation on lap 1.',     penalty: ['windResistance', 5] },
-  { name: 'Quantum Sync',  rarity: 'legendary', special: 'Consistency stat applies double on turn segments.', penalty: ['speed', 4] },
-  { name: 'Storm Rider',   rarity: 'legendary', special: 'All weather penalties reduced by 50%.',     penalty: ['acceleration', 6] },
+  {
+    name: 'Phantom Drive',
+    rarity: 'legendary',
+    special: 'Ignores battery degradation on lap 1.',
+    penalty: ['windResistance', 5],
+  },
+  {
+    name: 'Quantum Sync',
+    rarity: 'legendary',
+    special: 'Consistency stat applies double on turn segments.',
+    penalty: ['speed', 4],
+  },
+  {
+    name: 'Storm Rider',
+    rarity: 'legendary',
+    special: 'All weather penalties reduced by 50%.',
+    penalty: ['acceleration', 6],
+  },
 ];
 
 const STAT_LABEL = {
@@ -711,13 +901,7 @@ async function seedModVault() {
     const [existing] = await db
       .select()
       .from(mods)
-      .where(
-        and(
-          eq(mods.name, t.name),
-          eq(mods.rarity, t.rarity),
-          isNull(mods.userId),
-        ),
-      )
+      .where(and(eq(mods.name, t.name), eq(mods.rarity, t.rarity), isNull(mods.userId)))
       .limit(1);
     if (existing) continue;
     await db.insert(mods).values(modTemplateRow(t));
@@ -777,8 +961,8 @@ async function listSkinFromVault(sellerId, name, price) {
       and(
         eq(marketplaceListings.sellerId, sellerId),
         eq(marketplaceListings.skinId, available.id),
-        eq(marketplaceListings.status, 'active'),
-      ),
+        eq(marketplaceListings.status, 'active')
+      )
     )
     .limit(1);
   if (dup) return null;
@@ -803,7 +987,7 @@ async function listOnePlaceholderSkin(sellerId, rarity, price) {
     .from(skins)
     .where(and(eq(skins.rarity, rarity), isNull(skins.userId)));
   const available = all.find(
-    (s) => !(s.imageUrl?.startsWith('/skins/') && s.imageUrl?.endsWith('.webp')),
+    (s) => !(s.imageUrl?.startsWith('/skins/') && s.imageUrl?.endsWith('.webp'))
   );
   if (!available) return null;
   await db.update(skins).set({ userId: sellerId }).where(eq(skins.id, available.id));
@@ -853,7 +1037,7 @@ async function mintAndListDrone(sellerId, level, price) {
       name: droneName,
       level,
       xp: 0,
-      xpToNextLevel: 300 * level * level,
+      xpToNextLevel: calculateXPToNextLevel(level),
       totalStatBudget: tsb,
       ...stats,
       active: false,
@@ -919,9 +1103,27 @@ async function bindModToDrone(sellerId, droneId, rarity) {
  * showcase. Mirror these in scripts/fix-marketplace-featured.js.
  */
 const DRONE_LISTINGS_WITH_SKINS = [
-  { level: 19, profile: 'speedster',  priceRange: [550_000, 650_000], skinName: 'Valiant',         skinRarity: 'legendary' },
-  { level: 17, profile: 'cornerer',   priceRange: [400_000, 500_000], skinName: 'Dragon Scale',    skinRarity: 'epic'      },
-  { level: 12, profile: 'allrounder', priceRange: [180_000, 220_000], skinName: 'Crystal Phantom', skinRarity: 'epic'      },
+  {
+    level: 19,
+    profile: 'speedster',
+    priceRange: [550_000, 650_000],
+    skinName: 'Valiant',
+    skinRarity: 'legendary',
+  },
+  {
+    level: 17,
+    profile: 'cornerer',
+    priceRange: [400_000, 500_000],
+    skinName: 'Dragon Scale',
+    skinRarity: 'epic',
+  },
+  {
+    level: 12,
+    profile: 'allrounder',
+    priceRange: [180_000, 220_000],
+    skinName: 'Crystal Phantom',
+    skinRarity: 'epic',
+  },
 ];
 
 async function seedDroneListingsWithSkins(botUserMap) {
@@ -943,8 +1145,8 @@ async function seedDroneListingsWithSkins(botUserMap) {
       and(
         eq(marketplaceListings.status, 'active'),
         inArray(marketplaceListings.sellerId, sellerIds),
-        sql`${drones.appliedSkinId} IS NOT NULL`,
-      ),
+        sql`${drones.appliedSkinId} IS NOT NULL`
+      )
     );
   if (existingSkinned.length >= DRONE_LISTINGS_WITH_SKINS.length) {
     counts.skipped = existingSkinned.length;
@@ -965,7 +1167,7 @@ async function seedDroneListingsWithSkins(botUserMap) {
         name: droneName,
         level: def.level,
         xp: 0,
-        xpToNextLevel: 300 * def.level * def.level,
+        xpToNextLevel: calculateXPToNextLevel(def.level),
         totalStatBudget: tsb,
         ...stats,
         active: false,
@@ -985,19 +1187,13 @@ async function seedDroneListingsWithSkins(botUserMap) {
       .limit(1);
 
     if (vaultSkin) {
-      await db
-        .update(skins)
-        .set({ userId: sellerId })
-        .where(eq(skins.id, vaultSkin.id));
+      await db.update(skins).set({ userId: sellerId }).where(eq(skins.id, vaultSkin.id));
       await db.insert(schema.droneSkins).values({
         droneId: drone.id,
         skinId: vaultSkin.id,
         isEquipped: true,
       });
-      await db
-        .update(drones)
-        .set({ appliedSkinId: vaultSkin.id })
-        .where(eq(drones.id, drone.id));
+      await db.update(drones).set({ appliedSkinId: vaultSkin.id }).where(eq(drones.id, drone.id));
     } else {
       counts.missingSkin += 1;
     }
@@ -1025,22 +1221,17 @@ async function seedMarketplaceListings(botUserMap) {
     .select()
     .from(marketplaceListings)
     .where(
-      and(
-        eq(marketplaceListings.sellerId, pulse.id),
-        eq(marketplaceListings.status, 'active'),
-      ),
+      and(eq(marketplaceListings.sellerId, pulse.id), eq(marketplaceListings.status, 'active'))
     );
   if (existing.length >= 10) return counts;
 
-  const sellers = ['MKT_PULSE', 'MKT_NEXUS', 'MKT_ORBIT'].map(
-    (name) => botUserMap[name].id,
-  );
+  const sellers = ['MKT_PULSE', 'MKT_NEXUS', 'MKT_ORBIT'].map((name) => botUserMap[name].id);
   const seller = (i) => sellers[i % sellers.length];
 
   /* --- Skin listings (~40) --- */
   let i = 0;
   if (await listSkinFromVault(seller(i++), 'Celestial', 135_000)) counts.skins += 1;
-  if (await listSkinFromVault(seller(i++), 'Valiant',   142_000)) counts.skins += 1;
+  if (await listSkinFromVault(seller(i++), 'Valiant', 142_000)) counts.skins += 1;
 
   const epicListNames = ['Crystal Phantom', 'Dragon Scale', 'Frozen Abyss', 'Obsidian Core'];
   for (const n of epicListNames) {
@@ -1087,8 +1278,8 @@ async function seedMarketplaceListings(botUserMap) {
        so the per-tier band lives in one place (PRICE_TIERS at the top of
        this file). */
   const droneListPlan = [
-    { count: 4,  level: () => randInt(16, 20) },
-    { count: 6,  level: () => randInt(11, 15) },
+    { count: 4, level: () => randInt(16, 20) },
+    { count: 6, level: () => randInt(11, 15) },
     { count: 10, level: () => randInt(6, 10) },
     { count: 10, level: () => randInt(1, 5) },
   ];
@@ -1096,11 +1287,7 @@ async function seedMarketplaceListings(botUserMap) {
   for (const plan of droneListPlan) {
     for (let k = 0; k < plan.count; k += 1) {
       const lvl = plan.level();
-      const { drone } = await mintAndListDrone(
-        seller(i++),
-        lvl,
-        priceForLevel(lvl),
-      );
+      const { drone } = await mintAndListDrone(seller(i++), lvl, priceForLevel(lvl));
       counts.drones += 1;
       // 1 in 6 drones gets a bound mod, marketplace listing price already
       // baked in the higher end for those tiers.
@@ -1187,10 +1374,7 @@ async function sellOneSkinFromVault(sellerId, buyerId, rarity, price, soldAt) {
       .limit(1);
   }
   if (!target) return false;
-  await db
-    .update(skins)
-    .set({ userId: buyerId })
-    .where(eq(skins.id, target.id));
+  await db.update(skins).set({ userId: buyerId }).where(eq(skins.id, target.id));
   await db.insert(marketplaceListings).values({
     sellerId,
     itemType: 'skin',
@@ -1227,10 +1411,7 @@ async function sellOneModFromVault(sellerId, buyerId, rarity, price, soldAt) {
       .limit(1);
   }
   if (!target) return false;
-  await db
-    .update(mods)
-    .set({ userId: buyerId })
-    .where(eq(mods.id, target.id));
+  await db.update(mods).set({ userId: buyerId }).where(eq(mods.id, target.id));
   await db.insert(marketplaceListings).values({
     sellerId,
     itemType: 'mod',
@@ -1254,7 +1435,7 @@ async function mintAndSellDrone(sellerId, buyerId, level, price, soldAt) {
       name: droneName,
       level,
       xp: 0,
-      xpToNextLevel: 300 * level * level,
+      xpToNextLevel: calculateXPToNextLevel(level),
       totalStatBudget: tsb,
       ...stats,
       active: false,
@@ -1289,10 +1470,7 @@ export async function seedSoldListings(botUserMap) {
     .select({ id: marketplaceListings.id })
     .from(marketplaceListings)
     .where(
-      and(
-        eq(marketplaceListings.status, 'sold'),
-        inArray(marketplaceListings.sellerId, sellerIds),
-      ),
+      and(eq(marketplaceListings.status, 'sold'), inArray(marketplaceListings.sellerId, sellerIds))
     );
   if (existing.length >= SOLD_LISTING_FLOOR) return counts;
 
@@ -1305,10 +1483,10 @@ export async function seedSoldListings(botUserMap) {
 
   /* --- 40 skins (rarity ratio ~50/25/15/10 across skin+mod) --- */
   const skinPlan = [
-    { rarity: 'common',    count: 20, range: [800,    1_500] },
-    { rarity: 'rare',      count: 10, range: [4_000,  8_000] },
-    { rarity: 'epic',      count: 6,  range: [18_000, 25_000] },
-    { rarity: 'legendary', count: 4,  range: [100_000, 145_000] },
+    { rarity: 'common', count: 20, range: [800, 1_500] },
+    { rarity: 'rare', count: 10, range: [4_000, 8_000] },
+    { rarity: 'epic', count: 6, range: [18_000, 25_000] },
+    { rarity: 'legendary', count: 4, range: [100_000, 145_000] },
   ];
   for (const plan of skinPlan) {
     for (let k = 0; k < plan.count; k += 1) {
@@ -1318,7 +1496,7 @@ export async function seedSoldListings(botUserMap) {
         randBuyer(),
         plan.rarity,
         price,
-        randomSoldAt(),
+        randomSoldAt()
       );
       if (ok) counts.skins += 1;
       else counts.skipped += 1;
@@ -1327,10 +1505,10 @@ export async function seedSoldListings(botUserMap) {
 
   /* --- 30 mods (matching rarity ratio) --- */
   const modPlan = [
-    { rarity: 'common',    count: 15, range: [200,    700] },
-    { rarity: 'rare',      count: 8,  range: [1_500,  4_000] },
-    { rarity: 'epic',      count: 5,  range: [8_000,  15_000] },
-    { rarity: 'legendary', count: 2,  range: [50_000, 70_000] },
+    { rarity: 'common', count: 15, range: [200, 700] },
+    { rarity: 'rare', count: 8, range: [1_500, 4_000] },
+    { rarity: 'epic', count: 5, range: [8_000, 15_000] },
+    { rarity: 'legendary', count: 2, range: [50_000, 70_000] },
   ];
   for (const plan of modPlan) {
     for (let k = 0; k < plan.count; k += 1) {
@@ -1340,7 +1518,7 @@ export async function seedSoldListings(botUserMap) {
         randBuyer(),
         plan.rarity,
         price,
-        randomSoldAt(),
+        randomSoldAt()
       );
       if (ok) counts.mods += 1;
       else counts.skipped += 1;
@@ -1349,21 +1527,15 @@ export async function seedSoldListings(botUserMap) {
 
   /* --- 30 drones (level-bracket distribution + PRICE_TIERS pricing) --- */
   const dronePlan = [
-    { count: 4,  level: () => randInt(16, 20) },
-    { count: 6,  level: () => randInt(11, 15) },
+    { count: 4, level: () => randInt(16, 20) },
+    { count: 6, level: () => randInt(11, 15) },
     { count: 10, level: () => randInt(6, 10) },
     { count: 10, level: () => randInt(1, 5) },
   ];
   for (const plan of dronePlan) {
     for (let k = 0; k < plan.count; k += 1) {
       const lvl = plan.level();
-      await mintAndSellDrone(
-        seller(i++),
-        randBuyer(),
-        lvl,
-        priceForLevel(lvl),
-        randomSoldAt(),
-      );
+      await mintAndSellDrone(seller(i++), randBuyer(), lvl, priceForLevel(lvl), randomSoldAt());
       counts.drones += 1;
     }
   }
