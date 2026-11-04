@@ -129,40 +129,69 @@ async fn abort_unlocks_drones_mints_nothing_and_refuses_settled_batches() -> R<(
     Ok(())
 }
 
+/// Races in the pruning test: one full settlement chunk (SPEC.md 13), so the abort gas recorded
+/// here is the chunk-size worst case.
+const RACES: u64 = 40;
+
 #[tokio::test]
 async fn final_settle_empties_matchups_and_shrinks_storage() -> R<()> {
     let env = Env::start().await?;
-    let bots = mint_bots(&env, 1, 20).await?;
+    let mut bots = Vec::new();
+    for first in (1..=2 * RACES).step_by(20) {
+        bots.extend(mint_bots(&env, first, 20).await?);
+    }
     let pairs: Vec<(&str, &str)> = bots
         .chunks(2)
         .map(|c| (c[0].as_str(), c[1].as_str()))
         .collect();
     let matchups: Vec<Value> = pairs.iter().map(|(a, b)| matchup(a, b, 2)).collect();
+    let half = usize::try_from(RACES / 2)?;
+
+    // Abort of a full chunk: gas recorded (SPEC.md 13 budget 30 TGas), storage refunded.
     let empty = storage_usage(&env).await?;
-    done(commit(&env, 9, &matchups).await);
+    done(commit(&env, 8, &matchups).await);
     let committed = storage_usage(&env).await?;
     assert!(committed > empty, "commit stores the matchups");
+    let out = ok(abort(&env, 8).await)?;
+    record_gas(&out, &format!("abort_batch ({RACES} races)"));
+    assert_eq!(
+        event(&out, "hyperdrome", "batch_aborted")["data"]["count"],
+        2 * RACES
+    );
+    assert!(
+        storage_usage(&env).await? < committed,
+        "abort refunds the matchups"
+    );
+
+    done(commit(&env, 9, &matchups).await);
+    let committed = storage_usage(&env).await?;
     let mut results = Vec::new();
     for (a, b) in &pairs {
         results.push(result(&env, a, b, a, 50_000, 51_000).await?);
     }
 
-    done(settle(&env, 9, 0, &results[..5]).await);
-    assert_eq!(summary(&batch(&env, 9).await?), (false, 5, false, 10));
+    done(settle(&env, 9, 0, &results[..half]).await);
+    assert_eq!(
+        summary(&batch(&env, 9).await?),
+        (false, RACES / 2, false, usize::try_from(RACES)?)
+    );
     assert!(
-        storage_usage(&env).await? >= committed - 9 * 10,
+        storage_usage(&env).await? + 9 * RACES >= committed,
         "an open batch keeps its matchups (only the settled drones' in_batch bytes go)"
     );
 
-    done(settle(&env, 9, 5, &results[5..]).await);
-    assert_eq!(summary(&batch(&env, 9).await?), (true, 10, false, 0));
+    done(settle(&env, 9, half as u32, &results[half..]).await);
+    assert_eq!(summary(&batch(&env, 9).await?), (true, RACES, false, 0));
     let settled = storage_usage(&env).await?;
     assert!(
         settled < committed,
         "storage after the final settle ({settled}) is below the usage after commit ({committed})"
     );
     let r = result(&env, pairs[0].0, pairs[0].1, pairs[0].0, 50_000, 51_000).await?;
-    assert_fails(settle(&env, 9, 10, &[r]).await, "settled");
+    assert_fails(
+        settle(&env, 9, u32::try_from(RACES)?, &[r]).await,
+        "settled",
+    );
     Ok(())
 }
 
