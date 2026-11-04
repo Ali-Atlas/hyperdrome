@@ -2,6 +2,29 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-03 T6 Contract settlement: commit, chunked settle, payouts, Ember uncapped
+
+- Changed:
+  - Contract: `src/settlement.rs` (`commit_batch`; `settle_batch(batch_id, seed, from, results)` with the check order `not found`, `bad seed`, `settled`, `bad chunk`, `state drift`; per-race payouts, ELO, XP, level-ups, records, `in_batch` cleared; beneficiary owner, escrow seller or nobody; one aggregated `ft_mint` and one `batch_settled` per call), `src/math.rs` (`dominance_bonus`, `winner_payout`, `loser_payout`, `gain_xp`), `src/types.rs` (`Batch.settle_tx_count` renamed `settled_count` in place, V1 stays V1), `src/events.rs` (`batch_settled` without snapshots), Ember: `src/constants/catalog.rs` (`skin_supply_cap`), `src/owner.rs` (no cap for template 4, still counted), `src/packs.rs` (never drawn), `src/views.rs` (`get_catalog` `cap: null` for Ember). Tests: `src/unit_tests/math.rs` (ELO vs the float formula, payout vectors, both dominance boundaries, level-ups), new `src/unit_tests/ember.rs`, new `tests/settlement.rs` (5 sandbox tests), `tests/common/mod.rs` (`multi_call_as`), `tests/sandbox.rs` (stub assertion removed). Contract README map.
+  - App: `lib/http/chain-errors.js` maps the new `bad seed` and `bad chunk` and drops `not implemented` (the T10 test reads SPEC 4.8).
+  - Docs: SPEC 2.2, 2.6, 4.2, 4.4, 4.5, 4.7, 4.8, 13; DECISIONS 2.30-2.36. Merged main (T10): SPEC 2.6 and 13 conflicts resolved keeping both sides.
+- Verified:
+  - `cargo fmt --check`; `cargo clippy --target wasm32-unknown-unknown -- -D warnings` and `cargo clippy --all-targets -- -D warnings` clean; `cargo audit` exit 0 (the same 3 unmaintained/unsound warnings as main); `cargo test`: 42 unit, 8 gameplay, 5 T3 sandbox, 5 settlement sandbox passed. After merging main (T10), all gates again: those contract checks, and `npm run lint`, `format:check`, `typecheck` exit 0, `npm test` 21 files, 158 passed, 1 skipped (the gated testnet run) on a migrated local Postgres, `npm run build` exit 0.
+  - Sandbox settlement: the 4-race batch (bot opponent paid nothing, escrowed drone paying its seller, a level-up minting 20 Volts after 19 warm-up wins, a plain race) asserts balances, ELO, XP, levels, records, `in_batch` cleared and the exact `batch_committed`, `ft_mint` and `batch_settled`; every failure string; 6 races settled in two chunks of 3; the deferred T5 lock test (after 120 s `allocate_stats`, `equip`, `nft_transfer` fail `locked`, after settle they work).
+  - Chunk size (SPEC 13, worst case of a distinct 46-character beneficiary per drone, token ids counted at 7 characters): 50 races 75.818 TGas and 15,779 log bytes (over the 14,000 budget); 40 races 60.747 TGas and 12,657 bytes, so the chunk is 40. `commit_batch` 40 races 17.543 TGas, 50 races 21.346 TGas.
+  - Testnet 2026-11-03 (user go-ahead): redeployed `game.hyperdrome.testnet` with `migrate`, https://testnet.nearblocks.io/txns/F22LbD6eetENMt4yVEQQ2NRHoJPxEtZiv8SX3VwdjPj4 (3.8 TGas); wasm 481,873 bytes, code hash `7Q9TPRN5GjMrLQjHe9R961JMorMeSgQzjWKPxsffnjw7` matches the local build. Before the deploy `get_catalog` showed Ember cap 10, minted 6; after it `cap: null`, minted 6.
+  - Testnet 1-race batch, one-off `tmp/t6-testnet.mjs` through `lib/near` `callAsSettlement` with the settlement key: batch 1, `d:1` vs `d:2` (both p-smoke's), Horizon Express, heavy_rain, dawn; seed `34cefc77db72ddb106c7409ddaa62525ccab6c62c29d7526252e3a13b5ec7117`.
+    - commit_batch (30 TGas attached): https://testnet.nearblocks.io/txns/3Q9m27kriDqVAwEV3QFxz1hWZkuT5Un3rCvDdfCkXmyn, 2.920 TGas burnt, `batch_committed {batch_id: 1, count: 1}`.
+    - Result from `simulateRace` (raceId `1:0`): `d:1` wins, 18,561 ms vs 18,643 ms. `statsHash` from `get_drone` plus `get_items` equals the contract's `stats_hash` for both (`2101ae6b...af1d`, `a2d70713...4884`).
+    - settle_batch (200 TGas attached): https://testnet.nearblocks.io/txns/HZBHuWakN4MEk1tUrFVY4VPVRNN1F9x11VP67Y3NaCga, 3.913 TGas burnt; `ft_mint [{p-smoke, 4}]`; `batch_settled` race 0 va 3, vb 1, elo 1016/984, xp 10/4, lvl 1/1. The JS `computeWinnerPayout` and `computeLoserPayout` give the same 3 and 1. `get_batch 1` -> settled true, settled_count 1.
+    - Before -> after: p-smoke Volts 1,487 -> 1,491; `d:1` ELO 1000 -> 1016, XP 0 -> 10, wins 0 -> 1; `d:2` ELO 1000 -> 984, XP 0 -> 4, losses 0 -> 1; both `in_batch` null, unlocked.
+    - Settlement key allowance 5.000000 -> 4.999361 NEAR for both calls: the allowance pays burnt gas, not the 200 TGas attached, so 5 NEAR covers thousands of ticks.
+- Open:
+  - T9: settle in chunks of 40 with `from` = the stored `settled_count` (a resent chunk fails `settled` and changes nothing); store snapshots at commit (they left the event); testnet batch 1 is this run (slot ids are near 10,000,000, so no clash).
+  - `Batch.matchups` stays in storage after settlement (about 25 bytes per race, forever); with many drones per tick the contract's storage stake grows daily. Pruning matchups after settlement is a contract change for later.
+  - The settle does not check that the winner's time is the lower one (the engine guarantees it); a cheap extra `bad chunk` check if wanted.
+  - DoD item 6 (fresh-context reviewer pass) not run in this session.
+
 ## 2026-11-03 T10 Gameplay routes through the chain adapter
 
 - Changed:
