@@ -119,10 +119,21 @@ describe.skipIf(!enabled)('chain adapter on testnet', () => {
       report(`mint_drone ${drone.result} ${near.explorerTx(drone.txHash)}`);
       report(`mint_item ${mod.result} ${near.explorerTx(mod.txHash)}`);
 
-      const bind = await near.callAsPlayer(accountId, created.playKeyEnc, 'bind', {
-        drone: drone.result,
-        item: mod.result,
-      });
+      /** @type {string[]} */
+      const signed = [];
+      const bind = await near.callAsPlayer(
+        accountId,
+        created.playKeyEnc,
+        'bind',
+        { drone: drone.result, item: mod.result },
+        {
+          seq: 1,
+          onSigned: async (hash) => {
+            signed.push(hash);
+          },
+        }
+      );
+      expect(signed).toEqual([bind.txHash]);
       report(
         `bind ${near.explorerTx(bind.txHash)} events=${JSON.stringify(bind.events.map((e) => e.event))}`
       );

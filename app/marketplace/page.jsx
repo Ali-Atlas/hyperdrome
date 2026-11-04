@@ -617,7 +617,7 @@ export default function MarketplacePage() {
     setBuyStatus('recording');
 
     try {
-      // 501 until T10 moves trading to the contract; the error shows in the modal.
+      // This route was removed; T11 moves the modal to POST /api/marketplace/buy.
       const res = await fetch(`/api/marketplace/${buyModal.id}/buy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

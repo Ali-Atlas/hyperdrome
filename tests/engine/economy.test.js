@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   STARTER_VOLTS,
+  activeSlotsFor,
   analyzeDronePerformance,
   calculateNewElo,
   calculatePerStatCap,
@@ -134,5 +135,11 @@ describe('analyzeDronePerformance', () => {
     });
     expect(analysis.optimal).toContain('Straight Lines');
     expect(analysis.poor).toContain('Rain');
+  });
+});
+
+describe('active slots (SPEC.md 2.2)', () => {
+  it('opens slot 2 at 500 lifetime races and slot 3 at 2,000, max 3', () => {
+    expect([0, 499, 500, 1999, 2000, 1e6].map(activeSlotsFor)).toEqual([1, 1, 2, 2, 3, 3]);
   });
 });
