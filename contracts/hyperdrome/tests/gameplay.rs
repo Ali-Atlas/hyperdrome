@@ -1,7 +1,7 @@
 //! Sandbox tests for the T5 player methods (SPEC.md 4.4): the shared guard, stats, equip,
 //! marketplace escrow, packs, vendor drones, team caps, and one full flow. Gas is printed, not
-//! asserted (SPEC.md 13: only settlement gas is). The `locked` path needs `commit_batch` and is covered in T6; the lock boundary is a
-//! unit test here.
+//! asserted (SPEC.md 13: only settlement gas is). The `locked` path needs `commit_batch` and is
+//! covered in tests/settlement.rs; the lock boundary is a unit test.
 
 #[allow(dead_code)] // each test binary uses a subset of the shared helpers
 mod common;
