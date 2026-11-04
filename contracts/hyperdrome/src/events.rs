@@ -6,7 +6,9 @@ use near_sdk::{AccountId, near};
 
 use crate::types::ItemKind;
 
-/// One race in a `batch_settled` event. `snap` is [stats as hex, mod template, skin template].
+/// One race in a `batch_settled` event: `i` is the race's index in the batch, `va`/`vb` the Volts
+/// minted for each drone in this race (payout plus level-up Volts, 0 with no beneficiary), and
+/// `elo`, `xp`, `lvl` each drone's values after the race.
 #[near(serializers = [json])]
 #[derive(Clone, Debug)]
 pub struct SettledRace {
@@ -24,8 +26,6 @@ pub struct SettledRace {
     pub xp_b: u32,
     pub lvl_a: u8,
     pub lvl_b: u8,
-    pub snap_a: (String, u16, u16),
-    pub snap_b: (String, u16, u16),
 }
 
 #[near(event_json(standard = "hyperdrome"))]

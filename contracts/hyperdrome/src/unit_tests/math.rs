@@ -2,8 +2,9 @@ use crate::constants::catalog::{
     ACCELERATION, CONSISTENCY, SPEED, TURNING, WIND_RESISTANCE, mod_template,
 };
 use crate::math::{
-    allocation_cost, apply_mod, apply_pct, effective_stats, elo_deltas, expected_winner, stat_cap,
-    stat_sum, tier, tsb, upgrade_cost, xp_to_next,
+    allocation_cost, apply_mod, apply_pct, dominance_bonus, effective_stats, elo_deltas,
+    expected_winner, gain_xp, loser_payout, stat_cap, stat_sum, tier, tsb, upgrade_cost,
+    winner_payout, xp_to_next,
 };
 
 #[test]
@@ -111,4 +112,74 @@ fn elo_deltas_k32() {
     assert_eq!(elo_deltas(1400, 1000), (3, -29));
     // Underdog beats favourite: gains ~29.
     assert_eq!(elo_deltas(1000, 1400), (29, -3));
+}
+
+#[test]
+fn elo_fixed_point_tracks_the_float_formula() {
+    // SPEC.md 2.3: expected_w = 1 / (1 + 10^(d / 400)), d = ELO_l - ELO_w; K = 32.
+    for d in [-800, -400, -100, 0, 100, 400, 800] {
+        let expected = 1.0 / (1.0 + 10f64.powf(f64::from(d) / 400.0));
+        let gain = (32.0 * (1.0 - expected)).round() as i32;
+        let loss = (32.0 * expected).round() as i32;
+        let (fixed_gain, fixed_loss) = elo_deltas(1_200, 1_200 + d);
+        assert!((fixed_gain - gain).abs() <= 1, "gain at d = {d}");
+        assert!((-fixed_loss - loss).abs() <= 1, "loss at d = {d}");
+    }
+}
+
+#[test]
+fn dominance_thresholds_are_strict_and_exact() {
+    // margin = |ta - tb| * 100 / min(ta, tb), compared without division.
+    assert_eq!(
+        dominance_bonus(100_000, 140_000),
+        2,
+        "exactly 40% is not above 40"
+    );
+    assert_eq!(dominance_bonus(100_000, 140_001), 5, "just above 40%");
+    assert_eq!(dominance_bonus(140_001, 100_000), 5, "symmetric");
+    assert_eq!(
+        dominance_bonus(100_000, 120_000),
+        0,
+        "exactly 20% is not above 20"
+    );
+    assert_eq!(dominance_bonus(100_000, 120_001), 2, "just above 20%");
+    assert_eq!(dominance_bonus(90_000, 90_000), 0, "tie");
+}
+
+#[test]
+fn payout_vectors() {
+    // 3 + floor(L_w / 2) + floor(d / 2) + max(0, floor((ELO_l - ELO_w) / 100)) + dominance
+    let cases = [
+        // (L_w, difficulty, ELO_w, ELO_l, t_a, t_b, payout)
+        (1, 1, 1_000, 1_000, 60_000, 61_000, 3),
+        (5, 3, 1_000, 1_000, 60_000, 61_000, 3 + 2 + 1),
+        (20, 10, 1_000, 1_000, 60_000, 61_000, 3 + 10 + 5),
+        (1, 1, 1_000, 1_250, 60_000, 61_000, 3 + 2),
+        (1, 1, 1_000, 1_099, 60_000, 61_000, 3),
+        (1, 1, 1_250, 1_000, 60_000, 61_000, 3),
+        (1, 1, 1_000, 1_000, 100_000, 140_000, 3 + 2),
+        (1, 1, 1_000, 1_000, 100_000, 140_001, 3 + 5),
+        (1, 1, 1_000, 1_000, 100_000, 120_000, 3),
+        (1, 1, 1_000, 1_000, 100_000, 120_001, 3 + 2),
+        (7, 6, 900, 1_420, 50_000, 80_000, 3 + 3 + 3 + 5 + 5),
+    ];
+    for (level, difficulty, elo_w, elo_l, ta, tb, payout) in cases {
+        assert_eq!(
+            winner_payout(level, difficulty, elo_w, elo_l, ta, tb),
+            payout,
+            "L{level} d{difficulty} {elo_w} vs {elo_l}, {ta} vs {tb}"
+        );
+    }
+    // 1 + floor(L_l / 4)
+    assert_eq!([1, 3, 4, 7, 8, 20].map(loser_payout), [1, 1, 2, 2, 3, 6]);
+}
+
+#[test]
+fn xp_level_ups() {
+    assert_eq!(gain_xp(1, 190, 10), (2, 0, 1), "200 XP reaches L2");
+    assert_eq!(gain_xp(1, 189, 10), (1, 199, 0));
+    assert_eq!(gain_xp(2, 799, 4), (3, 3, 1));
+    assert_eq!(gain_xp(1, 1_000, 0), (3, 0, 2), "several levels at once");
+    assert_eq!(gain_xp(19, 72_195, 10), (20, 5, 1));
+    assert_eq!(gain_xp(20, 500_000, 10), (20, 500_010, 0), "level cap 20");
 }
