@@ -6,7 +6,7 @@
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::{AccountId, env, near, require};
 
-use crate::constants::catalog::{MODS, SKIN_SUPPLY_CAP, SKINS};
+use crate::constants::catalog::{MODS, SKIN_SUPPLY_CAP, SKINS, STARTER_SKIN_TEMPLATE};
 use crate::constants::names::{DRONE_NAME_WORDS, PLACEHOLDER_SKIN_NAMES};
 use crate::constants::tables::PACK_TIERS;
 use crate::constants::{COMMON, DRONE_PREFIX, LEVEL_MIN, PACK_SLOTS, VENDOR_DRONE_PRICE};
@@ -140,7 +140,7 @@ impl Contract {
 
 impl Contract {
     /// Mints one item of `kind` and `rarity` to `owner`: a skin uniform (by `pick`) among the
-    /// rarity's templates with supply left, else a placeholder skin named from the rarity's pool
+    /// rarity's templates with supply left, Ember excluded (SPEC.md 2.6), else a placeholder skin named from the rarity's pool
     /// (by `name_pick`); a mod uniform among all the rarity's templates.
     fn mint_drawn_item(
         &mut self,
@@ -157,7 +157,7 @@ impl Contract {
         let candidates: Vec<u16> = match kind {
             ItemKind::Skin => SKINS
                 .iter()
-                .filter(|t| t.rarity == rarity)
+                .filter(|t| t.rarity == rarity && t.id != STARTER_SKIN_TEMPLATE)
                 .filter(|t| self.s().skin_minted.get(&t.id).copied().unwrap_or(0) < cap)
                 .map(|t| t.id)
                 .collect(),

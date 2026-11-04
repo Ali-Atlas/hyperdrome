@@ -218,6 +218,15 @@ pub const SKIN_SUPPLY_CAP: [u32; 4] = [10, 6, 4, 3];
 /// any tier; every other skin equips only where listed here (SPEC.md 2.6).
 pub const SKIN_TIER_RENDERS: [(u16, u8); 6] = [(4, 1), (11, 4), (17, 4), (18, 4), (19, 4), (22, 4)];
 
+/// Supply cap of a catalog skin template of `rarity`; `None` for Ember, the uncapped starter skin
+/// (SPEC.md 2.6), and for an unknown rarity.
+pub fn skin_supply_cap(template: u16, rarity: u8) -> Option<u32> {
+    if template == STARTER_SKIN_TEMPLATE {
+        return None;
+    }
+    SKIN_SUPPLY_CAP.get(usize::from(rarity)).copied()
+}
+
 /// Looks up a mod template by 1-based id.
 pub fn mod_template(id: u16) -> Option<&'static ModTemplate> {
     MODS.get(usize::from(id).checked_sub(1)?)
