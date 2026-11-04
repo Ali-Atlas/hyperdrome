@@ -1,20 +1,19 @@
-import { withApiHandler, ok, ApiError } from '@/lib/api/response.js';
-import { toggleDroneSchema } from '@/lib/validators';
-import { toggleActive } from '@/services/drone.service.js';
+import { handleMutation } from '@/lib/http/mutation.js';
+import { droneIdParamSchema, toggleBodySchema } from '@/lib/validators/gameplay.js';
+import { setDroneActive } from '@/services/gameplay.service.js';
 
-export const POST = withApiHandler(async ({ session, params, request }) => {
-  const body = await request.json().catch(() => ({}));
-  const parsed = toggleDroneSchema.safeParse({
-    drone_id: params.droneId,
-    active: body.active,
+/**
+ * POST /api/drones/[droneId]/toggle (SPEC.md 8, database only): body `{ active }`. Activating
+ * respects the active-slot limit (SPEC.md 2.2). Answers `{ data: drone }`.
+ * @param {Request} request
+ * @param {{ params: Promise<{ droneId: string }> }} context
+ */
+export async function POST(request, context) {
+  const { droneId } = await context.params;
+  return handleMutation(request, toggleBodySchema, async ({ userId, body }) => {
+    if (!droneIdParamSchema.safeParse(droneId).success) {
+      return { status: 404, body: { error: 'Drone not found.' } };
+    }
+    return setDroneActive({ userId, droneId, active: body.active });
   });
-  if (!parsed.success) {
-    throw new ApiError('Invalid request body', 400, parsed.error.issues);
-  }
-  const updated = await toggleActive(
-    params.droneId,
-    session.user.id,
-    parsed.data.active,
-  );
-  return ok(updated);
-});
+}

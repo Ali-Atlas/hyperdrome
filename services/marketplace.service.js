@@ -1,39 +1,7 @@
 import { and, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
-import { ApiError } from '@/lib/api/response.js';
 
 const { marketplaceListings, drones, skins, mods, droneMods, droneSkins, users } = schema;
-
-/**
- * Seller-only: change the price on an active listing without cancelling
- * + relisting. Seller and active-state guards.
- * @param {string} userId
- * @param {string} listingId
- * @param {number} newPrice
- */
-export async function updateListingPrice(userId, listingId, newPrice) {
-  const [listing] = await db
-    .select()
-    .from(marketplaceListings)
-    .where(eq(marketplaceListings.id, listingId))
-    .limit(1);
-
-  if (!listing) throw new ApiError('Listing not found', 404);
-  if (listing.sellerId !== userId) {
-    throw new ApiError('Only the seller can update this listing', 403);
-  }
-  if (listing.status !== 'active') {
-    throw new ApiError('Only active listings can be updated', 400);
-  }
-
-  const [updated] = await db
-    .update(marketplaceListings)
-    .set({ price: newPrice })
-    .where(eq(marketplaceListings.id, listingId))
-    .returning();
-
-  return updated;
-}
 
 /* -------------------------------------------------------------------------- */
 /* Query                                                                      */

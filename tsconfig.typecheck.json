@@ -30,6 +30,26 @@
     "app/api/auth/bootstrap/**/*.js",
     "app/api/auth/demo/**/*.js",
     "lib/db/index.js",
-    "lib/db/schema.js"
+    "lib/db/schema.js",
+    "lib/db/schema-gameplay.js",
+    "lib/validators/gameplay.js",
+    "lib/metadata/**/*.js",
+    "services/action.service.js",
+    "services/action-lease.js",
+    "services/chain-cache.service.js",
+    "services/gameplay.service.js",
+    "services/pack-open.service.js",
+    "services/rate-limit.service.js",
+    "services/metadata.service.js",
+    "app/api/drones/*/allocate/**/*.js",
+    "app/api/drones/*/equip/**/*.js",
+    "app/api/drones/*/bind/**/*.js",
+    "app/api/drones/*/toggle/**/*.js",
+    "app/api/drones/vendor/**/*.js",
+    "app/api/marketplace/list/**/*.js",
+    "app/api/marketplace/buy/**/*.js",
+    "app/api/marketplace/cancel/**/*.js",
+    "app/api/packs/**/*.js",
+    "app/api/metadata/**/*.js"
   ]
 }

@@ -2,6 +2,11 @@ import { withApiHandler, ok } from '@/lib/api/response.js';
 import { paginationSchema } from '@/lib/validators';
 import { getListings } from '@/services/marketplace.service.js';
 
+/**
+ * GET /api/marketplace (SPEC.md 8): the listings cache, paged (`page`, `limit`), filtered by
+ * `item_type`, `status=sold`, `min_price`, `max_price`. Listing, buying and cancelling are
+ * POST /api/marketplace/list, /buy and /cancel.
+ */
 export const GET = withApiHandler(
   async ({ request }) => {
     const url = new URL(request.url);
@@ -23,8 +28,3 @@ export const GET = withApiHandler(
   },
   { requireAuth: false }
 );
-
-/** POST /api/marketplace: listing moved to the contract's `list` (SPEC.md 8, BUILD_PLAN T10). */
-export function POST() {
-  return Response.json({ error: 'Marketplace trading moved to NEAR in T10' }, { status: 501 });
-}

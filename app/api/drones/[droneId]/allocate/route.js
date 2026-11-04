@@ -1,20 +1,19 @@
-import { withApiHandler, ok, ApiError } from '@/lib/api/response.js';
-import { allocateStatsSchema } from '@/lib/validators';
-import { allocateStats } from '@/services/drone.service.js';
+import { handleMutation } from '@/lib/http/mutation.js';
+import { allocateBodySchema, droneIdParamSchema } from '@/lib/validators/gameplay.js';
+import { allocateStats } from '@/services/gameplay.service.js';
 
-export const POST = withApiHandler(async ({ session, params, request }) => {
-  const body = await request.json().catch(() => ({}));
-  const parsed = allocateStatsSchema.safeParse({
-    drone_id: params.droneId,
-    stat_changes: body.stat_changes ?? body.statChanges ?? {},
+/**
+ * POST /api/drones/[droneId]/allocate (SPEC.md 4.4 `allocate_stats`): body `{ actionId, stats }`,
+ * the drone's full new stat line in SPEC 2.1 order. The upgrade cost is burned from Volts.
+ * @param {Request} request
+ * @param {{ params: Promise<{ droneId: string }> }} context
+ */
+export async function POST(request, context) {
+  const { droneId } = await context.params;
+  return handleMutation(request, allocateBodySchema, async ({ userId, body }) => {
+    if (!droneIdParamSchema.safeParse(droneId).success) {
+      return { status: 404, body: { error: 'Drone not found.' } };
+    }
+    return allocateStats({ userId, droneId, ...body });
   });
-  if (!parsed.success) {
-    throw new ApiError('Invalid request body', 400, parsed.error.issues);
-  }
-  const updated = await allocateStats(
-    params.droneId,
-    session.user.id,
-    parsed.data.stat_changes,
-  );
-  return ok(updated);
-});
+}
