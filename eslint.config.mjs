@@ -51,15 +51,18 @@ function literalGlob(path) {
 }
 
 /**
- * Baseline pages that T8 edits only to remove MegaETH (and to mount the bootstrap on the
- * dashboard). T11 rebuilds them, so they keep the baseline-violation exemption although touched
- * (DECISIONS.md 5.15). Every other rule still applies. Remove an entry when T11 rebuilds the page.
+ * Baseline pages that stay as designed and get minimal edits only: T8 removed MegaETH (and
+ * mounted the bootstrap on the dashboard), T11 wires them to the NEAR routes in place
+ * (DECISIONS.md 5.15, 5.29). They keep the baseline-violation exemption although touched; every
+ * other rule still applies. Remove an entry when a page is rebuilt.
  */
 const PENDING_T11_REBUILD = [
   'app/page.jsx',
   'app/dashboard/page.jsx',
+  'app/drones/page.jsx',
   'app/drones/[droneId]/page.jsx',
   'app/marketplace/page.jsx',
+  'app/races/page.jsx',
   'app/races/[raceId]/page.jsx',
   'components/ui/NavShell/index.jsx',
 ];
