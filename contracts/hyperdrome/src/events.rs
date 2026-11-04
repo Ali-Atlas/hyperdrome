@@ -86,6 +86,8 @@ pub enum Event {
     #[event_version("1.0.0")]
     BatchCommitted { batch_id: u64, count: u32 },
     #[event_version("1.0.0")]
+    BatchAborted { batch_id: u64, count: u32 },
+    #[event_version("1.0.0")]
     BatchSettled {
         batch_id: u64,
         races: Vec<SettledRace>,

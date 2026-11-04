@@ -1,7 +1,9 @@
 //! Race settlement (SPEC.md 4.4), callable only by the contract account through the settlement
 //! key. `commit_batch` stores the seed hash and matchups and puts every drone in the batch;
 //! `settle_batch` reveals the seed and applies results in contiguous chunks: payouts, ELO, XP,
-//! level-ups and records per race, with the chunk's Volts minted in one aggregated `ft_mint`.
+//! level-ups and records per race, with the chunk's Volts minted in one aggregated `ft_mint`;
+//! `abort_batch` unlocks a batch that can no longer be settled, paying nothing. A batch's
+//! matchups are emptied once it is settled or aborted, so their storage stake is refunded.
 
 use near_contract_standards::fungible_token::events::FtMint;
 use near_contract_standards::non_fungible_token::TokenId;
@@ -68,10 +70,11 @@ impl Contract {
             matchups,
             settled: false,
             settled_count: 0,
+            aborted: false,
         };
         self.s_mut()
             .batches
-            .insert(batch_id, VersionedBatch::V1(batch));
+            .insert(batch_id, VersionedBatch::V2(batch));
         Event::BatchCommitted { batch_id, count }.emit();
     }
 
@@ -80,10 +83,11 @@ impl Contract {
     /// pre-race levels and ELOs, ELO (4.6), XP 10/4, level-ups (+20 Volts each), wins and losses,
     /// and `in_batch` cleared on both drones. Volts go to each drone's beneficiary (its owner; the
     /// listing's seller when escrowed; nobody for bots or accounts not registered for Volts).
-    /// Advances `settled_count`; the batch is settled when it reaches the matchup count. Emits
-    /// one aggregated nep141 ft_mint (when anything is minted), then one `batch_settled`. Fails
-    /// with "Method settle_batch is private", "not found", "bad seed", "settled", "bad chunk" or
-    /// "state drift"; any failure reverts the whole call.
+    /// Advances `settled_count`; the batch is settled when it reaches the matchup count, and its
+    /// matchups are then emptied (storage refund). Emits one aggregated nep141 ft_mint (when
+    /// anything is minted), then one `batch_settled`. Fails with "Method settle_batch is
+    /// private", "not found", "bad seed", "settled" (settled or aborted batch, or races already
+    /// settled), "bad chunk" or "state drift"; any failure reverts the whole call.
     #[private]
     pub fn settle_batch(
         &mut self,
@@ -96,7 +100,10 @@ impl Contract {
             .batch(batch_id)
             .unwrap_or_else(|| env::panic_str("not found"));
         require!(env::sha256_array(seed) == batch.seed_hash, "bad seed");
-        require!(!batch.settled && from >= batch.settled_count, "settled");
+        require!(
+            !batch.settled && !batch.aborted && from >= batch.settled_count,
+            "settled"
+        );
         require!(from == batch.settled_count, "bad chunk");
         let total = batch.matchups.len();
         let start = usize::try_from(from).unwrap_or(usize::MAX);
@@ -112,9 +119,12 @@ impl Contract {
             races.push(self.settle_race(i, m, r, &mut mints));
         }
 
-        if let Some(VersionedBatch::V1(b)) = self.s_mut().batches.get_mut(&batch_id) {
+        if let Some(b) = self.batch_mut(batch_id) {
             b.settled_count = u32::try_from(end).unwrap_or_else(|_| env::panic_str("bad chunk"));
             b.settled = end == total;
+            if b.settled {
+                b.matchups = Vec::new();
+            }
         }
         let volts = &mut self.s_mut().volts;
         for (to, amount) in &mints.0 {
@@ -133,6 +143,31 @@ impl Contract {
             FtMint::emit_many(&entries);
         }
         Event::BatchSettled { batch_id, races }.emit();
+    }
+
+    /// Contract account only (settlement key). Aborts batch `batch_id`: clears `in_batch` on every
+    /// drone still in it, empties its matchups (storage refund), marks it aborted and pays
+    /// nothing; the batch can no longer be settled. Emits `batch_aborted {batch_id, count}` with
+    /// the number of drones unlocked. Fails with "Method abort_batch is private", "not found" or
+    /// "settled" (the batch is settled or already aborted).
+    #[private]
+    pub fn abort_batch(&mut self, batch_id: u64) {
+        let batch = self
+            .batch_mut(batch_id)
+            .unwrap_or_else(|| env::panic_str("not found"));
+        require!(!batch.settled && !batch.aborted, "settled");
+        batch.aborted = true;
+        let matchups = std::mem::take(&mut batch.matchups);
+        let mut count = 0u32;
+        for drone in matchups.iter().flat_map(|m| [&m.a, &m.b]) {
+            if let Some(VersionedDroneHot::V1(hot)) = self.s_mut().drones_hot.get_mut(drone)
+                && hot.in_batch == Some(batch_id)
+            {
+                hot.in_batch = None;
+                count += 1;
+            }
+        }
+        Event::BatchAborted { batch_id, count }.emit();
     }
 }
 

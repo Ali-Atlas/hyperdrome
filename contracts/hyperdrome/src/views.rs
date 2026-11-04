@@ -1,5 +1,7 @@
 //! Custom views (SPEC.md 4.5). Standard `ft_*` and `nft_*` views live in ft.rs and nft.rs.
 
+use std::borrow::Cow;
+
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::json_types::U128;
 use near_sdk::{AccountId, near};
@@ -143,9 +145,10 @@ impl Contract {
             .collect()
     }
 
-    /// View. A committed batch (seed hash, commit time, matchups, settled, settled_count), or null.
+    /// View. A committed batch (seed hash, commit time, matchups, settled, settled_count,
+    /// aborted), or null. `matchups` is empty once the batch is settled or aborted.
     pub fn get_batch(&self, id: u64) -> Option<Batch> {
-        self.batch(id).cloned()
+        self.batch(id).map(Cow::into_owned)
     }
 
     /// View. An AI team's spend caps and today's spend, or null.
