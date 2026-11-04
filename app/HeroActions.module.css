@@ -1,7 +1,7 @@
 /*
  * Hero primary CTA cluster. PLAY DEMO is the only button here - the
  * CONNECT WALLET secondary entry point lives in the top-right corner of
- * the landing page (see `app/HeroConnectWallet.jsx`). Error text stays
+ * the landing page (see `app/HeroSignIn.jsx`). Error text stays
  * beneath the button. Hero background audio + its corner toggle live in
  * `app/HeroAudio.jsx` and only run on the landing page.
  */

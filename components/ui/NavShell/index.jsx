@@ -20,460 +20,21 @@ import {
 import { cn } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
-import { useBootstrapSelfHeal } from '@/hooks/useBootstrapSelfHeal';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { useUpcomingRaces } from '@/lib/upcoming-races-store';
-import { useAccount, useDisconnect } from 'wagmi';
-import { useConnectModal } from '@rainbow-me/rainbowkit';
-import {
-  wasWalletAuthed,
-  markWalletAuthed,
-  clearWalletAuthCache,
-} from '@/lib/wallet-auth-cache';
 import styles from './NavShell.module.css';
 
 const NAV_LINKS = [
-  { href: '/dashboard',   label: 'Dashboard',   Icon: LayoutDashboard },
-  { href: '/drones',      label: 'My Drones',   Icon: Cpu },
-  { href: '/races',       label: 'Races',       Icon: Flag },
-  { href: '/tracks',      label: 'Tracks',      Icon: Map },
+  { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { href: '/drones', label: 'My Drones', Icon: Cpu },
+  { href: '/races', label: 'Races', Icon: Flag },
+  { href: '/tracks', label: 'Tracks', Icon: Map },
   { href: '/leaderboard', label: 'Leaderboard', Icon: Trophy },
   { href: '/marketplace', label: 'Marketplace', Icon: Store },
-  { href: '/guide',       label: 'Guide',       Icon: BookOpen },
-  { href: '/faq',         label: 'FAQ',         Icon: HelpCircle },
+  { href: '/guide', label: 'Guide', Icon: BookOpen },
+  { href: '/faq', label: 'FAQ', Icon: HelpCircle },
 ];
-
-// Module-scope cache of `${userId}:${addressLower}` keys already POSTed to
-// /api/user/wallet during this tab's lifetime. NavShell mounts per-page so a
-// useRef would reset on every navigation; this Set survives remounts and
-// silences the steady stream of duplicate binds (which the server otherwise
-// answers with 200 on no-op or 409 if the address belongs to another user).
-const BOUND_ADDRESSES = new Set();
-
-// Module-scope set of lowercased addresses for which a POST /api/auth/wallet
-// is currently in flight. Two NavShell renders (desktop sidebar + mobile
-// top-bar) both render HeaderConnectWallet; without this gate they'd both
-// fire concurrent sign-in attempts on the same address. Cleared in `finally`
-// so a sign-out -> reconnect-same-wallet flow isn't permanently blocked.
-const WALLET_AUTH_IN_FLIGHT = new Set();
-
-const EXPLORER_BASE = 'https://megaeth-testnet-v2.blockscout.com';
-
-// Anchor the dropdown to the trigger, flipping vertical direction based
-// on which half of the viewport the trigger sits in. Top half (mobile
-// header) opens downward; bottom half (desktop sidebar footer) opens
-// upward. Right edge always aligns with the trigger's so the menu grows
-// leftward and never clips off the right side of the viewport.
-function computeMenuPos(triggerEl) {
-  const r = triggerEl.getBoundingClientRect();
-  const right = window.innerWidth - r.right;
-  const opensDown = r.top + r.height / 2 < window.innerHeight / 2;
-  return opensDown
-    ? { top: r.bottom + 6, right }
-    : { bottom: window.innerHeight - r.top + 6, right };
-}
-
-/**
- * Wallet connect button + connected-state dropdown. Only renders for
- * authenticated users since the bind API requires a session. On connect,
- * fires a fire-and-forget POST to /api/user/wallet so the address is
- * persisted against the user record (server-side write is idempotent on
- * the same address).
- *
- * Connected state opens a dropdown with three actions:
- *   - View on Explorer: opens BlockScout in a new tab.
- *   - Copy Address: writes the full address to clipboard, briefly swaps
- *     the button label to "Copied!" as feedback.
- *   - Disconnect: confirms, then calls `onSignOut` (lifted from
- *     NavShell) which both disconnects the wallet AND clears the
- *     NextAuth session, redirecting to '/'.
- *
- * `onSignOut` is passed down rather than re-implemented here so the
- * dropdown's disconnect path is identical to the sidebar Sign Out button -
- * one source of truth for wallet-cache clearing + wallet disconnect +
- * session sign-out + redirect.
- */
-function WalletButton({ onSignOut }) {
-  const { user } = useSession();
-  const { address, isConnected } = useAccount();
-  const { openConnectModal } = useConnectModal();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  // Track client-side mount so the createPortal call is gated past SSR.
-  // Required because next.js still server-renders 'use client' components.
-  const [mounted, setMounted] = useState(false);
-  const triggerRef = useRef(null);
-  const menuRef = useRef(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!user || !isConnected || !address) return;
-    const key = `${user.id}:${address.toLowerCase()}`;
-    if (BOUND_ADDRESSES.has(key)) return;
-    BOUND_ADDRESSES.add(key);
-    fetch('/api/user/wallet', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress: address }),
-    }).catch((err) => {
-      // Network failure - clear the cache entry so a future render can retry.
-      // Server-side rejections (4xx/5xx with a body) resolve, not reject, so
-      // they keep the entry in place and won't be retried this session.
-      BOUND_ADDRESSES.delete(key);
-      console.error('[wallet] bind failed:', err);
-    });
-  }, [user, isConnected, address]);
-
-  // Outside-click close. With the menu rendered via portal into
-  // document.body, it's no longer a DOM descendant of the trigger - we
-  // check both refs so a click on a menu item (which lives in the portal
-  // tree) doesn't immediately close the menu before the click handler
-  // fires. Listener attached only while the menu is open.
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onPointerDown(e) {
-      const trigger = triggerRef.current;
-      const menu = menuRef.current;
-      if (trigger && trigger.contains(e.target)) return;
-      if (menu && menu.contains(e.target)) return;
-      setMenuOpen(false);
-    }
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
-  }, [menuOpen]);
-
-  // External disconnect (e.g. user revokes the site in MetaMask) should
-  // collapse the menu - otherwise it'd hang open over a "Connect Wallet"
-  // button that no longer matches its state.
-  useEffect(() => {
-    if (!isConnected) {
-      setMenuOpen(false);
-      setCopied(false);
-    }
-  }, [isConnected]);
-
-  // Re-anchor the dropdown to the trigger on resize while it's open. We
-  // don't need a scroll listener because both render contexts keep the
-  // trigger in a fixed/sticky position (desktop sidebar: position: fixed;
-  // mobile top bar: position: sticky) - the trigger never moves relative
-  // to the viewport while the rest of the page scrolls. Resize is the only
-  // way the trigger's viewport coordinates can change.
-  useEffect(() => {
-    if (!menuOpen) return;
-    function update() {
-      if (!triggerRef.current) return;
-      setMenuPos(computeMenuPos(triggerRef.current));
-    }
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, [menuOpen]);
-
-  if (!user) return null;
-
-  if (!isConnected) {
-    return (
-      <button
-        type="button"
-        className={styles.walletBtn}
-        onClick={openConnectModal}
-      >
-        Connect Wallet
-      </button>
-    );
-  }
-
-  const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
-
-  function handleViewExplorer() {
-    setMenuOpen(false);
-    window.open(
-      `${EXPLORER_BASE}/address/${address}`,
-      '_blank',
-      'noopener,noreferrer',
-    );
-  }
-
-  async function handleCopyAddress() {
-    setMenuOpen(false);
-    try {
-      await navigator.clipboard.writeText(address);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch (err) {
-      console.error('[wallet] clipboard write failed:', err);
-    }
-  }
-
-  function handleDisconnect() {
-    setMenuOpen(false);
-    setConfirmOpen(true);
-  }
-
-  // Compute the dropdown coords synchronously on open so the menu paints
-  // in the right place on the first render - avoids the one-frame flash
-  // you get when a useEffect-driven recalc fires after layout. Using
-  // position: fixed (rather than absolute) escapes the `.mobileUser`
-  // ancestor's overflow:hidden clip and the desktop sidebar's viewport
-  // bottom edge - both of which were eating the dropdown previously.
-  //
-  // Direction auto-flips: opens DOWN from the trigger when the trigger
-  // sits in the top half of the viewport (mobile/header top bar), and
-  // UP when it sits in the bottom half (desktop sidebar footer). Both
-  // anchors share the right edge with the trigger so the menu grows
-  // leftward and never clips off the right side of the viewport.
-  function toggleMenu() {
-    if (menuOpen) {
-      setMenuOpen(false);
-      return;
-    }
-    if (triggerRef.current) {
-      setMenuPos(computeMenuPos(triggerRef.current));
-    }
-    setMenuOpen(true);
-  }
-
-  // Menu is rendered as a portal into document.body so it sits outside
-  // every ancestor's stacking / overflow / containing-block tree. This is
-  // what makes the menu reliably visible from BOTH the mobile/header top
-  // bar (whose `.mobileUser` ancestor has overflow: hidden) and the
-  // desktop sidebar (whose trigger sits low enough that an absolute or
-  // even fixed-but-contained menu was extending past the visible area).
-  // Gated on `mounted` so the createPortal call doesn't fire during SSR.
-  const menu = menuOpen && menuPos && mounted
-    ? createPortal(
-        <div
-          ref={menuRef}
-          className={styles.walletMenu}
-          role="menu"
-          style={menuPos}
-        >
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.walletMenuItem}
-            onClick={handleViewExplorer}
-          >
-            View on Explorer
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.walletMenuItem}
-            onClick={handleCopyAddress}
-          >
-            Copy Address
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={`${styles.walletMenuItem} ${styles.walletMenuItemDanger}`}
-            onClick={handleDisconnect}
-          >
-            Disconnect
-          </button>
-        </div>,
-        document.body,
-      )
-    : null;
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        className={`${styles.walletBtn} ${styles.walletBtnConnected}`}
-        onClick={toggleMenu}
-        aria-haspopup="menu"
-        aria-expanded={menuOpen}
-      >
-        {copied ? 'Copied!' : truncated}
-      </button>
-      {menu}
-      {confirmOpen && (
-        <ConfirmModal
-          title="Disconnect Wallet"
-          message="This will sign you out of the game."
-          confirmLabel="Disconnect"
-          cancelLabel="Cancel"
-          onConfirm={() => {
-            setConfirmOpen(false);
-            onSignOut();
-          }}
-          onCancel={() => setConfirmOpen(false)}
-        />
-      )}
-    </>
-  );
-}
-
-/**
- * Unauthenticated Connect Wallet entry point. Rendered in the user-area
- * slot when there's no session. Two states:
- *
- *   - Wallet not attached: button opens RainbowKit. On connection the
- *     auto-auth effect fires `POST /api/auth/wallet` and routes to
- *     /dashboard.
- *   - Wallet already attached (returning visitor whose RainbowKit
- *     session restored on landing): the auto-auth effect runs on mount
- *     so the user lands in the app without an extra click. Button
- *     surface shows a busy state during the round-trip.
- *
- * Loop guards (the dashboard previously cycled through reload->POST->reload
- * when `/api/auth/wallet` returned a redirectUrl on every page render):
- *
- *   1. Wait for `useSession().status` to resolve before deciding. During
- *      the initial 'loading' window `user` is null even when a JWT cookie
- *      exists; firing during loading would re-POST against an existing
- *      session.
- *   2. If `user.walletAddress` already matches the connected address,
- *      skip the POST entirely. The session is the canonical signal that
- *      this address is signed in.
- *   3. `WALLET_AUTH_IN_FLIGHT` (module-scope) prevents the desktop +
- *      mobile NavShell instances from both POSTing the same address.
- *   4. Use `router.push` (no full reload) so React state, RainbowKit
- *      state, and the in-flight Set survive the redirect. Skip the push
- *      when already on the target path.
- */
-function HeaderConnectWallet() {
-  const { user, status, update } = useSession();
-  const { address, isConnected } = useAccount();
-  const { openConnectModal } = useConnectModal();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [authing, setAuthing] = useState(false);
-
-  useEffect(() => {
-    // Wait for the session to resolve. During the initial 'loading'
-    // window `user` is null even when a JWT cookie exists; firing here
-    // would re-POST against an existing session.
-    if (status === 'loading') return;
-    if (!isConnected || !address) return;
-    const lowerAddress = address.toLowerCase();
-    // Already signed in as this exact wallet - the canonical "no-POST
-    // needed" gate. After a successful round-trip update() refreshes
-    // session.user.walletAddress, this comparison passes, and the
-    // effect short-circuits on every subsequent render / navigation.
-    if (user?.walletAddress === lowerAddress) return;
-    // Persistent tab-lifetime cache: this address has already authed
-    // successfully in this tab (via this component or HeroConnectWallet).
-    // Skip even if `useSession` hasn't yet picked up the cookie.
-    if (wasWalletAuthed(lowerAddress)) return;
-    // A sibling NavShell instance (desktop vs mobile) is already POSTing
-    // for this address. Skip rather than racing the server-side signIn.
-    if (WALLET_AUTH_IN_FLIGHT.has(lowerAddress)) return;
-    WALLET_AUTH_IN_FLIGHT.add(lowerAddress);
-
-    let cancelled = false;
-    setAuthing(true);
-    (async () => {
-      try {
-        const res = await fetch('/api/auth/wallet', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ walletAddress: address }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          console.error('[wallet] sign-in failed:', data?.error);
-          return;
-        }
-        // Mark BEFORE the await so a remount triggered by router.push
-        // sees the cache hit on its first effect run (the await update()
-        // below isn't durable enough on its own - it propagates after
-        // the next render).
-        markWalletAuthed(lowerAddress);
-        if (cancelled) return;
-        // Force next-auth to re-fetch /api/auth/session so the local
-        // SessionProvider state picks up the new JWT cookie. Without
-        // this the UI sticks on "Signing in..." until the user
-        // manually refreshes - useSession's lazy-poll won't refetch
-        // for a while otherwise.
-        await update();
-        if (cancelled) return;
-        // Kick the async on-chain bootstrap (NFT mints + VOLT + gas)
-        // for new wallet signups. Idempotent endpoint, fire-and-forget.
-        // Mirrors the HeroConnectWallet flow: announce the mint window
-        // so useVoltBalance shows '—' instead of '0', then nudge an
-        // immediate refetch when bootstrap returns.
-        if (data?.bootstrapNeeded) {
-          // Seed sessionStorage directly (not just dispatching the
-          // event) so the hook can hydrate on mount/navigation when
-          // its listener wasn't attached yet. See HeroConnectWallet
-          // for the full reasoning.
-          const ttlMs = 30_000;
-          try {
-            window.sessionStorage.setItem(
-              'volts:awaiting-mint-until',
-              String(Date.now() + ttlMs),
-            );
-            // Flag that bootstrap was kicked here so the self-heal
-            // hook (useBootstrapSelfHeal) doesn't fire a redundant
-            // second call on the next page mount in this tab.
-            window.sessionStorage.setItem('bootstrap-fired', String(Date.now()));
-          } catch {
-            /* private mode / quota - hook still works once it mounts */
-          }
-          window.dispatchEvent(
-            new CustomEvent('volts:awaiting-mint', {
-              detail: { ttlMs },
-            }),
-          );
-          fetch('/api/auth/wallet/bootstrap', { method: 'POST' })
-            .then(() => {
-              window.dispatchEvent(
-                new CustomEvent('volts:update', { detail: {} }),
-              );
-            })
-            .catch((err) => {
-              console.warn('[wallet] bootstrap kick-off failed:', err);
-            });
-        }
-        const target = data.redirectUrl || '/dashboard';
-        if (pathname !== target) router.push(target);
-        // Re-fetch RSC so the layout server components also pick up
-        // the new session cookie.
-        router.refresh();
-      } catch (err) {
-        console.error('[wallet] sign-in error:', err);
-      } finally {
-        WALLET_AUTH_IN_FLIGHT.delete(lowerAddress);
-        if (!cancelled) setAuthing(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [status, user?.walletAddress, isConnected, address, pathname, router, update]);
-
-  if (isConnected) {
-    return (
-      <button
-        type="button"
-        className={styles.connectWallet}
-        disabled
-        aria-busy="true"
-      >
-        Signing in...
-      </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className={styles.connectWallet}
-      onClick={() => openConnectModal?.()}
-    >
-      Connect Wallet
-    </button>
-  );
-}
 
 /**
  * Application layout shell with desktop sidebar + mobile drawer nav.
@@ -485,36 +46,10 @@ export default function NavShell({ children }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { user, signOut } = useSession();
-  const { isConnected: walletConnected, address: walletAddress } = useAccount();
-  const { disconnect } = useDisconnect();
-  // Wallet-auth users see their session vanish AND their wallet drop on
-  // sign-out, so the next CONNECT WALLET press starts from a clean slate
-  // (otherwise the still-connected wallet would skip the RainbowKit modal
-  // and re-auth into the same session). For demo users it's a no-op
-  // since useDisconnect on a non-connected state does nothing.
-  const onSignOut = () => {
-    // Clear the persistent auth cache so a sign-out -> reconnect-same
-    // -wallet flow can re-auth. Without this the user would be stuck
-    // unable to sign back in until they hard-reload the tab.
-    clearWalletAuthCache();
-    if (walletConnected) disconnect();
-    signOut({ redirectTo: '/' });
-  };
+  const onSignOut = () => signOut({ redirectTo: '/' });
 
-  // Single source of truth for VOLT across NavShell and every other
-  // consumer (stat editor, marketplace, drone manager). Resolves
-  // `volts:update` override > on-chain poll, with the JWT mirror only
-  // for demo users; see hooks/useVoltBalance for the full contract.
-  // `balanceLoading` is true while a wallet-bound user is waiting for
-  // the first on-chain fetch to resolve - we render '—' in that window
-  // so the navbar never flashes the JWT-mirror value before swapping
-  // to the real on-chain balance on refresh.
+  // Session points plus `volts:update` events (hooks/useVoltBalance).
   const { balance: displayBalance, loading: balanceLoading } = useVoltBalance();
-
-  // If a fresh wallet user lands in the app without the connect-flow's
-  // bootstrap having completed (tab closed, network drop), this hook
-  // re-kicks the idempotent bootstrap endpoint once per tab session.
-  useBootstrapSelfHeal();
 
   const renderLinks = () =>
     NAV_LINKS.map(({ href, label, Icon }) => {
@@ -532,37 +67,25 @@ export default function NavShell({ children }) {
       );
     });
 
-  // Demo users (no walletAddress on the user record) get a pure
-  // off-chain experience: username + DB volts + sign out, no wallet
-  // chip and no path to bind a wallet from inside the app. The
-  // "connect a wallet to go on-chain" path is sign out → landing page
-  // → Connect Wallet, never an in-app upgrade. Wallet users see the
-  // address chip + on-chain balance.
-  const isWalletUser = !!user?.walletAddress;
   const renderUserArea = () =>
     user ? (
       <div className={styles.userArea}>
-        <div className={styles.username}>
-          {user.username ?? user.email}
-        </div>
+        <div className={styles.username}>{user.username ?? user.email}</div>
         <div className={styles.pointsRow}>
           <div className={styles.points}>
             <VoltIcon size={14} style={{ marginRight: 4 }} />
             {balanceLoading ? '—' : displayBalance.toLocaleString()}
           </div>
-          {isWalletUser && <WalletButton onSignOut={onSignOut} />}
         </div>
-        <button
-          type="button"
-          className={styles.signOut}
-          onClick={onSignOut}
-        >
+        <button type="button" className={styles.signOut} onClick={onSignOut}>
           <LogOut size={14} aria-hidden="true" />
           <span>Sign Out</span>
         </button>
       </div>
     ) : (
-      <HeaderConnectWallet />
+      <Link href="/login" className={styles.connectWallet}>
+        Sign in
+      </Link>
     );
 
   return (
@@ -570,12 +93,7 @@ export default function NavShell({ children }) {
       {/* Desktop sidebar */}
       <aside className={styles.sidebar} aria-label="Primary">
         <Link href="/dashboard" className={styles.logo}>
-          <Hexagon
-            size={18}
-            strokeWidth={3}
-            className={styles.logoIcon}
-            aria-hidden="true"
-          />
+          <Hexagon size={18} strokeWidth={3} className={styles.logoIcon} aria-hidden="true" />
           <span className={styles.logoTextGroup}>
             <span className={styles.logoText}>Hyperdrome</span>
             <span className={styles.logoBeta}>beta</span>
@@ -597,30 +115,25 @@ export default function NavShell({ children }) {
         </button>
         {user ? (
           <div className={styles.mobileUser}>
-            <span className={styles.mobileUsername}>
-              {user.username ?? user.email}
-            </span>
+            <span className={styles.mobileUsername}>{user.username ?? user.email}</span>
             <span className={styles.mobileSep}>|</span>
             <span className={styles.mobilePoints}>
               <VoltIcon size={13} style={{ marginRight: 4 }} />
               {balanceLoading ? '—' : displayBalance.toLocaleString()}
             </span>
-            {isWalletUser && <WalletButton onSignOut={onSignOut} />}
           </div>
         ) : (
           <div className={styles.mobileUser}>
-            <HeaderConnectWallet />
+            <Link href="/login" className={styles.connectWallet}>
+              Sign in
+            </Link>
           </div>
         )}
       </header>
 
       {/* Mobile drawer */}
       {open && (
-        <div
-          className={styles.overlay}
-          onClick={() => setOpen(false)}
-          role="presentation"
-        >
+        <div className={styles.overlay} onClick={() => setOpen(false)} role="presentation">
           <aside
             className={styles.drawer}
             onClick={(e) => e.stopPropagation()}
@@ -628,16 +141,11 @@ export default function NavShell({ children }) {
           >
             <div className={styles.drawerHeader}>
               <span className={styles.logo}>
-                <Hexagon
-            size={18}
-            strokeWidth={3}
-            className={styles.logoIcon}
-            aria-hidden="true"
-          />
+                <Hexagon size={18} strokeWidth={3} className={styles.logoIcon} aria-hidden="true" />
                 <span className={styles.logoTextGroup}>
-            <span className={styles.logoText}>Hyperdrome</span>
-            <span className={styles.logoBeta}>beta</span>
-          </span>
+                  <span className={styles.logoText}>Hyperdrome</span>
+                  <span className={styles.logoBeta}>beta</span>
+                </span>
               </span>
             </div>
             <nav className={styles.nav}>{renderLinks()}</nav>
@@ -688,7 +196,7 @@ const STRATEGY_LOCK_LEAD_MS = 60 * 1000;
  * here. */
 const CB_STORAGE = {
   batchAt: 'nav.countdown.batchAt',
-  paused:  'nav.countdown.paused',
+  paused: 'nav.countdown.paused',
 };
 
 /* Drop a cached batchAt that's more than 5 minutes old. The race cycle
@@ -706,14 +214,18 @@ function readCachedBatchAt() {
     if (!Number.isFinite(ts)) return null;
     if (ts < Date.now() - CB_BATCH_TTL_MS) return null;
     return ts;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 function readCachedPaused() {
   if (typeof window === 'undefined') return false;
   try {
     return sessionStorage.getItem(CB_STORAGE.paused) === 'true';
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 function writeCache(key, value) {
@@ -722,12 +234,11 @@ function writeCache(key, value) {
     if (value == null) {
       sessionStorage.removeItem(key);
     } else {
-      sessionStorage.setItem(
-        key,
-        typeof value === 'string' ? value : JSON.stringify(value),
-      );
+      sessionStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
     }
-  } catch { /* quota / privacy mode - safe to ignore */ }
+  } catch {
+    /* quota / privacy mode - safe to ignore */
+  }
 }
 
 function CountdownBar() {
@@ -781,9 +292,7 @@ function CountdownBar() {
         } else if (body?.data) {
           setPaused(false);
           writeCache(CB_STORAGE.paused, 'false');
-          nextBatchAt = body.data.nextRaceAt
-            ? new Date(body.data.nextRaceAt).getTime()
-            : null;
+          nextBatchAt = body.data.nextRaceAt ? new Date(body.data.nextRaceAt).getTime() : null;
           setBatchAt(nextBatchAt);
           writeCache(CB_STORAGE.batchAt, nextBatchAt != null ? String(nextBatchAt) : null);
         }
@@ -798,8 +307,7 @@ function CountdownBar() {
       // server-processing window; fast-poll until a fresh future
       // timestamp comes back.
       const remaining = nextBatchAt != null ? nextBatchAt - Date.now() : 0;
-      const delay =
-        remaining > 100 ? Math.min(remaining + 100, SLOW_MS) : FAST_MS;
+      const delay = remaining > 100 ? Math.min(remaining + 100, SLOW_MS) : FAST_MS;
       timerId = setTimeout(tick, delay);
     };
 
@@ -843,36 +351,26 @@ function CountdownBar() {
         <>
           <span className={styles.countdownItem}>
             {batchExpired ? (
-              <span className={styles.countdownInProgress}>
-                RACING IN PROGRESS
-              </span>
+              <span className={styles.countdownInProgress}>RACING IN PROGRESS</span>
             ) : (
               <>
                 <span className={styles.countdownLabel}>Next Auto-Race in</span>
-                <span className={styles.countdownValue}>
-                  {batchText ?? '--:--'}
-                </span>
+                <span className={styles.countdownValue}>{batchText ?? '--:--'}</span>
               </>
             )}
           </span>
           <span className={styles.countdownSep} aria-hidden="true">
             ·
           </span>
-          <span
-            className={`${styles.countdownItem} ${styles.countdownItemStrategyLock}`}
-          >
+          <span className={`${styles.countdownItem} ${styles.countdownItemStrategyLock}`}>
             {strategyLockExpired ? (
-              <span
-                className={`${styles.countdownLockedText} ${styles.countdownValueWarning}`}
-              >
+              <span className={`${styles.countdownLockedText} ${styles.countdownValueWarning}`}>
                 LOCKED IN
               </span>
             ) : (
               <>
                 <span className={styles.countdownLabel}>Strategy Lock in</span>
-                <span
-                  className={`${styles.countdownValue} ${styles.countdownValueWarning}`}
-                >
+                <span className={`${styles.countdownValue} ${styles.countdownValueWarning}`}>
                   {strategyLockText ?? '--:--'}
                 </span>
               </>
@@ -882,10 +380,7 @@ function CountdownBar() {
               between Next Round and Strategy Lock so all three footer
               sections share one separator style. Hidden at the smallest
               mobile breakpoint via `.countdownSepRaces`. */}
-          <span
-            className={`${styles.countdownSep} ${styles.countdownSepRaces}`}
-            aria-hidden="true"
-          >
+          <span className={`${styles.countdownSep} ${styles.countdownSepRaces}`} aria-hidden="true">
             ·
           </span>
           <span className={styles.countdownRacesGroup}>
@@ -901,18 +396,11 @@ function CountdownBar() {
             {[0, 1, 2].map((i) => {
               const race = upcomingRaces[i];
               return race ? (
-                <Link
-                  key={race.id}
-                  href={`/races/${race.id}`}
-                  className={styles.countdownRaceLink}
-                >
+                <Link key={race.id} href={`/races/${race.id}`} className={styles.countdownRaceLink}>
                   {i + 1}
                 </Link>
               ) : (
-                <span
-                  key={`races-slot-${i}`}
-                  className={styles.countdownRaceSlotEmpty}
-                >
+                <span key={`races-slot-${i}`} className={styles.countdownRaceSlotEmpty}>
                   {i + 1}
                 </span>
               );
@@ -923,4 +411,3 @@ function CountdownBar() {
     </div>
   );
 }
-

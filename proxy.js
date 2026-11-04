@@ -5,15 +5,9 @@ import { auth } from '@/lib/auth';
  * Next.js 16 routing proxy (formerly `middleware.js` in prior versions).
  *
  * Two responsibilities:
- *   1. Block /login, /register, /signup IN PRODUCTION. Registration is
- *      disabled in the demo build - PLAY DEMO is the only entry point.
- *      In local dev (NODE_ENV === 'development') these routes pass
- *      through normally so the maintainer can sign in against a local
- *      DB.
+ *   1. Block /register and /signup IN PRODUCTION (no such flows; sign-in is /login with Google
+ *      or Play Demo, SPEC.md 12). In local dev these pass through.
  *   2. Gate protected app routes. Unauthenticated requests redirect to /.
- *      (Pre-Apr 2026 this redirected to /login; with login blocked in
- *      prod, the landing page is now the canonical fallback so we avoid
- *      a redirect chain.)
  *
  * Exemptions handled inline:
  *   - /api/auth/*   → handled by NextAuth itself.
@@ -23,20 +17,16 @@ import { auth } from '@/lib/auth';
  *
  * Everything listed in `config.matcher` runs this proxy.
  */
-const BLOCKED_AUTH_PATHS = new Set(['/login', '/register', '/signup']);
+const BLOCKED_AUTH_PATHS = new Set(['/register', '/signup']);
 const IS_DEV = process.env.NODE_ENV === 'development';
 
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
   if (BLOCKED_AUTH_PATHS.has(pathname)) {
-    // Prod: bounce these routes to the landing page (PLAY DEMO is the
-    // only entry). Dev: pass through so the magic-link form can render
-    // for unauthenticated users - the auth gate below would otherwise
-    // redirect them straight back to /, making the link feel dead.
-    return IS_DEV
-      ? NextResponse.next()
-      : NextResponse.redirect(new URL('/', request.url));
+    // Prod: bounce these routes to the landing page. Dev: pass through
+    // so unauthenticated users are not redirected straight back to /.
+    return IS_DEV ? NextResponse.next() : NextResponse.redirect(new URL('/', request.url));
   }
 
   if (pathname.startsWith('/api/auth')) return NextResponse.next();
@@ -53,7 +43,6 @@ export async function proxy(request) {
 
 export const config = {
   matcher: [
-    '/login',
     '/register',
     '/signup',
     '/dashboard/:path*',

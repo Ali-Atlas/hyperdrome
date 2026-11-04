@@ -2,21 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Bot,
-  Zap,
-  X,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, Bot, Zap, X } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import btnStyles from '@/components/ui/Button/Button.module.css';
 import { cn, getLevelColor } from '@/lib/utils';
-import {
-  getPendingToggle,
-  usePendingToggleVersion,
-} from '@/lib/pending-toggle';
+import { getPendingToggle, usePendingToggleVersion } from '@/lib/pending-toggle';
 import DroneImage from '@/components/ui/DroneImage';
 import EmptyState from '@/components/ui/EmptyState';
 import Spinner from '@/components/ui/Spinner';
@@ -26,6 +17,7 @@ import ConditionPill from '@/components/ui/ConditionPill';
 import VoltIcon from '@/components/ui/VoltIcon';
 import { useSession } from '@/hooks/useSession';
 import { useUpcomingRaces } from '@/lib/upcoming-races-store';
+import BootstrapPanel from './BootstrapPanel';
 import styles from './page.module.css';
 
 const RADAR_AXES = [
@@ -111,7 +103,9 @@ export default function DashboardPage() {
   const fetchAll = useCallback(() => {
     fetch('/api/drones')
       .then((r) => r.json())
-      .then((res) => { if (res?.data) setMyDrones(res.data); })
+      .then((res) => {
+        if (res?.data) setMyDrones(res.data);
+      })
       .catch(() => {})
       .finally(() => setLoadingDrones(false));
 
@@ -121,13 +115,17 @@ export default function DashboardPage() {
     // scrolled inside a fixed-height container.
     fetch('/api/races?status=pending&limit=20')
       .then((r) => r.json())
-      .then((res) => { if (res?.data?.items) setLiveFeed(res.data.items); })
+      .then((res) => {
+        if (res?.data?.items) setLiveFeed(res.data.items);
+      })
       .catch(() => {})
       .finally(() => setLoadingFeed(false));
 
     fetch('/api/leaderboard/me')
       .then((r) => r.json())
-      .then((res) => { if (res?.data) setMyStats(res.data); })
+      .then((res) => {
+        if (res?.data) setMyStats(res.data);
+      })
       .catch(() => {});
 
     if (user?.id) {
@@ -182,7 +180,7 @@ export default function DashboardPage() {
           return p ? !p.intended : d.active;
         })
         .sort((a, b) => (b.level ?? 0) - (a.level ?? 0)),
-    [myDrones, pendingVersion],
+    [myDrones, pendingVersion]
   );
 
   /* Upcoming races sorted by the user's drone level descending (the
@@ -209,8 +207,7 @@ export default function DashboardPage() {
           in the matchup descending.
      The level sort applies to the no-drones-yet case too so guest
      viewers also see top-tier matchups first. */
-  const maxMatchupLevel = (race) =>
-    Math.max(race.drone1?.level ?? 0, race.drone2?.level ?? 0);
+  const maxMatchupLevel = (race) => Math.max(race.drone1?.level ?? 0, race.drone2?.level ?? 0);
 
   /* The /api/races endpoint returns flat race rows with `weather` and
      `timeOfDay` at the top level and `drone1Id` / `drone2Id` as scalar
@@ -231,16 +228,14 @@ export default function DashboardPage() {
 
   const sortedLiveFeed = useMemo(() => {
     if (myDrones.length === 0) {
-      return [...liveFeed].sort(
-        (a, b) => maxMatchupLevel(b) - maxMatchupLevel(a),
-      );
+      return [...liveFeed].sort((a, b) => maxMatchupLevel(b) - maxMatchupLevel(a));
     }
     const myDroneIds = new Set(myDrones.map((d) => d.id));
     // Other players' races: filter out anything involving one of the
     // viewer's drones - those rows might be a partial set during cron
     // creation, and the upcoming store already covers them.
     const others = liveFeed.filter(
-      (r) => !myDroneIds.has(r.drone1Id) && !myDroneIds.has(r.drone2Id),
+      (r) => !myDroneIds.has(r.drone1Id) && !myDroneIds.has(r.drone2Id)
     );
     others.sort((a, b) => maxMatchupLevel(b) - maxMatchupLevel(a));
     const mine = upcomingRaces.map(normaliseUpcomingForFeed);
@@ -268,16 +263,13 @@ export default function DashboardPage() {
   // upcoming race the Next Race index is left alone.
   const syncNextRaceToDrone = (drone) => {
     if (!drone) return;
-    const idx = sortedUpcomingRaces.findIndex(
-      (r) => r.userDroneId === drone.id,
-    );
+    const idx = sortedUpcomingRaces.findIndex((r) => r.userDroneId === drone.id);
     if (idx >= 0) setNextRaceIndex(idx);
   };
 
   const goPrev = () => {
     if (activeDrones.length === 0) return;
-    const newIndex =
-      (spotlightIndex - 1 + activeDrones.length) % activeDrones.length;
+    const newIndex = (spotlightIndex - 1 + activeDrones.length) % activeDrones.length;
     setSpotlightIndex(newIndex);
     syncNextRaceToDrone(activeDrones[newIndex]);
   };
@@ -312,12 +304,11 @@ export default function DashboardPage() {
 
   const droneWinRate =
     spotlightDrone && spotlightDrone.totalRaces > 0
-      ? ((spotlightDrone.wins / spotlightDrone.totalRaces) * 100).toFixed(1) +
-        '%'
+      ? ((spotlightDrone.wins / spotlightDrone.totalRaces) * 100).toFixed(1) + '%'
       : '-';
 
   const spotlightUpcoming = spotlightDrone
-    ? upcomingByDroneId.get(spotlightDrone.id) ?? null
+    ? (upcomingByDroneId.get(spotlightDrone.id) ?? null)
     : null;
 
   // Next-race cycling: the header arrows step through every PENDING
@@ -325,22 +316,15 @@ export default function DashboardPage() {
   // the underlying list changes length so we never index past the
   // end after a race completes.
   const [nextRaceIndex, setNextRaceIndex] = useState(0);
-  if (
-    sortedUpcomingRaces.length > 0 &&
-    nextRaceIndex >= sortedUpcomingRaces.length
-  ) {
+  if (sortedUpcomingRaces.length > 0 && nextRaceIndex >= sortedUpcomingRaces.length) {
     setNextRaceIndex(0);
   }
 
   const nextRaceForCard = sortedUpcomingRaces[nextRaceIndex] ?? null;
   const nextRaceCanCycle = sortedUpcomingRaces.length > 1;
   const goPrevNextRace = () =>
-    setNextRaceIndex(
-      (i) =>
-        (i - 1 + sortedUpcomingRaces.length) % sortedUpcomingRaces.length,
-    );
-  const goNextNextRace = () =>
-    setNextRaceIndex((i) => (i + 1) % sortedUpcomingRaces.length);
+    setNextRaceIndex((i) => (i - 1 + sortedUpcomingRaces.length) % sortedUpcomingRaces.length);
+  const goNextNextRace = () => setNextRaceIndex((i) => (i + 1) % sortedUpcomingRaces.length);
 
   /* Auto-race info banner. Visibility hydrates on mount (reading
      localStorage during render would mismatch SSR markup): show only
@@ -351,10 +335,8 @@ export default function DashboardPage() {
   const [bannerExiting, setBannerExiting] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const onboardingDone =
-      window.localStorage.getItem('onboarding_complete') === '1';
-    const dismissed =
-      window.localStorage.getItem('races-banner-dismissed') === '1';
+    const onboardingDone = window.localStorage.getItem('onboarding_complete') === '1';
+    const dismissed = window.localStorage.getItem('races-banner-dismissed') === '1';
     if (onboardingDone && !dismissed) setBannerVisible(true);
   }, []);
   const dismissBanner = () => {
@@ -370,23 +352,18 @@ export default function DashboardPage() {
   return (
     <NavShell>
       <div className={styles.page}>
+        {user && user.bootstrapState !== 'done' && <BootstrapPanel />}
         {bannerVisible && (
-          <div
-            className={cn(styles.banner, bannerExiting && styles.bannerExiting)}
-            role="status"
-          >
+          <div className={cn(styles.banner, bannerExiting && styles.bannerExiting)} role="status">
             <span className={styles.bannerIconWrap} aria-hidden="true">
               <Zap size={18} className={styles.bannerIcon} />
             </span>
             <div className={styles.bannerContent}>
-              <h2 className={styles.bannerTitle}>
-                Auto-racing is live · every 3 minutes
-              </h2>
+              <h2 className={styles.bannerTitle}>Auto-racing is live · every 3 minutes</h2>
               <p className={styles.bannerLede}>
                 Hyperdrome runs a new race batch every 3 minutes. Up to{' '}
-                <strong className={styles.bannerEm}>3 of your drones</strong>{' '}
-                can be active at once - they enter the next batch
-                automatically, no clicking start.
+                <strong className={styles.bannerEm}>3 of your drones</strong> can be active at once
+                - they enter the next batch automatically, no clicking start.
               </p>
               <dl className={styles.bannerLookup}>
                 <div className={styles.bannerRow}>
@@ -402,17 +379,15 @@ export default function DashboardPage() {
                 <div className={styles.bannerRow}>
                   <dt className={styles.bannerKey}>Upcoming</dt>
                   <dd className={styles.bannerVal}>
-                    Tap the 1 / 2 / 3 chips in the footer countdown bar to
-                    preview each of your queued matchups.
+                    Tap the 1 / 2 / 3 chips in the footer countdown bar to preview each of your
+                    queued matchups.
                   </dd>
                 </div>
                 <div className={styles.bannerRow}>
                   <dt className={styles.bannerKey}>Results</dt>
                   <dd className={styles.bannerVal}>
-                    Watch the{' '}
-                    <strong className={styles.bannerEm}>Live Race Feed</strong>{' '}
-                    below, open any drone&apos;s page for its own history,
-                    or browse the full{' '}
+                    Watch the <strong className={styles.bannerEm}>Live Race Feed</strong> below,
+                    open any drone&apos;s page for its own history, or browse the full{' '}
                     <Link href="/races" className={styles.bannerLink}>
                       Races page
                     </Link>
@@ -435,9 +410,7 @@ export default function DashboardPage() {
           {/* ---- Row 1 col 1: Spotlight ---- */}
           <Card className={cn(styles.spotlight, styles.areaSpotlight)}>
             <div className={styles.sectionHeadingRow}>
-              <h2 className={styles.sectionHeading}>
-                Active Drone Spotlight
-              </h2>
+              <h2 className={styles.sectionHeading}>Active Drone Spotlight</h2>
               {canCycle && (
                 <div className={styles.navCluster}>
                   <button
@@ -471,9 +444,7 @@ export default function DashboardPage() {
               <div className={styles.spotlightBody}>
                 <div className={styles.spotlightLeft}>
                   <div className={styles.droneNameBlock}>
-                    <span className={styles.droneName}>
-                      {spotlightDrone.name}
-                    </span>
+                    <span className={styles.droneName}>{spotlightDrone.name}</span>
                     <span
                       className={styles.droneLevel}
                       style={{
@@ -484,10 +455,7 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <div className={styles.spotlightImage}>
-                    <DroneImage
-                      drone={spotlightDrone}
-                      alt={spotlightDrone.name}
-                    />
+                    <DroneImage drone={spotlightDrone} alt={spotlightDrone.name} />
                   </div>
                   <dl className={styles.spotlightKpiGrid}>
                     <div className={styles.kpiCell}>
@@ -514,11 +482,7 @@ export default function DashboardPage() {
                 <div className={styles.spotlightRight}>
                   <div className={styles.spotlightStats}>
                     {SPOTLIGHT_STATS.map(([key, label]) => (
-                      <StatRow
-                        key={key}
-                        label={label}
-                        value={spotlightDrone[key] ?? 0}
-                      />
+                      <StatRow key={key} label={label} value={spotlightDrone[key] ?? 0} />
                     ))}
                   </div>
                   <Link
@@ -527,7 +491,7 @@ export default function DashboardPage() {
                       btnStyles.button,
                       btnStyles.primary,
                       btnStyles.sm,
-                      styles.manageBtn,
+                      styles.manageBtn
                     )}
                   >
                     Manage Drone
@@ -562,112 +526,90 @@ export default function DashboardPage() {
           <Card className={cn(styles.liveFeed, styles.areaFeed)}>
             <h2 className={styles.sectionHeading}>Live Race Feed</h2>
             <div className={cn(styles.cardBody, styles.feedBody)}>
-            {loadingFeed ? (
-              <div className={styles.loadingCenter}>
-                <Spinner size="md" />
-              </div>
-            ) : liveFeed.length === 0 ? (
-              <p className={styles.empty}>No upcoming races.</p>
-            ) : (
-              <div className={cn(styles.tableScroll, styles.tableFeed)}>
-                <div className={styles.table}>
-                  <div className={styles.tableHeader}>
-                    <span>Drone 1</span>
-                    <span>Drone 2</span>
-                    <span>Track</span>
-                    <span>Diff</span>
-                    <span>Conditions</span>
-                  </div>
-                  {sortedLiveFeed.map((r) => {
-                    const myDroneIds = new Set(myDrones.map((d) => d.id));
-                    const drone1IsMine = myDroneIds.has(r.drone1Id);
-                    const drone2IsMine = myDroneIds.has(r.drone2Id);
-                    const showWeather =
-                      r.weather && r.weather !== 'clear';
-                    const showTime =
-                      r.timeOfDay && r.timeOfDay !== 'day';
-                    return (
-                      <Link
-                        key={r.id}
-                        href={`/races/${r.id}`}
-                        className={styles.tableRow}
-                      >
-                        <span className={styles.cellName}>
-                          <span
-                            className={cn(
-                              styles.name,
-                              drone1IsMine && styles.nameYou,
-                            )}
-                          >
-                            {r.drone1?.name ?? '-'}
-                          </span>
-                          {r.drone1?.level != null && (
-                            <span
-                              className={styles.lv}
-                              style={{
-                                color: getLevelColor(r.drone1.level),
-                              }}
-                            >
-                              LV{r.drone1.level}
-                            </span>
-                          )}
-                        </span>
-                        <span className={styles.cellName}>
-                          <span
-                            className={cn(
-                              styles.name,
-                              drone2IsMine && styles.nameYou,
-                            )}
-                          >
-                            {r.drone2?.name ?? '-'}
-                          </span>
-                          {r.drone2?.level != null && (
-                            <span
-                              className={styles.lv}
-                              style={{
-                                color: getLevelColor(r.drone2.level),
-                              }}
-                            >
-                              LV{r.drone2.level}
-                            </span>
-                          )}
-                        </span>
-                        <span className={styles.cellTrack}>
-                          {r.track?.name ?? '-'}
-                        </span>
-                        <span className={styles.diff}>
-                          {r.track?.difficulty != null
-                            ? `D${r.track.difficulty}`
-                            : '-'}
-                        </span>
-                        <span className={styles.conditions}>
-                          {showWeather && (
-                            <ConditionPill
-                              kind="weather"
-                              value={r.weather}
-                              className={styles.condPill}
-                            />
-                          )}
-                          {showTime && (
-                            <ConditionPill
-                              kind="time"
-                              value={r.timeOfDay}
-                              className={styles.condPill}
-                            />
-                          )}
-                          {!showWeather && !showTime && (
-                            <span className={styles.diff}>-</span>
-                          )}
-                        </span>
-                      </Link>
-                    );
-                  })}
+              {loadingFeed ? (
+                <div className={styles.loadingCenter}>
+                  <Spinner size="md" />
                 </div>
-              </div>
-            )}
-            <Link href="/races" className={styles.feedSeeAll}>
-              See All Races →
-            </Link>
+              ) : liveFeed.length === 0 ? (
+                <p className={styles.empty}>No upcoming races.</p>
+              ) : (
+                <div className={cn(styles.tableScroll, styles.tableFeed)}>
+                  <div className={styles.table}>
+                    <div className={styles.tableHeader}>
+                      <span>Drone 1</span>
+                      <span>Drone 2</span>
+                      <span>Track</span>
+                      <span>Diff</span>
+                      <span>Conditions</span>
+                    </div>
+                    {sortedLiveFeed.map((r) => {
+                      const myDroneIds = new Set(myDrones.map((d) => d.id));
+                      const drone1IsMine = myDroneIds.has(r.drone1Id);
+                      const drone2IsMine = myDroneIds.has(r.drone2Id);
+                      const showWeather = r.weather && r.weather !== 'clear';
+                      const showTime = r.timeOfDay && r.timeOfDay !== 'day';
+                      return (
+                        <Link key={r.id} href={`/races/${r.id}`} className={styles.tableRow}>
+                          <span className={styles.cellName}>
+                            <span className={cn(styles.name, drone1IsMine && styles.nameYou)}>
+                              {r.drone1?.name ?? '-'}
+                            </span>
+                            {r.drone1?.level != null && (
+                              <span
+                                className={styles.lv}
+                                style={{
+                                  color: getLevelColor(r.drone1.level),
+                                }}
+                              >
+                                LV{r.drone1.level}
+                              </span>
+                            )}
+                          </span>
+                          <span className={styles.cellName}>
+                            <span className={cn(styles.name, drone2IsMine && styles.nameYou)}>
+                              {r.drone2?.name ?? '-'}
+                            </span>
+                            {r.drone2?.level != null && (
+                              <span
+                                className={styles.lv}
+                                style={{
+                                  color: getLevelColor(r.drone2.level),
+                                }}
+                              >
+                                LV{r.drone2.level}
+                              </span>
+                            )}
+                          </span>
+                          <span className={styles.cellTrack}>{r.track?.name ?? '-'}</span>
+                          <span className={styles.diff}>
+                            {r.track?.difficulty != null ? `D${r.track.difficulty}` : '-'}
+                          </span>
+                          <span className={styles.conditions}>
+                            {showWeather && (
+                              <ConditionPill
+                                kind="weather"
+                                value={r.weather}
+                                className={styles.condPill}
+                              />
+                            )}
+                            {showTime && (
+                              <ConditionPill
+                                kind="time"
+                                value={r.timeOfDay}
+                                className={styles.condPill}
+                              />
+                            )}
+                            {!showWeather && !showTime && <span className={styles.diff}>-</span>}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <Link href="/races" className={styles.feedSeeAll}>
+                See All Races →
+              </Link>
             </div>
           </Card>
 
@@ -675,100 +617,87 @@ export default function DashboardPage() {
           <Card className={cn(styles.results, styles.areaResults)}>
             <h2 className={styles.sectionHeading}>Your Recent Results</h2>
             <div className={styles.cardBody}>
-            {loadingRecent ? (
-              <div className={styles.loadingCenter}>
-                <Spinner size="md" />
-              </div>
-            ) : recentRaces.length === 0 ? (
-              <p className={styles.empty}>
-                No races yet. Activate a drone and wait for the next race
-                block.
-              </p>
-            ) : (
-              <div className={cn(styles.tableScroll, styles.tableResults)}>
-                <div className={styles.table}>
-                  <div className={styles.tableHeader}>
-                    <span>You</span>
-                    <span>Opponent</span>
-                    <span>Track</span>
-                    <span>Result</span>
-                    <span title="Volts" aria-label="Volts">
-                      <VoltIcon size={13} />
-                    </span>
-                    <span>Time</span>
-                  </div>
-                  {recentRaces.map((r) => {
-                    const myDroneIds = new Set(myDrones.map((d) => d.id));
-                    const userIsDrone1 = myDroneIds.has(r.drone1Id);
-                    const userDrone = userIsDrone1 ? r.drone1 : r.drone2;
-                    const opp = userIsDrone1 ? r.drone2 : r.drone1;
-                    const won = myDroneIds.has(r.winnerDroneId);
-                    // Loss payout pulled from `loserPointsAwarded` instead of
-                    // dashing out: server already records both winner and
-                    // loser earnings on every race row.
-                    const voltsEarned = won
-                      ? r.pointsAwarded ?? 0
-                      : r.loserPointsAwarded ?? 0;
-                    return (
-                      <Link
-                        key={r.id}
-                        href={`/races/${r.id}`}
-                        className={styles.tableRow}
-                      >
-                        <span className={styles.cellName}>
-                          <span className={cn(styles.name, styles.nameYou)}>
-                            {userDrone?.name ?? '-'}
-                          </span>
-                          {userDrone?.level != null && (
-                            <span
-                              className={styles.lv}
-                              style={{
-                                color: getLevelColor(userDrone.level),
-                              }}
-                            >
-                              LV{userDrone.level}
-                            </span>
-                          )}
-                        </span>
-                        <span className={styles.cellName}>
-                          <span className={styles.name}>
-                            {opp?.name ?? '-'}
-                          </span>
-                          {opp?.level != null && (
-                            <span
-                              className={styles.lv}
-                              style={{
-                                color: getLevelColor(opp.level),
-                              }}
-                            >
-                              LV{opp.level}
-                            </span>
-                          )}
-                        </span>
-                        <span className={styles.cellTrack}>
-                          {r.track?.name ?? '-'}
-                        </span>
-                        <span>
-                          {won ? (
-                            <span className={styles.resultWin}>WIN</span>
-                          ) : (
-                            <span className={styles.resultLoss}>LOSS</span>
-                          )}
-                        </span>
-                        <span
-                          className={voltsEarned > 0 ? styles.volts : undefined}
-                        >
-                          +{voltsEarned}
-                        </span>
-                        <span className={styles.time}>
-                          {formatTimeAgo(r.createdAt)}
-                        </span>
-                      </Link>
-                    );
-                  })}
+              {loadingRecent ? (
+                <div className={styles.loadingCenter}>
+                  <Spinner size="md" />
                 </div>
-              </div>
-            )}
+              ) : recentRaces.length === 0 ? (
+                <p className={styles.empty}>
+                  No races yet. Activate a drone and wait for the next race block.
+                </p>
+              ) : (
+                <div className={cn(styles.tableScroll, styles.tableResults)}>
+                  <div className={styles.table}>
+                    <div className={styles.tableHeader}>
+                      <span>You</span>
+                      <span>Opponent</span>
+                      <span>Track</span>
+                      <span>Result</span>
+                      <span title="Volts" aria-label="Volts">
+                        <VoltIcon size={13} />
+                      </span>
+                      <span>Time</span>
+                    </div>
+                    {recentRaces.map((r) => {
+                      const myDroneIds = new Set(myDrones.map((d) => d.id));
+                      const userIsDrone1 = myDroneIds.has(r.drone1Id);
+                      const userDrone = userIsDrone1 ? r.drone1 : r.drone2;
+                      const opp = userIsDrone1 ? r.drone2 : r.drone1;
+                      const won = myDroneIds.has(r.winnerDroneId);
+                      // Loss payout pulled from `loserPointsAwarded` instead of
+                      // dashing out: server already records both winner and
+                      // loser earnings on every race row.
+                      const voltsEarned = won
+                        ? (r.pointsAwarded ?? 0)
+                        : (r.loserPointsAwarded ?? 0);
+                      return (
+                        <Link key={r.id} href={`/races/${r.id}`} className={styles.tableRow}>
+                          <span className={styles.cellName}>
+                            <span className={cn(styles.name, styles.nameYou)}>
+                              {userDrone?.name ?? '-'}
+                            </span>
+                            {userDrone?.level != null && (
+                              <span
+                                className={styles.lv}
+                                style={{
+                                  color: getLevelColor(userDrone.level),
+                                }}
+                              >
+                                LV{userDrone.level}
+                              </span>
+                            )}
+                          </span>
+                          <span className={styles.cellName}>
+                            <span className={styles.name}>{opp?.name ?? '-'}</span>
+                            {opp?.level != null && (
+                              <span
+                                className={styles.lv}
+                                style={{
+                                  color: getLevelColor(opp.level),
+                                }}
+                              >
+                                LV{opp.level}
+                              </span>
+                            )}
+                          </span>
+                          <span className={styles.cellTrack}>{r.track?.name ?? '-'}</span>
+                          <span>
+                            {won ? (
+                              <span className={styles.resultWin}>WIN</span>
+                            ) : (
+                              <span className={styles.resultLoss}>LOSS</span>
+                            )}
+                          </span>
+                          <span className={voltsEarned > 0 ? styles.volts : undefined}>
+                            +{voltsEarned}
+                          </span>
+                          <span className={styles.time}>{formatTimeAgo(r.createdAt)}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
 
@@ -776,25 +705,15 @@ export default function DashboardPage() {
           <Card className={cn(styles.quickStatsCard, styles.areaQuickStats)}>
             <div className={styles.sectionHeadingRow}>
               <h2 className={styles.sectionHeading}>Quick Stats</h2>
-              {user?.username && (
-                <span className={styles.quickStatsUser}>
-                  {user.username}
-                </span>
-              )}
+              {user?.username && <span className={styles.quickStatsUser}>{user.username}</span>}
             </div>
             <div className={styles.cardBody}>
-            <div className={styles.quickStatsRow}>
-              <QuickStat
-                label="Total Races"
-                value={myStats?.totalRaces ?? 0}
-              />
-              <QuickStat label="Win Rate" value={userWinRate} />
-              <QuickStat label="Streak" value={currentStreak} />
-              <QuickStat
-                label="Season Rank"
-                value={myStats?.rank ? `#${myStats.rank}` : '-'}
-              />
-            </div>
+              <div className={styles.quickStatsRow}>
+                <QuickStat label="Total Races" value={myStats?.totalRaces ?? 0} />
+                <QuickStat label="Win Rate" value={userWinRate} />
+                <QuickStat label="Streak" value={currentStreak} />
+                <QuickStat label="Season Rank" value={myStats?.rank ? `#${myStats.rank}` : '-'} />
+              </div>
             </div>
           </Card>
         </div>
@@ -809,10 +728,7 @@ function StatRow({ label, value, max = 100 }) {
     <div className={styles.statRow}>
       <span className={styles.statRowLabel}>{label}</span>
       <div className={styles.statBarTrack}>
-        <div
-          className={styles.statBarFill}
-          style={{ width: `${pct}%` }}
-        />
+        <div className={styles.statBarFill} style={{ width: `${pct}%` }} />
       </div>
       <span className={styles.statValue}>{value}</span>
     </div>
@@ -882,12 +798,7 @@ function NextRacePanel({
             <span className={styles.navCounter}>
               {(currentIndex ?? 0) + 1}/{totalCount}
             </span>
-            <button
-              type="button"
-              className={styles.navBtn}
-              onClick={onNext}
-              aria-label="Next race"
-            >
+            <button type="button" className={styles.navBtn} onClick={onNext} aria-label="Next race">
               <ChevronRight size={14} />
             </button>
           </div>
@@ -902,9 +813,7 @@ function NextRacePanel({
         <NextRaceMatchup race={race} />
       ) : (
         <div className={styles.nextRaceEmpty}>
-          {spotlightDrone
-            ? 'No upcoming race'
-            : 'Activate a drone to see its next race'}
+          {spotlightDrone ? 'No upcoming race' : 'Activate a drone to see its next race'}
         </div>
       )}
     </Card>
@@ -931,24 +840,13 @@ function NextRaceMatchup({ race }) {
   return (
     <div className={styles.nextRaceBody}>
       <div className={styles.matchupRow}>
-        <NextRaceDroneSide
-          drone={userDrone}
-          opponent={opponent}
-          isOwn
-          radarMax={radarMax}
-        />
+        <NextRaceDroneSide drone={userDrone} opponent={opponent} isOwn radarMax={radarMax} />
         <div className={styles.vsDivider}>VS</div>
-        <NextRaceDroneSide
-          drone={opponent}
-          opponent={userDrone}
-          radarMax={radarMax}
-        />
+        <NextRaceDroneSide drone={opponent} opponent={userDrone} radarMax={radarMax} />
       </div>
 
       <div className={styles.trackStrip}>
-        <span className={styles.trackName}>
-          {race.track?.name ?? 'Unknown track'}
-        </span>
+        <span className={styles.trackName}>{race.track?.name ?? 'Unknown track'}</span>
         <span className={styles.conditionPills}>
           <ConditionPill kind="weather" value={race.conditions?.weather} />
           <ConditionPill kind="time" value={race.conditions?.timeOfDay} />
@@ -957,7 +855,6 @@ function NextRaceMatchup({ race }) {
     </div>
   );
 }
-
 
 /** One side of the dashboard NEXT RACE matchup - drone image, name +
  *  level badge, and a compact stat-shape radar. Radar color is driven
@@ -987,11 +884,9 @@ function NextRaceDroneSide({ drone, opponent, isOwn = false, radarMax }) {
       </div>
       <div className={styles.matchupName}>
         {drone.name}
-        <span
-          className={styles.matchupLevel}
-          style={{ color: getLevelColor(drone.level) }}
-        >
-          {' '}LV {drone.level}
+        <span className={styles.matchupLevel} style={{ color: getLevelColor(drone.level) }}>
+          {' '}
+          LV {drone.level}
         </span>
       </div>
       <div className={styles.matchupRadar}>
@@ -1006,9 +901,7 @@ function NextRaceDroneSide({ drone, opponent, isOwn = false, radarMax }) {
       {drone.appliedMod ? (
         <div className={styles.matchupModLine}>
           <ModPlaceholder rarity={drone.appliedMod.rarity} size={14} />
-          <span className={styles.matchupModLineName}>
-            {drone.appliedMod.name}
-          </span>
+          <span className={styles.matchupModLineName}>{drone.appliedMod.name}</span>
         </div>
       ) : (
         <div className={styles.matchupModLineEmpty}>No mod</div>
@@ -1016,4 +909,3 @@ function NextRaceDroneSide({ drone, opponent, isOwn = false, radarMax }) {
     </div>
   );
 }
-

@@ -20,7 +20,6 @@ import { generateUniqueDroneName } from '@/lib/game-engine/drone-names.js';
 import { getRandomTrack } from '@/services/track.service.js';
 import { checkAndLevelUp } from '@/services/drone.service.js';
 import { ApiError } from '@/lib/api/response.js';
-import { settleEpochOnchain } from '@/lib/onchain/settlement.js';
 
 const { drones, users, races, tracks, adminConfig, skins, mods, droneOwnershipHistory } = schema;
 
@@ -196,7 +195,6 @@ export async function runRaceCycle() {
       pendingCreated: 0,
       botsActivated: 0,
       bracketSummary: {},
-      settleTx: null,
     };
   }
   cycleInFlight = true;
@@ -210,47 +208,8 @@ export async function runRaceCycle() {
 async function runRaceCycleInner() {
   const cfg = await loadConfig();
 
-  // PHASE 2 - execute any ready PENDING races first. The executor now
-  // returns the per-race settlement payloads it was able to build (only
-  // for races whose drones both have on-chain tokenIds); those get
-  // batched into a single settleEpoch tx below.
-  const { executed: pendingExecuted, settlementResults } = await executeReadyPendingRaces(cfg);
-
-  // ON-CHAIN SETTLEMENT - one batched tx per cron tick. epochId is the
-  // unix-seconds timestamp at submit time, which is unique enough given
-  // the 3-minute cron cadence and the contract's epochSettled guard.
-  // Best-effort: a failure here logs but does not roll back the DB
-  // results - the cron tick has already updated drone/user state.
-  let settleTx = null;
-  if (settlementResults.length > 0) {
-    const epochId = Math.floor(Date.now() / 1000);
-    try {
-      const result = await settleEpochOnchain({
-        epochId,
-        results: settlementResults.map((r) => r.payload),
-      });
-      if (result?.txHash) {
-        settleTx = { epochId, txHash: result.txHash };
-        // Backfill epochId + settleTxHash on each settled race row.
-        await Promise.all(
-          settlementResults.map((r) =>
-            db
-              .update(races)
-              .set({ epochId, settleTxHash: result.txHash })
-              .where(eq(races.id, r.raceId))
-          )
-        );
-        console.log(
-          `[race.service] on-chain settleEpoch ok - epoch=${epochId} races=${result.count} tx=${result.txHash}`
-        );
-      }
-    } catch (err) {
-      console.error(
-        '[race.service] on-chain settleEpoch failed - DB results stand, settlement not mirrored',
-        { epochId, raceCount: settlementResults.length, err }
-      );
-    }
-  }
+  // PHASE 2 - execute any ready PENDING races first (DB-only until T9's batch settlement).
+  const { executed: pendingExecuted } = await executeReadyPendingRaces(cfg);
 
   // PHASE 1 - match unmatched active drones into new PENDING races.
   const bracketSummary = {};
@@ -290,7 +249,7 @@ async function runRaceCycleInner() {
     }
   }
 
-  return { pendingExecuted, pendingCreated, botsActivated, bracketSummary, settleTx };
+  return { pendingExecuted, pendingCreated, botsActivated, bracketSummary };
 }
 
 /** Distinct drone ids that are participants in any PENDING race. */
@@ -386,18 +345,15 @@ async function executeReadyPendingRaces(cfg) {
   }
 
   let executed = 0;
-  /** @type {Array<{raceId: string, payload: object}>} */
-  const settlementResults = [];
   for (const race of toExecute) {
     try {
-      const settlement = await executePendingRace(race, cfg);
+      await executePendingRace(race, cfg);
       executed += 1;
-      if (settlement) settlementResults.push(settlement);
     } catch (err) {
       console.error(`[race.service] failed to execute pending race ${race.id}:`, err);
     }
   }
-  return { executed, settlementResults };
+  return { executed };
 }
 
 /**
@@ -560,26 +516,6 @@ async function executePendingRace(pending, cfg) {
   // already blocks the spawn).
   if (winner.userId && !winner.isBot) await maybeSpawnMilestoneDrone(winner.userId);
   if (loser.userId && !loser.isBot) await maybeSpawnMilestoneDrone(loser.userId);
-
-  // On-chain settlement payload. Only emit when both drones have been
-  // minted (tokenId set); on-chain ELO + VOLT only track the minted
-  // population. drone1 maps to droneA, drone2 to droneB.
-  if (d1.tokenId == null || d2.tokenId == null) return null;
-  const drone1Reward = winner.id === d1.id ? pointsAwarded : lossPayout;
-  const drone2Reward = winner.id === d2.id ? pointsAwarded : lossPayout;
-  const winnerTokenId = winner.id === d1.id ? d1.tokenId : d2.tokenId;
-  return {
-    raceId: pending.id,
-    payload: {
-      droneATokenId: d1.tokenId,
-      droneBTokenId: d2.tokenId,
-      winnerTokenId,
-      eloDeltaA: drone1EloChange,
-      eloDeltaB: drone2EloChange,
-      voltRewardA: drone1Reward,
-      voltRewardB: drone2Reward,
-    },
-  };
 }
 
 /* -------------------------------------------------------------------------- */

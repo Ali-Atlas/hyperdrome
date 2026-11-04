@@ -2,7 +2,6 @@ import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { SessionProvider } from '@/hooks/useSession';
 import { ToastProvider } from '@/components/ui/Toast';
-import WalletProvider from '@/components/providers/WalletProvider';
 import Onboarding from '@/components/ui/Onboarding';
 
 export const metadata = {
@@ -52,10 +51,8 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <SessionProvider>
-          <WalletProvider>
-            <ToastProvider>{children}</ToastProvider>
-            <Onboarding />
-          </WalletProvider>
+          <ToastProvider>{children}</ToastProvider>
+          <Onboarding />
         </SessionProvider>
         <Analytics />
       </body>

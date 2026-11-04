@@ -19,7 +19,6 @@ import {
   ShoppingCart,
   Check,
   X,
-  ExternalLink,
 } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
@@ -40,10 +39,7 @@ import {
   setPendingToggle,
   usePendingToggle,
 } from '@/lib/pending-toggle';
-import {
-  useRacingInProgress,
-  useRoundStartTick,
-} from '@/lib/race-round-clock';
+import { useRacingInProgress, useRoundStartTick } from '@/lib/race-round-clock';
 import { cn, getLevelColor, canEquipSkin, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
@@ -156,9 +152,7 @@ export default function DroneDetailPage({ params }) {
       const res = await fetch('/api/marketplace?item_type=drone&limit=100');
       const body = await res.json();
       if (body?.data?.items) {
-        const found = body.data.items.find(
-          (l) => l.droneId === droneId && l.status === 'active',
-        );
+        const found = body.data.items.find((l) => l.droneId === droneId && l.status === 'active');
         setListing(found ?? null);
       }
     } catch {
@@ -194,14 +188,7 @@ export default function DroneDetailPage({ params }) {
 
   const isOwner = Boolean(user?.id && drone.userId === user.id);
 
-  return (
-    <DroneDetailView
-      drone={drone}
-      isOwner={isOwner}
-      listing={listing}
-      onReload={load}
-    />
-  );
+  return <DroneDetailView drone={drone} isOwner={isOwner} listing={listing} onReload={load} />;
 }
 
 /* ==========================================================================
@@ -260,16 +247,15 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   const totalCost = useMemo(
     () =>
       STAT_KEYS.reduce(
-        (sum, key) =>
-          sum + calculateTotalUpgradeCost(baseStats[key], editedStats[key]),
-        0,
+        (sum, key) => sum + calculateTotalUpgradeCost(baseStats[key], editedStats[key]),
+        0
       ),
-    [baseStats, editedStats],
+    [baseStats, editedStats]
   );
 
   const currentSum = useMemo(
     () => STAT_KEYS.reduce((s, k) => s + (editedStats[k] ?? 0), 0),
-    [editedStats],
+    [editedStats]
   );
 
   // Upgrades are paid from the player's single shared wallet. What's
@@ -329,7 +315,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
           window.dispatchEvent(
             new CustomEvent('volts:update', {
               detail: { balance: body.data.balance },
-            }),
+            })
           );
         }
         await onReload();
@@ -368,10 +354,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
         // is going back to it). When next === true, the user had
         // queued a deactivation and is now undoing it; vice versa.
         clearPendingToggle(drone.id);
-        showToast(
-          next ? 'Deactivation cancelled.' : 'Activation cancelled.',
-          'info',
-        );
+        showToast(next ? 'Deactivation cancelled.' : 'Activation cancelled.', 'info');
         await onReload();
       } else {
         // The DB write lands immediately, but matchmaking only runs at
@@ -419,11 +402,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
       ) {
         setShowSwapSkinList(false);
       }
-      if (
-        showSwapList &&
-        modSelectorRef.current &&
-        !modSelectorRef.current.contains(e.target)
-      ) {
+      if (showSwapList && modSelectorRef.current && !modSelectorRef.current.contains(e.target)) {
         setShowSwapList(false);
       }
     };
@@ -445,8 +424,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
     if (!isOwner) return;
     let cancelled = false;
     Promise.all([
-      fetch('/api/mods').then((r) => r.json()).catch(() => null),
-      fetch('/api/skins').then((r) => r.json()).catch(() => null),
+      fetch('/api/mods')
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch('/api/skins')
+        .then((r) => r.json())
+        .catch(() => null),
     ]).then(([modsRes, skinsRes]) => {
       if (cancelled) return;
       if (modsRes?.data) {
@@ -559,24 +542,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
     }
   };
 
-  // On-chain mint surface lives at /api/drones/[droneId]/mint (server-side
-  // mint from the deployer wallet). The drone detail page only needs to
-  // know whether this drone has been minted so the meta row can render
-  // a "View on MegaETH" link out to the block explorer.
-  const isMinted = drone.tokenId != null;
-  const explorerUrl = isMinted
-    ? `https://megaeth-testnet-v2.blockscout.com/token/${process.env.NEXT_PUBLIC_DRONE_CONTRACT_ADDRESS}/instance/${drone.tokenId}`
-    : null;
-
   const performance = useMemo(
     () => analyzeDronePerformance(editedStats, drone.level),
-    [editedStats, drone.level],
+    [editedStats, drone.level]
   );
 
-  const radarLabels = useMemo(
-    () => STAT_KEYS.map((key) => RADAR_SHORT_LABELS[key]),
-    [],
-  );
+  const radarLabels = useMemo(() => STAT_KEYS.map((key) => RADAR_SHORT_LABELS[key]), []);
 
   const formInfo = useMemo(() => {
     const races = drone.recentRaces ?? [];
@@ -593,9 +564,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   }, [drone]);
 
   const winRate =
-    drone.totalRaces > 0
-      ? ((drone.wins / drone.totalRaces) * 100).toFixed(1) + '%'
-      : '-';
+    drone.totalRaces > 0 ? ((drone.wins / drone.totalRaces) * 100).toFixed(1) + '%' : '-';
 
   const raceRows = (drone.recentRaces ?? []).map((r) => {
     const isDrone1 = r.drone1Id === drone.id;
@@ -620,119 +589,75 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
               <div className={styles.droneNameBlock}>
                 <div className={styles.droneNameRow}>
                   <div className={styles.droneName}>{drone.name}</div>
-                  {isMinted && (
-                    <a
-                      href={explorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={styles.nftMetaLink}
-                      title={`Token #${drone.tokenId} on MegaETH`}
-                    >
-                      <ExternalLink size={10} aria-hidden="true" />
-                      View
-                    </a>
-                  )}
-                  {isOwner && (() => {
-                    // Effective state: pending overlay shows the OLD
-                    // value (matchmaking still sees it for the current
-                    // race cycle); without pending it's just the DB
-                    // active flag.
-                    // Effective state: pending overlay shows the OLD
-                    // value; without pending it's just the DB active.
-                    const effectiveActive = pendingToggle
-                      ? !pendingToggle.intended
-                      : drone.active;
-                    // Detail page always shows a state badge - the
-                    // user is staring at the toggle and needs the
-                    // word ("Active" / "Inactive" / pending state).
-                    let badgeLabel;
-                    let badgeClass;
-                    if (pendingToggle) {
-                      badgeLabel = pendingToggle.intended
-                        ? 'Activating'
-                        : 'Deactivating';
-                      badgeClass = pendingToggle.intended
-                        ? styles.stateBadgeActivating
-                        : styles.stateBadgeDeactivating;
-                    } else if (effectiveActive) {
-                      badgeLabel = 'Active';
-                      badgeClass = styles.stateBadgeActive;
-                    } else {
-                      badgeLabel = 'Inactive';
-                      badgeClass = styles.stateBadgeInactive;
-                    }
-                    return (
-                      <div className={styles.activeControl}>
-                        <span className={cn(styles.stateBadge, badgeClass)}>
-                          {badgeLabel}
-                        </span>
-                        <span className={styles.activeToggleWrap}>
-                          <Toggle
-                            checked={drone.active}
-                            onChange={toggleActive}
-                            disabled={
-                              togglePending ||
-                              racingInProgress ||
-                              roundStartRefreshing
-                            }
-                            className={styles.activeToggle}
-                          />
-                        </span>
-                      </div>
-                    );
-                  })()}
+                  {isOwner &&
+                    (() => {
+                      // Effective state: pending overlay shows the OLD
+                      // value (matchmaking still sees it for the current
+                      // race cycle); without pending it's just the DB
+                      // active flag.
+                      // Effective state: pending overlay shows the OLD
+                      // value; without pending it's just the DB active.
+                      const effectiveActive = pendingToggle
+                        ? !pendingToggle.intended
+                        : drone.active;
+                      // Detail page always shows a state badge - the
+                      // user is staring at the toggle and needs the
+                      // word ("Active" / "Inactive" / pending state).
+                      let badgeLabel;
+                      let badgeClass;
+                      if (pendingToggle) {
+                        badgeLabel = pendingToggle.intended ? 'Activating' : 'Deactivating';
+                        badgeClass = pendingToggle.intended
+                          ? styles.stateBadgeActivating
+                          : styles.stateBadgeDeactivating;
+                      } else if (effectiveActive) {
+                        badgeLabel = 'Active';
+                        badgeClass = styles.stateBadgeActive;
+                      } else {
+                        badgeLabel = 'Inactive';
+                        badgeClass = styles.stateBadgeInactive;
+                      }
+                      return (
+                        <div className={styles.activeControl}>
+                          <span className={cn(styles.stateBadge, badgeClass)}>{badgeLabel}</span>
+                          <span className={styles.activeToggleWrap}>
+                            <Toggle
+                              checked={drone.active}
+                              onChange={toggleActive}
+                              disabled={togglePending || racingInProgress || roundStartRefreshing}
+                              className={styles.activeToggle}
+                            />
+                          </span>
+                        </div>
+                      );
+                    })()}
                 </div>
                 <div className={styles.droneLevel}>
-                  <span
-                    className={styles.metaLevel}
-                    style={{ color: getLevelColor(drone.level) }}
-                  >
+                  <span className={styles.metaLevel} style={{ color: getLevelColor(drone.level) }}>
                     LV {drone.level}
                   </span>
                   <span className={styles.metaSep}>|</span>
-                  {drone.owner?.walletAddress ? (
-                    /* Wallet-auth user: "Owner:" stays as plain meta text
-                       (matches the non-wallet branch below), only the
-                       truncated address itself is the clickable Blockscout
-                       link. */
-                    <span className={styles.metaOwner}>
-                      Owner:{' '}
-                      <a
-                        href={`https://megaeth-testnet-v2.blockscout.com/address/${drone.owner.walletAddress}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.ownerAddressLink}
-                        title={`Owner address ${drone.owner.walletAddress}`}
-                      >
-                        {drone.owner.walletAddress.slice(0, 6)}...
-                        {drone.owner.walletAddress.slice(-4)}
-                      </a>
-                    </span>
-                  ) : (
-                    <span className={styles.metaOwner}>
-                      Owner:{' '}
-                      {drone.owner?.username ? (
-                        !isOwner && drone.owner.id ? (
-                          <Link
-                            href={`/profile/${drone.owner.id}`}
-                            className={styles.ownerBadgePlayer}
-                          >
-                            {drone.owner.username}
-                          </Link>
-                        ) : isOwner ? (
-                          drone.owner.username
-                        ) : (
-                          <span className={styles.ownerBadgePlayer}>
-                            {drone.owner.username}
-                          </span>
-                        )
-                      ) : drone.isBot ? (
-                        <span className={styles.ownerBadgeBot}>Bot</span>
+                  <span className={styles.metaOwner}>
+                    Owner:{' '}
+                    {drone.owner?.username ? (
+                      !isOwner && drone.owner.id ? (
+                        <Link
+                          href={`/profile/${drone.owner.id}`}
+                          className={styles.ownerBadgePlayer}
+                        >
+                          {drone.owner.username}
+                        </Link>
+                      ) : isOwner ? (
+                        drone.owner.username
                       ) : (
-                        '-'
-                      )}
-                    </span>
-                  )}
+                        <span className={styles.ownerBadgePlayer}>{drone.owner.username}</span>
+                      )
+                    ) : drone.isBot ? (
+                      <span className={styles.ownerBadgeBot}>Bot</span>
+                    ) : (
+                      '-'
+                    )}
+                  </span>
                 </div>
               </div>
 
@@ -770,10 +695,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       {(() => {
                         const reversed = [...formInfo.dots].reverse();
                         const padCount = Math.max(0, 5 - reversed.length);
-                        const padded = [
-                          ...Array(padCount).fill(null),
-                          ...reversed,
-                        ];
+                        const padded = [...Array(padCount).fill(null), ...reversed];
                         return padded.map((won, i) => (
                           <span
                             key={i}
@@ -783,15 +705,9 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                                 ? styles.formDotEmpty
                                 : won
                                   ? styles.formDotWin
-                                  : styles.formDotLoss,
+                                  : styles.formDotLoss
                             )}
-                            aria-label={
-                              won === null
-                                ? 'No race yet'
-                                : won
-                                  ? 'Win'
-                                  : 'Loss'
-                            }
+                            aria-label={won === null ? 'No race yet' : won ? 'Win' : 'Loss'}
                           />
                         ));
                       })()}
@@ -800,9 +716,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       <span
                         className={cn(
                           styles.formStreak,
-                          formInfo.type === 'W'
-                            ? styles.formStreakWin
-                            : styles.formStreakLoss,
+                          formInfo.type === 'W' ? styles.formStreakWin : styles.formStreakLoss
                         )}
                       >
                         {formInfo.type}
@@ -814,21 +728,15 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   <div className={styles.statStrip}>
                     <div className={styles.statStripItem}>
                       <span className={styles.statStripLabel}>Total Races</span>
-                      <span className={styles.statStripValue}>
-                        {drone.totalRaces}
-                      </span>
+                      <span className={styles.statStripValue}>{drone.totalRaces}</span>
                     </div>
                     <div className={styles.statStripItem}>
                       <span className={styles.statStripLabel}>Wins</span>
-                      <span className={styles.statStripValue}>
-                        {drone.wins}
-                      </span>
+                      <span className={styles.statStripValue}>{drone.wins}</span>
                     </div>
                     <div className={styles.statStripItem}>
                       <span className={styles.statStripLabel}>Losses</span>
-                      <span className={styles.statStripValue}>
-                        {drone.losses}
-                      </span>
+                      <span className={styles.statStripValue}>{drone.losses}</span>
                     </div>
                     <div className={styles.statStripItem}>
                       <span className={styles.statStripLabel}>Win Rate</span>
@@ -836,20 +744,15 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                     </div>
                     <div className={styles.statStripItem}>
                       <span className={styles.statStripLabel}>ELO</span>
-                      <span className={styles.statStripValue}>
-                        {drone.eloRating}
-                      </span>
+                      <span className={styles.statStripValue}>{drone.eloRating}</span>
                     </div>
                     <div className={styles.statStripItem}>
-                      <span className={styles.statStripLabel}>
-                        Volts Invested
-                      </span>
+                      <span className={styles.statStripLabel}>Volts Invested</span>
                       <span className={styles.statStripValue}>
                         {drone.totalPointsInvested ?? 0}
                       </span>
                     </div>
                   </div>
-
                 </div>
               </div>
 
@@ -862,7 +765,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       className={cn(
                         styles.modSelector,
                         drone.appliedSkin?.rarity &&
-                          styles[`modSelector_${drone.appliedSkin.rarity}`],
+                          styles[`modSelector_${drone.appliedSkin.rarity}`]
                       )}
                       onClick={() => setShowSwapSkinList((v) => !v)}
                       disabled={
@@ -880,9 +783,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                         className={styles.skinSwatch}
                       />
                       <div className={styles.modCurrentText}>
-                        <span className={styles.modName}>
-                          {drone.appliedSkin?.name ?? 'None'}
-                        </span>
+                        <span className={styles.modName}>{drone.appliedSkin?.name ?? 'None'}</span>
                       </div>
                       {((isOwner && (drone.boundSkins?.length > 0 || unboundSkins.length > 0)) ||
                         (listing && drone.boundSkins?.length > 0)) && (
@@ -890,32 +791,21 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       )}
                     </button>
                     {showSwapSkinList &&
-                      (drone.boundSkins?.length > 0 ||
-                        (isOwner && unboundSkins.length > 0)) && (
+                      (drone.boundSkins?.length > 0 || (isOwner && unboundSkins.length > 0)) && (
                         <ul className={styles.modSwapList}>
                           {isOwner && (
                             <li>
                               <button
                                 type="button"
-                                className={cn(
-                                  styles.modSwapItem,
-                                  styles.modSwapItemBind,
-                                )}
+                                className={cn(styles.modSwapItem, styles.modSwapItemBind)}
                                 onClick={() => {
                                   setShowSwapSkinList(false);
                                   setShowSkinBindModal(true);
                                 }}
-                                disabled={
-                                  skinActionPending ||
-                                  unboundSkins.length === 0
-                                }
+                                disabled={skinActionPending || unboundSkins.length === 0}
                               >
-                                <span className={styles.modSwapName}>
-                                  + Bind New Skin
-                                </span>
-                                <span className={styles.modSwapCount}>
-                                  ({unboundSkins.length})
-                                </span>
+                                <span className={styles.modSwapName}>+ Bind New Skin</span>
+                                <span className={styles.modSwapCount}>({unboundSkins.length})</span>
                               </button>
                             </li>
                           )}
@@ -928,17 +818,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                                   setShowSwapSkinList(false);
                                   equipSkinFn(null);
                                 }}
-                                disabled={
-                                  skinActionPending ||
-                                  drone.appliedSkinId == null
-                                }
+                                disabled={skinActionPending || drone.appliedSkinId == null}
                               >
                                 <span className={styles.skinSwatch} aria-hidden="true" />
                                 <span className={styles.modSwapName}>None</span>
                                 {drone.appliedSkinId == null && (
-                                  <span className={styles.modSwapCurrent}>
-                                    current
-                                  </span>
+                                  <span className={styles.modSwapCurrent}>current</span>
                                 )}
                               </button>
                             </li>
@@ -955,7 +840,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                                   type="button"
                                   className={cn(
                                     styles.modSwapItem,
-                                    styles[`modSwapItem_${s.rarity}`],
+                                    styles[`modSwapItem_${s.rarity}`]
                                   )}
                                   onClick={() => {
                                     setShowSwapSkinList(false);
@@ -969,21 +854,17 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                                     alt={s.name}
                                     className={styles.modSwapIcon}
                                   />
-                                  <span className={styles.modSwapName}>
-                                    {s.name}
-                                  </span>
+                                  <span className={styles.modSwapName}>{s.name}</span>
                                   <span
                                     className={cn(
                                       styles.modSwapRarity,
-                                      styles[`modBindRarity_${s.rarity}`],
+                                      styles[`modBindRarity_${s.rarity}`]
                                     )}
                                   >
                                     {s.rarity}
                                   </span>
                                   {s.id === drone.appliedSkinId && (
-                                    <span className={styles.modSwapCurrent}>
-                                      current
-                                    </span>
+                                    <span className={styles.modSwapCurrent}>current</span>
                                   )}
                                 </button>
                               </li>
@@ -1000,14 +881,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       type="button"
                       className={cn(
                         styles.modSelector,
-                        drone.appliedMod?.rarity &&
-                          styles[`modSelector_${drone.appliedMod.rarity}`],
+                        drone.appliedMod?.rarity && styles[`modSelector_${drone.appliedMod.rarity}`]
                       )}
                       onClick={() => setShowSwapList((v) => !v)}
                       disabled={
                         modActionPending ||
-                        (!(drone.boundMods?.length > 0) &&
-                          !(isOwner && unboundMods.length > 0)) ||
+                        (!(drone.boundMods?.length > 0) && !(isOwner && unboundMods.length > 0)) ||
                         (!isOwner && !listing)
                       }
                       aria-expanded={showSwapList}
@@ -1018,9 +897,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                         className={styles.modSelectorIcon}
                       />
                       <div className={styles.modCurrentText}>
-                        <span className={styles.modName}>
-                          {drone.appliedMod?.name ?? 'None'}
-                        </span>
+                        <span className={styles.modName}>{drone.appliedMod?.name ?? 'None'}</span>
                         {drone.appliedMod?.description && (
                           <span className={styles.modDescription}>
                             {drone.appliedMod.description}
@@ -1033,31 +910,21 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                       )}
                     </button>
                     {showSwapList &&
-                      (drone.boundMods?.length > 0 ||
-                        (isOwner && unboundMods.length > 0)) && (
+                      (drone.boundMods?.length > 0 || (isOwner && unboundMods.length > 0)) && (
                         <ul className={styles.modSwapList}>
                           {isOwner && (
                             <li>
                               <button
                                 type="button"
-                                className={cn(
-                                  styles.modSwapItem,
-                                  styles.modSwapItemBind,
-                                )}
+                                className={cn(styles.modSwapItem, styles.modSwapItemBind)}
                                 onClick={() => {
                                   setShowSwapList(false);
                                   setShowModBindModal(true);
                                 }}
-                                disabled={
-                                  modActionPending || unboundMods.length === 0
-                                }
+                                disabled={modActionPending || unboundMods.length === 0}
                               >
-                                <span className={styles.modSwapName}>
-                                  + Bind New Mod
-                                </span>
-                                <span className={styles.modSwapCount}>
-                                  ({unboundMods.length})
-                                </span>
+                                <span className={styles.modSwapName}>+ Bind New Mod</span>
+                                <span className={styles.modSwapCount}>({unboundMods.length})</span>
                               </button>
                             </li>
                           )}
@@ -1070,10 +937,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                                   setShowSwapList(false);
                                   equipModFn(null);
                                 }}
-                                disabled={
-                                  modActionPending ||
-                                  drone.appliedModId == null
-                                }
+                                disabled={modActionPending || drone.appliedModId == null}
                               >
                                 <ModPlaceholder
                                   rarity="common"
@@ -1082,9 +946,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                                 />
                                 <span className={styles.modSwapName}>None</span>
                                 {drone.appliedModId == null && (
-                                  <span className={styles.modSwapCurrent}>
-                                    current
-                                  </span>
+                                  <span className={styles.modSwapCurrent}>current</span>
                                 )}
                               </button>
                             </li>
@@ -1101,7 +963,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                                   type="button"
                                   className={cn(
                                     styles.modSwapItem,
-                                    styles[`modSwapItem_${m.rarity}`],
+                                    styles[`modSwapItem_${m.rarity}`]
                                   )}
                                   onClick={() => {
                                     setShowSwapList(false);
@@ -1114,21 +976,17 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                                     size={20}
                                     className={styles.modSwapIcon}
                                   />
-                                  <span className={styles.modSwapName}>
-                                    {m.name}
-                                  </span>
+                                  <span className={styles.modSwapName}>{m.name}</span>
                                   <span
                                     className={cn(
                                       styles.modSwapRarity,
-                                      styles[`modBindRarity_${m.rarity}`],
+                                      styles[`modBindRarity_${m.rarity}`]
                                     )}
                                   >
                                     {m.rarity}
                                   </span>
                                   {m.id === drone.appliedModId && (
-                                    <span className={styles.modSwapCurrent}>
-                                      current
-                                    </span>
+                                    <span className={styles.modSwapCurrent}>current</span>
                                   )}
                                 </button>
                               </li>
@@ -1138,16 +996,13 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   </div>
                 </div>
               </div>
-
             </div>
           </Card>
 
           <div className={styles.rightStack}>
             <Card className={styles.rightPanel}>
               <div className={styles.statHeader}>
-                <h2 className={styles.sectionHeading}>
-                  {isOwner ? 'Stat Editor' : 'Stats'}
-                </h2>
+                <h2 className={styles.sectionHeading}>{isOwner ? 'Stat Editor' : 'Stats'}</h2>
                 {isOwner && (
                   <div className={styles.availablePoints}>
                     Available{' '}
@@ -1183,10 +1038,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
               {isOwner ? (
                 <div className={styles.actions}>
                   {currentSum >= tsb && (
-                    <Link
-                      href="/guide#drone-stats"
-                      className={styles.levelCapNote}
-                    >
+                    <Link href="/guide#drone-stats" className={styles.levelCapNote}>
                       Level cap reached
                     </Link>
                   )}
@@ -1212,10 +1064,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                 </div>
               ) : listing ? (
                 <div className={styles.actions}>
-                  <a
-                    href={`/marketplace?highlight=${listing.id}`}
-                    className={styles.buyButton}
-                  >
+                  <a href={`/marketplace?highlight=${listing.id}`} className={styles.buyButton}>
                     <ShoppingCart size={11} />
                     Buy{' '}
                     <span className={styles.buyPrice}>
@@ -1230,21 +1079,9 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
             <Card className={styles.perfSummaryCard}>
               <h2 className={styles.sectionHeading}>Performance Summary</h2>
               <div className={styles.raceProfileGrid}>
-                <RaceProfileColumn
-                  label="Optimal"
-                  items={performance.optimal}
-                  tone="optimal"
-                />
-                <RaceProfileColumn
-                  label="Moderate"
-                  items={performance.moderate}
-                  tone="moderate"
-                />
-                <RaceProfileColumn
-                  label="Poor"
-                  items={performance.poor}
-                  tone="poor"
-                />
+                <RaceProfileColumn label="Optimal" items={performance.optimal} tone="optimal" />
+                <RaceProfileColumn label="Moderate" items={performance.moderate} tone="moderate" />
+                <RaceProfileColumn label="Poor" items={performance.poor} tone="poor" />
               </div>
             </Card>
           </div>
@@ -1297,11 +1134,7 @@ function RaceHistoryTable({ rows }) {
         {
           key: 'id',
           label: 'Race ID',
-          render: (r) => (
-            <span className={styles.mono}>
-              {r.id.slice(-8).toUpperCase()}
-            </span>
-          ),
+          render: (r) => <span className={styles.mono}>{r.id.slice(-8).toUpperCase()}</span>,
         },
         {
           key: 'opponent',
@@ -1317,10 +1150,7 @@ function RaceHistoryTable({ rows }) {
           key: 'conditions',
           label: 'Conditions',
           render: (r) => (
-            <ConditionPillRow
-              weather={r.conditions?.weather}
-              timeOfDay={r.conditions?.timeOfDay}
-            />
+            <ConditionPillRow weather={r.conditions?.weather} timeOfDay={r.conditions?.timeOfDay} />
           ),
         },
         {
@@ -1328,9 +1158,7 @@ function RaceHistoryTable({ rows }) {
           label: 'Result',
           align: 'right',
           render: (r) => (
-            <span className={r.result === 'WIN' ? styles.win : styles.loss}>
-              {r.result}
-            </span>
+            <span className={r.result === 'WIN' ? styles.win : styles.loss}>{r.result}</span>
           ),
         },
         {
@@ -1352,11 +1180,7 @@ function RaceHistoryTable({ rows }) {
 function RaceProfileColumn({ label, items, tone }) {
   return (
     <div className={styles.raceProfileCol}>
-      <div
-        className={`${styles.raceProfileColLabel} ${styles[`tone-${tone}`]}`}
-      >
-        {label}
-      </div>
+      <div className={`${styles.raceProfileColLabel} ${styles[`tone-${tone}`]}`}>{label}</div>
       <div className={styles.raceProfileChips}>
         {items.length === 0 ? (
           <span className={styles.raceProfileEmpty}>-</span>
@@ -1364,10 +1188,7 @@ function RaceProfileColumn({ label, items, tone }) {
           items.map((name) => {
             const Icon = CONDITION_ICONS[name] ?? Cloud;
             return (
-              <span
-                key={name}
-                className={`${styles.raceProfileChip} ${styles[`chip-${tone}`]}`}
-              >
+              <span key={name} className={`${styles.raceProfileChip} ${styles[`chip-${tone}`]}`}>
                 <Icon size={11} aria-hidden="true" />
                 {name}
               </span>
@@ -1407,10 +1228,9 @@ function BindCollectibleModal({
   const sortedItems = useMemo(
     () =>
       [...(items ?? [])].sort(
-        (a, b) =>
-          (RARITY_RANK[b.rarity] ?? 0) - (RARITY_RANK[a.rarity] ?? 0),
+        (a, b) => (RARITY_RANK[b.rarity] ?? 0) - (RARITY_RANK[a.rarity] ?? 0)
       ),
-    [items],
+    [items]
   );
 
   useEffect(() => {
@@ -1421,8 +1241,7 @@ function BindCollectibleModal({
   // legendary, which always render) can't actually display on the drone.
   // Captain spec: keep the click active so the user gets explicit demo
   // feedback instead of a silent no-op or a confusing partial-state bind.
-  const isPlaceholderSkin = (item) =>
-    kind === 'skin' && !canEquipSkin(item, droneLevel);
+  const isPlaceholderSkin = (item) => kind === 'skin' && !canEquipSkin(item, droneLevel);
 
   const toggle = (id) => {
     const item = items.find((i) => i.id === id);
@@ -1451,9 +1270,7 @@ function BindCollectibleModal({
     }
   };
 
-  const title = kind === 'skin'
-    ? `Bind skins to ${droneName}`
-    : `Bind mods to ${droneName}`;
+  const title = kind === 'skin' ? `Bind skins to ${droneName}` : `Bind mods to ${droneName}`;
   const empty = !items || items.length === 0;
   const count = selected.size;
 
@@ -1473,9 +1290,8 @@ function BindCollectibleModal({
 
       <div className={styles.bindModal}>
         <p className={styles.bindWarning}>
-          Binding is permanent. Once bound, this {kind} cannot be moved to
-          another drone or sold separately. It transfers with this drone if
-          you sell it.
+          Binding is permanent. Once bound, this {kind} cannot be moved to another drone or sold
+          separately. It transfers with this drone if you sell it.
         </p>
 
         {empty ? (
@@ -1507,12 +1323,10 @@ function BindCollectibleModal({
                   type="button"
                   className={cn(
                     styles.bindCard,
-                    kind === 'skin'
-                      ? styles.bindCardSkinSize
-                      : styles.bindCardModSize,
+                    kind === 'skin' ? styles.bindCardSkinSize : styles.bindCardModSize,
                     styles[`bindCard_${item.rarity}`],
                     legendaryTheme && styles.bindCardLegendarySkin,
-                    isSelected && styles.bindCardSelected,
+                    isSelected && styles.bindCardSelected
                   )}
                   style={legendaryStyle}
                   onClick={() => toggle(item.id)}
@@ -1521,21 +1335,14 @@ function BindCollectibleModal({
                 >
                   <div className={styles.bindCardImage}>
                     {kind === 'skin' ? (
-                      <SkinThumb
-                        skin={item}
-                        rarity={item.rarity}
-                        alt={item.name}
-                      />
+                      <SkinThumb skin={item} rarity={item.rarity} alt={item.name} />
                     ) : (
                       <ModPlaceholder rarity={item.rarity} size={96} />
                     )}
                   </div>
                   <div className={styles.bindCardName}>{item.name}</div>
                   <div
-                    className={cn(
-                      styles.bindCardRarity,
-                      styles[`modBindRarity_${item.rarity}`],
-                    )}
+                    className={cn(styles.bindCardRarity, styles[`modBindRarity_${item.rarity}`])}
                   >
                     {item.rarity}
                   </div>
@@ -1563,12 +1370,7 @@ function BindCollectibleModal({
             .
           </span>
           <div className={styles.bindActions}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onClose}
-              disabled={working}
-            >
+            <Button variant="secondary" size="sm" onClick={onClose} disabled={working}>
               Cancel
             </Button>
             <Button

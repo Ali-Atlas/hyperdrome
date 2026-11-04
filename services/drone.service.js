@@ -3,14 +3,12 @@ import { db, schema } from '@/lib/db';
 import {
   validateStatAllocation,
   calculateTSB,
-  calculatePerStatCap,
   calculateXPToNextLevel,
   analyzeDronePerformance,
   STAT_KEYS,
 } from '@/lib/game-engine/economy.js';
 import { ApiError } from '@/lib/api/response.js';
 import { RACE_LIST_COLUMNS } from '@/services/race.service.js';
-import { burnVoltFromWallet } from '@/lib/onchain/volt.js';
 
 /** Hard cap on drone level. Levels beyond this are not awarded; XP can
  *  accumulate but the drone stays at level 20 with no further TSB or
@@ -82,8 +80,8 @@ export async function getDroneById(droneId) {
       .where(
         and(
           eq(races.status, 'completed'),
-          or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId)),
-        ),
+          or(eq(races.drone1Id, droneId), eq(races.drone2Id, droneId))
+        )
       )
       .orderBy(desc(races.createdAt))
       .limit(10),
@@ -126,11 +124,7 @@ export async function getDroneById(droneId) {
       ? {
           id: row.owner.id,
           username: row.owner.username,
-          // Lower-cased so explorer / Blockscout-style URLs are
-          // case-insensitive without an EIP-55 round-trip on the client.
-          walletAddress: row.owner.walletAddress
-            ? row.owner.walletAddress.toLowerCase()
-            : null,
+          nearAccountId: row.owner.nearAccountId,
         }
       : null,
     appliedSkin: row.skin,
@@ -195,11 +189,7 @@ const STAT_SNAKE_TO_CAMEL = {
  * @param {Record<string, number>} statChanges - snake_case keys from API
  */
 export async function allocateStats(droneId, userId, statChanges) {
-  const [drone] = await db
-    .select()
-    .from(drones)
-    .where(eq(drones.id, droneId))
-    .limit(1);
+  const [drone] = await db.select().from(drones).where(eq(drones.id, droneId)).limit(1);
 
   if (!drone) throw new ApiError('Drone not found', 404);
   if (drone.userId !== userId) {
@@ -220,42 +210,8 @@ export async function allocateStats(droneId, userId, statChanges) {
     throw new ApiError('Invalid stat allocation', 400, result.errors);
   }
 
-  // On-chain VOLT burn for wallet-linked users. Per Captain's spec the
-  // burn is the on-chain record of the upgrade; if it fails (e.g.
-  // insufficient on-chain VOLT) the upgrade is rejected outright. Users
-  // without a linked wallet fall back to DB-only points debit so the
-  // existing flow continues to work.
-  let upgradeTxHash = null;
-  const [walletRow] = await db
-    .select({ walletAddress: users.walletAddress })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  if (result.totalCost > 0 && walletRow?.walletAddress) {
-    try {
-      const burnResult = await burnVoltFromWallet(
-        walletRow.walletAddress,
-        result.totalCost,
-      );
-      upgradeTxHash = burnResult?.txHash ?? null;
-    } catch (err) {
-      console.error('[allocateStats] on-chain VOLT burn failed - upgrade rejected', {
-        droneId,
-        userId,
-        cost: result.totalCost,
-        err,
-      });
-      throw new ApiError(
-        'On-chain VOLT burn failed; upgrade rejected. Check your wallet balance and try again.',
-        402,
-        { reason: err?.shortMessage ?? err?.message ?? 'unknown' },
-      );
-    }
-  }
-
-  // Debit the player's DB-side points mirror. For wallet-linked users
-  // this shadows the on-chain burn; for unwallet users it's the only
-  // record. Intentionally does not touch drones.unspent_points.
+  // DB-only debit until T10 routes allocation through the contract (allocate_stats).
+  // Intentionally does not touch drones.unspent_points.
   if (result.totalCost > 0) {
     await db
       .update(users)
@@ -266,8 +222,7 @@ export async function allocateStats(droneId, userId, statChanges) {
   // Build the drone SET payload: only stat columns that changed, plus the
   // running total_points_invested counter for display/marketplace value.
   const dronePayload = {
-    totalPointsInvested:
-      (drone.totalPointsInvested ?? 0) + result.totalCost,
+    totalPointsInvested: (drone.totalPointsInvested ?? 0) + result.totalCost,
   };
   for (const [snake, value] of Object.entries(statChanges ?? {})) {
     const camel = STAT_SNAKE_TO_CAMEL[snake] ?? snake;
@@ -290,7 +245,7 @@ export async function allocateStats(droneId, userId, statChanges) {
   // backward-compatible - consumers that only read drone columns are
   // unaffected.
   const newBalance = Math.max(0, (user.points ?? 0) - result.totalCost);
-  return { ...updated, upgradeTxHash, balance: newBalance };
+  return { ...updated, balance: newBalance };
 }
 
 /**
@@ -301,11 +256,7 @@ export async function allocateStats(droneId, userId, statChanges) {
  * @param {boolean} active
  */
 export async function toggleActive(droneId, userId, active) {
-  const [drone] = await db
-    .select()
-    .from(drones)
-    .where(eq(drones.id, droneId))
-    .limit(1);
+  const [drone] = await db.select().from(drones).where(eq(drones.id, droneId)).limit(1);
 
   if (!drone) throw new ApiError('Drone not found', 404);
   if (drone.userId !== userId) {
@@ -363,11 +314,7 @@ export function getDronePerformanceSummary(droneStats) {
  * @returns {Promise<{ leveledUp: boolean, newLevel: number, newTSB: number, bonusPointsAwarded: number }>}
  */
 export async function checkAndLevelUp(droneId) {
-  const [drone] = await db
-    .select()
-    .from(drones)
-    .where(eq(drones.id, droneId))
-    .limit(1);
+  const [drone] = await db.select().from(drones).where(eq(drones.id, droneId)).limit(1);
 
   if (!drone) throw new ApiError('Drone not found', 404);
 

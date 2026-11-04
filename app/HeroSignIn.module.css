@@ -1,0 +1,39 @@
+/* Fixed top-right over the hero video (z-index above the overlay and the audio toggle). */
+.wrap {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.button {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 18px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--accent-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(8px);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.button:hover {
+  background: rgba(3, 218, 198, 0.15);
+  box-shadow: 0 0 14px rgba(3, 218, 198, 0.25);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}

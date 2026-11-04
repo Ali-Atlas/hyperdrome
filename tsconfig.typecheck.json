@@ -20,6 +20,16 @@
     "tests/**/*.js",
     "lib/near/**/*.js",
     "lib/game-engine/**/*.js",
-    "tests/near/**/*.js"
+    "tests/near/**/*.js",
+    "lib/http/**/*.js",
+    "lib/validators/player-slug.js",
+    "lib/auth/**/*.js",
+    "services/bootstrap.service.js",
+    "services/bootstrap-kit.js",
+    "services/demo.service.js",
+    "app/api/auth/bootstrap/**/*.js",
+    "app/api/auth/demo/**/*.js",
+    "lib/db/index.js",
+    "lib/db/schema.js"
   ]
 }

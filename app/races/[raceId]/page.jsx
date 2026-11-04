@@ -2,13 +2,7 @@
 
 import { use, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
-import {
-  Trophy,
-  Bot,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-} from 'lucide-react';
+import { Trophy, Bot, ChevronLeft, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -16,11 +10,7 @@ import DataTable from '@/components/ui/DataTable';
 import Skeleton from '@/components/ui/Skeleton';
 import StatRadar from '@/components/ui/StatRadar';
 import ConditionPill from '@/components/ui/ConditionPill';
-import {
-  cn,
-  getLevelColor,
-  getDifficultyColor,
-} from '@/lib/utils';
+import { cn, getLevelColor, getDifficultyColor } from '@/lib/utils';
 import { useSession } from '@/hooks/useSession';
 import { useToast } from '@/components/ui/Toast';
 import DroneImage from '@/components/ui/DroneImage';
@@ -47,22 +37,22 @@ const TRACKS_WITH_IMAGES = [
  *  Mirrored from app/tracks/page.jsx (kept in sync — if you rename a
  *  track or change a color, update both). */
 const TRACK_ACCENT_COLORS = {
-  'horizon-express':   '#00E676',
+  'horizon-express': '#00E676',
   'neon-straightaway': '#00E5FF',
-  'keyhole':           '#40C4FF',
-  'the-grid':          '#E0E0E0',
-  'meridian':          '#00BFA5',
-  'circuit-alpha':     '#FF9100',
-  'crossfire':         '#FF4081',
-  'iron-ribbon':       '#FF5252',
-  'skyline-drift':     '#D050FF',
-  'helix':             '#E040FB',
-  'switchblade':       '#18FFFF',
-  'phantom-circuit':   '#B0BEC5',
-  'voltage-loop':      '#FFD600',
-  'obsidian-maze':     '#FF6D00',
-  'apex-descent':      '#D50000',
-  'tempest-run':       '#FF1744',
+  keyhole: '#40C4FF',
+  'the-grid': '#E0E0E0',
+  meridian: '#00BFA5',
+  'circuit-alpha': '#FF9100',
+  crossfire: '#FF4081',
+  'iron-ribbon': '#FF5252',
+  'skyline-drift': '#D050FF',
+  helix: '#E040FB',
+  switchblade: '#18FFFF',
+  'phantom-circuit': '#B0BEC5',
+  'voltage-loop': '#FFD600',
+  'obsidian-maze': '#FF6D00',
+  'apex-descent': '#D50000',
+  'tempest-run': '#FF1744',
 };
 
 function trackSlugFromName(name) {
@@ -144,14 +134,7 @@ function computeWinnerGaps(log, winnerIsDrone1) {
  * context, and an optional final-lap-fade callout when the loser was
  * meaningfully slower in the final lap (>3% vs lap 1).
  */
-function generateCommentary(
-  log,
-  winnerIsDrone1,
-  winnerName,
-  loserName,
-  weather,
-  timeOfDay,
-) {
+function generateCommentary(log, winnerIsDrone1, winnerName, loserName, weather, timeOfDay) {
   if (!log || log.length === 0 || !winnerName) return null;
   const gaps = computeWinnerGaps(log, winnerIsDrone1);
 
@@ -213,8 +196,7 @@ function generateCommentary(
     const lapLast = log.filter((s) => s.lap === totalLaps);
     if (lap1.length > 0 && lapLast.length > 0) {
       const avg1 = lap1.reduce((a, s) => a + Number(s[loserKey]), 0) / lap1.length;
-      const avgLast =
-        lapLast.reduce((a, s) => a + Number(s[loserKey]), 0) / lapLast.length;
+      const avgLast = lapLast.reduce((a, s) => a + Number(s[loserKey]), 0) / lapLast.length;
       if (avg1 > 0 && (avgLast - avg1) / avg1 > 0.03) {
         result += ` ${loserName} faded in the final lap.`;
       }
@@ -405,20 +387,12 @@ export default function RaceDetailPage({ params }) {
   // below. Single canonical URL `/races/[id]` survives the lifecycle -
   // the page just swaps content as the race transitions.
   if (race.status === 'pending') {
-    return (
-      <RaceStrategyView
-        race={race}
-        upcomingList={upcomingList}
-        onSwapToRace={swapToRaceId}
-      />
-    );
+    return <RaceStrategyView race={race} upcomingList={upcomingList} onSwapToRace={swapToRaceId} />;
   }
 
   const winnerId = race.winnerDroneId;
-  const winnerDrone =
-    winnerId === race.drone1Id ? race.drone1 : race.drone2;
-  const loserDrone =
-    winnerId === race.drone1Id ? race.drone2 : race.drone1;
+  const winnerDrone = winnerId === race.drone1Id ? race.drone1 : race.drone2;
+  const loserDrone = winnerId === race.drone1Id ? race.drone2 : race.drone1;
 
   const margin =
     race.drone1Time != null && race.drone2Time != null
@@ -444,11 +418,7 @@ export default function RaceDetailPage({ params }) {
     return out;
   })();
   const maxGap = gaps.length > 0 ? Math.max(...gaps.map(Math.abs)) : null;
-  const commentary = generateCommentary(
-    race.raceLog,
-    winnerIsDrone1,
-    winnerDrone?.name,
-  );
+  const commentary = generateCommentary(race.raceLog, winnerIsDrone1, winnerDrone?.name);
 
   // Tracks now store difficulty as an absolute 1-10 rating, paired with
   // level brackets enforced at matchmaking time - no client-side scaling.
@@ -483,21 +453,7 @@ export default function RaceDetailPage({ params }) {
             <span className={styles.metaLabel}>RACE</span>
             <span className={styles.metaId}>{shortId(race.id)}</span>
             <span className={styles.metaDivider} aria-hidden="true" />
-            <span className={styles.metaTimestamp}>
-              {formatTimestamp(race.createdAt)}
-            </span>
-            {race.settleTxHash && (
-              <a
-                href={`https://megaeth-testnet-v2.blockscout.com/tx/${race.settleTxHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.settleLink}
-                title={`On-chain settlement tx ${race.settleTxHash}`}
-              >
-                <ExternalLink size={10} aria-hidden="true" />
-                View
-              </a>
-            )}
+            <span className={styles.metaTimestamp}>{formatTimestamp(race.createdAt)}</span>
           </div>
           {isComplete ? (
             /* Chronological prev/next across the user's COMPLETED races,
@@ -514,7 +470,7 @@ export default function RaceDetailPage({ params }) {
                 disabled={!adjacent.prevRaceId}
                 className={cn(
                   styles.raceNavArrow,
-                  !adjacent.prevRaceId && styles.raceNavArrowDisabled,
+                  !adjacent.prevRaceId && styles.raceNavArrowDisabled
                 )}
                 aria-label="Previous completed race"
               >
@@ -526,7 +482,7 @@ export default function RaceDetailPage({ params }) {
                 disabled={!adjacent.nextRaceId}
                 className={cn(
                   styles.raceNavArrow,
-                  !adjacent.nextRaceId && styles.raceNavArrowDisabled,
+                  !adjacent.nextRaceId && styles.raceNavArrowDisabled
                 )}
                 aria-label="Next completed race"
               >
@@ -545,25 +501,15 @@ export default function RaceDetailPage({ params }) {
         {winnerDrone && (
           <div className={styles.headlineBanner}>
             <div className={styles.headlineLeft}>
-              <Trophy
-                size={16}
-                className={styles.headlineTrophy}
-                aria-hidden="true"
-              />
+              <Trophy size={16} className={styles.headlineTrophy} aria-hidden="true" />
               <div className={styles.headlineTextGroup}>
                 <div className={styles.headlineTopLine}>
-                  <span className={styles.headlineWinner}>
-                    {winnerDrone.name}
-                  </span>
+                  <span className={styles.headlineWinner}>{winnerDrone.name}</span>
                   <span className={styles.headlineWinAction}>
-                    {margin != null
-                      ? `wins by ${margin.toFixed(2)}s`
-                      : 'wins'}
+                    {margin != null ? `wins by ${margin.toFixed(2)}s` : 'wins'}
                   </span>
                 </div>
-                {commentary && (
-                  <div className={styles.commentary}>{commentary}</div>
-                )}
+                {commentary && <div className={styles.commentary}>{commentary}</div>}
               </div>
             </div>
             <div className={styles.headlineRight}>
@@ -574,14 +520,10 @@ export default function RaceDetailPage({ params }) {
                 </span>
               )}
               {leadChanges > 0 && (
-                <span className={styles.conditionChip}>
-                  LEAD CHANGED {leadChanges}×
-                </span>
+                <span className={styles.conditionChip}>LEAD CHANGED {leadChanges}×</span>
               )}
               {maxGap != null && maxGap > 0 && (
-                <span className={styles.conditionChip}>
-                  MAX GAP {maxGap.toFixed(2)}s
-                </span>
+                <span className={styles.conditionChip}>MAX GAP {maxGap.toFixed(2)}s</span>
               )}
             </div>
           </div>
@@ -594,18 +536,18 @@ export default function RaceDetailPage({ params }) {
             {race.h2h.drone1Wins === race.h2h.drone2Wins ? (
               <>
                 <span className={styles.h2hDrone}>{race.drone1.name}</span> and{' '}
-                <span className={styles.h2hDrone}>{race.drone2.name}</span>{' '}
-                tied {race.h2h.drone1Wins}-{race.h2h.drone2Wins}
+                <span className={styles.h2hDrone}>{race.drone2.name}</span> tied{' '}
+                {race.h2h.drone1Wins}-{race.h2h.drone2Wins}
               </>
             ) : race.h2h.drone1Wins > race.h2h.drone2Wins ? (
               <>
-                <span className={styles.h2hDrone}>{race.drone1.name}</span>{' '}
-                leads {race.h2h.drone1Wins}-{race.h2h.drone2Wins}
+                <span className={styles.h2hDrone}>{race.drone1.name}</span> leads{' '}
+                {race.h2h.drone1Wins}-{race.h2h.drone2Wins}
               </>
             ) : (
               <>
-                <span className={styles.h2hDrone}>{race.drone2.name}</span>{' '}
-                leads {race.h2h.drone2Wins}-{race.h2h.drone1Wins}
+                <span className={styles.h2hDrone}>{race.drone2.name}</span> leads{' '}
+                {race.h2h.drone2Wins}-{race.h2h.drone1Wins}
               </>
             )}
           </div>
@@ -613,127 +555,111 @@ export default function RaceDetailPage({ params }) {
 
         <div className={styles.raceLayout}>
           <div className={styles.raceLeft}>
-          <div className={styles.drone1Slot}>
-            <DroneCard
-              drone={race.drone1}
-              isWinner={drone1IsWinner}
-              time={race.drone1Time}
-              eloBefore={race.drone1EloBefore}
-              eloChange={race.drone1EloChange}
-              viewerUserId={viewerUserId}
-              points={drone1Points}
-              xp={drone1Xp}
-            />
-          </div>
-          <div className={styles.drone2Slot}>
-            <DroneCard
-              drone={race.drone2}
-              isWinner={drone2IsWinner}
-              time={race.drone2Time}
-              eloBefore={race.drone2EloBefore}
-              eloChange={race.drone2EloChange}
-              viewerUserId={viewerUserId}
-              points={drone2Points}
-              xp={drone2Xp}
-            />
-          </div>
+            <div className={styles.drone1Slot}>
+              <DroneCard
+                drone={race.drone1}
+                isWinner={drone1IsWinner}
+                time={race.drone1Time}
+                eloBefore={race.drone1EloBefore}
+                eloChange={race.drone1EloChange}
+                viewerUserId={viewerUserId}
+                points={drone1Points}
+                xp={drone1Xp}
+              />
+            </div>
+            <div className={styles.drone2Slot}>
+              <DroneCard
+                drone={race.drone2}
+                isWinner={drone2IsWinner}
+                time={race.drone2Time}
+                eloBefore={race.drone2EloBefore}
+                eloChange={race.drone2EloChange}
+                viewerUserId={viewerUserId}
+                points={drone2Points}
+                xp={drone2Xp}
+              />
+            </div>
 
-          {/* Always render the gap card so the desktop grid keeps its
+            {/* Always render the gap card so the desktop grid keeps its
               gap | track row balanced. Empty state shows a dimmed line
               when the race log is too short to plot gaps (or missing
               entirely on legacy rows). */}
-          <Card className={styles.gapCard}>
-            <div className={styles.gapHeaderBar}>
-              <h2 className={styles.sectionHeading}>Lead Tracker</h2>
-              {winnerDrone?.name && (
-                <span className={styles.gapHeaderSub}>
-                  {winnerDrone.name}
-                </span>
-              )}
-            </div>
-            {gaps.length > 1 ? (
-              <div className={styles.sparklineWrap}>
-                <GapSparkline
-                  gaps={gaps}
-                  segmentTimes={segmentTimes}
-                  log={race.raceLog ?? []}
-                  drone1={race.drone1}
-                  drone2={race.drone2}
-                />
+            <Card className={styles.gapCard}>
+              <div className={styles.gapHeaderBar}>
+                <h2 className={styles.sectionHeading}>Lead Tracker</h2>
+                {winnerDrone?.name && (
+                  <span className={styles.gapHeaderSub}>{winnerDrone.name}</span>
+                )}
               </div>
-            ) : (
-              <div className={styles.gapEmpty}>Gap data unavailable</div>
-            )}
-          </Card>
-
-          <Card className={styles.trackCard}>
-            <div className={styles.trackHeaderRow}>
-              <h2 className={styles.sectionHeading}>
-                Track · {race.track?.name ?? 'Unknown track'}
-              </h2>
-              {race.isNewTrackRecord && (
-                <div className={styles.trackHeaderRight}>
-                  <span className={styles.trackRecordPill}>
-                    NEW TRACK RECORD
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className={styles.trackImage} aria-label="Track visualization">
-              {trackHasImage ? (
-                <img
-                  src={`/tracks/${trackSlug.replace(/-/g, '_')}.webp`}
-                  alt={race.track?.name ?? ''}
-                  className={styles.trackImg}
-                />
-              ) : (
-                <TrackPlaceholder
-                  trackName={race.track?.name ?? ''}
-                  accentColor={trackAccent}
-                />
-              )}
-            </div>
-            <div className={styles.trackBody}>
-              {(difficultyOutOfTen != null || race.track?.length) && (
-                <div className={styles.trackMetaRow}>
-                  {difficultyOutOfTen != null && (
-                    <TrackDifficultyDots value={difficultyOutOfTen} />
-                  )}
-                  <span className={styles.trackLengthMobileOnly}>
-                    <TrackStat
-                      label="Length"
-                      value={race.track?.length ?? '-'}
-                    />
-                  </span>
-                </div>
-              )}
-              <div className={styles.trackStatsRow}>
-                <TrackStat
-                  label="Straights"
-                  value={race.track?.straights ?? 0}
-                />
-                <TrackStatDivider />
-                <TrackStat label="Turns" value={race.track?.turns ?? 0} />
-                <TrackStatDivider />
-                <TrackStat label="Laps" value={race.track?.laps ?? 3} />
-                <span className={styles.trackLengthDesktopOnly}>
-                  <TrackStatDivider />
-                  <TrackStat
-                    label="Length"
-                    value={race.track?.length ?? '-'}
+              {gaps.length > 1 ? (
+                <div className={styles.sparklineWrap}>
+                  <GapSparkline
+                    gaps={gaps}
+                    segmentTimes={segmentTimes}
+                    log={race.raceLog ?? []}
+                    drone1={race.drone1}
+                    drone2={race.drone2}
                   />
-                </span>
-                <span className={styles.trackCondInlineMobile}>
+                </div>
+              ) : (
+                <div className={styles.gapEmpty}>Gap data unavailable</div>
+              )}
+            </Card>
+
+            <Card className={styles.trackCard}>
+              <div className={styles.trackHeaderRow}>
+                <h2 className={styles.sectionHeading}>
+                  Track · {race.track?.name ?? 'Unknown track'}
+                </h2>
+                {race.isNewTrackRecord && (
+                  <div className={styles.trackHeaderRight}>
+                    <span className={styles.trackRecordPill}>NEW TRACK RECORD</span>
+                  </div>
+                )}
+              </div>
+              <div className={styles.trackImage} aria-label="Track visualization">
+                {trackHasImage ? (
+                  <img
+                    src={`/tracks/${trackSlug.replace(/-/g, '_')}.webp`}
+                    alt={race.track?.name ?? ''}
+                    className={styles.trackImg}
+                  />
+                ) : (
+                  <TrackPlaceholder trackName={race.track?.name ?? ''} accentColor={trackAccent} />
+                )}
+              </div>
+              <div className={styles.trackBody}>
+                {(difficultyOutOfTen != null || race.track?.length) && (
+                  <div className={styles.trackMetaRow}>
+                    {difficultyOutOfTen != null && (
+                      <TrackDifficultyDots value={difficultyOutOfTen} />
+                    )}
+                    <span className={styles.trackLengthMobileOnly}>
+                      <TrackStat label="Length" value={race.track?.length ?? '-'} />
+                    </span>
+                  </div>
+                )}
+                <div className={styles.trackStatsRow}>
+                  <TrackStat label="Straights" value={race.track?.straights ?? 0} />
+                  <TrackStatDivider />
+                  <TrackStat label="Turns" value={race.track?.turns ?? 0} />
+                  <TrackStatDivider />
+                  <TrackStat label="Laps" value={race.track?.laps ?? 3} />
+                  <span className={styles.trackLengthDesktopOnly}>
+                    <TrackStatDivider />
+                    <TrackStat label="Length" value={race.track?.length ?? '-'} />
+                  </span>
+                  <span className={styles.trackCondInlineMobile}>
+                    <ConditionPill kind="weather" value={race.weather} />
+                    <ConditionPill kind="time" value={race.timeOfDay} />
+                  </span>
+                </div>
+                <div className={styles.trackConditionsRow}>
                   <ConditionPill kind="weather" value={race.weather} />
                   <ConditionPill kind="time" value={race.timeOfDay} />
-                </span>
+                </div>
               </div>
-              <div className={styles.trackConditionsRow}>
-                <ConditionPill kind="weather" value={race.weather} />
-                <ConditionPill kind="time" value={race.timeOfDay} />
-              </div>
-            </div>
-          </Card>
+            </Card>
           </div>
 
           <Card className={styles.logCard}>
@@ -747,24 +673,18 @@ export default function RaceDetailPage({ params }) {
                     key: 'segment',
                     label: '#',
                     align: 'right',
-                    render: (r) => (
-                      <span className={styles.logMono}>{r.segment}</span>
-                    ),
+                    render: (r) => <span className={styles.logMono}>{r.segment}</span>,
                   },
                   {
                     key: 'lap',
                     label: 'Lap',
                     align: 'right',
-                    render: (r) => (
-                      <span className={styles.logMono}>{r.lap ?? '-'}</span>
-                    ),
+                    render: (r) => <span className={styles.logMono}>{r.lap ?? '-'}</span>,
                   },
                   {
                     key: 'type',
                     label: 'Segment',
-                    render: (r) => (
-                      <span className={styles.logSegType}>{r.type}</span>
-                    ),
+                    render: (r) => <span className={styles.logSegType}>{r.type}</span>,
                   },
                   {
                     key: 'drone1Time',
@@ -773,9 +693,7 @@ export default function RaceDetailPage({ params }) {
                     align: 'left',
                     sortable: true,
                     render: (r) => (
-                      <span className={styles.logMono}>
-                        {Number(r.drone1Time).toFixed(2)}s
-                      </span>
+                      <span className={styles.logMono}>{Number(r.drone1Time).toFixed(2)}s</span>
                     ),
                   },
                   {
@@ -785,9 +703,7 @@ export default function RaceDetailPage({ params }) {
                     align: 'left',
                     sortable: true,
                     render: (r) => (
-                      <span className={styles.logMono}>
-                        {Number(r.drone2Time).toFixed(2)}s
-                      </span>
+                      <span className={styles.logMono}>{Number(r.drone2Time).toFixed(2)}s</span>
                     ),
                   },
                   {
@@ -797,11 +713,7 @@ export default function RaceDetailPage({ params }) {
                     render: (r) => {
                       const lead = r.drone1Time <= r.drone2Time ? 1 : 2;
                       return (
-                        <span
-                          className={
-                            lead === 1 ? styles.lead1 : styles.lead2
-                          }
-                        >
+                        <span className={lead === 1 ? styles.lead1 : styles.lead2}>
                           {lead === 1 ? '◀' : '▶'}
                         </span>
                       );
@@ -883,8 +795,7 @@ function GapSparkline({ gaps, segmentTimes, log, drone1, drone2 }) {
   const yMinPadded = yMin - pad;
   const yMaxPadded = yMax + pad;
   const rangePadded = yMaxPadded - yMinPadded;
-  const gapToY = (g) =>
-    padTop + ((yMaxPadded - g) / rangePadded) * usableH;
+  const gapToY = (g) => padTop + ((yMaxPadded - g) / rangePadded) * usableH;
 
   // X mapping: time-based when segmentTimes is supplied, so the curve
   // and the race-time tick labels along the bottom share the same axis.
@@ -895,9 +806,7 @@ function GapSparkline({ gaps, segmentTimes, log, drone1, drone2 }) {
     segmentTimes[segmentTimes.length - 1] > 0;
   const totalTime = hasTimes ? segmentTimes[segmentTimes.length - 1] : 0;
   const xs = gaps.map((_, i) =>
-    hasTimes
-      ? (segmentTimes[i] / totalTime) * W
-      : (i / (gaps.length - 1)) * W,
+    hasTimes ? (segmentTimes[i] / totalTime) * W : (i / (gaps.length - 1)) * W
   );
   const ys = gaps.map(gapToY);
   const baselineY = gapToY(0);
@@ -951,8 +860,7 @@ function GapSparkline({ gaps, segmentTimes, log, drone1, drone2 }) {
   const xLabels = (() => {
     if (!hasXAxis) return [];
     const niceIntervals = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300];
-    const interval =
-      niceIntervals.find((iv) => totalTime / iv <= 5) ?? 600;
+    const interval = niceIntervals.find((iv) => totalTime / iv <= 5) ?? 600;
     const ticks = [];
     for (let t = 0; t <= totalTime + 0.5; t += interval) {
       ticks.push(t);
@@ -992,11 +900,8 @@ function GapSparkline({ gaps, segmentTimes, log, drone1, drone2 }) {
   // raceLog at hoverIdx plus drone stats for the contextual reason.
   const hoverSeg = hoverIdx != null && log ? log[hoverIdx] : null;
   const hoverGap = hoverIdx != null ? gaps[hoverIdx] : null;
-  const hoverPrevGap =
-    hoverIdx != null && hoverIdx > 0 ? gaps[hoverIdx - 1] : null;
-  const hoverType = hoverSeg?.type
-    ? String(hoverSeg.type).toLowerCase()
-    : null;
+  const hoverPrevGap = hoverIdx != null && hoverIdx > 0 ? gaps[hoverIdx - 1] : null;
+  const hoverType = hoverSeg?.type ? String(hoverSeg.type).toLowerCase() : null;
   const hoverTypeLabel = hoverType
     ? hoverType.charAt(0).toUpperCase() + hoverType.slice(1)
     : 'Segment';
@@ -1095,9 +1000,10 @@ function GapSparkline({ gaps, segmentTimes, log, drone1, drone2 }) {
             ? { name: drone2Name, batt: drone2?.batteryCapacity }
             : null;
       if (fadingDrone) {
-        batteryNote = fadingDrone.batt != null
-          ? `${fadingDrone.name} slowing. Battery at ${fadingDrone.batt}.`
-          : `${fadingDrone.name} slowing.`;
+        batteryNote =
+          fadingDrone.batt != null
+            ? `${fadingDrone.name} slowing. Battery at ${fadingDrone.batt}.`
+            : `${fadingDrone.name} slowing.`;
       }
     }
   }
@@ -1107,8 +1013,7 @@ function GapSparkline({ gaps, segmentTimes, log, drone1, drone2 }) {
   // edge near the end of the race (and the left edge near the start).
   // Switch to right-edge / left-edge anchoring when the cursor is in
   // the outer thirds so the tooltip stays inside the chart bounds.
-  const hoverPctRaw =
-    hoverIdx != null ? (xs[hoverIdx] / W) * 100 : 0;
+  const hoverPctRaw = hoverIdx != null ? (xs[hoverIdx] / W) * 100 : 0;
   const hoverPct = Math.max(0, Math.min(100, hoverPctRaw));
   const tooltipTransform =
     hoverPctRaw < 25
@@ -1119,165 +1024,134 @@ function GapSparkline({ gaps, segmentTimes, log, drone1, drone2 }) {
 
   return (
     <div className={styles.sparklineFigure}>
-    <div className={styles.sparklineChart}>
-      <div className={styles.sparklineYAxis} aria-hidden="true">
-        {yMax > 0 && (
-          <span
-            className={styles.sparklineYAxisLabel}
-            style={{ top: yLabelPct(gapToY(yMax)) }}
-          >
-            {formatGapSeconds(yMax)}
+      <div className={styles.sparklineChart}>
+        <div className={styles.sparklineYAxis} aria-hidden="true">
+          {yMax > 0 && (
+            <span className={styles.sparklineYAxisLabel} style={{ top: yLabelPct(gapToY(yMax)) }}>
+              {formatGapSeconds(yMax)}
+            </span>
+          )}
+          <span className={styles.sparklineYAxisLabel} style={{ top: yLabelPct(baselineY) }}>
+            0s
           </span>
-        )}
-        <span
-          className={styles.sparklineYAxisLabel}
-          style={{ top: yLabelPct(baselineY) }}
+          {yMin < 0 && (
+            <span className={styles.sparklineYAxisLabel} style={{ top: yLabelPct(gapToY(yMin)) }}>
+              {formatGapSeconds(yMin)}
+            </span>
+          )}
+        </div>
+        <div
+          ref={wrapRef}
+          className={styles.sparklineSvgWrap}
+          onMouseMove={handleHoverMove}
+          onMouseLeave={handleHoverLeave}
         >
-          0s
-        </span>
-        {yMin < 0 && (
-          <span
-            className={styles.sparklineYAxisLabel}
-            style={{ top: yLabelPct(gapToY(yMin)) }}
+          <svg
+            className={styles.sparkline}
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
           >
-            {formatGapSeconds(yMin)}
-          </span>
-        )}
-      </div>
-      <div
-        ref={wrapRef}
-        className={styles.sparklineSvgWrap}
-        onMouseMove={handleHoverMove}
-        onMouseLeave={handleHoverLeave}
-      >
-      <svg
-        className={styles.sparkline}
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient
-            id={gradPosId}
-            x1="0"
-            y1={padTop}
-            x2="0"
-            y2={baselineY}
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop
-              offset="0%"
-              style={{ stopColor: 'var(--accent-primary)', stopOpacity: 0.55 }}
-            />
-            <stop
-              offset="100%"
-              style={{ stopColor: 'var(--accent-primary)', stopOpacity: 0 }}
-            />
-          </linearGradient>
-          <linearGradient
-            id={gradNegId}
-            x1="0"
-            y1={baselineY}
-            x2="0"
-            y2={H - padBottom}
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop
-              offset="0%"
-              style={{ stopColor: 'var(--accent-error)', stopOpacity: 0 }}
-            />
-            <stop
-              offset="100%"
-              style={{ stopColor: 'var(--accent-error)', stopOpacity: 0.55 }}
-            />
-          </linearGradient>
-          {/* Clip rectangles split the curve at the zero line so each
+            <defs>
+              <linearGradient
+                id={gradPosId}
+                x1="0"
+                y1={padTop}
+                x2="0"
+                y2={baselineY}
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop
+                  offset="0%"
+                  style={{ stopColor: 'var(--accent-primary)', stopOpacity: 0.55 }}
+                />
+                <stop
+                  offset="100%"
+                  style={{ stopColor: 'var(--accent-primary)', stopOpacity: 0 }}
+                />
+              </linearGradient>
+              <linearGradient
+                id={gradNegId}
+                x1="0"
+                y1={baselineY}
+                x2="0"
+                y2={H - padBottom}
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop offset="0%" style={{ stopColor: 'var(--accent-error)', stopOpacity: 0 }} />
+                <stop
+                  offset="100%"
+                  style={{ stopColor: 'var(--accent-error)', stopOpacity: 0.55 }}
+                />
+              </linearGradient>
+              {/* Clip rectangles split the curve at the zero line so each
               half of the line takes the matching fill's stroke color
               (accent above zero, error below). */}
-          <clipPath id={clipPosId}>
-            <rect x="0" y="0" width={W} height={baselineY} />
-          </clipPath>
-          <clipPath id={clipNegId}>
-            <rect x="0" y={baselineY} width={W} height={H - baselineY} />
-          </clipPath>
-        </defs>
-        <path d={posAreaPath} fill={`url(#${gradPosId})`} />
-        <path d={negAreaPath} fill={`url(#${gradNegId})`} />
-        <line
-          x1="0"
-          y1={baselineY}
-          x2={W}
-          y2={baselineY}
-          className={styles.sparklineZero}
-        />
-        <path
-          d={linePath}
-          clipPath={`url(#${clipPosId})`}
-          className={styles.sparklineLine}
-        />
-        <path
-          d={linePath}
-          clipPath={`url(#${clipNegId})`}
-          className={cn(styles.sparklineLine, styles.sparklineLineNeg)}
-        />
-        {hoverIdx != null && (
-          <line
-            x1={xs[hoverIdx]}
-            y1={padTop}
-            x2={xs[hoverIdx]}
-            y2={H - padBottom}
-            className={styles.sparklineCrosshair}
-          />
-        )}
-      </svg>
-      {hoverIdx != null && hoverSeg && (
-        <div
-          className={styles.sparklineTooltip}
-          style={{ left: `${hoverPct}%`, transform: tooltipTransform }}
-        >
-          <div className={styles.sparklineTooltipHead}>
-            Lap {hoverSeg.lap ?? '-'}
-            {hoverTypeLabel ? `, ${hoverTypeLabel} ${segInLap}` : ''}
-          </div>
-          <div className={styles.sparklineTooltipRow}>
-            <span className={styles.sparklineTooltipDrone}>
-              {drone1Name}
-            </span>
-            <span className={styles.sparklineTooltipTime}>
-              {Number(hoverSeg.drone1Time ?? 0).toFixed(2)}s
-            </span>
-          </div>
-          <div className={styles.sparklineTooltipRow}>
-            <span className={styles.sparklineTooltipDrone}>
-              {drone2Name}
-            </span>
-            <span className={styles.sparklineTooltipTime}>
-              {Number(hoverSeg.drone2Time ?? 0).toFixed(2)}s
-            </span>
-          </div>
-          {reasonLine && (
+              <clipPath id={clipPosId}>
+                <rect x="0" y="0" width={W} height={baselineY} />
+              </clipPath>
+              <clipPath id={clipNegId}>
+                <rect x="0" y={baselineY} width={W} height={H - baselineY} />
+              </clipPath>
+            </defs>
+            <path d={posAreaPath} fill={`url(#${gradPosId})`} />
+            <path d={negAreaPath} fill={`url(#${gradNegId})`} />
+            <line x1="0" y1={baselineY} x2={W} y2={baselineY} className={styles.sparklineZero} />
+            <path d={linePath} clipPath={`url(#${clipPosId})`} className={styles.sparklineLine} />
+            <path
+              d={linePath}
+              clipPath={`url(#${clipNegId})`}
+              className={cn(styles.sparklineLine, styles.sparklineLineNeg)}
+            />
+            {hoverIdx != null && (
+              <line
+                x1={xs[hoverIdx]}
+                y1={padTop}
+                x2={xs[hoverIdx]}
+                y2={H - padBottom}
+                className={styles.sparklineCrosshair}
+              />
+            )}
+          </svg>
+          {hoverIdx != null && hoverSeg && (
             <div
-              className={cn(
-                styles.sparklineTooltipReason,
-                reasonIsLeadChange &&
-                  styles.sparklineTooltipReasonLeadChange,
-              )}
+              className={styles.sparklineTooltip}
+              style={{ left: `${hoverPct}%`, transform: tooltipTransform }}
             >
-              {reasonLine}
-            </div>
-          )}
-          <div className={styles.sparklineTooltipGap}>
-            Cumulative {formatGapSeconds(hoverGap ?? 0)}
-          </div>
-          {batteryNote && (
-            <div className={styles.sparklineTooltipNote}>
-              {batteryNote}
+              <div className={styles.sparklineTooltipHead}>
+                Lap {hoverSeg.lap ?? '-'}
+                {hoverTypeLabel ? `, ${hoverTypeLabel} ${segInLap}` : ''}
+              </div>
+              <div className={styles.sparklineTooltipRow}>
+                <span className={styles.sparklineTooltipDrone}>{drone1Name}</span>
+                <span className={styles.sparklineTooltipTime}>
+                  {Number(hoverSeg.drone1Time ?? 0).toFixed(2)}s
+                </span>
+              </div>
+              <div className={styles.sparklineTooltipRow}>
+                <span className={styles.sparklineTooltipDrone}>{drone2Name}</span>
+                <span className={styles.sparklineTooltipTime}>
+                  {Number(hoverSeg.drone2Time ?? 0).toFixed(2)}s
+                </span>
+              </div>
+              {reasonLine && (
+                <div
+                  className={cn(
+                    styles.sparklineTooltipReason,
+                    reasonIsLeadChange && styles.sparklineTooltipReasonLeadChange
+                  )}
+                >
+                  {reasonLine}
+                </div>
+              )}
+              <div className={styles.sparklineTooltipGap}>
+                Cumulative {formatGapSeconds(hoverGap ?? 0)}
+              </div>
+              {batteryNote && <div className={styles.sparklineTooltipNote}>{batteryNote}</div>}
             </div>
           )}
         </div>
-      )}
       </div>
-    </div>
       {hasXAxis && xLabels.length > 0 && (
         <div className={styles.sparklineXAxis} aria-hidden="true">
           <div className={styles.sparklineXAxisInner}>
@@ -1287,14 +1161,10 @@ function GapSparkline({ gaps, segmentTimes, log, drone1, drone2 }) {
               const style = isFirst
                 ? { left: 0 }
                 : isLast
-                ? { right: 0 }
-                : { left: `${l.pct}%`, transform: 'translateX(-50%)' };
+                  ? { right: 0 }
+                  : { left: `${l.pct}%`, transform: 'translateX(-50%)' };
               return (
-                <span
-                  key={l.time}
-                  className={styles.sparklineXAxisLabel}
-                  style={style}
-                >
+                <span key={l.time} className={styles.sparklineXAxisLabel} style={style}>
                   {l.text}
                 </span>
               );
@@ -1331,10 +1201,7 @@ function TrackDifficultyDots({ value }) {
       <span className={styles.trackMetaLabel}>Difficulty</span>
       <span className={styles.trackDotsTrack} aria-hidden="true">
         {Array.from({ length: 10 }).map((_, i) => (
-          <span
-            key={i}
-            className={cn(styles.trackDot, i < v && styles.trackDotOn)}
-          />
+          <span key={i} className={cn(styles.trackDot, i < v && styles.trackDotOn)} />
         ))}
       </span>
       <span className={styles.trackMetaScore}>{v}/10</span>
@@ -1342,16 +1209,7 @@ function TrackDifficultyDots({ value }) {
   );
 }
 
-function DroneCard({
-  drone,
-  isWinner,
-  time,
-  eloBefore,
-  eloChange,
-  viewerUserId,
-  points,
-  xp,
-}) {
+function DroneCard({ drone, isWinner, time, eloBefore, eloChange, viewerUserId, points, xp }) {
   if (!drone) {
     return (
       <Card className={styles.droneCard}>
@@ -1365,9 +1223,7 @@ function DroneCard({
   // accuracy; fall back to the drone's live rating when the race row
   // predates the ELO-snapshot columns.
   const eloDisplay =
-    eloBefore != null && eloChange != null
-      ? eloBefore + eloChange
-      : drone.eloRating;
+    eloBefore != null && eloChange != null ? eloBefore + eloChange : drone.eloRating;
   const hasChange = eloChange != null && eloChange !== 0;
   const changeSign = eloChange != null && eloChange > 0 ? '+' : '';
 
@@ -1375,49 +1231,33 @@ function DroneCard({
   // human player, "Bot" for matchmaker bots. Falls back to "Player" when
   // the username join didn't populate (defensive - shouldn't happen for
   // human-owned drones since getRaceById joins it).
-  const isViewerDrone = !!(
-    viewerUserId && drone.userId && drone.userId === viewerUserId
-  );
+  const isViewerDrone = !!(viewerUserId && drone.userId && drone.userId === viewerUserId);
   const ownerLabel = drone.isBot
     ? 'Bot'
     : drone.userId == null
       ? 'Bot'
-      : drone.owner?.username ?? 'Player';
+      : (drone.owner?.username ?? 'Player');
 
   return (
     <Link href={`/drones/${drone.id}`} className={styles.droneLink}>
       <Card className={styles.droneCard}>
-        <h2 className={styles.sectionHeading}>
-          {isWinner ? 'Winner' : 'Challenger'}
-        </h2>
+        <h2 className={styles.sectionHeading}>{isWinner ? 'Winner' : 'Challenger'}</h2>
 
         <div className={styles.droneImageFrame}>
-          {isViewerDrone && (
-            <span className={styles.droneOwnerYouBadge}>YOU</span>
-          )}
-          <DroneImage
-            drone={drone}
-            alt={drone.name}
-            className={styles.droneImg}
-          />
+          {isViewerDrone && <span className={styles.droneOwnerYouBadge}>YOU</span>}
+          <DroneImage drone={drone} alt={drone.name} className={styles.droneImg} />
         </div>
 
         <div className={styles.droneCardBody}>
           <div className={styles.droneHead}>
             <h3 className={styles.droneName}>{drone.name}</h3>
-            <Badge
-              variant="level"
-              value={drone.level}
-              className={styles.droneLevelBadge}
-            />
+            <Badge variant="level" value={drone.level} className={styles.droneLevelBadge} />
           </div>
           {/* Owner row always renders so both cards have identical
               vertical structure. For the viewer's own drone the line
               is an invisible placeholder (NBSP) - the YOU badge in
               the image-frame corner already flags ownership. */}
-          <div className={styles.droneOwner}>
-            {isViewerDrone ? ' ' : <>Owner: {ownerLabel}</>}
-          </div>
+          <div className={styles.droneOwner}>{isViewerDrone ? ' ' : <>Owner: {ownerLabel}</>}</div>
           <div className={styles.droneMeta}>
             <div className={styles.droneMetaSide}>
               <div className={styles.droneMetaItem}>
@@ -1428,10 +1268,11 @@ function DroneCard({
                     <span
                       className={cn(
                         styles.eloDelta,
-                        eloChange > 0 ? styles.eloDeltaUp : styles.eloDeltaDown,
+                        eloChange > 0 ? styles.eloDeltaUp : styles.eloDeltaDown
                       )}
                     >
-                      {' '}({changeSign}
+                      {' '}
+                      ({changeSign}
                       {eloChange})
                     </span>
                   )}
@@ -1467,35 +1308,22 @@ function DroneCard({
           {/* Mod row always renders so two drone cards keep matching
               heights even when one drone races without a mod. The
               empty state shows a dimmed placeholder + label. */}
-          <div className={cn(
-            styles.droneModRow,
-            !drone.appliedMod && styles.droneModRowEmpty,
-          )}>
+          <div className={cn(styles.droneModRow, !drone.appliedMod && styles.droneModRowEmpty)}>
             {drone.appliedMod ? (
               <>
                 <ModPlaceholder rarity={drone.appliedMod.rarity} size={24} />
                 <div className={styles.droneModText}>
-                  <span className={styles.droneModName}>
-                    {drone.appliedMod.name}
-                  </span>
+                  <span className={styles.droneModName}>{drone.appliedMod.name}</span>
                   {drone.appliedMod.description && (
-                    <span className={styles.droneModEffect}>
-                      {drone.appliedMod.description}
-                    </span>
+                    <span className={styles.droneModEffect}>{drone.appliedMod.description}</span>
                   )}
                 </div>
               </>
             ) : (
               <>
-                <ModPlaceholder
-                  rarity="common"
-                  size={24}
-                  className={styles.droneModEmptyIcon}
-                />
+                <ModPlaceholder rarity="common" size={24} className={styles.droneModEmptyIcon} />
                 <div className={styles.droneModText}>
-                  <span className={styles.droneModEmptyText}>
-                    No mod equipped
-                  </span>
+                  <span className={styles.droneModEmptyText}>No mod equipped</span>
                 </div>
               </>
             )}
@@ -1541,8 +1369,8 @@ function RaceStrategyView({ race, upcomingList, onSwapToRace }) {
         ids.map((id) =>
           fetch(`/api/drones/${id}/full`)
             .then((r) => (r.ok ? r.json() : null))
-            .catch(() => null),
-        ),
+            .catch(() => null)
+        )
       );
       if (cancelled) return;
       setDetails({
@@ -1584,12 +1412,10 @@ function RaceStrategyView({ race, upcomingList, onSwapToRace }) {
   const upcomingIndex = upcomingList.findIndex((r) => r.id === race.id);
   const canCycle = upcomingIndex >= 0 && upcomingList.length > 1;
   const prevRaceId = canCycle
-    ? upcomingList[
-        (upcomingIndex - 1 + upcomingList.length) % upcomingList.length
-      ]?.id ?? null
+    ? (upcomingList[(upcomingIndex - 1 + upcomingList.length) % upcomingList.length]?.id ?? null)
     : null;
   const nextRaceId = canCycle
-    ? upcomingList[(upcomingIndex + 1) % upcomingList.length]?.id ?? null
+    ? (upcomingList[(upcomingIndex + 1) % upcomingList.length]?.id ?? null)
     : null;
 
   return (
@@ -1622,10 +1448,7 @@ function RaceStrategyView({ race, upcomingList, onSwapToRace }) {
         </div>
         <div className={styles.raceBottomGrid}>
           <RaceTrackCard race={race} />
-          <RaceEdgeCard
-            leftDrone={leftDrone}
-            rightDrone={rightDrone}
-          />
+          <RaceEdgeCard leftDrone={leftDrone} rightDrone={rightDrone} />
         </div>
       </div>
     </NavShell>
@@ -1650,11 +1473,7 @@ function StatusBar({ scheduledAt }) {
   }, [scheduledAt]);
 
   if (remaining <= 0) {
-    return (
-      <div className={cn(styles.statusBar, styles.statusBarLive)}>
-        RACE IN PROGRESS
-      </div>
-    );
+    return <div className={cn(styles.statusBar, styles.statusBarLive)}>RACE IN PROGRESS</div>;
   }
 
   const total = Math.floor(remaining / 1000);
@@ -1673,23 +1492,13 @@ function StatusBar({ scheduledAt }) {
  *  --accent-primary, the opponent in --text-secondary, and a spectated
  *  bot-vs-bot race renders both drones in --text-primary (no accent
  *  anywhere). Names + ELO + WR + H2H all follow the same per-drone class. */
-function H2HStrip({
-  race,
-  drone1,
-  drone2,
-  viewerUserId,
-  prevRaceId,
-  nextRaceId,
-  onNavigate,
-}) {
+function H2HStrip({ race, drone1, drone2, viewerUserId, prevRaceId, nextRaceId, onNavigate }) {
   if (!drone1 || !drone2) return null;
 
   const elo1 = drone1.eloRating ?? 0;
   const elo2 = drone2.eloRating ?? 0;
-  const wrPct1 =
-    drone1.totalRaces > 0 ? (drone1.wins ?? 0) / drone1.totalRaces : null;
-  const wrPct2 =
-    drone2.totalRaces > 0 ? (drone2.wins ?? 0) / drone2.totalRaces : null;
+  const wrPct1 = drone1.totalRaces > 0 ? (drone1.wins ?? 0) / drone1.totalRaces : null;
+  const wrPct2 = drone2.totalRaces > 0 ? (drone2.wins ?? 0) / drone2.totalRaces : null;
   const wr1 = wrPct1 != null ? `${Math.round(wrPct1 * 100)}%` : '-';
   const wr2 = wrPct2 != null ? `${Math.round(wrPct2 * 100)}%` : '-';
 
@@ -1698,11 +1507,7 @@ function H2HStrip({
   const isSpectating = !userIsDrone1 && !userIsDrone2;
 
   const ownerClass = (isUser) =>
-    isSpectating
-      ? styles.h2hValueNeutral
-      : isUser
-        ? styles.h2hValueHigh
-        : styles.h2hValueLow;
+    isSpectating ? styles.h2hValueNeutral : isUser ? styles.h2hValueHigh : styles.h2hValueLow;
   const ownerClass1 = ownerClass(userIsDrone1);
   const ownerClass2 = ownerClass(userIsDrone2);
 
@@ -1715,7 +1520,7 @@ function H2HStrip({
         className={cn(
           styles.h2hNavArrow,
           styles.h2hNavArrowPrev,
-          !prevRaceId && styles.h2hNavArrowDisabled,
+          !prevRaceId && styles.h2hNavArrowDisabled
         )}
         aria-label="Previous upcoming matchup"
       >
@@ -1754,7 +1559,9 @@ function H2HStrip({
         </span>
       </span>
       <span className={styles.h2hSep} aria-hidden="true" />
-      <span className={styles.h2hVs} aria-hidden="true">vs</span>
+      <span className={styles.h2hVs} aria-hidden="true">
+        vs
+      </span>
       <span className={cn(styles.h2hName, ownerClass2)}>{drone2.name}</span>
       <button
         type="button"
@@ -1763,7 +1570,7 @@ function H2HStrip({
         className={cn(
           styles.h2hNavArrow,
           styles.h2hNavArrowNext,
-          !nextRaceId && styles.h2hNavArrowDisabled,
+          !nextRaceId && styles.h2hNavArrowDisabled
         )}
         aria-label="Next upcoming matchup"
       >
@@ -1816,9 +1623,7 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId, slotLabel }
   })();
 
   const winRate =
-    drone.totalRaces > 0
-      ? `${Math.round(((drone.wins ?? 0) / drone.totalRaces) * 100)}%`
-      : '-';
+    drone.totalRaces > 0 ? `${Math.round(((drone.wins ?? 0) / drone.totalRaces) * 100)}%` : '-';
 
   // Owner badge: BOT for bots, YOU for the viewer's own drone, or the
   // owner's username for any other player.
@@ -1827,17 +1632,12 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId, slotLabel }
 
   return (
     <Link href={`/drones/${drone.id}`} className={styles.matchupCard}>
-      {slotLabel && (
-        <h2 className={styles.sectionHeading}>{slotLabel}</h2>
-      )}
+      {slotLabel && <h2 className={styles.sectionHeading}>{slotLabel}</h2>}
       <div className={styles.matchupContent}>
         <div className={styles.matchupHeader}>
           <h3 className={styles.matchupName}>{drone.name}</h3>
           <div className={styles.matchupHeaderMeta}>
-            <span
-              className={styles.matchupLevel}
-              style={{ color: getLevelColor(drone.level) }}
-            >
+            <span className={styles.matchupLevel} style={{ color: getLevelColor(drone.level) }}>
               LV {drone.level}
             </span>
             {drone.isBot ? (
@@ -1853,95 +1653,85 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId, slotLabel }
         </div>
 
         <div className={styles.matchupImageFrame}>
-        <DroneImage
-          drone={drone}
-          alt={drone.name}
-          className={styles.matchupImg}
-        />
-      </div>
-
-      <div className={styles.matchupSplit}>
-        <div className={styles.matchupRadarCol}>
-          <StatRadar
-            axes={STAT_KEYS}
-            stats={radarStats}
-            compareStats={compareStats}
-            labels={radarLabels}
-            maxValue={radarMax}
-            className={styles.matchupRadar}
-            tone={drone.isBot ? 'bot' : isViewerDrone ? 'own' : 'other'}
-          />
+          <DroneImage drone={drone} alt={drone.name} className={styles.matchupImg} />
         </div>
 
-        <div className={styles.matchupMetaCol}>
-          <div className={styles.matchupFormStrip}>
-            <span className={styles.matchupFormLabel}>Form</span>
-            <div className={styles.matchupFormDots}>
-              {dots.length > 0 ? (
-                // Reversed for display: oldest on the left, newest on
-                // the right. Streak detection above still reads
-                // `dots[0]` (newest) - we only flip the visual order.
-                [...dots].reverse().map((won, i) => (
-                  <span
-                    key={i}
-                    className={cn(
-                      styles.matchupFormDot,
-                      won
-                        ? styles.matchupFormDotWin
-                        : styles.matchupFormDotLoss,
-                    )}
-                    aria-label={won ? 'Win' : 'Loss'}
-                  />
-                ))
-              ) : (
-                <span className={styles.matchupFormEmpty}>-</span>
+        <div className={styles.matchupSplit}>
+          <div className={styles.matchupRadarCol}>
+            <StatRadar
+              axes={STAT_KEYS}
+              stats={radarStats}
+              compareStats={compareStats}
+              labels={radarLabels}
+              maxValue={radarMax}
+              className={styles.matchupRadar}
+              tone={drone.isBot ? 'bot' : isViewerDrone ? 'own' : 'other'}
+            />
+          </div>
+
+          <div className={styles.matchupMetaCol}>
+            <div className={styles.matchupFormStrip}>
+              <span className={styles.matchupFormLabel}>Form</span>
+              <div className={styles.matchupFormDots}>
+                {dots.length > 0 ? (
+                  // Reversed for display: oldest on the left, newest on
+                  // the right. Streak detection above still reads
+                  // `dots[0]` (newest) - we only flip the visual order.
+                  [...dots]
+                    .reverse()
+                    .map((won, i) => (
+                      <span
+                        key={i}
+                        className={cn(
+                          styles.matchupFormDot,
+                          won ? styles.matchupFormDotWin : styles.matchupFormDotLoss
+                        )}
+                        aria-label={won ? 'Win' : 'Loss'}
+                      />
+                    ))
+                ) : (
+                  <span className={styles.matchupFormEmpty}>-</span>
+                )}
+              </div>
+              {streakInfo.type && (
+                <span
+                  className={cn(
+                    styles.matchupFormStreak,
+                    streakInfo.type === 'W'
+                      ? styles.matchupFormStreakWin
+                      : styles.matchupFormStreakLoss
+                  )}
+                >
+                  {streakInfo.type}
+                  {streakInfo.streak}
+                </span>
               )}
             </div>
-            {streakInfo.type && (
-              <span
-                className={cn(
-                  styles.matchupFormStreak,
-                  streakInfo.type === 'W'
-                    ? styles.matchupFormStreakWin
-                    : styles.matchupFormStreakLoss,
-                )}
-              >
-                {streakInfo.type}
-                {streakInfo.streak}
-              </span>
-            )}
-          </div>
 
-          <div className={styles.matchupStatStrip}>
-            <div className={styles.matchupStatItem}>
-              <span className={styles.matchupStatLabel}>Total Races</span>
-              <span className={styles.matchupStatValue}>
-                {drone.totalRaces ?? 0}
-              </span>
-            </div>
-            <div className={styles.matchupStatItem}>
-              <span className={styles.matchupStatLabel}>Wins</span>
-              <span className={styles.matchupStatValue}>{drone.wins ?? 0}</span>
-            </div>
-            <div className={styles.matchupStatItem}>
-              <span className={styles.matchupStatLabel}>Losses</span>
-              <span className={styles.matchupStatValue}>
-                {drone.losses ?? 0}
-              </span>
-            </div>
-            <div className={styles.matchupStatItem}>
-              <span className={styles.matchupStatLabel}>Win Rate</span>
-              <span className={styles.matchupStatValue}>{winRate}</span>
-            </div>
-            <div className={styles.matchupStatItem}>
-              <span className={styles.matchupStatLabel}>ELO</span>
-              <span className={styles.matchupStatValue}>
-                {drone.eloRating ?? 0}
-              </span>
+            <div className={styles.matchupStatStrip}>
+              <div className={styles.matchupStatItem}>
+                <span className={styles.matchupStatLabel}>Total Races</span>
+                <span className={styles.matchupStatValue}>{drone.totalRaces ?? 0}</span>
+              </div>
+              <div className={styles.matchupStatItem}>
+                <span className={styles.matchupStatLabel}>Wins</span>
+                <span className={styles.matchupStatValue}>{drone.wins ?? 0}</span>
+              </div>
+              <div className={styles.matchupStatItem}>
+                <span className={styles.matchupStatLabel}>Losses</span>
+                <span className={styles.matchupStatValue}>{drone.losses ?? 0}</span>
+              </div>
+              <div className={styles.matchupStatItem}>
+                <span className={styles.matchupStatLabel}>Win Rate</span>
+                <span className={styles.matchupStatValue}>{winRate}</span>
+              </div>
+              <div className={styles.matchupStatItem}>
+                <span className={styles.matchupStatLabel}>ELO</span>
+                <span className={styles.matchupStatValue}>{drone.eloRating ?? 0}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
         <div className={styles.collectibleRow}>
           <div className={styles.skinBlock}>
@@ -1950,8 +1740,7 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId, slotLabel }
               className={cn(
                 styles.modSelector,
                 styles.modSelectorReadOnly,
-                drone.appliedSkin?.rarity &&
-                  styles[`modSelector_${drone.appliedSkin.rarity}`],
+                drone.appliedSkin?.rarity && styles[`modSelector_${drone.appliedSkin.rarity}`]
               )}
             >
               {drone.appliedSkin ? (
@@ -1978,8 +1767,7 @@ function MatchupDroneCard({ drone, opponent, radarMax, viewerUserId, slotLabel }
               className={cn(
                 styles.modSelector,
                 styles.modSelectorReadOnly,
-                drone.appliedMod?.rarity &&
-                  styles[`modSelector_${drone.appliedMod.rarity}`],
+                drone.appliedMod?.rarity && styles[`modSelector_${drone.appliedMod.rarity}`]
               )}
             >
               <ModPlaceholder
@@ -2025,10 +1813,7 @@ function RaceTrackCard({ race }) {
             className={styles.raceTrackImg}
           />
         ) : (
-          <TrackPlaceholder
-            trackName={track.name}
-            accentColor={accentColor}
-          />
+          <TrackPlaceholder trackName={track.name} accentColor={accentColor} />
         )}
       </div>
       <div className={styles.raceTrackInfo}>
@@ -2044,10 +1829,7 @@ function RaceTrackCard({ race }) {
                 {Array.from({ length: 10 }).map((_, i) => (
                   <span
                     key={i}
-                    className={cn(
-                      styles.raceTrackDot,
-                      i < diff && styles.raceTrackDotOn,
-                    )}
+                    className={cn(styles.raceTrackDot, i < diff && styles.raceTrackDotOn)}
                   />
                 ))}
               </span>
@@ -2063,23 +1845,17 @@ function RaceTrackCard({ race }) {
           <div className={styles.raceTrackSpecs}>
             <span className={styles.raceTrackSpec}>
               <span className={styles.raceTrackSpecLabel}>Straights</span>
-              <span className={styles.raceTrackSpecValue}>
-                {track.straights ?? 0}
-              </span>
+              <span className={styles.raceTrackSpecValue}>{track.straights ?? 0}</span>
             </span>
             <span className={styles.raceTrackSpecSep} aria-hidden="true" />
             <span className={styles.raceTrackSpec}>
               <span className={styles.raceTrackSpecLabel}>Turns</span>
-              <span className={styles.raceTrackSpecValue}>
-                {track.turns ?? 0}
-              </span>
+              <span className={styles.raceTrackSpecValue}>{track.turns ?? 0}</span>
             </span>
             <span className={styles.raceTrackSpecSep} aria-hidden="true" />
             <span className={styles.raceTrackSpec}>
               <span className={styles.raceTrackSpecLabel}>Laps</span>
-              <span className={styles.raceTrackSpecValue}>
-                {track.laps ?? 3}
-              </span>
+              <span className={styles.raceTrackSpecValue}>{track.laps ?? 3}</span>
             </span>
           </div>
         </div>
@@ -2152,10 +1928,7 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
       </section>
     );
   }
-  const { viewer, opponent, viewerElo, oppElo, prob } = computeRaceEdge(
-    leftDrone,
-    rightDrone,
-  );
+  const { viewer, opponent, viewerElo, oppElo, prob } = computeRaceEdge(leftDrone, rightDrone);
   // All 9 stat deltas (perspective minus opponent). Ties (delta === 0)
   // get filtered out per Captain spec; everything else lands in
   // strengths (positive) or gaps (negative), no top-N cap so the user
@@ -2165,12 +1938,8 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
     label: RADAR_LABELS[k] ?? k,
     delta: (viewer[k] ?? 0) - (opponent[k] ?? 0),
   }));
-  const advantages = deltas
-    .filter((d) => d.delta > 0)
-    .sort((a, b) => b.delta - a.delta);
-  const gaps = deltas
-    .filter((d) => d.delta < 0)
-    .sort((a, b) => a.delta - b.delta);
+  const advantages = deltas.filter((d) => d.delta > 0).sort((a, b) => b.delta - a.delta);
+  const gaps = deltas.filter((d) => d.delta < 0).sort((a, b) => a.delta - b.delta);
 
   // One decimal of precision so a slim ELO edge actually reads as an
   // edge ("50.3%") instead of rounding to a dead heat ("50%"). The
@@ -2197,12 +1966,7 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
             {advantages.map((d) => (
               <li key={d.stat} className={styles.raceEdgeRow}>
                 <span className={styles.raceEdgeStat}>{d.label}</span>
-                <span
-                  className={cn(
-                    styles.raceEdgeDelta,
-                    styles.raceEdgeDeltaPos,
-                  )}
-                >
+                <span className={cn(styles.raceEdgeDelta, styles.raceEdgeDeltaPos)}>
                   +{d.delta}
                 </span>
               </li>
@@ -2215,14 +1979,7 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
             {gaps.map((d) => (
               <li key={d.stat} className={styles.raceEdgeRow}>
                 <span className={styles.raceEdgeStat}>{d.label}</span>
-                <span
-                  className={cn(
-                    styles.raceEdgeDelta,
-                    styles.raceEdgeDeltaNeg,
-                  )}
-                >
-                  {d.delta}
-                </span>
+                <span className={cn(styles.raceEdgeDelta, styles.raceEdgeDeltaNeg)}>{d.delta}</span>
               </li>
             ))}
           </ul>
