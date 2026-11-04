@@ -255,7 +255,10 @@ describe.skipIf(!enabled)('bootstrap service', () => {
     const results = await Promise.all([run(id, game), run(id, game)]);
 
     expect(game.count('create_player')).toBe(1);
-    expect(results.filter((r) => !r.busy)).toMatchObject([{ state: 'account' }]);
+    // Overlapping calls: one acts, the other is busy. Back to back: the second takes the released
+    // lease and makes the next step. Either way no step runs twice.
+    const advanced = results.filter((r) => !r.busy).map((r) => r.state);
+    expect([['account'], ['account', 'minted']]).toContainEqual(advanced.sort());
     expect((await untilDone(id, game)).state).toBe('done');
     expect(game.count('create_player')).toBe(1);
     const owned = await db
