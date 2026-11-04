@@ -4,7 +4,7 @@ use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::json_types::U128;
 use near_sdk::{AccountId, near};
 
-use crate::constants::catalog::{MODS, RARITY_NAMES, SKIN_SUPPLY_CAP, SKINS, STAT_NAMES};
+use crate::constants::catalog::{MODS, RARITY_NAMES, SKINS, STAT_NAMES, skin_supply_cap};
 use crate::constants_view::{Constants, ModTemplateView};
 use crate::types::{Batch, DroneCold, DroneHot, ItemKind, Player};
 use crate::{Contract, ContractExt};
@@ -53,7 +53,8 @@ pub struct CatalogSkin {
     pub file: String,
     pub rarity: u8,
     pub rarity_name: String,
-    pub cap: u32,
+    /// Supply cap; null for Ember, the uncapped starter skin.
+    pub cap: Option<u32>,
     pub minted: u32,
 }
 
@@ -142,7 +143,7 @@ impl Contract {
             .collect()
     }
 
-    /// View. A committed batch, or null.
+    /// View. A committed batch (seed hash, commit time, matchups, settled, settled_count), or null.
     pub fn get_batch(&self, id: u64) -> Option<Batch> {
         self.batch(id).cloned()
     }
@@ -158,7 +159,7 @@ impl Contract {
         })
     }
 
-    /// View. Skin templates with supply caps and minted counts, and mod templates.
+    /// View. Skin templates with supply caps (null for Ember) and minted counts, and mod templates.
     pub fn get_catalog(&self) -> Catalog {
         let skins = SKINS
             .iter()
@@ -168,7 +169,7 @@ impl Contract {
                 file: t.file.to_string(),
                 rarity: t.rarity,
                 rarity_name: RARITY_NAMES[usize::from(t.rarity)].to_string(),
-                cap: SKIN_SUPPLY_CAP[usize::from(t.rarity)],
+                cap: skin_supply_cap(t.id, t.rarity),
                 minted: self.s().skin_minted.get(&t.id).copied().unwrap_or(0),
             })
             .collect();

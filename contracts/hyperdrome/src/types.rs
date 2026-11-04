@@ -122,7 +122,7 @@ pub struct Matchup {
     pub tod: u8,
 }
 
-/// A committed race batch (T6).
+/// A committed race batch.
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug)]
 pub struct Batch {
@@ -130,7 +130,9 @@ pub struct Batch {
     pub committed_at_ms: u64,
     pub matchups: Vec<Matchup>,
     pub settled: bool,
-    pub settle_tx_count: u32,
+    /// Races settled so far, from index 0; `settled` once it equals `matchups.len()`. Same Borsh
+    /// position and type as the field's first name, `settle_tx_count`.
+    pub settled_count: u32,
 }
 
 #[near(serializers = [borsh])]
@@ -160,7 +162,7 @@ pub struct TeamBudget {
     pub day: u32,
 }
 
-/// One race result submitted to `settle_batch` (T6).
+/// One race result submitted to `settle_batch`.
 #[near(serializers = [json])]
 #[derive(Clone, Debug)]
 pub struct RaceResult {

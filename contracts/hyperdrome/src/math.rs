@@ -3,8 +3,10 @@
 use crate::constants::catalog::{ModTemplate, mod_template};
 use crate::constants::tables::{ELO_DIFF_CLAMP, ELO_SCALE, POW10, POW10_STEP};
 use crate::constants::{
-    CAP_BASE, CAP_PER_LEVEL_TENTHS, ELO_K, STAT_MAX, STAT_MIN, STRATEGY_WINDOW_MS, TIER_LEVELS,
-    TIER_MAX, TSB_BASE, TSB_PER_LEVEL, XP_PER_LEVEL_SQUARED,
+    CAP_BASE, CAP_PER_LEVEL_TENTHS, DOMINANCE, ELO_K, LEVEL_CAP, LEVEL_MIN, LOSER_LEVEL_DIVISOR,
+    LOSER_PAYOUT_BASE, STAT_MAX, STAT_MIN, STRATEGY_WINDOW_MS, TIER_LEVELS, TIER_MAX, TSB_BASE,
+    TSB_PER_LEVEL, WINNER_DIFFICULTY_DIVISOR, WINNER_ELO_GAP_DIVISOR, WINNER_LEVEL_DIVISOR,
+    WINNER_PAYOUT_BASE, XP_PER_LEVEL_SQUARED,
 };
 
 /// Total stat budget: TSB(L) = 9 + 20 * L.
@@ -44,6 +46,52 @@ pub fn is_locked_at(committed_at_ms: u64, now_ms: u64) -> bool {
 /// XP needed to go from level `L` to `L + 1`: 200 * L * L.
 pub fn xp_to_next(level: u8) -> u32 {
     XP_PER_LEVEL_SQUARED * u32::from(level) * u32::from(level)
+}
+
+/// XP after gaining `gained` at `level` with `xp`, applying level-ups (SPEC.md 2.1): while
+/// xp >= xp_to_next(level) and level < 20, subtract, level up. Returns (level, xp, levels gained).
+pub fn gain_xp(level: u8, xp: u32, gained: u32) -> (u8, u32, u8) {
+    let (mut level, mut xp, mut ups) = (level, xp.saturating_add(gained), 0u8);
+    while (LEVEL_MIN..LEVEL_CAP).contains(&level) && xp >= xp_to_next(level) {
+        xp -= xp_to_next(level);
+        level += 1;
+        ups += 1;
+    }
+    (level, xp, ups)
+}
+
+/// Dominance bonus (SPEC.md 2.3): 5 if margin > 40%, 2 if margin > 20%, else 0, where
+/// margin = |t_a - t_b| * 100 / min(t_a, t_b), compared exactly on the millisecond times.
+pub fn dominance_bonus(time_a_ms: u32, time_b_ms: u32) -> u128 {
+    let diff = u64::from(time_a_ms.abs_diff(time_b_ms)) * 100;
+    let fastest = u64::from(time_a_ms.min(time_b_ms));
+    DOMINANCE
+        .iter()
+        .find(|&&(pct, _)| diff > u64::from(pct) * fastest)
+        .map_or(0, |&(_, bonus)| bonus)
+}
+
+/// Winner payout (SPEC.md 2.3): 3 + floor(L_w / 2) + floor(difficulty / 2)
+/// + max(0, floor((ELO_l - ELO_w) / 100)) + dominance, from pre-race levels and ELOs.
+pub fn winner_payout(
+    level_winner: u8,
+    difficulty: u8,
+    elo_winner: i32,
+    elo_loser: i32,
+    time_a_ms: u32,
+    time_b_ms: u32,
+) -> u128 {
+    let gap = u128::try_from(elo_loser.saturating_sub(elo_winner).max(0)).unwrap_or(0);
+    WINNER_PAYOUT_BASE
+        + u128::from(level_winner) / WINNER_LEVEL_DIVISOR
+        + u128::from(difficulty) / WINNER_DIFFICULTY_DIVISOR
+        + gap / WINNER_ELO_GAP_DIVISOR
+        + dominance_bonus(time_a_ms, time_b_ms)
+}
+
+/// Loser payout (SPEC.md 2.3): 1 + floor(L_l / 4), from the pre-race level.
+pub fn loser_payout(level_loser: u8) -> u128 {
+    LOSER_PAYOUT_BASE + u128::from(level_loser) / LOSER_LEVEL_DIVISOR
 }
 
 /// Art tier: L1-5 tier 1, 6-10 tier 2, 11-15 tier 3, 16 and up tier 4.

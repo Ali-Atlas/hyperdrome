@@ -110,15 +110,6 @@ async fn init_metadata_constants_and_owner_access() -> R<()> {
         .await,
         "private",
     );
-    assert_fails(
-        env.call(
-            &env.game,
-            "commit_batch",
-            json!({ "batch_id": 1, "seed_hash": ([0u8; 32]), "matchups": [] }),
-        )
-        .await,
-        "not implemented",
-    );
     Ok(())
 }
 

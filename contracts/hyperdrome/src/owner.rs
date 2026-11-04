@@ -7,7 +7,7 @@ use near_contract_standards::non_fungible_token::events::NftMint;
 use near_sdk::json_types::U128;
 use near_sdk::{AccountId, Allowance, Gas, NearToken, Promise, PublicKey, env, near, require};
 
-use crate::constants::catalog::{SKIN_SUPPLY_CAP, mod_template, skin_template};
+use crate::constants::catalog::{mod_template, skin_supply_cap, skin_template};
 use crate::constants::{
     DAY_MS, DRONE_PREFIX, LEVEL_CAP, LEVEL_MIN, MOD_PREFIX, PLAY_KEY_ALLOWANCE_YOCTO,
     PLAY_KEY_METHODS, PLAYER_ACCOUNT_BALANCE_YOCTO, PLAYER_PREFIX, SKIN_PREFIX, SLUG_MAX_LEN,
@@ -120,8 +120,9 @@ impl Contract {
     }
 
     /// Owner only. Mints skin `s:<n>` or mod `m:<n>` of `template` to `owner`. A catalog skin
-    /// counts against its template's supply cap. A placeholder skin (`placeholder_name` set) takes
-    /// its rarity from `template`, is stored with template 0 and does not count against supply.
+    /// counts against its template's supply cap, except Ember (template 4), which is uncapped. A
+    /// placeholder skin (`placeholder_name` set) takes its rarity from `template`, is stored with
+    /// template 0 and does not count against supply.
     /// Emits nep171 nft_mint and `item_minted`. Fails with "not owner", "bad template" (unknown
     /// template, or a placeholder name on a mod) or "no supply".
     pub fn mint_item(
@@ -260,8 +261,9 @@ impl Contract {
         token_id
     }
 
-    /// Mints skin `s:<n>` or mod `m:<n>` to `owner`. A catalog skin (no placeholder name) counts
-    /// against its template's supply cap ("no supply"); a placeholder skin is stored with template
+    /// Mints skin `s:<n>` or mod `m:<n>` to `owner`. A catalog skin (no placeholder name) is
+    /// counted in `skin_minted` and checked against its template's supply cap ("no supply"), which
+    /// Ember does not have (SPEC.md 2.6); a placeholder skin is stored with template
     /// 0 and `rarity`. Emits nep171 nft_mint and `item_minted`. Callers validate template and
     /// rarity.
     pub(crate) fn internal_mint_item(
@@ -275,7 +277,9 @@ impl Contract {
         let s = self.s_mut();
         if kind == ItemKind::Skin && placeholder_name.is_none() {
             let minted = s.skin_minted.get(&template).copied().unwrap_or(0);
-            require!(minted < SKIN_SUPPLY_CAP[usize::from(rarity)], "no supply");
+            if let Some(cap) = skin_supply_cap(template, rarity) {
+                require!(minted < cap, "no supply");
+            }
             s.skin_minted.insert(template, minted + 1);
         }
         let template = if placeholder_name.is_some() {

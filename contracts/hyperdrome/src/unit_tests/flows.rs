@@ -35,7 +35,7 @@ pub(super) fn as_caller(caller: &str, now_ms: u64, height: u64) {
 }
 
 /// A contract with `player` registered (as a team when `is_team`) and holding `volts`.
-fn setup(player: &str, is_team: bool, volts: u128) -> Contract {
+pub(super) fn setup(player: &str, is_team: bool, volts: u128) -> Contract {
     as_caller("owner.testnet", 0, 1);
     let mut c = Contract::new(account("owner.testnet"), account("owner.testnet"));
     c.internal_register_player(&account(player), is_team);
@@ -54,7 +54,7 @@ fn exhaust_commons(c: &mut Contract) {
     }
 }
 
-fn skin_of(c: &Contract, drone: &TokenId) -> TokenId {
+pub(super) fn skin_of(c: &Contract, drone: &TokenId) -> TokenId {
     c.get_drone(drone.clone())
         .and_then(|d| d.cold.bound_skins.first().cloned())
         .unwrap_or_default()

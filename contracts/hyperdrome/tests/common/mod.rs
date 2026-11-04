@@ -127,17 +127,31 @@ impl Env {
         calls: Vec<(&str, Value)>,
     ) -> Result<ExecutionFinalResult, String> {
         let per_action = PLAYER_GAS_TGAS / u64::try_from(calls.len().max(1)).unwrap_or(1);
-        let mut tx = Transaction::construct(p.id.clone(), self.game.clone());
+        self.multi_call_as(&p.id, p.admin.clone(), calls, per_action)
+            .await
+    }
+
+    /// One transaction from `caller` signed by `signer` carrying one function-call action per
+    /// entry, each with `tgas_each` TGas, so they run in order in one receipt. Keeps the total
+    /// prepaid gas at or under 300 TGas.
+    pub async fn multi_call_as(
+        &self,
+        caller: &AccountId,
+        signer: Arc<Signer>,
+        calls: Vec<(&str, Value)>,
+        tgas_each: u64,
+    ) -> Result<ExecutionFinalResult, String> {
+        let mut tx = Transaction::construct(caller.clone(), self.game.clone());
         for (method, args) in calls {
             tx = tx.add_action(Action::FunctionCall(Box::new(FunctionCallAction {
                 method_name: method.to_string(),
                 args: args.to_string().into_bytes(),
-                gas: NearGas::from_tgas(per_action),
+                gas: NearGas::from_tgas(tgas_each),
                 deposit: NearToken::from_yoctonear(0),
             })));
         }
         let sent = tx
-            .with_signer(p.admin.clone())
+            .with_signer(signer)
             .send_to(&self.net)
             .await
             .map_err(|e| format!("{e:?}"))?;
