@@ -325,6 +325,8 @@ async fn settlement_failure_paths() -> R<()> {
     assert_fails(settle(&env, 1, 0, &[swapped]).await, "bad chunk");
     let outsider = result(&env, a, b, c, 60_000, 61_000).await?;
     assert_fails(settle(&env, 1, 0, &[outsider]).await, "bad chunk");
+    let slower = result(&env, a, b, b, 60_000, 61_000).await?;
+    assert_fails(settle(&env, 1, 0, &[slower]).await, "bad chunk");
     let zero = result(&env, a, b, a, 0, 61_000).await?;
     assert_fails(settle(&env, 1, 0, &[zero]).await, "bad chunk");
     let overrun = [fresh.clone(), fresh.clone()];
@@ -360,8 +362,14 @@ async fn six_races_settle_in_two_chunks_of_three() -> R<()> {
     let matchups: Vec<Value> = pairs.iter().map(|(a, b)| matchup(a, b, 1)).collect();
     done(commit(&env, 7, &matchups).await);
     let mut results = Vec::new();
-    for (a, b) in &pairs {
-        results.push(result(&env, a, b, a, 70_000, 72_000).await?);
+    for (k, (a, b)) in pairs.iter().enumerate() {
+        // Race 1 is a tie: equal times are the engine's tie-break, so B may win them.
+        let r = if k == 1 {
+            result(&env, a, b, b, 71_000, 71_000).await?
+        } else {
+            result(&env, a, b, a, 70_000, 72_000).await?
+        };
+        results.push(r);
     }
 
     let out = ok(settle(&env, 7, 0, &results[..3]).await)?;
@@ -491,9 +499,9 @@ async fn settle_chunk_fits_gas_and_log_budgets() -> R<()> {
     let mut results = Vec::new();
     for (k, pair) in ids.chunks(2).enumerate() {
         let (a, b) = (&pair[0], &pair[1]);
-        let winner = if k % 2 == 0 { a } else { b };
         let ta = 100_000 + u32::try_from(k)? * 997;
         let tb = 150_000 - u32::try_from(k)? * 991;
+        let winner = if ta <= tb { a } else { b };
         matchups.push(matchup(a, b, u8::try_from(k % 16)?));
         results.push(json!({
             "a": a, "b": b, "winner": winner, "time_a_ms": ta, "time_b_ms": tb,

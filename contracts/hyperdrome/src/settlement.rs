@@ -147,9 +147,9 @@ impl Contract {
         hot.in_batch = Some(batch_id);
     }
 
-    /// Validates one result against its matchup and the drones' current state ("bad chunk",
-    /// "state drift"), applies it and returns its `batch_settled` entry. Volts to mint go to
-    /// `mints`.
+    /// Validates one result against its matchup and the drones' current state ("bad chunk": wrong
+    /// pair, winner not in the pair, a zero time, or a winner slower than the loser; "state
+    /// drift"), applies it and returns its `batch_settled` entry. Volts to mint go to `mints`.
     fn settle_race(
         &mut self,
         i: u32,
@@ -160,6 +160,13 @@ impl Contract {
         require!(r.a == m.a && r.b == m.b, "bad chunk");
         require!(r.winner == r.a || r.winner == r.b, "bad chunk");
         require!(r.time_a_ms > 0 && r.time_b_ms > 0, "bad chunk");
+        let (time_w, time_l) = if r.winner == r.a {
+            (r.time_a_ms, r.time_b_ms)
+        } else {
+            (r.time_b_ms, r.time_a_ms)
+        };
+        // Equal times are the engine's tie-break (SPEC.md 2.4), so either drone may win them.
+        require!(time_w <= time_l, "bad chunk");
         require!(
             self.stats_hash_of(&r.a) == Some(r.stats_hash_a)
                 && self.stats_hash_of(&r.b) == Some(r.stats_hash_b),
