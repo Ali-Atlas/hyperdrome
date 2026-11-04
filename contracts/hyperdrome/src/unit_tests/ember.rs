@@ -7,7 +7,7 @@ use near_sdk::env;
 use super::flows::{account, as_caller, setup, skin_of};
 use crate::Contract;
 use crate::constants::COMMON;
-use crate::constants::catalog::{SKIN_SUPPLY_CAP, SKINS, STARTER_SKIN_TEMPLATE};
+use crate::constants::catalog::{SKIN_SUPPLY_CAP, SKINS, STARTER_SKIN_TEMPLATE, skin_supply_cap};
 use crate::types::ItemKind;
 
 const OWNER: &str = "owner.testnet";
@@ -90,4 +90,16 @@ fn catalog_reports_ember_uncapped() {
             (s.id != STARTER_SKIN_TEMPLATE).then(|| SKIN_SUPPLY_CAP[usize::from(s.rarity)]);
         assert_eq!(s.cap, expected, "skin {}", s.slug);
     }
+}
+
+#[test]
+fn supply_cap_is_none_only_for_ember() {
+    assert_eq!(skin_supply_cap(STARTER_SKIN_TEMPLATE, COMMON), None);
+    assert_eq!(skin_supply_cap(1, COMMON), Some(10));
+    assert_eq!(skin_supply_cap(25, 3), Some(3));
+    assert_eq!(
+        skin_supply_cap(1, 9),
+        Some(0),
+        "an unknown rarity mints nothing"
+    );
 }

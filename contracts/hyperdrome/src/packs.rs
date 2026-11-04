@@ -73,10 +73,10 @@ impl Contract {
     /// Player only (play key), the pack's buyer, in a later block than the commit. Checks
     /// sha256(`secret`) against the commit, derives result = sha256(secret ++ random_seed ++
     /// pack_id LE) and mints 3 items to the buyer: per slot a rarity from the tier odds, then a
-    /// template uniform among the rarity's skins with supply left (a placeholder skin with
-    /// template 0 and a pool name when none is left) or among all its mods (byte map in SPEC.md
-    /// 4.4). Marks the pack revealed. Emits nep171 nft_mint and `item_minted` per item, then
-    /// `pack_opened`. Fails with "paused", "not player", "bad seq", "not found", "not owner",
+    /// template uniform among the rarity's skins with supply left, Ember excluded (a placeholder
+    /// skin with template 0 and a pool name when none is left), or among all its mods (byte map
+    /// in SPEC.md 4.4). Marks the pack revealed. Emits nep171 nft_mint and `item_minted` per item,
+    /// then `pack_opened`. Fails with "paused", "not player", "bad seq", "not found", "not owner",
     /// "too early" or "bad reveal" (wrong secret, or already revealed).
     pub fn reveal_pack(&mut self, pack_id: u64, secret: [u8; 32], seq: u64) {
         let caller = self.begin_player_action(seq);
@@ -112,11 +112,11 @@ impl Contract {
 
     /// Player only (play key). Buys a level 1 vendor drone for 3,500 Volts, burned; team accounts
     /// pass the team cap check. Stats roll from sha256(random_seed ++ new token id) per SPEC.md
-    /// 2.1 and 4.4; the drone gets a `WORD-<LETTER><DIGIT>` name and one common skin (a placeholder
-    /// when no common has supply left) and one common mod, both bound and not equipped. Returns
-    /// the drone id. Emits nep141 ft_burn, nep171 nft_mint and `drone_minted`, nft_mint and
-    /// `item_minted` per item, and `item_bound` twice. Fails with "paused", "not player",
-    /// "bad seq", "insufficient volts" or "cap exceeded".
+    /// 2.1 and 4.4; the drone gets a `WORD-<LETTER><DIGIT>` name and one common skin (Ember
+    /// excluded; a placeholder when no other common has supply left) and one common mod, both
+    /// bound and not equipped. Returns the drone id. Emits nep141 ft_burn, nep171 nft_mint and
+    /// `drone_minted`, nft_mint and `item_minted` per item, and `item_bound` twice. Fails with
+    /// "paused", "not player", "bad seq", "insufficient volts" or "cap exceeded".
     pub fn vendor_buy_drone(&mut self, seq: u64) -> TokenId {
         let caller = self.begin_player_action(seq);
         self.spend(&caller, VENDOR_DRONE_PRICE, Payee::Burn("vendor_buy_drone"));
@@ -140,8 +140,9 @@ impl Contract {
 
 impl Contract {
     /// Mints one item of `kind` and `rarity` to `owner`: a skin uniform (by `pick`) among the
-    /// rarity's templates with supply left, Ember excluded (SPEC.md 2.6), else a placeholder skin named from the rarity's pool
-    /// (by `name_pick`); a mod uniform among all the rarity's templates.
+    /// rarity's templates with supply left, Ember excluded (SPEC.md 2.6), else a placeholder skin
+    /// named from the rarity's pool (by `name_pick`); a mod uniform among all the rarity's
+    /// templates.
     fn mint_drawn_item(
         &mut self,
         owner: &AccountId,

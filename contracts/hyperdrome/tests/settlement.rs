@@ -18,8 +18,31 @@ const ONES: [u8; 9] = [1; 9];
 const CHUNK: usize = 40;
 const CHUNK_TGAS_BUDGET: f64 = 150.0;
 const CHUNK_LOG_BYTES_BUDGET: usize = 14_000;
-/// Token ids are counted at this length in the log budget ("d:99999").
-const TOKEN_ID_LEN: usize = 7;
+/// Widths each `batch_settled` field is counted at in the log budget, its longest realistic value:
+/// token ids "d:99999", XP 72,199 (5 digits, L19), levels 20, Volts per race at most 51, ELO 4
+/// digits. `ft_mint` amounts are counted at 2 digits.
+const FIELD_WIDTHS: [(&str, usize); 11] = [
+    ("a", 7),
+    ("b", 7),
+    ("winner", 7),
+    ("xp_a", 5),
+    ("xp_b", 5),
+    ("lvl_a", 2),
+    ("lvl_b", 2),
+    ("va", 2),
+    ("vb", 2),
+    ("elo_a", 4),
+    ("elo_b", 4),
+];
+const MINT_AMOUNT_WIDTH: usize = 2;
+
+/// Characters `value` (a JSON string or number) falls short of `width`.
+fn shortfall(value: &Value, width: usize) -> usize {
+    let len = value
+        .as_str()
+        .map_or_else(|| value.to_string().len(), str::len);
+    width.saturating_sub(len)
+}
 
 type Outcome = Result<ExecutionFinalResult, String>;
 
@@ -467,12 +490,25 @@ async fn locked_drones_refuse_player_moves_until_settled() -> R<()> {
         .await;
     done(sent);
     assert_eq!(env.owner_of(&d).await?, env.stranger.to_string());
+
+    // The new owner is not registered for Volts: the race still settles and nobody is paid.
+    let registered: Value = env
+        .view("storage_balance_of", json!({ "account_id": env.stranger }))
+        .await?;
+    assert_eq!(registered, Value::Null);
+    done(commit(&env, 2, &[matchup(&d, &bot, 0)]).await);
+    let r = result(&env, &d, &bot, &d, 60_000, 61_000).await?;
+    let out = ok(settle(&env, 2, 0, &[r]).await)?;
+    assert_eq!(out.logs().len(), 1, "no ft_mint when nothing is minted");
+    let settled = &event(&out, "hyperdrome", "batch_settled")["data"]["races"][0];
+    assert_eq!((&settled["va"], &settled["vb"]), (&json!("0"), &json!("0")));
+    assert_eq!(drone(&env, &d).await?["hot"]["wins"], 1);
     Ok(())
 }
 
 /// The worst case for one chunk: a distinct beneficiary per drone, each id as long as a player id
 /// can be (`p-<20>.game.hyperdrome.testnet`, 46 characters), so the aggregated ft_mint carries two
-/// entries per race; six-digit times in `batch_settled`; token ids counted at 7 characters.
+/// entries per race; six-digit times in `batch_settled`; other fields counted at `FIELD_WIDTHS`.
 #[tokio::test]
 async fn settle_chunk_fits_gas_and_log_budgets() -> R<()> {
     let env = Env::start().await?;
@@ -518,18 +554,26 @@ async fn settle_chunk_fits_gas_and_log_budgets() -> R<()> {
     let logs = out.logs();
     assert_eq!(logs.len(), 2);
     let measured: usize = logs.iter().map(|l| l.len()).sum();
-    let id_padding: usize = results
-        .iter()
-        .map(|r| {
-            ["a", "b", "winner"]
-                .iter()
-                .map(|k| TOKEN_ID_LEN - r[*k].as_str().map_or(0, str::len))
-                .sum::<usize>()
+    let races = event(&out, "hyperdrome", "batch_settled")["data"]["races"].clone();
+    let race_padding: usize = races
+        .as_array()
+        .map(|rs| {
+            rs.iter()
+                .flat_map(|r| FIELD_WIDTHS.iter().map(move |(k, w)| shortfall(&r[*k], *w)))
+                .sum()
         })
-        .sum();
-    let log_bytes = measured + id_padding;
+        .unwrap_or(0);
+    let mint_padding: usize = mint["data"]
+        .as_array()
+        .map(|es| {
+            es.iter()
+                .map(|e| shortfall(&e["amount"], MINT_AMOUNT_WIDTH))
+                .sum()
+        })
+        .unwrap_or(0);
+    let log_bytes = measured + race_padding + mint_padding;
     println!(
-        "CHUNK {CHUNK} races: {:.3} TGas, {measured} log bytes, {log_bytes} with ids at {TOKEN_ID_LEN} chars",
+        "CHUNK {CHUNK} races: {:.3} TGas, {measured} log bytes, {log_bytes} at the longest realistic widths",
         tgas(&out)
     );
     assert!(

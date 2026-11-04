@@ -121,8 +121,8 @@ impl Contract {
 
     /// Owner only. Mints skin `s:<n>` or mod `m:<n>` of `template` to `owner`. A catalog skin
     /// counts against its template's supply cap, except Ember (template 4), which is uncapped. A
-    /// placeholder skin (`placeholder_name` set) takes
-    /// its rarity from `template`, is stored with template 0 and does not count against supply.
+    /// placeholder skin (`placeholder_name` set) takes its rarity from `template`, is stored with
+    /// template 0 and does not count against supply.
     /// Emits nep171 nft_mint and `item_minted`. Fails with "not owner", "bad template" (unknown
     /// template, or a placeholder name on a mod) or "no supply".
     pub fn mint_item(
