@@ -50,6 +50,7 @@
     "app/api/marketplace/buy/**/*.js",
     "app/api/marketplace/cancel/**/*.js",
     "app/api/packs/**/*.js",
-    "app/api/metadata/**/*.js"
+    "app/api/metadata/**/*.js",
+    "lib/client/**/*.js"
   ]
 }

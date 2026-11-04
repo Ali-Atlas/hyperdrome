@@ -14,6 +14,8 @@ import EmptyState from '@/components/ui/EmptyState';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
+import { useChainAction } from '@/hooks/useChainAction';
+import { actionError } from '@/lib/client/chain-action';
 import { cn, getLevelColor, getLevelTier, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import VoltIcon from '@/components/ui/VoltIcon';
@@ -268,8 +270,7 @@ const PACK_ODDS = {
 };
 
 /* Capsule (mod) packs - same slot recipe as skin packs, priced lower.
- * Backed by /api/marketplace/capsules/open via openCapsule() in
- * services/pack.service.js. */
+ * Opened through POST /api/packs/open with kind `mod` (SPEC.md 8). */
 const CAPSULE_PACK_DEFS = [
   {
     id: 'capsule-starter',
@@ -318,6 +319,7 @@ const CAPSULE_PREVIEW_DISTRIBUTION = {
 export default function MarketplacePage() {
   const { user } = useSession();
   const { showToast } = useToast();
+  const sendAction = useChainAction();
 
   const router = useRouter();
   const [tab, setTab] = useState('drones'); // 'drones' | 'mods' | 'skins' | 'packs' | 'points'
@@ -617,32 +619,16 @@ export default function MarketplacePage() {
     setBuyStatus('recording');
 
     try {
-      // This route was removed; T11 moves the modal to POST /api/marketplace/buy.
-      const res = await fetch(`/api/marketplace/${buyModal.id}/buy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const body = await res.json();
+      // POST /api/marketplace/buy (SPEC.md 8) by the listing's token id.
+      const res = await sendAction('/api/marketplace/buy', { token: buyModal.tokenId });
       if (!res.ok) {
-        setBuyError(body?.error || 'Purchase failed');
+        setBuyError(actionError(res, 'Purchase failed'));
         return;
       }
       const itemName = buyModal.drone?.name ?? buyModal.mod?.name ?? buyModal.skin?.name ?? 'Item';
       setBuySuccess({ name: itemName });
       setBuyStatus(null);
-      // Reflect the post-purchase balance returned by the buy route so the
-      // marketplace's volts display updates immediately, AND fire the
-      // volts:update event so the NavShell's balance updates too.
-      if (typeof body.data?.balance === 'number') {
-        // useVoltBalance() in this component AND in NavShell both
-        // listen on this event - one dispatch updates every consumer.
-        window.dispatchEvent(
-          new CustomEvent('volts:update', {
-            detail: { balance: body.data.balance },
-          })
-        );
-      }
+      // The balance reaches useVoltBalance (here and in NavShell) through useChainAction.
       // Refresh listings in the background while the success view holds
       // for ~1.5s, then close the modal cleanly.
       Promise.all([fetchListings(), fetchTransactions(), fetchMine()]).catch(() => {});
@@ -668,14 +654,18 @@ export default function MarketplacePage() {
     setCancelUpdatePending(true);
     setCancelUpdateError(null);
     try {
-      const res = await fetch(`/api/marketplace/${cancelModal.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ price: num }),
-      });
-      const body = await res.json();
-      if (!res.ok) {
-        setCancelUpdateError(body?.error || 'Failed to update price');
+      // The contract has no price change (SPEC.md 4.4): cancel the listing, then list the
+      // token again at the new price, each under its own action id.
+      const token = cancelModal.tokenId;
+      const cancelled = await sendAction('/api/marketplace/cancel', { token });
+      if (!cancelled.ok) {
+        setCancelUpdateError(actionError(cancelled, 'Failed to update price'));
+        return;
+      }
+      const listed = await sendAction('/api/marketplace/list', { token, price: num });
+      if (!listed.ok) {
+        setCancelUpdateError(actionError(listed, 'The listing was cancelled but not relisted'));
+        await fetchListings();
         return;
       }
       setCancelModal(null);
@@ -691,10 +681,9 @@ export default function MarketplacePage() {
     if (!cancelModal || cancelPending) return;
     setCancelPending(true);
     try {
-      const res = await fetch(`/api/marketplace/${cancelModal.id}/cancel`, { method: 'POST' });
-      const body = await res.json();
+      const res = await sendAction('/api/marketplace/cancel', { token: cancelModal.tokenId });
       if (!res.ok) {
-        showToast(body?.error || 'Cancel failed', 'error');
+        showToast(actionError(res, 'Cancel failed'), 'error');
       } else {
         showToast('Listing cancelled', 'success');
         setCancelModal(null);
@@ -714,21 +703,24 @@ export default function MarketplacePage() {
     }
     setListingPending(true);
     try {
-      const payload = {
-        item_type: listingType,
+      // POST /api/marketplace/list (SPEC.md 8) takes the token id of the picked row.
+      const owned =
+        listingType === 'drone'
+          ? ownedInactive
+          : listingType === 'skin'
+            ? ownedSkins
+            : ownedUnboundMods;
+      const token = owned.find((it) => String(it.id) === String(listingItemId))?.tokenId;
+      if (!token) {
+        showToast('This item has no on-chain token yet.', 'error');
+        return;
+      }
+      const res = await sendAction('/api/marketplace/list', {
+        token,
         price: Number(listingPrice),
-      };
-      if (listingType === 'drone') payload.drone_id = listingItemId;
-      else if (listingType === 'skin') payload.skin_id = listingItemId;
-      else payload.mod_id = listingItemId;
-      const res = await fetch('/api/marketplace', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
       });
-      const body = await res.json();
       if (!res.ok) {
-        showToast(body?.error || 'Listing failed', 'error');
+        showToast(actionError(res, 'Listing failed'), 'error');
       } else {
         showToast('Item listed for sale', 'success');
         setListModal(false);
@@ -776,27 +768,15 @@ export default function MarketplacePage() {
     if (!packFlow || packFlow.kind !== 'skin') return;
     setPackFlow((f) => (f ? { ...f, pending: true } : f));
     try {
-      const res = await fetch('/api/marketplace/packs/open', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packType: packFlow.pack.id }),
-      });
-      const body = await res.json();
+      // POST /api/packs/open (SPEC.md 8): the pack def's id is its tier. The reveal's
+      // `items` are the cached rows of the three minted skins.
+      const res = await sendAction('/api/packs/open', { kind: 'skin', tier: packFlow.pack.id });
       if (!res.ok) {
-        showToast(body?.error || 'Pack purchase failed', 'error');
+        showToast(actionError(res, 'Pack purchase failed'), 'error');
         setPackFlow((f) => (f ? { ...f, pending: false } : f));
         return;
       }
-      const awarded = body.data?.awarded ?? [];
-      if (typeof body.data?.balance === 'number') {
-        // useVoltBalance() in this component AND in NavShell both
-        // listen on this event - one dispatch updates every consumer.
-        window.dispatchEvent(
-          new CustomEvent('volts:update', {
-            detail: { balance: body.data.balance },
-          })
-        );
-      }
+      const awarded = res.body.items ?? [];
       setPackFlow((f) => (f ? { ...f, stage: 'ready', awarded, pending: false } : f));
     } catch (err) {
       showToast(String(err), 'error');
@@ -804,34 +784,22 @@ export default function MarketplacePage() {
     }
   };
 
-  // Confirm Purchase (capsule path). Mirrors confirmSkinPackPurchase against
-  // /api/marketplace/capsules/open. Pack id carries the `capsule-` prefix;
-  // the route accepts it as `capsuleType`.
+  // Confirm Purchase (capsule path). Mirrors confirmSkinPackPurchase with
+  // kind `mod`. The pack id carries the `capsule-` prefix; the rest is the tier.
   const confirmCapsulePackPurchase = async () => {
     if (!packFlow || packFlow.kind !== 'capsule') return;
     setPackFlow((f) => (f ? { ...f, pending: true } : f));
     try {
-      const res = await fetch('/api/marketplace/capsules/open', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ capsuleType: packFlow.pack.id }),
+      const res = await sendAction('/api/packs/open', {
+        kind: 'mod',
+        tier: packFlow.pack.id.replace('capsule-', ''),
       });
-      const body = await res.json();
       if (!res.ok) {
-        showToast(body?.error || 'Capsule purchase failed', 'error');
+        showToast(actionError(res, 'Capsule purchase failed'), 'error');
         setPackFlow((f) => (f ? { ...f, pending: false } : f));
         return;
       }
-      const awarded = body.data?.awarded ?? [];
-      if (typeof body.data?.balance === 'number') {
-        // useVoltBalance() in this component AND in NavShell both
-        // listen on this event - one dispatch updates every consumer.
-        window.dispatchEvent(
-          new CustomEvent('volts:update', {
-            detail: { balance: body.data.balance },
-          })
-        );
-      }
+      const awarded = res.body.items ?? [];
       setPackFlow((f) => (f ? { ...f, stage: 'ready', awarded, pending: false } : f));
     } catch (err) {
       showToast(String(err), 'error');

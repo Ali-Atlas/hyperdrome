@@ -12,14 +12,16 @@ import VoltIcon from '@/components/ui/VoltIcon';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
+import { useChainAction } from '@/hooks/useChainAction';
+import { actionError } from '@/lib/client/chain-action';
 import { cn, getLevelColor, getLevelTier, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import { clearAllPendingToggles, usePendingToggle } from '@/lib/pending-toggle';
 import { useRoundStartTick } from '@/lib/race-round-clock';
 import styles from './page.module.css';
 
-/** NPC vendor price + free-drone milestones. Mirror values in
- *  app/api/drones/create/route.js (DRONE_PRICE=3500). The milestones are
+/** NPC vendor price + free-drone milestones. Mirrors the contract's
+ *  vendor price (SPEC.md 2.1, 3,500 Volts). The milestones are
  *  display-only here; whatever system grants the free drones lives
  *  elsewhere and the toast effect just reacts to the drone count + race
  *  total crossing a threshold between page loads. */
@@ -60,6 +62,7 @@ export default function DronesPage() {
   // page refresh.
   const { balance: userVolts } = useVoltBalance();
   const { showToast } = useToast();
+  const sendAction = useChainAction();
   const [drones, setDrones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // 'all' | 'active' | 'inactive'
@@ -161,22 +164,12 @@ export default function DronesPage() {
     setVendorPending(true);
     setVendorError(null);
     try {
-      const res = await fetch('/api/drones/create', { method: 'POST' });
-      const body = await res.json();
+      // POST /api/drones/vendor (SPEC.md 8); the balance reaches NavShell through useChainAction.
+      const res = await sendAction('/api/drones/vendor', {});
       if (!res.ok) {
-        setVendorError(body?.error?.message || 'Purchase failed.');
+        setVendorError(actionError(res, 'Purchase failed.'));
         setVendorPending(false);
         return;
-      }
-      // Push the new balance to the NavShell so the volts display
-      // updates without a page refresh. The /api/drones/create route
-      // returns the post-debit balance alongside the drone.
-      if (typeof body.data?.balance === 'number') {
-        window.dispatchEvent(
-          new CustomEvent('volts:update', {
-            detail: { balance: body.data.balance },
-          })
-        );
       }
       await refreshDrones();
       showToast('Drone added to your fleet.', 'success');
