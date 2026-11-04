@@ -116,51 +116,13 @@ impl Contract {
         require!(stats.iter().all(|&s| s >= STAT_MIN), "bad stat");
         require!(stats.iter().all(|&s| s <= cap), "over cap");
         require!(stat_sum(&stats) <= tsb(level), "tsb exceeded");
-
-        let s = self.s_mut();
-        let token_id = format!("{DRONE_PREFIX}{}", s.next_drone);
-        s.next_drone += 1;
-        s.nft
-            .internal_mint_with_refund(token_id.clone(), owner.clone(), None, None);
-        let hot = DroneHot {
-            level,
-            xp: 0,
-            elo: START_ELO,
-            wins: 0,
-            losses: 0,
-            equipped_mod: None,
-            equipped_skin: None,
-            in_batch: None,
-        };
-        let cold = DroneCold {
-            stats,
-            bound_skins: vec![],
-            bound_mods: vec![],
-            invested: 0,
-            name,
-        };
-        s.drones_hot
-            .insert(token_id.clone(), VersionedDroneHot::V1(hot));
-        s.drones_cold
-            .insert(token_id.clone(), VersionedDroneCold::V1(cold));
-        NftMint {
-            owner_id: &owner,
-            token_ids: &[&token_id],
-            memo: None,
-        }
-        .emit();
-        Event::DroneMinted {
-            token: token_id.clone(),
-            owner,
-            level,
-        }
-        .emit();
-        token_id
+        self.internal_mint_drone(&owner, name, level, stats)
     }
 
     /// Owner only. Mints skin `s:<n>` or mod `m:<n>` of `template` to `owner`. A catalog skin
-    /// counts against its template's supply cap; a placeholder skin (`placeholder_name` set) does
-    /// not. Emits nep171 nft_mint and `item_minted`. Fails with "not owner", "bad template" (unknown
+    /// counts against its template's supply cap. A placeholder skin (`placeholder_name` set) takes
+    /// its rarity from `template`, is stored with template 0 and does not count against supply.
+    /// Emits nep171 nft_mint and `item_minted`. Fails with "not owner", "bad template" (unknown
     /// template, or a placeholder name on a mod) or "no supply".
     pub fn mint_item(
         &mut self,
@@ -176,48 +138,7 @@ impl Contract {
             ItemKind::Mod => None,
         }
         .unwrap_or_else(|| env::panic_str("bad template"));
-
-        let s = self.s_mut();
-        if kind == ItemKind::Skin && placeholder_name.is_none() {
-            let minted = s.skin_minted.get(&template).copied().unwrap_or(0);
-            require!(minted < SKIN_SUPPLY_CAP[usize::from(rarity)], "no supply");
-            s.skin_minted.insert(template, minted + 1);
-        }
-        let token_id = match kind {
-            ItemKind::Skin => {
-                s.next_skin += 1;
-                format!("{SKIN_PREFIX}{}", s.next_skin - 1)
-            }
-            ItemKind::Mod => {
-                s.next_mod += 1;
-                format!("{MOD_PREFIX}{}", s.next_mod - 1)
-            }
-        };
-        s.nft
-            .internal_mint_with_refund(token_id.clone(), owner.clone(), None, None);
-        let item = Item {
-            kind,
-            template,
-            rarity,
-            bound_to: None,
-            placeholder_name,
-        };
-        s.items.insert(token_id.clone(), VersionedItem::V1(item));
-        NftMint {
-            owner_id: &owner,
-            token_ids: &[&token_id],
-            memo: None,
-        }
-        .emit();
-        Event::ItemMinted {
-            token: token_id.clone(),
-            owner,
-            kind,
-            template,
-            rarity,
-        }
-        .emit();
-        token_id
+        self.internal_mint_item(&owner, kind, template, rarity, placeholder_name)
     }
 
     /// Owner only. Mints `amount` Volts to `to`, which must be registered. Emits nep141 ft_mint.
@@ -287,5 +208,115 @@ impl Contract {
         if !s.volts.accounts.contains_key(account_id) {
             s.volts.internal_register_account(account_id);
         }
+    }
+
+    /// Mints drone `d:<n>` to `owner` at `level` with `stats`, ELO 1000, nothing bound. Emits
+    /// nep171 nft_mint and `drone_minted`. Callers validate level and stats.
+    pub(crate) fn internal_mint_drone(
+        &mut self,
+        owner: &AccountId,
+        name: String,
+        level: u8,
+        stats: [u8; 9],
+    ) -> TokenId {
+        let s = self.s_mut();
+        let token_id = format!("{DRONE_PREFIX}{}", s.next_drone);
+        s.next_drone += 1;
+        s.nft
+            .internal_mint_with_refund(token_id.clone(), owner.clone(), None, None);
+        let hot = DroneHot {
+            level,
+            xp: 0,
+            elo: START_ELO,
+            wins: 0,
+            losses: 0,
+            equipped_mod: None,
+            equipped_skin: None,
+            in_batch: None,
+        };
+        let cold = DroneCold {
+            stats,
+            bound_skins: vec![],
+            bound_mods: vec![],
+            invested: 0,
+            name,
+        };
+        s.drones_hot
+            .insert(token_id.clone(), VersionedDroneHot::V1(hot));
+        s.drones_cold
+            .insert(token_id.clone(), VersionedDroneCold::V1(cold));
+        NftMint {
+            owner_id: owner,
+            token_ids: &[&token_id],
+            memo: None,
+        }
+        .emit();
+        Event::DroneMinted {
+            token: token_id.clone(),
+            owner: owner.clone(),
+            level,
+        }
+        .emit();
+        token_id
+    }
+
+    /// Mints skin `s:<n>` or mod `m:<n>` to `owner`. A catalog skin (no placeholder name) counts
+    /// against its template's supply cap ("no supply"); a placeholder skin is stored with template
+    /// 0 and `rarity`. Emits nep171 nft_mint and `item_minted`. Callers validate template and
+    /// rarity.
+    pub(crate) fn internal_mint_item(
+        &mut self,
+        owner: &AccountId,
+        kind: ItemKind,
+        template: u16,
+        rarity: u8,
+        placeholder_name: Option<String>,
+    ) -> TokenId {
+        let s = self.s_mut();
+        if kind == ItemKind::Skin && placeholder_name.is_none() {
+            let minted = s.skin_minted.get(&template).copied().unwrap_or(0);
+            require!(minted < SKIN_SUPPLY_CAP[usize::from(rarity)], "no supply");
+            s.skin_minted.insert(template, minted + 1);
+        }
+        let template = if placeholder_name.is_some() {
+            0
+        } else {
+            template
+        };
+        let token_id = match kind {
+            ItemKind::Skin => {
+                s.next_skin += 1;
+                format!("{SKIN_PREFIX}{}", s.next_skin - 1)
+            }
+            ItemKind::Mod => {
+                s.next_mod += 1;
+                format!("{MOD_PREFIX}{}", s.next_mod - 1)
+            }
+        };
+        s.nft
+            .internal_mint_with_refund(token_id.clone(), owner.clone(), None, None);
+        let item = Item {
+            kind,
+            template,
+            rarity,
+            bound_to: None,
+            placeholder_name,
+        };
+        s.items.insert(token_id.clone(), VersionedItem::V1(item));
+        NftMint {
+            owner_id: owner,
+            token_ids: &[&token_id],
+            memo: None,
+        }
+        .emit();
+        Event::ItemMinted {
+            token: token_id.clone(),
+            owner: owner.clone(),
+            kind,
+            template,
+            rarity,
+        }
+        .emit();
+        token_id
     }
 }

@@ -36,6 +36,14 @@ describe.skipIf(!enabled)('bootstrap service', () => {
   const run = (userId, game) =>
     runBootstrap(userId, { db, near: game.near, pickModTemplate: () => MOD_TEMPLATE });
 
+  /** Call until done, as the dashboard does (one transition per call; three for a fresh user). */
+  /** @param {string} userId @param {ReturnType<typeof createFakeGame>} game */
+  async function untilDone(userId, game) {
+    let status = await run(userId, game);
+    for (let i = 1; i < 3 && status.state !== 'done'; i += 1) status = await run(userId, game);
+    return status;
+  }
+
   /** @param {string} userId */
   async function rows(userId) {
     const [user] = await db.select().from(users).where(eq(users.id, userId));
@@ -45,11 +53,27 @@ describe.skipIf(!enabled)('bootstrap service', () => {
     return { user, drone, skin, mod };
   }
 
-  it('takes a fresh user through all three steps to done, with cache rows and 1,000 Volts', async () => {
+  it('takes a fresh user to done in exactly three calls, one transition each, with cache rows and 1,000 Volts', async () => {
     const game = createFakeGame();
     const { id } = await newUser();
+    const chainCalls = () => ({
+      create: game.count('create_player'),
+      mints: game.count('mint_drone') + game.count('mint_item') + game.count('mint_volts'),
+      binds: game.count('bind'),
+    });
 
+    // Call 1: the account only.
+    expect(await run(id, game)).toMatchObject({ state: 'account', droneId: null });
+    expect(chainCalls()).toEqual({ create: 1, mints: 0, binds: 0 });
+    expect((await rows(id)).user.bootstrapClaimedAt).toBeNull();
+
+    // Call 2: the four mints only.
+    expect((await run(id, game)).state).toBe('minted');
+    expect(chainCalls()).toEqual({ create: 1, mints: 4, binds: 0 });
+
+    // Call 3: the two binds, then done.
     const status = await run(id, game);
+    expect(chainCalls()).toEqual({ create: 1, mints: 4, binds: 2 });
 
     const { user, drone, skin, mod } = await rows(id);
     expect(status).toEqual({
@@ -110,10 +134,11 @@ describe.skipIf(!enabled)('bootstrap service', () => {
     const game = createFakeGame({ failOnce: { mint_item: (a) => a.kind === 'mod' } });
     const { id } = await newUser();
 
+    expect((await run(id, game)).state).toBe('account');
     await expect(run(id, game)).rejects.toThrow(/injected failure in mint_item/);
     expect((await rows(id)).user.bootstrapState).toBe('account');
 
-    expect((await run(id, game)).state).toBe('done');
+    expect((await untilDone(id, game)).state).toBe('done');
     expect(game.count('create_player')).toBe(1);
     expect(game.count('mint_drone')).toBe(1);
     expect(game.count('mint_item', (a) => a.kind === 'skin')).toBe(1);
@@ -135,9 +160,10 @@ describe.skipIf(!enabled)('bootstrap service', () => {
       return created;
     };
 
+    expect((await run(id, game)).state).toBe('account');
     await expect(run(id, game)).rejects.toThrow(/unknown outcome/);
     expect(sends).toBe(1);
-    expect(await run(id, game)).toMatchObject({ state: 'done' });
+    expect(await untilDone(id, game)).toMatchObject({ state: 'done' });
     expect(game.count('mint_drone')).toBe(1);
     expect((await rows(id)).drone.tokenId).toBe(game.first('drone'));
   });
@@ -146,6 +172,8 @@ describe.skipIf(!enabled)('bootstrap service', () => {
     const game = createFakeGame({ failOnce: { bind: (a) => a.item.startsWith('m:') } });
     const { id } = await newUser();
 
+    expect((await run(id, game)).state).toBe('account');
+    expect((await run(id, game)).state).toBe('minted');
     await expect(run(id, game)).rejects.toThrow(/injected failure in bind/);
     expect((await rows(id)).user.bootstrapState).toBe('minted');
     const mintsAfterFirstRun =
@@ -173,8 +201,9 @@ describe.skipIf(!enabled)('bootstrap service', () => {
       expect.objectContaining({ accountId: `p-${slug}.game.mock.testnet`, slug, keyVersion: 1 }),
     ]);
 
-    expect((await run(id, game)).state).toBe('done');
+    expect((await run(id, game)).state).toBe('account');
     expect(game.count('create_player')).toBe(1);
+    expect((await untilDone(id, game)).state).toBe('done');
     const after = (await rows(id)).user;
     expect(after.nearAccountId).toBe(`p-${slug}.game.mock.testnet`);
     expect(after.playKeyEnc).toBe(user.bootstrapPending[0].playKeyEnc);
@@ -209,7 +238,7 @@ describe.skipIf(!enabled)('bootstrap service', () => {
       return resolve(accountId, seq, txHash, options);
     };
 
-    expect((await run(id, game)).state).toBe('done');
+    expect((await untilDone(id, game)).state).toBe('done');
 
     const { user } = await rows(id);
     expect(user.nearAccountId).toMatch(
@@ -226,8 +255,11 @@ describe.skipIf(!enabled)('bootstrap service', () => {
     const results = await Promise.all([run(id, game), run(id, game)]);
 
     expect(game.count('create_player')).toBe(1);
-    expect(results.filter((r) => !r.busy)).toHaveLength(1);
-    expect((await run(id, game)).state).toBe('done');
+    // Overlapping calls: one acts, the other is busy. Back to back: the second takes the released
+    // lease and makes the next step. Either way no step runs twice.
+    const advanced = results.filter((r) => !r.busy).map((r) => r.state);
+    expect([['account'], ['account', 'minted']]).toContainEqual(advanced.sort());
+    expect((await untilDone(id, game)).state).toBe('done');
     expect(game.count('create_player')).toBe(1);
     const owned = await db
       .select()

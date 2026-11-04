@@ -14,11 +14,12 @@ const STEP_LABEL = {
   done: 'Starter kit ready',
 };
 
-/** Wait before calling again while the route answers 202 (another request or an unknown outcome). */
+/** Wait before calling again while another request holds the bootstrap or an outcome is unknown. */
 const RETRY_MS = 3000;
 
 /**
- * Runs POST /api/auth/bootstrap until the player's account and starter kit exist on chain, shows
+ * Calls POST /api/auth/bootstrap (one step per call) until the player's account and starter kit
+ * exist on chain: again at once after a step, after RETRY_MS while busy or pending. Shows
  * progress and the explorer link, then reloads the dashboard. Mounted while bootstrap is not done.
  */
 export default function BootstrapPanel() {
@@ -46,7 +47,8 @@ export default function BootstrapPanel() {
         }
         if (res.status === 202) {
           setStatus((prev) => ({ ...prev, ...body, error: undefined }));
-          timer.current = setTimeout(() => setAttempt((n) => n + 1), RETRY_MS);
+          const wait = body.busy || body.pending ? RETRY_MS : 0;
+          timer.current = setTimeout(() => setAttempt((n) => n + 1), wait);
           return;
         }
         setStatus((prev) => ({ ...prev, error: body.error ?? 'Setup failed. Try again.' }));
