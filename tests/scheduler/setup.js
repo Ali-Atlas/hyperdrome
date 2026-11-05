@@ -46,7 +46,8 @@ export function schedulerHarness(db) {
     await seedTracks(db);
     const near = createMockNear();
     const slot = 60_000_000 + randomInt(1_000_000_000);
-    const deps = { db, near, secretKey: TEST_SECRET_KEY };
+    // No team phase: the AI team suites (tests/teams) seed teams in the same database.
+    const deps = { db, near, secretKey: TEST_SECRET_KEY, teamPhase: null };
     /** @param {number} offset slots after `slot` */
     const tick = (offset = 0, extra = {}) =>
       runTick({ now: slotStartMs(slot + offset) + 1_000, ...extra }, deps);

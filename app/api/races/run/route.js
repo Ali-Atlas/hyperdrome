@@ -3,7 +3,10 @@ import { ok, fail } from '@/lib/api/response.js';
 import { isRacingEnabled } from '@/services/race-schedule.service.js';
 import { runTick } from '@/services/scheduler.service.js';
 
-/** A tick settles up to a few chunks and commits one batch; each chain call waits up to 10 s. */
+/**
+ * A tick settles up to a few chunks, commits one batch and lets each AI team take one action; each
+ * chain call waits up to 10 s, and no team starts later than 40 s into the tick.
+ */
 export const maxDuration = 60;
 
 /**
@@ -24,8 +27,8 @@ function safeEq(provided, expected) {
  * The scheduler tick (SPEC.md 3, 6): `Authorization: Bearer <CRON_SECRET>` (Vercel cron) or
  * `x-cron-secret: <CRON_SECRET>` (an external scheduler, `scripts/tick.mjs`). When
  * `admin_config.racing_enabled` is not `true` the tick still settles due batches and commits
- * nothing. Answers `{ data: { slot, claimed, settle, commit } }`; a slot already ticked answers
- * `claimed: false`.
+ * nothing. Answers `{ data: { slot, claimed, settle, commit, teams } }`; a slot already ticked
+ * answers `claimed: false`.
  * @param {Request} request
  */
 async function handler(request) {

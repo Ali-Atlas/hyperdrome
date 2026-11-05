@@ -1,24 +1,24 @@
 /**
  * One scheduler tick (SPEC.md 3, 6; ENGINEERING.md 5): claim the slot's `cron_ticks` row (a second
- * tick in the same slot exits), then phase 0 (AI teams, T12), phase 1 (settle the batches of
- * earlier slots) and phase 2 (commit this slot's batch). Each phase leaves a batch in a state the
- * next tick can resume from.
+ * tick in the same slot exits), then phase 1 (settle the batches of earlier slots), phase 2 (commit
+ * this slot's batch) and phase 3 (the AI teams act on the committed matchups, SPEC.md 10). Each
+ * phase leaves a batch in a state the next tick can resume from.
  */
 import { schema } from '@/lib/db';
 import { commitBatch } from './batch.service.js';
 import { resolveDeps, slotFor } from './scheduler-deps.js';
 import { settleDueBatches } from './settle.service.js';
+import { runTeamPhase } from './teams.service.js';
 
 const { cronTicks } = schema;
 
 /** @typedef {import('./scheduler-deps.js').Deps} Deps */
 
 /**
- * Phase 0: the AI teams act on their open matchups and the economy (SPEC.md 10). T12 fills this
- * in; until then the hook does nothing.
- * @returns {Promise<void>}
+ * No team starts its turn later than this after the tick started: the route allows 60 s, and a
+ * team's one action (a capsule is two transactions) must fit in what is left.
  */
-export async function runTeamsPhase() {}
+export const TEAM_PHASE_BUDGET_MS = 40_000;
 
 /**
  * Claim the tick for `slot`: true when this call inserted the row, false when a tick already ran.
@@ -36,19 +36,54 @@ export async function claimTick(db, slot) {
 }
 
 /**
+ * @typedef {Awaited<ReturnType<typeof runTeamPhase>>['teams'] | { error: string }} TeamsOutcome
+ *   each team's result, or the error that stopped the team phase (the tick itself stands)
+ */
+
+/**
  * Run the tick for the slot of `now`.
- * @param {{ now?: number, commit?: boolean }} [options] `commit: false` (racing paused) settles due batches and commits nothing
+ * @param {{ now?: number, commit?: boolean }} [options] `commit: false` (racing paused) settles due batches, commits nothing and runs no team phase
  * @param {Deps} [deps]
- * @returns {Promise<{ slot: number, claimed: boolean, settle?: Record<string, string>, commit?: Awaited<ReturnType<typeof commitBatch>> | { skipped: 'paused' } }>}
+ * @returns {Promise<{ slot: number, claimed: boolean, settle?: Record<string, string>, commit?: Omit<Awaited<ReturnType<typeof commitBatch>>, 'matchups'> | { skipped: 'paused' }, teams?: TeamsOutcome }>}
  */
 export async function runTick({ now = Date.now(), commit = true } = {}, deps = {}) {
+  // The deadline counts from the wall clock; `now` only names the slot.
+  const startedAt = Date.now();
   const full = resolveDeps(deps);
   const slot = slotFor(now);
   if (!(await claimTick(full.db, slot))) return { slot, claimed: false };
-  await runTeamsPhase();
   const settle = await settleDueBatches(slot, full);
-  const committed = commit
-    ? await commitBatch(slot, full)
-    : { skipped: /** @type {const} */ ('paused') };
-  return { slot, claimed: true, settle, commit: committed };
+  if (!commit) {
+    return { slot, claimed: true, settle, commit: { skipped: /** @type {const} */ ('paused') } };
+  }
+  const { matchups = [], ...committed } = await commitBatch(slot, full);
+  const teams = await teamsPhase(
+    { slot, matchups, deadlineMs: startedAt + TEAM_PHASE_BUDGET_MS },
+    deps.teamPhase === undefined ? runTeamPhase : deps.teamPhase,
+    full
+  );
+  return { slot, claimed: true, settle, commit: committed, ...(teams ? { teams } : {}) };
+}
+
+/**
+ * Phase 3: the AI teams act on the matchups just committed. A failure here never fails the tick:
+ * the batch is committed and the next tick settles it.
+ * @param {Parameters<typeof runTeamPhase>[0]} input
+ * @param {typeof runTeamPhase | null} run
+ * @param {import('./scheduler-deps.js').FullDeps} deps
+ * @returns {Promise<TeamsOutcome | null>}
+ */
+async function teamsPhase(input, run, deps) {
+  if (!run) return null;
+  try {
+    return (await run(input, deps)).teams;
+  } catch (err) {
+    console.error({
+      scope: 'scheduler',
+      msg: 'team phase failed',
+      slot: input.slot,
+      error: String(err),
+    });
+    return { error: String(err) };
+  }
 }

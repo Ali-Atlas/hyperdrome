@@ -4,3 +4,4 @@
  */
 import './seed.suite.js';
 import './runner.suite.js';
+import './hook.suite.js';
