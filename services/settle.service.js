@@ -3,9 +3,10 @@
  * earlier slot, read `get_batch`, snapshot each drone's on-chain state, run the engine, send
  * `settle_batch` in chunks of 40 from the chain's `settled_count`, and apply the events to the
  * caches. A failed chain call leaves the batch committed for the next tick; the third failure
- * aborts it with `abort_batch` so its drones unlock.
+ * aborts it with `abort_batch` so its drones unlock. Before that, a failed batch whose commit
+ * reached the chain after all is aborted, so its drones do not stay locked.
  */
-import { and, eq, lt } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import { schema } from '@/lib/db';
 import { ContractPanicError, RpcUnknownOutcomeError, TransactionFailedError } from '@/lib/near';
 import { applyEvents } from './chain-cache.service.js';
@@ -40,23 +41,30 @@ const { batches } = schema;
 export const MAX_SETTLE_ATTEMPTS = 3;
 /** Views per call. */
 const VIEW_CHUNK = 50;
+/**
+ * Slots a failed batch is re-read for a commit that landed late: 24 hours. A NEAR transaction is
+ * valid for 86,400 blocks after the block it references (`transaction_validity_period` in the
+ * genesis config of testnet and mainnet), under a day at the current block time.
+ */
+const LATE_COMMIT_SLOTS = (24 * 3600) / CADENCE_S;
+/** Failed batches re-read per tick, newest first, so a run of failures cannot stall the tick. */
+const LATE_COMMIT_LIMIT = 20;
 
 /**
  * Settle every committed batch of a slot before `slot`, each on its own.
  * @param {number} slot the current slot
  * @param {Deps} [deps]
- * @returns {Promise<Record<string, string>>} outcome per batch slot
+ * @returns {Promise<Record<string, string>>} outcome per batch slot: `settled`, `failed`, `pending`, `retry`, `error`, or `aborted` for a failed batch whose late commit was aborted
  */
 export async function settleDueBatches(slot, deps = {}) {
   const full = resolveDeps(deps);
+  const outcomes = await abortLateCommits(slot, full);
   /** @type {BatchRow[]} */
   const due = await full.db
     .select()
     .from(batches)
     .where(and(eq(batches.status, 'committed'), lt(batches.slot, slot)))
     .orderBy(batches.slot);
-  /** @type {Record<string, string>} */
-  const outcomes = {};
   for (const row of due) {
     try {
       outcomes[row.slot] = await settleBatch(row, full);
@@ -64,6 +72,68 @@ export async function settleDueBatches(slot, deps = {}) {
       console.error({
         scope: 'scheduler',
         msg: 'settle failed',
+        slot: row.slot,
+        error: String(err),
+      });
+      outcomes[row.slot] = 'error';
+    }
+  }
+  return outcomes;
+}
+
+/**
+ * A batch the database failed (its commit had not reached the chain) whose commit landed after
+ * all holds its drones locked on chain with nobody left to settle it. Every failed batch of the
+ * last day with no settle or abort transaction is read with `get_batch`; one that is on chain
+ * with this row's seed hash, neither settled nor aborted, is aborted and the transaction recorded
+ * in `settle_txs`, which also takes the row out of this check.
+ * @param {number} slot the current slot
+ * @param {FullDeps} deps
+ * @returns {Promise<Record<string, string>>} `aborted` (or `error`) per batch slot acted on
+ */
+async function abortLateCommits(slot, deps) {
+  const { db, near } = deps;
+  /** @type {BatchRow[]} */
+  const failed = await db
+    .select()
+    .from(batches)
+    .where(
+      and(
+        eq(batches.status, 'failed'),
+        lt(batches.slot, slot),
+        gte(batches.slot, slot - LATE_COMMIT_SLOTS),
+        sql`coalesce(jsonb_array_length(${batches.settleTxs}), 0) = 0`
+      )
+    )
+    .orderBy(desc(batches.slot))
+    .limit(LATE_COMMIT_LIMIT);
+  /** @type {Record<string, string>} */
+  const outcomes = {};
+  for (const row of failed) {
+    try {
+      const chain = /** @type {ChainBatch | null} */ (
+        await near.view('get_batch', { id: row.slot })
+      );
+      if (!chain || chain.settled || chain.aborted) continue;
+      // A batch under another seed hash was committed by someone else and is not ours to abort.
+      if (toHex(chain.seed_hash) !== row.seedHash) continue;
+      const res = await near.callAsSettlement('abort_batch', { batch_id: row.slot });
+      await db
+        .update(batches)
+        .set({ settleTxs: [res.txHash] })
+        .where(eq(batches.slot, row.slot));
+      console.error({
+        scope: 'scheduler',
+        msg: 'late commit aborted',
+        slot: row.slot,
+        txHash: res.txHash,
+      });
+      await applyEvents(res.events, deps);
+      outcomes[row.slot] = 'aborted';
+    } catch (err) {
+      console.error({
+        scope: 'scheduler',
+        msg: 'late commit abort failed',
         slot: row.slot,
         error: String(err),
       });
@@ -194,6 +264,8 @@ async function settleFailed(row, err, deps) {
   });
   if (attempts < MAX_SETTLE_ATTEMPTS) return 'retry';
   const res = await near.callAsSettlement('abort_batch', { batch_id: row.slot });
+  const settleTxs = [.../** @type {string[]} */ (row.settleTxs ?? []), res.txHash];
+  await db.update(batches).set({ settleTxs }).where(eq(batches.slot, row.slot));
   await applyEvents(res.events, deps);
   await markFailed(db, row.slot, `aborted after ${attempts} failed settle attempts`);
   return 'failed';
