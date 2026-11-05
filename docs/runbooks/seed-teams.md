@@ -37,6 +37,16 @@ The script is idempotent. A finished team is skipped with no chain call. A run t
 - `the chain views do not show ... yet`: an RPC node is behind. Run again in a minute.
 - `exists on chain but this database holds no keys for it`: the team account was created from another database. Its keys are in that database's `users` row; this one cannot adopt the account.
 
+## After a roster change
+
+`lib/teams/roster.js` is the kit. When it gains a skin or a mod, bring the seeded teams up to it:
+
+```sh
+npm run seed:teams -- --reconcile
+```
+
+For each seeded team this mints and binds the roster's items the team does not have yet, through the same steps as the seed, and rebuilds the cache. It never mints Volts, sends gas or rotates the key. Binds are permanent: an item the roster no longer lists stays on its drone.
+
 ## Check
 
 ```sh
