@@ -94,6 +94,33 @@ describe('mock adapter', () => {
     await expect(near.rotatePlayKey(accountId, playKeyEnc)).rejects.toThrow();
   });
 
+  it('createPlayerAccount calls onSigned with the keys and hash before the create applies', async () => {
+    const near = createMockNear();
+    /** @type {any[]} */
+    const seen = [];
+    near.mock.failNextSend('applied');
+    const err = await near
+      .createPlayerAccount({
+        slug: 'hank',
+        isTeam: true,
+        onSigned: async (attempt) => {
+          seen.push({ ...attempt, registered: near.mock.player(attempt.accountId) !== undefined });
+        },
+      })
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(RpcUnknownOutcomeError);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({
+      accountId: 'hank.game.mock.testnet',
+      txHash: err.txHash,
+      registered: false,
+    });
+    // The stored attempt resolves to the created account.
+    expect(
+      await near.resolveOutcome(seen[0].accountId, 0, seen[0].txHash, { senderId: near.ownerId })
+    ).toMatchObject({ applied: true, result: true });
+  });
+
   it('records the rotation allowance (default 1 NEAR) and reports a set NEAR balance', async () => {
     const near = createMockNear();
     const { accountId, adminKeyEnc } = await near.createPlayerAccount({

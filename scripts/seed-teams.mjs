@@ -21,6 +21,9 @@ const POLL_MS = 5_000;
 const WAIT_MS = 30 * 60_000;
 const YOCTO_PER_NEAR = 10n ** 24n;
 
+/** @param {string} line */
+const say = (line) => void process.stdout.write(`${line}\n`);
+
 const wanted = process.argv.slice(2);
 const unknown = wanted.filter((slug) => !TEAMS.some((t) => t.slug === slug));
 if (unknown.length > 0) {
@@ -39,16 +42,16 @@ const network = process.env.NEAR_NETWORK ?? 'testnet';
  */
 async function fund({ accountId, from, yocto }) {
   const amount = `${yocto / YOCTO_PER_NEAR} NEAR`;
-  console.log(`\n${accountId} needs ${amount} for gas. Run this in another terminal:\n`);
-  console.log(
+  say(`\n${accountId} needs ${amount} for gas. Run this in another terminal:\n`);
+  say(
     `  near tokens ${from} send-near ${accountId} '${amount}' network-config ${network} sign-with-legacy-keychain send\n`
   );
-  console.log(`Waiting for the transfer (checking every ${POLL_MS / 1000} s) ...`);
+  say(`Waiting for the transfer (checking every ${POLL_MS / 1000} s) ...`);
   const until = Date.now() + WAIT_MS;
   while (Date.now() < until) {
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
     if ((await near.accountBalance(accountId)) >= yocto) {
-      console.log(`${accountId} is funded.`);
+      say(`${accountId} is funded.`);
       return;
     }
   }
@@ -57,8 +60,8 @@ async function fund({ accountId, from, yocto }) {
 let failed = false;
 for (const def of defs) {
   try {
-    const report = await seedTeam(def, { near, fund, log: (line) => console.log(line) });
-    console.log(
+    const report = await seedTeam(def, { near, fund, log: say });
+    say(
       report.skipped
         ? `${def.slug}: already seeded (${report.accountId})`
         : `${def.slug}: done, ${report.txs.length} transactions, ${near.explorerAccount(report.accountId)}`

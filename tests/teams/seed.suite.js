@@ -3,11 +3,12 @@
  * Run from tests/teams/teams.test.js.
  */
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schema } from '../../lib/db/index.js';
 import { calculatePerStatCap, calculateTSB } from '../../lib/game-engine/economy.js';
 import { STAT_KEYS } from '../../lib/game-engine/templates.js';
 import { TEAMS, teamDroneName } from '../../lib/teams/roster.js';
+import { UNKNOWN_MINT_WAIT_MS } from '../../services/team-seed-kit.js';
 import { SeedBlockedError, seedTeam } from '../../services/team-seed.service.js';
 import { dbEnabled, testDb } from '../gameplay/setup.js';
 import { createTeamChain } from './fake-chain.js';
@@ -145,5 +146,118 @@ describe.skipIf(!dbEnabled)('team seeding', () => {
     expect(
       ['mint_drone', 'mint_item', 'mint_volts', 'bind'].map((m) => chain.calls(m).length)
     ).toEqual([3, 3, 1, 3]);
+  });
+
+  /**
+   * A chain and a team definition, with the owner funded and `fund` granting the gas float.
+   */
+  function setup() {
+    const chain = createTeamChain();
+    const { near } = chain;
+    near.mock.setBalance(near.ownerId, 50n * NEAR);
+    /** @type {import('../../services/team-seed.service.js').Fund} */
+    const fund = async ({ accountId, yocto }) => near.mock.setBalance(accountId, yocto);
+    const def = testTeam();
+    const row = async () => (await db.select().from(users).where(eq(users.username, def.name)))[0];
+    return { chain, near, fund, def, row };
+  }
+
+  it('keeps the keys of a create that lands when its answer is lost or the process dies', async () => {
+    // The answer is lost: the keys are already stored, and the next run adopts the account.
+    const lost = setup();
+    lost.near.mock.failNextSend('applied');
+    await expect(seedTeam(lost.def, { db, ...lost })).rejects.toBeInstanceOf(SeedBlockedError);
+    const pending = await lost.row();
+    expect(pending).toMatchObject({ bootstrapState: 'none', nearAccountId: null });
+    expect(pending.bootstrapPending).toHaveLength(1);
+    expect(pending.bootstrapPending[0]).toMatchObject({
+      accountId: `${lost.def.slug}.${lost.near.gameId}`,
+      txHash: lost.chain.calls('create_player')[0].txHash,
+    });
+    expect((await seedTeam(lost.def, { db, ...lost })).skipped).toBe(false);
+    expect(lost.chain.calls('create_player')).toHaveLength(1);
+    expect(await lost.row()).toMatchObject({ bootstrapState: 'done', bootstrapPending: null });
+
+    // The process dies after the broadcast: the create lands, the call never returns.
+    const died = setup();
+    const { createPlayerAccount } = died.near;
+    const dying = {
+      ...died.near,
+      createPlayerAccount: async (/** @type {any} */ input) => {
+        await createPlayerAccount(input);
+        throw new Error('killed');
+      },
+    };
+    await expect(seedTeam(died.def, { db, near: dying, fund: died.fund })).rejects.toThrow();
+    expect((await died.row()).bootstrapPending).toHaveLength(1);
+    expect((await seedTeam(died.def, { db, ...died })).skipped).toBe(false);
+    expect(died.chain.calls('create_player')).toHaveLength(1);
+    // The stored keys are the account's: the binds were signed with them.
+    expect(died.chain.calls('bind')).toHaveLength(3);
+  });
+
+  it('creates again when the first create never reached the chain', async () => {
+    const t = setup();
+    t.near.mock.failNextSend('lost');
+    await expect(seedTeam(t.def, { db, ...t })).rejects.toBeInstanceOf(SeedBlockedError);
+    expect(t.chain.calls('create_player')).toHaveLength(0);
+    expect((await seedTeam(t.def, { db, ...t })).skipped).toBe(false);
+    expect(t.chain.calls('create_player')).toHaveLength(1);
+    expect(await t.row()).toMatchObject({ bootstrapState: 'done', bootstrapPending: null });
+  });
+
+  it('never mints a piece twice: a failed mint, an unknown one that landed, one that was lost', async () => {
+    const t = setup();
+    const { near, chain } = t;
+    /** Fail the nth `mint_item` in `mode` (`refuse`: the contract panics). */
+    const failing = (
+      /** @type {number} */ nth,
+      /** @type {'applied' | 'lost' | 'refuse'} */ mode
+    ) => {
+      let seen = 0;
+      return {
+        ...near,
+        callAsOps: async (/** @type {string} */ method, /** @type {any} */ args) => {
+          if (method === 'mint_item' && ++seen === nth) {
+            if (mode === 'refuse') chain.refuse('mint_item', 'no supply');
+            else near.mock.failNextSend(mode);
+          }
+          return near.callAsOps(method, args);
+        },
+      };
+    };
+    const counts = () =>
+      ['mint_drone', 'mint_item', 'mint_volts'].map((m) => chain.calls(m).length);
+
+    // The 1st item mint panics: 3 drones are minted and recorded, the panicking call is logged.
+    await expect(seedTeam(t.def, { db, near: failing(1, 'refuse'), fund: t.fund })).rejects.toThrow(
+      /no supply/
+    );
+    chain.refuse('mint_item', null);
+    expect(counts()).toEqual([3, 1, 0]);
+    expect(Object.keys((await t.row()).bootstrapPending.minted)).toEqual(['d0', 'd1', 'd2']);
+
+    // The 2nd item mint of this run lands with its answer lost: resolved by hash on the next run.
+    await expect(
+      seedTeam(t.def, { db, near: failing(2, 'applied'), fund: t.fund })
+    ).rejects.toBeInstanceOf(SeedBlockedError);
+    expect(counts()).toEqual([3, 3, 0]);
+    expect((await t.row()).bootstrapPending.unknown).toHaveLength(1);
+
+    // The last item mint never reaches the chain: the seed waits, then mints it again.
+    await expect(
+      seedTeam(t.def, { db, near: failing(1, 'lost'), fund: t.fund })
+    ).rejects.toBeInstanceOf(SeedBlockedError);
+    expect(counts()).toEqual([3, 3, 0]);
+    await expect(seedTeam(t.def, { db, ...t })).rejects.toThrow(/still has no outcome/);
+    const later = Date.now() + UNKNOWN_MINT_WAIT_MS + 1;
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(later);
+    const done = await seedTeam(t.def, { db, ...t });
+    clock.mockRestore();
+    expect(done.skipped).toBe(false);
+    // 3 drones, the 3 roster items (1 skin, 2 mods) and the Volts, each exactly once on chain.
+    expect(counts()).toEqual([3, 4, 1]);
+    expect([chain.drones.size, chain.items.size]).toEqual([3, 3]);
+    expect(await t.row()).toMatchObject({ bootstrapState: 'done', bootstrapPending: null });
   });
 });

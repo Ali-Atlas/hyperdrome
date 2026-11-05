@@ -10,9 +10,14 @@ import { TEAM_ACTION_NAMESPACE, teamActionId } from '../../lib/teams/action-id.j
 import { teamEconomy } from '../../lib/teams/constants.js';
 import {
   allocateAlongPersona,
+  decide,
   listPrice,
   maxBuyPrice,
+  planBuy,
   planCapsule,
+  planEquip,
+  planList,
+  teamCaps,
 } from '../../lib/teams/policy.js';
 import { TEAMS, TEAM_DRONE_LEVELS, teamDroneName, teamSlugOf } from '../../lib/teams/roster.js';
 import { TEAM_CONSTANTS } from './fake-chain.js';
@@ -127,26 +132,33 @@ describe('team prices and capsules', () => {
     ).toEqual([120, 640, 2_800, 9_600]);
   });
 
-  it('opens premium only when its price fits the per-transaction cap', () => {
-    /** @type {import('../../lib/teams/policy.js').TeamState} */
-    const rich = {
-      volts: 30_000,
-      reserve: 5_000,
-      perTxCap: 5_000,
-      capsulePrices: { starter: 1_000, premium: 6_000 },
-      weights: TEAMS[0].weights,
-      drones: [],
-      freeMods: [],
-      listedMods: 0,
-      market: [],
-    };
+  /** @type {import('../../lib/teams/policy.js').TeamState} */
+  const rich = {
+    volts: 30_000,
+    reserve: 5_000,
+    perTxCap: 5_000,
+    dayLeft: 15_000,
+    capsulePrices: { starter: 1_000, premium: 6_000 },
+    weights: TEAMS[0].weights,
+    drones: [],
+    freeMods: [],
+    listedMods: 0,
+    market: [],
+  };
+
+  it('opens premium only when its price fits the caps', () => {
     // 25,000 spare Volts, but a 6,000 capsule is over the 5,000 cap: the contract would refuse.
     expect(planCapsule(rich)).toMatchObject({ step: 'capsule', subject: 'starter' });
     expect(planCapsule({ ...rich, perTxCap: 6_000 })).toMatchObject({ subject: 'premium' });
+    expect(planCapsule({ ...rich, perTxCap: 6_000, dayLeft: 5_999 })).toMatchObject({
+      subject: 'starter',
+    });
     expect(planCapsule({ ...rich, perTxCap: 6_000, volts: 24_999 })).toMatchObject({
       subject: 'starter',
     });
     expect(planCapsule({ ...rich, volts: 5_999 })).toBeNull();
+    // What is left of the day's cap does not cover a starter capsule: nothing is sent.
+    expect(planCapsule({ ...rich, dayLeft: 999 })).toBeNull();
     expect(
       planCapsule({ ...rich, listedMods: 4, freeMods: [{ token: 'm:1', template: 1 }] })
     ).toMatchObject({ subject: 'starter' });
@@ -160,5 +172,107 @@ describe('team prices and capsules', () => {
         ],
       })
     ).toBeNull();
+  });
+
+  it('reads the caps from the budget: spent counts only on the contract day it was spent', () => {
+    const budget = { per_tx: '5000', per_day: '15000', spent: '14500', day: 20_762 };
+    const noon = (20_762 + 0.5) * 86_400_000;
+    expect(teamCaps(budget, noon)).toEqual({ perTxCap: 5_000, dayLeft: 500 });
+    expect(teamCaps(budget, noon + 86_400_000)).toEqual({ perTxCap: 5_000, dayLeft: 15_000 });
+    expect(teamCaps({ ...budget, spent: '16000' }, noon)).toMatchObject({ dayLeft: 0 });
+    expect(teamCaps(null, noon)).toEqual({ perTxCap: 0, dayLeft: 0 });
+  });
+
+  /** Meridian (4 straights, 4 turns) at night: Aero Shell fits 0.5, Predator Lens 4. */
+  const night = { track: { straights: 4, turns: 4 }, weather: 'clear', timeOfDay: 'night' };
+  /** A racing drone with Aero Shell (m:1, equipped). */
+  const racer = {
+    token: 'd:1',
+    level: 8,
+    stats: allocateAlongPersona({ stats: ones(), level: 8, weights: TEAMS[0].weights }).stats,
+    equippedMod: 'm:1',
+    mods: [{ token: 'm:1', template: 11 }],
+    race: night,
+    order: 0,
+  };
+
+  it('equip keeps the equipped mod on a tie and moves to a better one', () => {
+    // Two Aero Shells tie: the equipped one stays, whichever token number it has.
+    const twins = [
+      { token: 'm:1', template: 11 },
+      { token: 'm:2', template: 11 },
+    ];
+    expect(
+      planEquip({ ...rich, drones: [{ ...racer, mods: twins, equippedMod: 'm:2' }] })
+    ).toBeNull();
+    // Nothing equipped: the lower token number of the tie.
+    expect(
+      planEquip({ ...rich, drones: [{ ...racer, mods: twins, equippedMod: null }] })?.args
+    ).toEqual({ drone: 'd:1', item: 'm:1', kind: 'mod' });
+    const better = [...racer.mods, { token: 'm:9', template: 22 }];
+    expect(planEquip({ ...rich, drones: [{ ...racer, mods: better }] })?.args).toMatchObject({
+      item: 'm:9',
+    });
+    // A drone outside the matchups is left alone.
+    expect(planEquip({ ...rich, drones: [{ ...racer, mods: better, race: null }] })).toBeNull();
+  });
+
+  it('list takes the lowest fit, then the cheaper rarity, then the lower token number', () => {
+    // Night Lens (common) and Night Optics (rare) both fit 0 in clear daylight.
+    const day = { ...racer, race: { ...night, timeOfDay: 'day' } };
+    const freeMods = [
+      { token: 'm:5', template: 14 },
+      { token: 'm:7', template: 6 },
+      { token: 'm:6', template: 6 },
+      { token: 'm:8', template: 11 },
+    ];
+    expect(planList({ ...rich, drones: [day], freeMods })).toMatchObject({
+      subject: 'm:6',
+      args: { token: 'm:6', price: '180' },
+    });
+    expect(planList({ ...rich, drones: [day], freeMods: freeMods.slice(0, 2) })).toBeNull();
+    expect(planList({ ...rich, drones: [{ ...day, race: null }], freeMods })).toBeNull();
+  });
+
+  it('buy needs 2 fit of gain, a price at or under 0.8x base, the spare Volts and the caps', () => {
+    /** @param {number} price @param {Partial<typeof rich>} [over] */
+    const buys = (price, over = {}) =>
+      planBuy({
+        ...rich,
+        drones: [racer],
+        market: [{ token: 'm:50', template: 22, price }],
+        ...over,
+      })?.subject ?? null;
+    expect(buys(2_800)).toBe('m:50');
+    expect(buys(2_801)).toBeNull();
+    expect(buys(2_800, { volts: 7_799 })).toBeNull();
+    expect(buys(2_800, { perTxCap: 2_799 })).toBeNull();
+    expect(buys(2_800, { dayLeft: 2_799 })).toBeNull();
+    // Night Optics gains 1.5 over Aero Shell: not enough.
+    expect(
+      planBuy({ ...rich, drones: [racer], market: [{ token: 'm:51', template: 14, price: 10 }] })
+    ).toBeNull();
+    // With no race there is no fit to compare.
+    expect(buys(2_800, { drones: [{ ...racer, race: null }] })).toBeNull();
+    // The same gain twice: the lower price, then the lower token number.
+    const market = [
+      { token: 'm:60', template: 22, price: 900 },
+      { token: 'm:62', template: 22, price: 800 },
+      { token: 'm:61', template: 22, price: 800 },
+    ];
+    expect(planBuy({ ...rich, drones: [racer], market })?.subject).toBe('m:61');
+  });
+
+  it('decide passes over a plan equal to the one the chain just refused', () => {
+    const state = {
+      ...rich,
+      drones: [racer],
+      market: [{ token: 'm:50', template: 22, price: 600 }],
+    };
+    const capsule = decide(state);
+    expect(capsule).toMatchObject({ step: 'capsule', subject: 'starter' });
+    expect(decide(state, capsule)).toMatchObject({ step: 'buy', subject: 'm:50' });
+    // A different plan of the same step is not passed over.
+    expect(decide(state, { .../** @type {any} */ (capsule), subject: 'premium' })).toEqual(capsule);
   });
 });

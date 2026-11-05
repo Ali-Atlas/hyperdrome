@@ -33,7 +33,8 @@ Run that command in a second terminal. It is signed with the owner's full-access
 The script is idempotent. A finished team is skipped with no chain call. A run that stopped (an RPC failure, a closed terminal, the 30 minute wait) resumes where it stopped: it reads the chain first and mints or binds only what is missing. A message that starts with `stopped.` says what it is waiting for.
 
 - `holds under 10 NEAR`: fund the owner account (dev-setup.md, "Top up"), then run again.
-- `has an unknown outcome`: run again; the stored transaction is resolved before anything new is sent.
+- `returned no outcome`, `has an unknown outcome`, `still has no outcome`: a transaction was sent and its answer did not come back. Its hash (and, for an account creation, the sealed keys) is stored on the team's `users` row. Run again in a minute; the stored transaction is resolved before anything new is sent. A mint the RPC still does not know after 10 minutes counts as dropped and is sent again.
+- `the chain views do not show ... yet`: an RPC node is behind. Run again in a minute.
 - `exists on chain but this database holds no keys for it`: the team account was created from another database. Its keys are in that database's `users` row; this one cannot adopt the account.
 
 ## Check

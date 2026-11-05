@@ -158,8 +158,11 @@ describe.skipIf(!enabled)('chain adapter on testnet', () => {
       const oldPlay = fc
         ? keys.find((k) => typeof k.access_key.permission === 'object')?.public_key
         : null;
+      // The allowance an AI team's play key gets (SPEC.md 2.10); the default stays 1 NEAR.
+      const allowance = 2n * 10n ** 24n;
       const rotated = await near.rotatePlayKey(accountId, created.adminKeyEnc, {
         keyVersion: created.keyVersion,
+        allowance,
       });
       report(`rotatePlayKey keyVersion=${rotated.keyVersion} ${near.explorerTx(rotated.txHash)}`);
       expect(rotated.keyVersion).toBe(2);
@@ -167,6 +170,12 @@ describe.skipIf(!enabled)('chain adapter on testnet', () => {
       report(`keys after rotation: ${JSON.stringify(after.map((k) => k.public_key))}`);
       expect(after).toHaveLength(2);
       expect(after.map((k) => k.public_key)).not.toContain(oldPlay);
+      const newPlay = after.find((k) => typeof k.access_key.permission === 'object');
+      expect(newPlay?.access_key.permission.FunctionCall.allowance).toBe(String(allowance));
+      const balance = await near.accountBalance(accountId);
+      report(`accountBalance ${balance} yoctoNEAR`);
+      expect(balance).toBeGreaterThan(0n);
+      expect(balance).toBeLessThan(10n ** 23n);
       expect(await near.view('get_player', { account: accountId })).toMatchObject({ seq: 1 });
 
       report(`account ${near.explorerAccount(accountId)}`);

@@ -14,7 +14,7 @@ import { TRACKS } from '@/lib/game-engine/tracks.js';
 import { getNear } from '@/lib/near';
 import { teamActionId } from '@/lib/teams/action-id.js';
 import { teamEconomy } from '@/lib/teams/constants.js';
-import { decide } from '@/lib/teams/policy.js';
+import { decide, teamCaps } from '@/lib/teams/policy.js';
 import { teamSlugOf } from '@/lib/teams/roster.js';
 import { PACK_TIERS } from '@/lib/validators/gameplay.js';
 import { runPlayerAction } from './action.service.js';
@@ -33,8 +33,9 @@ const MARKET_SCAN_LIMIT = 200;
  * @typedef {import('./action.service.js').ActionResponse} ActionResponse
  * @typedef {{ a: string, b: string, track: number, weather: number, tod: number }} Matchup
  *   a committed matchup as `commit_batch` takes it (SPEC.md 4.2): token ids and table indexes
- * @typedef {{ db?: any, near?: import('@/lib/near').NearAdapter, now?: () => number, secretKey?: string }} Deps
- * @typedef {{ db: any, near: import('@/lib/near').NearAdapter, now: () => number, secretKey?: string }} FullDeps
+ * @typedef {{ db?: any, near?: import('@/lib/near').NearAdapter, now?: () => number, secretKey?: string, sleep?: (ms: number) => Promise<void> }} Deps
+ *   `secretKey` and `sleep` are passed on to the pack service
+ * @typedef {Deps & { db: any, near: import('@/lib/near').NearAdapter, now: () => number }} FullDeps
  * @typedef {typeof actions.$inferSelect} ActionRow
  * @typedef {{ user: typeof users.$inferSelect, team: typeof teams.$inferSelect }} TeamRow
  */
@@ -66,6 +67,7 @@ export async function runTeamPhase({ slot, matchups, deadlineMs }, deps = {}) {
     near: deps.near ?? getNear(),
     now: deps.now ?? Date.now,
     secretKey: deps.secretKey,
+    sleep: deps.sleep,
   };
   /** @type {TeamRow[]} */
   const rows = await d.db
@@ -116,7 +118,9 @@ async function teamTurn(d, { slot, team, row, races, economy }) {
       return report(team, recorded, last.id, await send(d, userId, last.id, recorded), true);
     }
   }
-  const plan = decide(await loadState(d, row, races, economy));
+  // A plan the chain just refused is passed over, so the later steps still get their turn.
+  const refused = last?.status === 'failed' ? recorded : null;
+  const plan = decide(await loadState(d, row, races, economy), refused);
   if (!plan) return { team, step: null, outcome: 'idle' };
   const actionId = teamActionId(team, slot, plan.step, plan.subject);
   return report(team, plan, actionId, await send(d, userId, actionId, plan), false);
@@ -248,8 +252,8 @@ function racesByToken(matchups) {
 }
 
 /**
- * What a team decides from: its Volts (from the chain), its drones with their bound mods, its
- * unbound mods, and the mod market (all from the cache).
+ * What a team decides from: its Volts and caps (from the chain), its drones with their bound mods,
+ * its unbound mods, and the mod market (all from the cache).
  * @param {FullDeps} d
  * @param {TeamRow} row
  * @param {Map<string, { race: FitRace, order: number }>} races
@@ -258,8 +262,10 @@ function racesByToken(matchups) {
  */
 async function loadState(d, row, races, economy) {
   const userId = row.user.id;
-  const volts = Number(
-    (await d.near.view('ft_balance_of', { account_id: row.user.nearAccountId })) ?? 0
+  const account = row.user.nearAccountId;
+  const volts = Number((await d.near.view('ft_balance_of', { account_id: account })) ?? 0);
+  const budget = /** @type {Parameters<typeof teamCaps>[0]} */ (
+    await d.near.view('get_team', { account })
   );
   const droneRows = await d.db
     .select()
@@ -314,7 +320,7 @@ async function loadState(d, row, races, economy) {
   return {
     volts,
     reserve: Number(row.team.reserve ?? economy.reserve),
-    perTxCap: economy.perTxCap,
+    ...teamCaps(budget, d.now()),
     capsulePrices: economy.capsulePrices,
     weights: /** @type {TeamState['weights']} */ (row.team.persona),
     drones: droneRows.map((/** @type {typeof drones.$inferSelect} */ drone) => {

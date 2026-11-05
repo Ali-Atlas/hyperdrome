@@ -1,12 +1,19 @@
 /**
  * A team's on-chain kit (SPEC.md 2.10, 10): drones, skins, mods and Volts minted with the ops key,
- * items bound with the team's play key, and the database cache rebuilt from chain views. Every
- * step reads the chain first, so a second run mints and binds only what is missing.
+ * items bound with the team's play key, and the database cache rebuilt from chain views. Mints
+ * cannot be undone, so each one is written to a ledger on the team's users row
+ * (`bootstrap_pending` while the seed runs) as soon as it returns, and a mint whose outcome is
+ * unknown is resolved by its hash before anything else is minted. A second run mints and binds
+ * only what the ledger and the chain do not show.
  */
 import { inArray } from 'drizzle-orm';
 import { schema } from '@/lib/db';
 import { STAT_KEYS } from '@/lib/game-engine/templates.js';
-import { RpcUnknownOutcomeError } from '@/lib/near/errors.js';
+import {
+  ContractPanicError,
+  RpcUnknownOutcomeError,
+  TransactionFailedError,
+} from '@/lib/near/errors.js';
 import { allocateAlongPersona } from '@/lib/teams/policy.js';
 import { TEAM_DRONE_LEVELS, teamDroneName } from '@/lib/teams/roster.js';
 import { applyEvents } from './chain-cache.service.js';
@@ -15,21 +22,53 @@ const { drones } = schema;
 
 /** A team owns 3 drones, 2 skins, 3 mods and whatever its capsules add. */
 const OWNED_TOKENS_LIMIT = 100;
+/**
+ * How long a mint with an unknown outcome blocks the seed. A transaction the RPC still does not
+ * know after this long was dropped before it reached a block.
+ */
+export const UNKNOWN_MINT_WAIT_MS = 10 * 60_000;
+/** Ledger entry of the Volt grant (it has no token id). */
+const VOLTS = 'volts';
+
+/** Thrown when a step needs the operator: the message says what to do; running again resumes. */
+export class SeedBlockedError extends Error {
+  /** @param {string} message */
+  constructor(message) {
+    super(message);
+    this.name = 'SeedBlockedError';
+  }
+}
 
 /**
  * @typedef {import('@/lib/teams/roster.js').TeamDef} TeamDef
- * @typedef {{ db: any, near: import('@/lib/near').NearAdapter, def: TeamDef, owner: string, record: (step: string, txHash: string) => void }} KitCtx
+ * @typedef {{ minted: Record<string, string>, unknown: { key: string, txHash: string, at: number }[] }} Ledger
+ *   `minted`: piece key (`d0`-`d2` drones, `s0`-`s1` skins, `m0`-`m2` mods by roster index,
+ *   `volts`) to its token id; `unknown`: mints sent whose outcome is not known yet
+ * @typedef {{ db: any, near: import('@/lib/near').NearAdapter, def: TeamDef, owner: string, ledger: Ledger, saveLedger: () => Promise<void>, record: (step: string, txHash: string) => void }} KitCtx
  * @typedef {{ token_id: string, hot: { level: number, equipped_skin: string | null, equipped_mod: string | null }, cold: { name: string, bound_skins: string[], bound_mods: string[] } }} ChainDrone
  * @typedef {{ token_id: string, kind: 'skin' | 'mod', template: number, rarity: number, bound_to: string | null }} ChainItem
  * @typedef {{ drones: ChainDrone[], items: ChainItem[] }} ChainKit
+ * @typedef {{ key: string, label: string, find: (kit: ChainKit, taken: Set<string>) => string | undefined, method: string, args: Record<string, unknown> }} Piece
  */
+
+/**
+ * The ledger stored on the users row, or an empty one.
+ * @param {unknown} stored `users.bootstrap_pending`
+ * @returns {Ledger}
+ */
+export function ledgerOf(stored) {
+  const l = /** @type {Partial<Ledger> | null} */ (stored);
+  return l && !Array.isArray(l) && l.minted
+    ? { minted: { ...l.minted }, unknown: [...(l.unknown ?? [])] }
+    : { minted: {}, unknown: [] };
+}
 
 /**
  * Everything the team account owns on chain.
  * @param {KitCtx} ctx
  * @returns {Promise<ChainKit>}
  */
-export async function readKit(ctx) {
+async function readKit(ctx) {
   const owned = /** @type {{ token_id: string }[] | null} */ (
     await ctx.near.view('nft_tokens_for_owner', {
       account_id: ctx.owner,
@@ -53,103 +92,175 @@ export async function readKit(ctx) {
 }
 
 /**
- * The team's drone tokens by drone index; throws when one is missing on chain.
- * @param {TeamDef} def
- * @param {ChainKit} kit
- * @returns {string[]}
- */
-function droneTokens(def, kit) {
-  return TEAM_DRONE_LEVELS.map((_, i) => {
-    const name = teamDroneName(def, i);
-    const drone = kit.drones.find((d) => d.cold.name === name);
-    if (!drone) throw new Error(`drone ${name} is not on chain`);
-    return drone.token_id;
-  });
-}
-
-/**
- * Mint what is missing: the three drones (stats along the persona weights, at TSB(L)), the skins
- * and mods of the roster, and Volts up to the starting balance.
+ * The tokens of the roster, in mint order: the three drones (stats along the persona weights, at
+ * TSB(L)), then the skins and the mods.
  * @param {KitCtx} ctx
- * @param {number} startVolts
+ * @returns {Piece[]}
  */
-export async function mintKit(ctx, startVolts) {
-  const { near, def, owner } = ctx;
-  const kit = await readKit(ctx);
-  for (const [i, level] of TEAM_DRONE_LEVELS.entries()) {
+function pieces({ def, owner }) {
+  /** @type {Piece[]} */
+  const list = TEAM_DRONE_LEVELS.map((level, i) => {
     const name = teamDroneName(def, i);
-    if (kit.drones.some((d) => d.cold.name === name)) continue;
     const { stats } = allocateAlongPersona({
       stats: STAT_KEYS.map(() => 1),
       level,
       weights: def.weights,
     });
-    const minted = await near.callAsOps('mint_drone', {
-      owner,
-      name,
-      level,
-      stats,
-      active_hint: true,
-    });
-    ctx.record(`mint_drone ${name} (level ${level}) -> ${minted.result}`, minted.txHash);
-  }
+    return {
+      key: `d${i}`,
+      label: `mint_drone ${name} (level ${level})`,
+      find: (kit) => kit.drones.find((d) => d.cold.name === name)?.token_id,
+      method: 'mint_drone',
+      args: { owner, name, level, stats, active_hint: true },
+    };
+  });
   for (const kind of /** @type {const} */ (['skin', 'mod'])) {
-    const have = kit.items.filter((item) => item.kind === kind).map((item) => item.template);
-    for (const { template } of kind === 'skin' ? def.skins : def.mods) {
-      const at = have.indexOf(template);
-      if (at >= 0) {
-        have.splice(at, 1);
-        continue;
-      }
-      const minted = await near.callAsOps('mint_item', {
-        owner,
-        kind,
-        template,
-        placeholder_name: null,
-      });
-      ctx.record(`mint_item ${kind} template ${template} -> ${minted.result}`, minted.txHash);
-    }
+    (kind === 'skin' ? def.skins : def.mods).forEach(({ template }, i) =>
+      list.push({
+        key: `${kind[0]}${i}`,
+        label: `mint_item ${kind} template ${template}`,
+        find: (kit, taken) =>
+          kit.items.find(
+            (x) => x.kind === kind && x.template === template && !taken.has(x.token_id)
+          )?.token_id,
+        method: 'mint_item',
+        args: { owner, kind, template, placeholder_name: null },
+      })
+    );
   }
+  return list;
+}
+
+/**
+ * Mint what is missing: the roster's drones, skins and mods, and Volts up to the starting balance.
+ * @param {KitCtx} ctx
+ * @param {number} startVolts
+ */
+export async function mintKit(ctx, startVolts) {
+  const { near, owner, ledger } = ctx;
+  await resolveUnknown(ctx);
+  const kit = await readKit(ctx);
+  const taken = new Set(Object.values(ledger.minted));
+  for (const piece of pieces(ctx)) {
+    if (ledger.minted[piece.key]) continue;
+    // A token the chain already shows (a mint this database never recorded) is adopted.
+    const token = piece.find(kit, taken) ?? (await mint(ctx, piece));
+    taken.add(token);
+    ledger.minted[piece.key] = token;
+    await ctx.saveLedger();
+  }
+  if (ledger.minted[VOLTS]) return;
   const balance = Number((await near.view('ft_balance_of', { account_id: owner })) ?? 0);
   if (balance < startVolts) {
     const amount = String(startVolts - balance);
-    const minted = await near.callAsOps('mint_volts', { to: owner, amount });
-    ctx.record(`mint_volts ${amount}`, minted.txHash);
+    await mint(ctx, {
+      key: VOLTS,
+      label: `mint_volts ${amount}`,
+      find: () => undefined,
+      method: 'mint_volts',
+      args: { to: owner, amount },
+    });
+  }
+  ledger.minted[VOLTS] = 'minted';
+  await ctx.saveLedger();
+}
+
+/**
+ * One mint with the ops key. An unknown outcome is written to the ledger and stops the seed.
+ * @param {KitCtx} ctx
+ * @param {Piece} piece
+ * @returns {Promise<string>} the minted token id (empty for Volts)
+ */
+async function mint(ctx, piece) {
+  try {
+    const minted = await ctx.near.callAsOps(piece.method, piece.args);
+    const token = String(minted.result ?? '');
+    ctx.record(token ? `${piece.label} -> ${token}` : piece.label, minted.txHash);
+    return token;
+  } catch (err) {
+    if (!(err instanceof RpcUnknownOutcomeError)) throw err;
+    ctx.ledger.unknown.push({ key: piece.key, txHash: err.txHash, at: Date.now() });
+    await ctx.saveLedger();
+    throw new SeedBlockedError(
+      `${piece.label} has an unknown outcome (tx ${err.txHash}). Run the script again in a minute.`
+    );
   }
 }
 
 /**
- * Bind each roster item to its drone with the team's play key, in roster order (the first mod
- * bound to a drone is equipped). Items already bound to their drone are left alone.
+ * Resolve the mints whose outcome was unknown: one that executed is entered in the ledger, one
+ * that failed is dropped, one the RPC does not know blocks the seed until `UNKNOWN_MINT_WAIT_MS`
+ * has passed.
+ * @param {KitCtx} ctx
+ */
+async function resolveUnknown(ctx) {
+  const { near, owner, ledger } = ctx;
+  for (const entry of [...ledger.unknown]) {
+    // Resolved: the transaction executed (minted, or failed and minted nothing).
+    let resolved = false;
+    try {
+      const outcome = await near.resolveOutcome(owner, 0, entry.txHash, {
+        senderId: near.ownerId,
+      });
+      if (outcome.applied) {
+        resolved = true;
+        ledger.minted[entry.key] = entry.key === VOLTS ? 'minted' : String(outcome.result);
+        ctx.record(`${entry.key} (resolved) -> ${ledger.minted[entry.key]}`, entry.txHash);
+      }
+    } catch (err) {
+      if (!(err instanceof ContractPanicError) && !(err instanceof TransactionFailedError)) {
+        throw err;
+      }
+      resolved = true;
+    }
+    if (!resolved && Date.now() - entry.at < UNKNOWN_MINT_WAIT_MS) {
+      throw new SeedBlockedError(
+        `the mint ${entry.key} (tx ${entry.txHash}) still has no outcome. Run the script again in a few minutes.`
+      );
+    }
+    ledger.unknown = ledger.unknown.filter((u) => u !== entry);
+    await ctx.saveLedger();
+  }
+}
+
+/**
+ * Each roster item's token and the drone token it belongs on, in bind order: skins, then mods in
+ * roster order (the first mod bound to a drone is equipped).
+ * @param {KitCtx} ctx
+ * @returns {{ item: string, drone: string }[]}
+ */
+function bindings({ def, ledger }) {
+  return /** @type {const} */ (['skin', 'mod']).flatMap((kind) =>
+    (kind === 'skin' ? def.skins : def.mods).map(({ drone }, i) => ({
+      item: ledger.minted[`${kind[0]}${i}`],
+      drone: ledger.minted[`d${drone}`],
+    }))
+  );
+}
+
+/**
+ * Bind each roster item to its drone with the team's play key. Items already bound are left alone.
  * @param {KitCtx} ctx
  * @param {string} playKeyEnc
  */
 export async function bindKit(ctx, playKeyEnc) {
-  const { def } = ctx;
   const kit = await readKit(ctx);
-  const tokens = droneTokens(def, kit);
-  const pool = [...kit.items];
-  /**
-   * Take the first pooled item that matches, so two wanted items never claim the same token.
-   * @param {(item: ChainItem) => boolean} match
-   */
-  const take = (match) => {
-    const at = pool.findIndex(match);
-    return at >= 0 ? pool.splice(at, 1)[0] : null;
-  };
-  for (const kind of /** @type {const} */ (['skin', 'mod'])) {
-    for (const { template, drone } of kind === 'skin' ? def.skins : def.mods) {
-      const target = tokens[drone];
-      /** @param {ChainItem} item */
-      const wanted = (item) => item.kind === kind && item.template === template;
-      if (take((item) => wanted(item) && item.bound_to === target)) continue;
-      const item = take((x) => wanted(x) && x.bound_to === null);
-      if (!item) throw new Error(`no unbound ${kind} of template ${template} to bind`);
-      const bound = await bindOnce(ctx, playKeyEnc, { drone: target, item: item.token_id });
-      ctx.record(`bind ${item.token_id} to ${target}`, bound.txHash);
-    }
+  const boundTo = new Map(kit.items.map((item) => [item.token_id, item.bound_to]));
+  for (const { item, drone } of bindings(ctx)) {
+    const at = boundTo.get(item);
+    if (at === drone) continue;
+    if (at === undefined) throw lagging(item);
+    if (at) throw new Error(`${item} is bound to ${at}, not to ${drone}`);
+    const bound = await bindOnce(ctx, playKeyEnc, { drone, item });
+    ctx.record(`bind ${item} to ${drone}`, bound.txHash);
   }
 }
+
+/** @param {string} token a minted token the chain views do not show yet */
+const lagging = (token) =>
+  new SeedBlockedError(
+    `the chain views do not show ${token} yet. Run the script again in a minute.`
+  );
 
 /**
  * One `bind` with the play key; an unknown outcome is resolved by seq and hash before failing.
@@ -171,11 +282,19 @@ async function bindOnce(ctx, playKeyEnc, args) {
 /**
  * Rebuild the team's cache rows from chain views: drones, items, bound and equipped state go
  * through the same event path the game uses (`applyEvents`), and the three drones are set active.
+ * The views must show the whole kit bound first, so a lagging view never becomes the cache.
  * @param {KitCtx} ctx
  */
 export async function cacheKit(ctx) {
-  const { owner } = ctx;
+  const { owner, ledger } = ctx;
   const kit = await readKit(ctx);
+  const droneTokens = TEAM_DRONE_LEVELS.map((_, i) => ledger.minted[`d${i}`]);
+  for (const token of droneTokens) {
+    if (!kit.drones.some((d) => d.token_id === token)) throw lagging(token);
+  }
+  for (const { item, drone } of bindings(ctx)) {
+    if (kit.items.find((x) => x.token_id === item)?.bound_to !== drone) throw lagging(item);
+  }
   /**
    * @param {string} event
    * @param {Record<string, unknown>} data
@@ -213,8 +332,5 @@ export async function cacheKit(ctx) {
     ),
   ];
   await applyEvents(events, ctx);
-  await ctx.db
-    .update(drones)
-    .set({ active: true })
-    .where(inArray(drones.tokenId, droneTokens(ctx.def, kit)));
+  await ctx.db.update(drones).set({ active: true }).where(inArray(drones.tokenId, droneTokens));
 }

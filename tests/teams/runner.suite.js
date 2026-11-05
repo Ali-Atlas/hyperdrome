@@ -58,7 +58,7 @@ describe.skipIf(!dbEnabled)('team runner', () => {
     const tick = async (slot, matchups) => {
       const res = await runTeamPhase(
         { slot, matchups, deadlineMs: Number.MAX_SAFE_INTEGER },
-        { db, near: chain.near, secretKey: TEST_SECRET_KEY }
+        { db, near: chain.near, secretKey: TEST_SECRET_KEY, sleep: async () => {} }
       );
       expect(res.teams).toHaveLength(1);
       return res.teams[0];
@@ -216,7 +216,7 @@ describe.skipIf(!dbEnabled)('team runner', () => {
     expect(chain.playerCalls('allocate_stats')).toHaveLength(1);
   });
 
-  it('a cap exceeded or insufficient volts answer ends the turn: no retry, no later step', async () => {
+  it('a cap exceeded or insufficient volts answer ends the turn; the next tick passes the refused plan over', async () => {
     const t = await oneTeam({ levelUp: true });
     const { chain, flagship } = t;
     // Aero Shell is the best mod on Meridian, so the turn starts at allocate.
@@ -243,8 +243,11 @@ describe.skipIf(!dbEnabled)('team runner', () => {
         .map((c) => c.method)
     ).toEqual(['allocate_stats']);
 
+    // The next tick passes over the plan that was just refused and takes the next step instead.
     chain.refuse('allocate_stats', 'insufficient volts');
-    expect(await t.tick(3001, race)).toMatchObject({
+    expect(await t.tick(3001, race)).toMatchObject({ step: 'capsule', outcome: 'applied' });
+    // With the capsule as its latest action the team tries allocate again; refused, turn over.
+    expect(await t.tick(3002, race)).toMatchObject({
       step: 'allocate',
       outcome: 'refused',
       error: CHAIN_ERRORS['insufficient volts'].error,
@@ -254,7 +257,34 @@ describe.skipIf(!dbEnabled)('team runner', () => {
         .playerCalls()
         .slice(before)
         .map((c) => c.method)
-    ).toEqual(['allocate_stats', 'allocate_stats']);
+    ).toEqual(['allocate_stats', 'open_pack', 'reveal_pack', 'allocate_stats']);
+  });
+
+  it('finishes a capsule that was committed and not revealed before deciding anything new', async () => {
+    const t = await oneTeam();
+    const { chain } = t;
+    chain.draw([2, 5, 21]);
+    // The commit applies and burns 1,000 Volts; the reveal is refused as too early, twice.
+    chain.refuse('reveal_pack', 'too early');
+    const opened = await t.tick(6000, []);
+    expect(opened).toMatchObject({ step: 'capsule', subject: 'starter', outcome: 'refused' });
+    expect(chain.volts.get(t.accountId)).toBe(19_000);
+    expect((await t.freeMods()).size).toBe(0);
+
+    // The next tick reveals that capsule under its own id: no second commit, the 3 mods arrive.
+    chain.refuse('reveal_pack', null);
+    expect(await t.tick(6001, [])).toMatchObject({
+      step: 'capsule',
+      actionId: opened.actionId,
+      outcome: 'applied',
+      replayed: true,
+    });
+    expect(chain.playerCalls('open_pack')).toHaveLength(1);
+    expect(chain.volts.get(t.accountId)).toBe(19_000);
+    expect([...(await t.freeMods()).keys()].sort((a, b) => a - b)).toEqual([2, 5, 21]);
+    // Then the team decides again.
+    expect(await t.tick(6002, [])).toMatchObject({ step: 'capsule', replayed: false });
+    expect(chain.playerCalls('open_pack')).toHaveLength(2);
   });
 
   it('skips the teams left when the deadline passes, and rotates which team goes first', async () => {

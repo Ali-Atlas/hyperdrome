@@ -10,32 +10,26 @@ import { and, eq } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
 import { getNear } from '@/lib/near';
 import {
+  AccountCreateError,
   ContractPanicError,
   RpcUnknownOutcomeError,
   TransactionFailedError,
 } from '@/lib/near/errors.js';
 import { teamEconomy } from '@/lib/teams/constants.js';
 import { TEAM_DRONE_LEVELS, TEAM_GAS_YOCTO } from '@/lib/teams/roster.js';
-import { bindKit, cacheKit, mintKit } from './team-seed-kit.js';
+import { SeedBlockedError, bindKit, cacheKit, ledgerOf, mintKit } from './team-seed-kit.js';
+
+export { SeedBlockedError };
 
 const { users, teams } = schema;
 
 /** The owner account must hold at least this much (yoctoNEAR) before a gas transfer is asked for. */
 export const MIN_OWNER_YOCTO = 10n * 10n ** 24n;
 
-/** Thrown when a step needs the operator: the message says what to do; running again resumes. */
-export class SeedBlockedError extends Error {
-  /** @param {string} message */
-  constructor(message) {
-    super(message);
-    this.name = 'SeedBlockedError';
-  }
-}
-
 /**
  * @typedef {import('@/lib/teams/roster.js').TeamDef} TeamDef
  * @typedef {typeof users.$inferSelect} UserRow
- * @typedef {{ accountId: string, playKeyEnc: string, adminKeyEnc: string, keyVersion: number, txHash: string }} PendingCreate
+ * @typedef {import('@/lib/near').CreateAttempt} PendingCreate
  * @typedef {(request: { accountId: string, from: string, yocto: bigint }) => Promise<void>} Fund
  *   asks the operator to send the gas float from the owner account (full-access key, command line
  *   only) and resolves when it has arrived
@@ -66,16 +60,24 @@ export async function seedTeam(def, deps = {}) {
       deps.log?.(`${def.slug}: ${step} ${near.explorerTx(txHash)}`);
     },
   };
+  let user = await ensureUser(ctx);
+  if (user.bootstrapState === 'done') return report(ctx, user, true);
+
   const economy = teamEconomy(await near.getConstants());
   if (economy.droneLevels.join() !== TEAM_DRONE_LEVELS.join()) {
     throw new Error(`contract team drone levels ${economy.droneLevels} differ from the roster`);
   }
-
-  let user = await ensureUser(ctx);
-  if (user.bootstrapState === 'done') return report(ctx, user, true);
   if (user.bootstrapState === 'none') user = await createAccount(ctx, user);
   const owner = /** @type {string} */ (user.nearAccountId);
-  const kit = { ...ctx, owner };
+  // From here on `bootstrap_pending` holds the mint ledger (services/team-seed-kit.js).
+  const ledger = ledgerOf(user.bootstrapPending);
+  const kit = {
+    ...ctx,
+    owner,
+    ledger,
+    saveLedger: () =>
+      ctx.db.update(users).set({ bootstrapPending: ledger }).where(eq(users.id, user.id)),
+  };
 
   if (user.bootstrapState === 'account') {
     await ensureBudget(ctx, owner, economy);
@@ -98,7 +100,7 @@ export async function seedTeam(def, deps = {}) {
     });
   user = await fundAndRotate(ctx, user);
   const points = Number((await near.view('ft_balance_of', { account_id: owner })) ?? 0);
-  user = await advance(ctx, 'minted', { bootstrapState: 'done', points });
+  user = await advance(ctx, 'minted', { bootstrapState: 'done', points, bootstrapPending: null });
   return report(ctx, user, false);
 }
 
@@ -152,59 +154,70 @@ async function advance(ctx, from, set) {
 }
 
 /**
- * `none -> account`: create `<slug>.<game>` with `create_player`. A create whose outcome was
- * unknown left its sealed keys in `bootstrap_pending`; it is resolved first, so keys of an account
- * that did get created are never lost.
+ * `none -> account`: create `<slug>.<game>` with `create_player`. A team's account name can be
+ * created only once, so the sealed keys and the transaction hash of every attempt are stored in
+ * `bootstrap_pending` before the transaction is broadcast. Whatever happens after (a lost answer,
+ * a killed process, a failed write), the next run finds the attempt that created the account.
  * @param {Ctx} ctx
  * @param {UserRow} user
  * @returns {Promise<UserRow>}
  */
 async function createAccount(ctx, user) {
   const { near, def } = ctx;
-  const pending = /** @type {PendingCreate[]} */ (user.bootstrapPending ?? []);
-  for (const attempt of pending) {
-    if (await landed(ctx, attempt)) {
+  let attempts = /** @type {PendingCreate[]} */ (user.bootstrapPending ?? []);
+  /** @param {PendingCreate[]} next */
+  const store = async (next) => {
+    attempts = next;
+    await advance(ctx, 'none', { bootstrapPending: next.length > 0 ? next : null });
+  };
+  for (const attempt of [...attempts]) {
+    const outcome = await resolveCreate(ctx, attempt);
+    if (outcome === 'created') {
       ctx.record(`create_player ${attempt.accountId} (resolved)`, attempt.txHash);
       return storeKeys(ctx, attempt);
     }
+    if (outcome === 'failed') await store(attempts.filter((a) => a !== attempt));
   }
+  const earlier = attempts.length;
   try {
-    const created = await near.createPlayerAccount({ slug: def.slug, isTeam: true });
+    const created = await near.createPlayerAccount({
+      slug: def.slug,
+      isTeam: true,
+      onSigned: (attempt) => store([...attempts, attempt]),
+    });
     ctx.record(`create_player ${created.accountId}`, created.txHash);
     return await storeKeys(ctx, created);
   } catch (err) {
-    const sealed = /** @type {{ pending?: Omit<PendingCreate, 'txHash'> }} */ (err).pending;
-    if (err instanceof RpcUnknownOutcomeError && sealed) {
-      const attempt = { ...sealed, txHash: err.txHash };
-      await advance(ctx, 'none', { bootstrapPending: [...pending, attempt] });
-      throw new SeedBlockedError(
-        `create_player for ${def.slug} has an unknown outcome (tx ${err.txHash}); its keys are stored. Run the script again.`
-      );
-    }
     if (err instanceof ContractPanicError && err.panic === 'exists') {
       throw new SeedBlockedError(
-        pending.length > 0
-          ? `${def.slug} exists on chain and an earlier create is still unresolved. Run the script again.`
+        earlier > 0
+          ? `${def.slug} exists on chain and an earlier create has no outcome yet; its keys are in bootstrap_pending. Run the script again in a minute.`
           : `${def.slug} exists on chain but this database holds no keys for it.`
       );
     }
-    throw err;
+    if (err instanceof ContractPanicError || err instanceof AccountCreateError) throw err;
+    throw new SeedBlockedError(
+      `create_player for ${def.slug} returned no outcome (${String(err)}); its keys are stored. Run the script again in a minute.`
+    );
   }
 }
 
 /**
- * True when a stored create attempt executed and created the account.
+ * What became of a stored create attempt: `created` (it executed and made the account), `failed`
+ * (it executed and did not), or `unknown` (the chain does not show it yet).
  * @param {Ctx} ctx
  * @param {PendingCreate} attempt
+ * @returns {Promise<'created' | 'failed' | 'unknown'>}
  */
-async function landed(ctx, attempt) {
+async function resolveCreate(ctx, attempt) {
   try {
     const outcome = await ctx.near.resolveOutcome(attempt.accountId, 0, attempt.txHash, {
       senderId: ctx.near.ownerId,
     });
-    return outcome.applied && outcome.result === true;
+    if (!outcome.applied) return 'unknown';
+    return outcome.result === true ? 'created' : 'failed';
   } catch (err) {
-    if (err instanceof ContractPanicError || err instanceof TransactionFailedError) return false;
+    if (err instanceof ContractPanicError || err instanceof TransactionFailedError) return 'failed';
     throw err;
   }
 }
