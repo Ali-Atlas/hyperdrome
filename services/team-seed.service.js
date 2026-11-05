@@ -33,13 +33,17 @@ export const MIN_OWNER_YOCTO = 10n * 10n ** 24n;
  * @typedef {(request: { accountId: string, from: string, yocto: bigint }) => Promise<void>} Fund
  *   asks the operator to send the gas float from the owner account (full-access key, command line
  *   only) and resolves when it has arrived
- * @typedef {{ db?: any, near?: import('@/lib/near').NearAdapter, fund?: Fund, log?: (line: string) => void }} Deps
+ * @typedef {{ db?: any, near?: import('@/lib/near').NearAdapter, fund?: Fund, log?: (line: string) => void, reconcile?: boolean }} Deps
+ *   `reconcile`: bring a finished team's kit up to the roster (see `seedTeam`)
  * @typedef {{ db: any, near: import('@/lib/near').NearAdapter, def: TeamDef, fund?: Fund, record: (step: string, txHash: string) => void, txs: { step: string, txHash: string }[] }} Ctx
  * @typedef {{ team: string, accountId: string, skipped: boolean, txs: { step: string, txHash: string }[] }} SeedReport
  */
 
 /**
- * Seed one team, or finish a seed that stopped part way. Sends nothing for a finished team.
+ * Seed one team, or finish a seed that stopped part way. Sends nothing for a finished team, unless
+ * `reconcile` is set: then the roster's drones, skins and mods the team does not have yet are
+ * minted and bound (after a roster change). A reconcile never mints Volts, funds gas or rotates
+ * the key, and nothing a team already owns is removed (binds are permanent).
  * @param {TeamDef} def
  * @param {Deps} [deps]
  * @returns {Promise<SeedReport>}
@@ -61,7 +65,12 @@ export async function seedTeam(def, deps = {}) {
     },
   };
   let user = await ensureUser(ctx);
-  if (user.bootstrapState === 'done') return report(ctx, user, true);
+  if (user.bootstrapState === 'done') {
+    if (!deps.reconcile) return report(ctx, user, true);
+    // Back to `account` with the Volts marked as granted; the kit steps below do the rest.
+    const ledger = { minted: { volts: 'kept' }, unknown: [] };
+    user = await advance(ctx, 'done', { bootstrapState: 'account', bootstrapPending: ledger });
+  }
 
   const economy = teamEconomy(await near.getConstants());
   if (economy.droneLevels.join() !== TEAM_DRONE_LEVELS.join()) {
@@ -139,7 +148,7 @@ async function ensureUser(ctx) {
 /**
  * Move the team's row from `from` with `set`.
  * @param {Ctx} ctx
- * @param {'none' | 'account' | 'minted'} from
+ * @param {'none' | 'account' | 'minted' | 'done'} from
  * @param {Partial<UserRow>} set
  * @returns {Promise<UserRow>}
  */

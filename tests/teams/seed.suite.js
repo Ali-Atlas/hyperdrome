@@ -104,8 +104,8 @@ describe.skipIf(!dbEnabled)('team seeding', () => {
       worn
         .filter((/** @type {any} */ s) => s.droneId === fleet[i].id)
         .map((/** @type {any} */ s) => [s.template, s.on]);
-    // Ember equips on tier 1; Cobalt has no tier render, so it is bound and not equipped.
-    expect([skinsOf(0), skinsOf(1), skinsOf(2)]).toEqual([[[4, true]], [[2, false]], []]);
+    // Dusk and Cobalt have no tier render (SPEC 2.6), so they are bound and not equipped.
+    expect([skinsOf(0), skinsOf(1), skinsOf(2)]).toEqual([[[3, false]], [[2, false]], []]);
 
     const sends = near.mock.calls.filter((c) => c.kind !== 'view').length;
     const again = await seedTeam(def, { db, near, fund });
@@ -259,5 +259,66 @@ describe.skipIf(!dbEnabled)('team seeding', () => {
     expect(counts()).toEqual([3, 4, 1]);
     expect([chain.drones.size, chain.items.size]).toEqual([3, 3]);
     expect(await t.row()).toMatchObject({ bootstrapState: 'done', bootstrapPending: null });
+  });
+
+  it('reconcile mints and binds what a changed roster adds, and never Volts, gas or key', async () => {
+    const t = setup();
+    const { chain } = t;
+    await seedTeam(t.def, { db, ...t });
+    const account = `${t.def.slug}.${t.near.gameId}`;
+    // The team has played since: its balance is no longer the starting one.
+    chain.volts.set(account, 12_345);
+    // The roster gains Cobalt on the level 5 drone and Streamline Plate on the level 8 drone.
+    const wider = {
+      ...t.def,
+      skins: [...t.def.skins, { template: 2, drone: 1 }],
+      mods: [...t.def.mods, { template: 1, drone: 2 }],
+    };
+    const counts = () =>
+      ['mint_drone', 'mint_item', 'mint_volts', 'bind', 'rotate_play_key', 'set_team_budget'].map(
+        (m) => chain.calls(m).length
+      );
+    expect(counts()).toEqual([3, 3, 1, 3, 1, 1]);
+
+    // Without the flag a finished team is left alone.
+    expect((await seedTeam(wider, { db, ...t })).skipped).toBe(true);
+    expect(counts()).toEqual([3, 3, 1, 3, 1, 1]);
+
+    const done = await seedTeam(wider, { db, ...t, reconcile: true });
+    expect(done.txs.map((x) => x.step.replace(/ [smd]:\d+/g, ''))).toEqual([
+      'mint_item skin template 2 ->',
+      'mint_item mod template 1 ->',
+      'bind to',
+      'bind to',
+    ]);
+    expect(counts()).toEqual([3, 5, 1, 5, 1, 1]);
+    expect(chain.volts.get(account)).toBe(12_345);
+    expect(await t.row()).toMatchObject({
+      bootstrapState: 'done',
+      bootstrapPending: null,
+      keyVersion: 2,
+      points: 12_345,
+    });
+    // The level 8 drone keeps Aero Shell equipped and has the new mod bound.
+    const flagship = [...chain.drones.values()].find((d) => d.level === 8);
+    expect(flagship?.mods).toHaveLength(3);
+    expect(chain.items.get(String(flagship?.equipped.mod))?.template).toBe(11);
+    const cached = await db
+      .select({ template: mods.template, on: droneMods.isEquipped })
+      .from(droneMods)
+      .innerJoin(mods, eq(mods.id, droneMods.modId))
+      .innerJoin(drones, eq(drones.id, droneMods.droneId))
+      .where(eq(drones.userId, (await t.row()).id));
+    expect(
+      cached
+        .map((/** @type {any} */ c) => [c.template, c.on])
+        .sort((/** @type {any[]} */ x, /** @type {any[]} */ y) => x[0] - y[0])
+    ).toEqual([
+      [1, false],
+      [9, false],
+      [11, true],
+    ]);
+    // A second reconcile finds nothing to add.
+    expect((await seedTeam(wider, { db, ...t, reconcile: true })).txs).toEqual([]);
   });
 });

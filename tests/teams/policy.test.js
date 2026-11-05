@@ -8,11 +8,12 @@ import { skinTemplate } from '../../lib/game-engine/skin-templates.js';
 import { STAT_KEYS, modTemplate } from '../../lib/game-engine/templates.js';
 import { TEAM_ACTION_NAMESPACE, teamActionId } from '../../lib/teams/action-id.js';
 import { teamEconomy } from '../../lib/teams/constants.js';
+import { allocateAlongPersona } from '../../lib/teams/allocation.js';
 import {
-  allocateAlongPersona,
   decide,
   listPrice,
   maxBuyPrice,
+  planBind,
   planBuy,
   planCapsule,
   planEquip,
@@ -33,8 +34,19 @@ describe('team roster (SPEC 10)', () => {
       expect(sum(Object.values(team.weights))).toBe(100);
       expect(team.skins).toHaveLength(2);
       expect(team.mods).toHaveLength(3);
-      for (const skin of team.skins) expect(skinTemplate(skin.template)?.rarity).toBe('common');
-      for (const mod of team.mods) expect(modTemplate(mod.template)).not.toBeNull();
+      // Skins: catalog skins, never Ember (template 4).
+      for (const skin of team.skins) {
+        expect(skinTemplate(skin.template)).not.toBeNull();
+        expect(skin.template).not.toBe(4);
+      }
+      // Mods: one rare and two common, each with its bonus on one of the three heaviest stats.
+      const top = Object.entries(team.weights)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([stat]) => stat);
+      const templates = team.mods.map((mod) => modTemplate(mod.template));
+      expect(templates.map((t) => t?.rarity).sort()).toEqual(['common', 'common', 'rare']);
+      for (const t of templates) expect(top).toContain(t?.bonusStat);
       for (const item of [...team.skins, ...team.mods]) {
         expect(item.drone).toBeLessThan(TEAM_DRONE_LEVELS.length);
       }
@@ -215,6 +227,42 @@ describe('team prices and capsules', () => {
     });
     // A drone outside the matchups is left alone.
     expect(planEquip({ ...rich, drones: [{ ...racer, mods: better, race: null }] })).toBeNull();
+  });
+
+  it('bind takes an unbound mod that beats a racing drone, the largest gain first', () => {
+    // At night on Meridian: Night Lens fits 1, Predator Lens 4, Grip Pads -0.25; Aero Shell 0.5.
+    const freeMods = [
+      { token: 'm:7', template: 6 },
+      { token: 'm:9', template: 22 },
+      { token: 'm:8', template: 2 },
+    ];
+    expect(planBind({ ...rich, drones: [racer], freeMods })).toEqual({
+      step: 'bind',
+      subject: 'm:9',
+      method: 'bind',
+      args: { drone: 'd:1', item: 'm:9' },
+    });
+    // Only a mod that beats the best bound one: Grip Pads does not.
+    expect(planBind({ ...rich, drones: [racer], freeMods: [freeMods[2]] })).toBeNull();
+    // A drone with no mod takes any mod with a fit above 0; a tie goes to the lower mod token.
+    const bare = { ...racer, token: 'd:2', mods: [], equippedMod: null, order: 1 };
+    const twins = [
+      { token: 'm:12', template: 6 },
+      { token: 'm:11', template: 6 },
+    ];
+    expect(planBind({ ...rich, drones: [bare], freeMods: twins })?.args).toEqual({
+      drone: 'd:2',
+      item: 'm:11',
+    });
+    // Night Lens gains 1 on the bare drone and 0.5 on the racer: it goes to the bare drone.
+    expect(planBind({ ...rich, drones: [racer, bare], freeMods: [freeMods[0]] })?.args).toEqual({
+      drone: 'd:2',
+      item: 'm:7',
+    });
+    // No race, no fit: nothing is bound.
+    expect(planBind({ ...rich, drones: [{ ...racer, race: null }], freeMods })).toBeNull();
+    // Bind comes after equip and before everything else.
+    expect(decide({ ...rich, drones: [racer], freeMods })?.step).toBe('bind');
   });
 
   it('list takes the lowest fit, then the cheaper rarity, then the lower token number', () => {

@@ -1,10 +1,11 @@
 /**
  * AI team runner (SPEC.md 10). `runTeamPhase` is the hook the scheduler calls after it commits a
- * batch: each team takes at most one chain action per tick, the first of equip, allocate, capsule,
- * list and buy that applies (`lib/teams/policy.js`). Every action goes through the player action
- * path under a deterministic id (`lib/teams/action-id.js`), so running the same tick again replays
- * the stored action instead of sending a second one. A team's unfinished action (an unknown
- * outcome, or a capsule committed and not yet revealed) is finished before anything new starts.
+ * batch: each team takes at most one chain action per tick, the first of equip, bind, allocate,
+ * capsule, list and buy that applies (`lib/teams/policy.js`). Every action goes through the player
+ * action path under a deterministic id (`lib/teams/action-id.js`), so running the same tick again
+ * replays the stored action instead of sending a second one. A team's unfinished action (an
+ * unknown outcome, or a capsule committed and not yet revealed) is finished before anything new
+ * starts.
  */
 import { and, asc, desc, eq, inArray, isNotNull, ne } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
@@ -195,6 +196,8 @@ function planOf(row) {
   switch (row.method) {
     case 'equip':
       return { step: 'equip', subject: args.drone, method: row.method, args };
+    case 'bind':
+      return { step: 'bind', subject: args.item, method: row.method, args };
     case 'allocate_stats':
       return { step: 'allocate', subject: args.drone, method: row.method, args };
     case 'list':

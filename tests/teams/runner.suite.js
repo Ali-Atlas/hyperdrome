@@ -44,10 +44,12 @@ describe.skipIf(!dbEnabled)('team runner', () => {
     const def = testTeam();
     const team = await seedTestTeam(db, chain, def);
     const [, middle, flagship] = team.drones;
-    if (levelUp) {
+    /** The level 5 drone reaches level 6, as a settled race would do it. */
+    const toLevel6 = async () => {
       /** @type {any} */ (chain.drones.get(middle.tokenId)).level = 6;
       await db.update(drones).set({ level: 6 }).where(eq(drones.id, middle.id));
-    }
+    };
+    if (levelUp) await toLevel6();
     /** @param {number} template */
     const modToken = (template) =>
       [...chain.items].find(([, i]) => i.kind === 'mod' && i.template === template)?.[0];
@@ -74,15 +76,14 @@ describe.skipIf(!dbEnabled)('team runner', () => {
         rows.map((/** @type {{ token: string, template: number }} */ r) => [r.template, r.token])
       );
     };
-    return { chain, def, ...team, middle, flagship, modToken, tick, freeMods };
+    return { chain, def, ...team, middle, flagship, modToken, tick, freeMods, toLevel6 };
   }
 
-  it('takes equip, allocate, capsule and list in that order, one action per tick', async () => {
-    const t = await oneTeam({ levelUp: true });
+  it('takes equip, bind, allocate, capsule and list in that order, one action per tick', async () => {
+    const t = await oneTeam();
     const { chain, flagship, middle } = t;
     // On Crossfire the unequipped Light Frame (0.2875) fits better than Aero Shell (0.125).
     const race = [matchup(flagship.tokenId, CROSSFIRE)];
-    const lightFrame = t.modToken(9);
     let sent = chain.playerCalls().length;
     /** Player transactions since the last check. */
     const newCalls = () => {
@@ -90,8 +91,11 @@ describe.skipIf(!dbEnabled)('team runner', () => {
       sent += calls.length;
       return calls.map((c) => c.method);
     };
+    /** The team's mods of a template on the fake chain, oldest first. */
+    const minted = (/** @type {number} */ template) =>
+      [...chain.items].filter(([, i]) => i.template === template).map(([token]) => token);
 
-    // Equip is due, and so are allocate (headroom) and capsule (Volts): only the first is taken.
+    // Equip is due, and so is a capsule (Volts): only the first is taken.
     expect(await t.tick(1000, race)).toMatchObject({
       step: 'equip',
       subject: flagship.tokenId,
@@ -99,41 +103,60 @@ describe.skipIf(!dbEnabled)('team runner', () => {
       replayed: false,
     });
     expect(newCalls()).toEqual(['equip']);
-    expect(await equippedMod(db, flagship.id)).toBe(lightFrame);
+    expect(await equippedMod(db, flagship.id)).toBe(t.modToken(9));
 
-    expect(await t.tick(1001, race)).toMatchObject({ step: 'allocate', subject: middle.tokenId });
+    // Grip Pads, Steady Module, Typhoon Module.
+    chain.draw([2, 5, 21]);
+    expect(await t.tick(1001, race)).toMatchObject({ step: 'capsule', subject: 'starter' });
+    expect(newCalls()).toEqual(['open_pack', 'reveal_pack']);
+
+    // Grip Pads (0.4375) beats the flagship's best bound mod, and the level 5 drone has gained
+    // a level: bind comes before allocate, and the equip follows on the next tick.
+    await t.toLevel6();
+    const [gripPads] = minted(2);
+    expect(await t.tick(1002, race)).toMatchObject({ step: 'bind', subject: gripPads });
+    expect(chain.playerCalls('bind').at(-1)?.args).toMatchObject({
+      drone: flagship.tokenId,
+      item: gripPads,
+    });
+    expect(await equippedMod(db, flagship.id)).toBe(t.modToken(9));
+    expect(await t.tick(1003, race)).toMatchObject({ step: 'equip', subject: flagship.tokenId });
+    expect(await equippedMod(db, flagship.id)).toBe(gripPads);
+    expect(newCalls()).toEqual(['bind', 'equip']);
+
+    expect(await t.tick(1004, race)).toMatchObject({ step: 'allocate', subject: middle.tokenId });
     expect(newCalls()).toEqual(['allocate_stats']);
     const [raised] = await db.select().from(drones).where(eq(drones.id, middle.id));
     expect(STAT_KEYS.reduce((sum, key) => sum + raised[key], 0)).toBe(calculateTSB(6));
-    expect(chain.volts.get(t.accountId)).toBeLessThan(20_000);
 
-    // Grip Pads, Steady Module, Typhoon Module; then Quick Charge, Shock Absorber, Tracker Coil.
-    chain.draw([2, 5, 21]);
-    chain.draw([3, 4, 10]);
-    expect(await t.tick(1002, race)).toMatchObject({ step: 'capsule', subject: 'starter' });
-    expect(newCalls()).toEqual(['open_pack', 'reveal_pack']);
-    expect(await t.tick(1003, race)).toMatchObject({ step: 'capsule', subject: 'starter' });
-    expect(newCalls()).toEqual(['open_pack', 'reveal_pack']);
-    const free = await t.freeMods();
-    expect([...free.keys()].sort((a, b) => a - b)).toEqual([2, 3, 4, 5, 10, 21]);
+    // Two more capsules of mods that beat nothing (Quick Charge, Steady Module, Typhoon Module)
+    // take the team to 8 unbound mods; none is bound.
+    chain.draw([3, 5, 21]);
+    chain.draw([3, 5, 21]);
+    expect(await t.tick(1005, race)).toMatchObject({ step: 'capsule' });
+    expect(await t.tick(1006, race)).toMatchObject({ step: 'capsule' });
+    expect(newCalls()).toEqual(['open_pack', 'reveal_pack', 'open_pack', 'reveal_pack']);
+    expect(chain.playerCalls('bind')).toHaveLength(4);
 
-    // 6 unbound mods: no more capsules. The lowest fit goes first: Typhoon Module (-0.9375), epic.
-    expect(await t.tick(1004, race)).toMatchObject({ step: 'list', subject: free.get(21) });
+    // 6 or more unbound mods: no more capsules. The lowest fit is listed, never a bound mod:
+    // the Typhoon Modules (-0.9375), epic, the lower token number first.
+    const typhoons = minted(21);
+    expect(await t.tick(1007, race)).toMatchObject({ step: 'list', subject: typhoons[0] });
     expect(chain.playerCalls('list').at(-1)?.args).toMatchObject({
-      token: free.get(21),
+      token: typhoons[0],
       price: '4200',
     });
-    // Steady Module and Quick Charge tie at -0.1875; the lower token number (Steady Module) goes.
-    expect(await t.tick(1005, race)).toMatchObject({ step: 'list', subject: free.get(5) });
-    expect(chain.playerCalls('list').at(-1)?.args).toMatchObject({ price: '180' });
+    expect(await t.tick(1008, race)).toMatchObject({ step: 'list', subject: typhoons[1] });
     expect(newCalls()).toEqual(['list', 'list']);
     const listed = await db
-      .select({ token: marketplaceListings.tokenId, price: marketplaceListings.price })
+      .select({ token: marketplaceListings.tokenId })
       .from(marketplaceListings)
       .where(
         and(eq(marketplaceListings.sellerId, t.user.id), eq(marketplaceListings.status, 'active'))
       );
-    expect(listed.map((/** @type {any} */ l) => l.price).sort()).toEqual([180, 4200]);
+    expect(listed.map((/** @type {any} */ l) => l.token).sort()).toEqual(
+      typhoons.slice(0, 2).sort()
+    );
   });
 
   it('buys a listed mod that beats a drone by 2 fit at or under 0.8x base, within its spare Volts', async () => {
@@ -160,8 +183,12 @@ describe.skipIf(!dbEnabled)('team runner', () => {
       .from(marketplaceListings)
       .where(eq(marketplaceListings.tokenId, bargain));
     expect(sale).toMatchObject({ status: 'sold', buyerId: t.user.id });
-    // 100 Volts left to spend: the 1.5 gain of Night Optics is not enough, so nothing happens.
-    expect(await t.tick(4001, race)).toMatchObject({ step: null, outcome: 'idle' });
+    // The bought mod is bound to the drone it beats, then equipped, one action per tick.
+    expect(await t.tick(4001, race)).toMatchObject({ step: 'bind', subject: bargain });
+    expect(await t.tick(4002, race)).toMatchObject({ step: 'equip', subject: flagship.tokenId });
+    expect(await equippedMod(db, flagship.id)).toBe(bargain);
+    // 100 Volts left to spend: Night Optics no longer gains 2 on anything, so nothing happens.
+    expect(await t.tick(4003, race)).toMatchObject({ step: null, outcome: 'idle' });
   });
 
   it('replays the same action id when a slot runs again, and finishes an unknown outcome first', async () => {

@@ -6,6 +6,7 @@
  *
  *   npm run seed:teams              # every team in lib/teams/roster.js
  *   npm run seed:teams -- vortex    # only the named teams
+ *   npm run seed:teams -- --reconcile   # after a roster change: mint and bind what seeded teams lack
  *
  * Gas: each team account gets 2 NEAR from the owner account. That transfer needs the owner's
  * full-access key, which application code never loads, so the script prints the near-cli-rs
@@ -24,7 +25,8 @@ const YOCTO_PER_NEAR = 10n ** 24n;
 /** @param {string} line */
 const say = (line) => void process.stdout.write(`${line}\n`);
 
-const wanted = process.argv.slice(2);
+const reconcile = process.argv.includes('--reconcile');
+const wanted = process.argv.slice(2).filter((arg) => !arg.startsWith('--'));
 const unknown = wanted.filter((slug) => !TEAMS.some((t) => t.slug === slug));
 if (unknown.length > 0) {
   console.error(
@@ -60,7 +62,7 @@ async function fund({ accountId, from, yocto }) {
 let failed = false;
 for (const def of defs) {
   try {
-    const report = await seedTeam(def, { near, fund, log: say });
+    const report = await seedTeam(def, { near, fund, log: say, reconcile });
     say(
       report.skipped
         ? `${def.slug}: already seeded (${report.accountId})`

@@ -14,7 +14,7 @@ import {
   RpcUnknownOutcomeError,
   TransactionFailedError,
 } from '@/lib/near/errors.js';
-import { allocateAlongPersona } from '@/lib/teams/policy.js';
+import { allocateAlongPersona } from '@/lib/teams/allocation.js';
 import { TEAM_DRONE_LEVELS, teamDroneName } from '@/lib/teams/roster.js';
 import { applyEvents } from './chain-cache.service.js';
 

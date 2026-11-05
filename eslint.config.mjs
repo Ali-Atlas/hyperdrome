@@ -92,6 +92,7 @@ export default defineConfig([
       'lib/game-engine/sha256.js',
       'lib/game-engine/stats-hash.js',
       'lib/game-engine/templates.js',
+      'lib/teams/allocation.js',
       'lib/teams/policy.js',
     ],
     rules: {
