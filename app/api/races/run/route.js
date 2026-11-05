@@ -1,22 +1,19 @@
 import { timingSafeEqual } from 'node:crypto';
-import { eq } from 'drizzle-orm';
-import { db, schema } from '@/lib/db';
-import { runRaceCycle } from '@/services/race.service.js';
 import { ok, fail } from '@/lib/api/response.js';
+import { isRacingEnabled } from '@/services/race-schedule.service.js';
+import { runTick } from '@/services/scheduler.service.js';
 
-const { adminConfig } = schema;
+/** A tick settles up to a few chunks and commits one batch; each chain call waits up to 10 s. */
+export const maxDuration = 60;
 
 /**
- * Constant-time compare for the cron secret. The incoming value is
- * attacker-controlled (a public HTTP header), so a non-constant compare
- * is theoretically timing-oracle exploitable. `timingSafeEqual` requires
- * equal-length buffers, so length mismatch short-circuits to false
- * (which is itself constant against the known-length expected value).
+ * Constant-time compare for the cron secret: the incoming value is a public header. A length
+ * mismatch is false (constant against the known-length expected value).
+ * @param {string | null} provided
+ * @param {string} expected
  */
 function safeEq(provided, expected) {
-  if (typeof provided !== 'string' || typeof expected !== 'string') {
-    return false;
-  }
+  if (typeof provided !== 'string') return false;
   const a = Buffer.from(provided);
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
@@ -24,56 +21,31 @@ function safeEq(provided, expected) {
 }
 
 /**
- * Scheduled race cycle runner.
- * Protected by the CRON_SECRET header so only Vercel cron + our scripts can trigger it.
- *
- * Accepts either `Authorization: Bearer <secret>` (Vercel cron default)
- * or `x-cron-secret: <secret>` (our own scripts).
- *
- * Short-circuits when the `racing_enabled` admin_config row is not truthy -
- * the cron endpoint will return `{ message: 'Racing is paused' }` without
- * running any races. Flip the config flag via the admin panel to go live.
+ * The scheduler tick (SPEC.md 3, 6): `Authorization: Bearer <CRON_SECRET>` (Vercel cron) or
+ * `x-cron-secret: <CRON_SECRET>` (an external scheduler, `scripts/tick.mjs`). When
+ * `admin_config.racing_enabled` is not `true` the tick still settles due batches and commits
+ * nothing. Answers `{ data: { slot, claimed, settle, commit } }`; a slot already ticked answers
+ * `claimed: false`.
+ * @param {Request} request
  */
 async function handler(request) {
   const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return fail('CRON_SECRET not configured', 500);
-  }
+  if (!expected) return fail('CRON_SECRET not configured', 500);
   const authHeader = request.headers.get('authorization');
-  const custom = request.headers.get('x-cron-secret');
-  const providedBearer =
-    authHeader && authHeader.startsWith('Bearer ')
-      ? authHeader.slice('Bearer '.length)
-      : null;
-  if (!safeEq(providedBearer, expected) && !safeEq(custom, expected)) {
+  const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
+  if (!safeEq(bearer, expected) && !safeEq(request.headers.get('x-cron-secret'), expected)) {
     return fail('Unauthorized', 401);
   }
-
-  // Master kill-switch - check the admin_config flag before doing anything
   try {
-    const [flag] = await db
-      .select()
-      .from(adminConfig)
-      .where(eq(adminConfig.key, 'racing_enabled'))
-      .limit(1);
-    const enabled = flag?.value === 'true';
-    if (!enabled) {
-      return ok({ message: 'Racing is paused', racingEnabled: false });
-    }
+    const enabled = await isRacingEnabled();
+    const result = await runTick({ commit: enabled });
+    return ok({ ...result, racingEnabled: enabled });
   } catch (err) {
-    console.error('[api/races/run] failed to check racing_enabled flag:', err);
-    return fail('Failed to read racing flag', 500);
-  }
-
-  try {
-    const summary = await runRaceCycle();
-    return ok(summary);
-  } catch (err) {
-    console.error('[api/races/run] race cycle failed:', err);
-    return fail('Race cycle failed', 500);
+    console.error({ scope: 'scheduler', msg: 'tick failed', error: String(err) });
+    return fail('Tick failed', 500);
   }
 }
 
-// Both POST (manual trigger) and GET (Vercel cron invokes with GET by default)
+// POST for schedulers and scripts; GET because Vercel cron invokes with GET.
 export const POST = handler;
 export const GET = handler;

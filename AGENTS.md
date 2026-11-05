@@ -16,6 +16,7 @@ Do not explore the codebase to find configuration or parameters. If SPEC.md does
 
 - One task per session, from BUILD_PLAN.md, on its own branch `task/<id>-<slug>`. Do not start the next task.
 - Write the acceptance list into the PR description before coding.
+- Work efficiently and keep every standard. Architecture, code quality, security and cleanliness are never traded for speed; verification is sized to the change. After each change, run only the checks that exercise it: the test file for the code you touched, and lint or typecheck when they are quick. Run the full gate set (next rule) once, when the task's implementation is complete, and again only to confirm a fix for something that run caught. Do not re-run the whole suite, the build or a testnet walk after every edit.
 - Run before finishing: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `cargo test` plus `cargo clippy -- -D warnings` for contract work. A task is not done while any of these fail.
 - Match the ratchet in ENGINEERING.md section 6: full standards on new and touched code, no refactoring of baseline code the task does not need.
 - Verify every external value (library versions, chain parameters, RPC URLs, contract addresses, API shapes) against current official documentation before committing it. Cite the source in the PR description. Do not trust values from the prompt blindly.
