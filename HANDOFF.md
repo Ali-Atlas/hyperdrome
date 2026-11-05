@@ -2,6 +2,117 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-05 T13 World seed, end-to-end smoke on testnet, racing on
+
+- Changed:
+  - World seed: `scripts/seed-world.mjs` (`npm run seed:world`, `--racing-on`; each mint link as it lands, then the summary table), `services/world-seed.service.js` (`seedWorld`: tracks by name, `racing_enabled`, bots, catalog; the bots are read from the chain: the owner's supply, then pages of 50), `lib/world/bot-roster.js` (5 bots per bracket at levels 2, 4 / 7, 9 / 12, 14 / 17, 19; `walkStats`), `scripts/register-alias.mjs` (the `@/` alias for Node scripts; the same file as on `task/T12-ai-teams`). `scripts/seed-all-tracks.js` deleted (replaced by the first step; the deletion is in commit fca2c94 with the catalog table).
+  - Catalog cache: table `catalog_templates` in `lib/db/schema-gameplay.js`, migration `drizzle/0003_catalog_templates.sql`, `services/catalog.service.js` (`syncCatalog` from `get_catalog()`, `getSkinCatalog`), `app/api/skins/catalog/route.js` reads it; `getCatalogImageBacked` removed from `services/skin.service.js`.
+  - Health: `services/health.service.js` (`getHealth`, 8 s per check), `app/api/health/route.js` (200 cached 60 s, 503 `no-store`, `maxDuration` 15, a healthy report reused for 10 s).
+  - Smoke: `scripts/smoke-testnet.mjs` (`npm run smoke`, `SMOKE_BASE_URL`) with `scripts/smoke-client.mjs` (cookie jar, Origin, the assertion ledger), `services/race.service.js` (`getRaceById` returns `settleExplorerUrl`), `.env.example` and `types/env.d.ts` (`SMOKE_BASE_URL`).
+  - Tests: `tests/world/world-seed.test.js` with `tests/world/fake-world.js` (mint with the contract's checks, tokens by owner, the `listed` flag, `get_catalog` from the app's mirrors), `tests/health/health.test.js`. `tsconfig.typecheck.json` includes the new files; `package.json` gains the two scripts.
+  - Docs: SPEC 2.3 (bots), 6 (world seed), 7 (`catalog_templates`, migration 0003), 8 (health, skins catalog, `settleExplorerUrl`), 13 (seed and health tests, the smoke), 15 (`SMOKE_BASE_URL`); DECISIONS 5.38 to 5.44; ENGINEERING 5 (health reports Pusher once events are sent); `docs/runbooks/deploy.md` (world seed, smoke before a deploy, health), `docs/runbooks/dev-setup.md` (seed step).
+- Verified:
+  - Gates on this branch, run again after the review fixes, `DATABASE_URL=postgresql://ci@127.0.0.1:54329/t13` (local cluster migrated through 0003): `npm run lint`, `npm run format:check`, `npm run typecheck` exit 0; `npm test` 27 files, 26 passed and 1 skipped (the gated testnet run), 183 tests passed, 1 skipped; `npm run build` exit 0 (with `NEAR_ADAPTER=mock`; `/api/health` and `/api/skins/catalog` are dynamic routes). No contract change, so no cargo run.
+  - Seed tests (mock adapter, real Postgres): a first run mints 20 bots to the game account at the roster's levels, each stat line summing to TSB(L) under cap(L), and caches 20 rows (`is_bot`, no user, 5 per bracket); a contract-owned drone that is a listing in escrow is neither counted nor cached; the second run sends no ops call and reports tracks 0/0/16, admin_config 0/0/1, bots minted 0/0/20, bots cached 0/0/20, catalog skins 0/0/32, catalog mods 0/0/26 (created/updated/skipped); a run whose 8th mint fails leaves 7 bots minted and cached and the next run mints 13; a bot on chain without a row is cached and a changed catalog cap is updated; with the game account holding exactly 50 and 120 tokens (20 bots, the rest in escrow) every page is read and the second run skips (the fake applies the standard's `Out of bounds` panic); a bot whose cache row belongs to a user stops the seed and the row is untouched; `onMint` reports each mint; `racing_enabled` is created `false`, becomes `true` only with `racingOn` and is never set back. Ember is the one skin with a null cap. Roster and stat walk for levels 1 to 20.
+  - Health tests: the route answers 200 with `Cache-Control: public, max-age=60, s-maxage=60` and exactly `{ data: { ok, database, rpc, scheduler: { lastTickSlot, lastTickAgeSeconds }, racingEnabled, checkedAt } }`; the newest `cron_ticks` row and its age (95 s in the test); with the database and the adapter both failing, `ok: false`, both checks `false`, the rest null; a check that never answers fails at its timeout; a database that answers `select 1` without the tables is `database.ok: false`.
+  - Testnet 2026-11-05, `game.hyperdrome.testnet`, Neon dev. Before: the game account owned no token; Neon dev at migration 0002 with 16 tracks, `racing_enabled = true`, 3 demo users, 4 teams, 14 active player drones. `npm run db:migrate` applied 0003 (one new table).
+    - `npm run seed:world`, first run:
+
+      ```
+      step           created  updated  skipped  note
+      tracks               0        0       16  16 in lib/game-engine/tracks.js
+      admin_config         0        0        1  racing_enabled = true
+      bots minted         20        0        0  owner game.hyperdrome.testnet, 5 per bracket
+      bots cached         20        0        0  is_bot true
+      catalog skins       32        0        0  from get_catalog, Ember cap null
+      catalog mods        26        0        0  from get_catalog
+      ```
+
+      Mints (each `<name> (level) -> token link`): SPECTER-D0 (level 2) -> d:29 https://testnet.nearblocks.io/txns/v5dKMoRifEb1G9kYCu3kcYJj79L4y2QJCkdW3md79gR; VECTOR-Z6 (level 4) -> d:30 https://testnet.nearblocks.io/txns/66BXp8KGoeJM5ddMwffcHon6wGSVr38K3ugVY5UbdHr4; SHADOW-X2 (level 2) -> d:31 https://testnet.nearblocks.io/txns/EYBEE2KgHYRcpd4nNZ8sbWzoT9qatPRVeX8JD7ry4Aro; KRYPT-Q6 (level 4) -> d:32 https://testnet.nearblocks.io/txns/EZVbNAjkd5J3S4yfeR3wUBB1WaXVgDuqDFaF4LFjm1Qi; ONI-I4 (level 2) -> d:33 https://testnet.nearblocks.io/txns/3MzF7aWK62y4Gqj9yKhNKcp7Cfee7wV86edF34ogKu9C; TIDE-S9 (level 7) -> d:34 https://testnet.nearblocks.io/txns/8UrqTwA5YujGP4X4YwLR7cnNDcb6b55wB6pbH44HAKm9; KRYPT-R1 (level 9) -> d:35 https://testnet.nearblocks.io/txns/AQUz9neLN3YtR7cbarFEoTTAhdFV6nzXRDyZMgZQBFKS; VECTOR-F3 (level 7) -> d:36 https://testnet.nearblocks.io/txns/4Kv32x7p7WdxVxAfncAudivNSgTy7o8T8Z4uqMKkyH39; KRYPT-R2 (level 9) -> d:37 https://testnet.nearblocks.io/txns/F2AmofnxoVD9vYHpH7ptQVkx4Umz2JxH5BvChvmBAo2L; WRAITH-D9 (level 7) -> d:38 https://testnet.nearblocks.io/txns/5ZKysvvowpCKTrjfdsA3VdhuqQAsbT6tMB7etzeNDxqD; DUSK-A9 (level 12) -> d:39 https://testnet.nearblocks.io/txns/C7TE5iW5DG7guBhUEr33ZAttMmz2mt3G7DEHSKhrssZA; SPIRE-H2 (level 14) -> d:40 https://testnet.nearblocks.io/txns/EA3JbKzqN5cKiDkm2JBf9JwywfJfn7Ck8wyekpe74tWa; ASCEND-W4 (level 12) -> d:41 https://testnet.nearblocks.io/txns/AvRBcNqYNqpieR8YRzvzuxGh19bpW9AXqAriVnBaD5Uz; LANCE-R2 (level 14) -> d:42 https://testnet.nearblocks.io/txns/9FWcRphXrmkfhE3XyeKoaoGjBtxbVY3S6DiVnA3yoWvh; TUNDRA-W0 (level 12) -> d:43 https://testnet.nearblocks.io/txns/vVKKz7S2AWAtxDL31wYFedAugofyxnirukxz2Brcamm; ORBIT-P2 (level 17) -> d:44 https://testnet.nearblocks.io/txns/2Sc2LtvW1D8QbaMcqBMGCs3USznZnvuBz9nZwxW595wX; TUNDRA-T4 (level 19) -> d:45 https://testnet.nearblocks.io/txns/CQX8iSJhAQKeo2n9fYqTizDzrW4cDjfw73RwMPJFB9u; ALPHA-Q0 (level 17) -> d:46 https://testnet.nearblocks.io/txns/98freDrQWCSySmkU9i1JUDP1c4g4ZHyDp6Aux93erfuy; TOXIN-V0 (level 19) -> d:47 https://testnet.nearblocks.io/txns/8Gd24ULRHXEktw7aj9nnrF4M4FKtXivdQMWbkrmDcob1; RAMPAGE-Q9 (level 17) -> d:48 https://testnet.nearblocks.io/txns/Dvxi2KuDuSc72WFKsFxMtWByPHKE8g3QgC28hvbYo3bQ.
+
+    - Second run: every row 0 created, 0 updated, skipped 16, 1, 20, 20, 32, 26; `Nothing to do: every step skipped.` On chain: `nft_supply_for_owner(game.hyperdrome.testnet)` 20; `get_drone d:29` owner `game.hyperdrome.testnet`, level 2, stats `[7,7,5,5,3,6,2,4,10]` (49), ELO 1000, not listed; `d:48` level 17, stats `[44,43,46,45,41,36,25,31,38]` (349). `GET /api/skins/catalog` returns 32 skins, Ember with `cap: null`.
+    - `SMOKE_BASE_URL=http://localhost:3013 npm run smoke` against `next dev -p 3013` on this branch (Neon dev, real adapter, `racing_enabled` true), exit 0:
+
+      ```
+      Hyperdrome smoke: PASS (1 min 39 s)
+        target        http://localhost:3013
+        player        p-pilotdyi1.game.hyperdrome.testnet  https://testnet.nearblocks.io/address/p-pilotdyi1.game.hyperdrome.testnet
+        drone         TIDE-O0 d:49, stats 4 4 3 3 3 3 3 3 3
+        allocate tx   https://testnet.nearblocks.io/txns/4jfnmztYeJ8tp58doVtDyEC5KZJH21F5FWD3Znq7RcBU
+        race          1c6ee8a8-dc68-4411-8862-d8f7f44852f5, slot 9966111 index 5
+        result        lost 56.918 s to 56.740 s against SPECTER-D0 (bot) on The Grid, clouds, day
+        ELO on chain  1000 -> 984
+        settle tx     https://testnet.nearblocks.io/txns/EUvxL9mK1fdFZ9qruM9TBND2ZVjt2yMWrhUWdQRrMLjC
+        health        database true, rpc true, last tick slot 9966112 (14 s ago), racing true
+        ok    racing is on
+        ok    Play Demo signs in
+        ok    bootstrap reaches done
+        ok    starter drone is cached
+        ok    allocate 20 points
+        ok    allocation is on chain
+        ok    drone is active
+        ok    drone enters a batch
+        ok    race row is settled
+        ok    verify answers match true
+        ok    on-chain ELO moved
+        ok    settle tx link is a NearBlocks URL
+        ok    GET /api/health answers 200
+      ```
+
+      Tick 1, slot 9966111: 9 races committed (11 player drones and 1 bot in L1-5, 4 team drones and 2 bots in L6-10), commit_batch https://testnet.nearblocks.io/txns/CuaPXKhdhKczkc7giBUKxDssSeoUh2M1oMQJ9m4iy419. Tick 2, slot 9966112: `{ "9966111": "settled" }`, one settle_batch for the 9 races (the settle tx above), and the next batch committed (9 races), https://testnet.nearblocks.io/txns/8asPahwjSyUXuYhPcQsuPoPU1SjDg8y5Kyc7GiozPUov. The demo user is `PILOT_DYI1`; dRPC answered its `create_player` send with HTTP 500 and the adapter resolved the same transaction by hash (bootstrap 202, 202, 200).
+
+    - After the smoke, so no drone stayed locked on a database nobody ticks: `racing_enabled` set `false`, one tick in slot 9966113 (`node scripts/tick.mjs http://localhost:3013`): `{ "settle": { "9966112": "settled" }, "commit": { "skipped": "paused" } }`, settle_batch https://testnet.nearblocks.io/txns/C6E6R7L9s3bCL6Cm1bzg1hWJp26C6CUxhjWQpVi44a6D; then `racing_enabled` set back to `true`, as it was before the run.
+    - Final state, cache and chain equal: batches 9966111 and 9966112 `settled` with 9 completed races each (`get_batch`: settled, settled_count 9, `matchups: []`); no drone with `in_batch`; `d:49` 0-2, 8 XP, ELO 968, stats `[4,4,3,3,3,3,3,3,3]`, invested 20, 982 Volts (1,000 - 20 + 1 + 1); bots `d:29` 1-0 ELO 1016, `d:30` 0-1 ELO 983, `d:34` 1-0 1016, `d:36` 0-1 984, `d:37` 1-0 1016, `d:38` 0-1 984, the other 14 unraced; `GET /api/races/1c6ee8a8-dc68-4411-8862-d8f7f44852f5/verify` -> `{ "match": true }`.
+    - Fresh-context review (ENGINEERING 3 DoD 6) after the first runs. Fixed (DECISIONS 5.44): the bot read paged past the end of the owner's tokens and stopped the seed at an exact multiple of 50; the smoke could miss its rows or count a second race beside a running scheduler; the health checks had no timeout and `database.ok` followed `select 1` alone; a stopped seed printed no mint links; a bot row owned by a user was flagged; `--racing-on` was written before the bots; the smoke had no equip step. Not fixed, listed under Open: the ELO assertion against an opponent rated 720 or more away, and a race finished from snapshots.
+    - After the fixes: `npm run seed:world` a third time (the supply-first paging against the contract): `0 bots minted.`, every step skipped. `SMOKE_BASE_URL=http://localhost:3013 npm run smoke` again, exit 0:
+
+      ```
+      Hyperdrome smoke: PASS (3 min 32 s)
+        target        http://localhost:3013
+        player        p-pilotiilc.game.hyperdrome.testnet  https://testnet.nearblocks.io/address/p-pilotiilc.game.hyperdrome.testnet
+        drone         SONIC-B8 d:50, stats 4 4 3 3 3 3 3 3 3
+        allocate tx   https://testnet.nearblocks.io/txns/FizwNrRqYsn5czi14P7AQ9JepcsV97dEJisa7FHPYfTy
+        equip tx      m:45  https://testnet.nearblocks.io/txns/D5ue75NL7VfMLfptJ5MUw4e5ybeVRB7jqL7byoGp9hEF
+        race          ed3e44c7-7531-45c5-9efe-eac6096c77b7, slot 9966119 index 3
+        result        lost 23.354 s to 23.111 s against NIMBUS-N2 on Horizon Express, clear, dusk
+        ELO on chain  1000 -> 984
+        settle tx     https://testnet.nearblocks.io/txns/6mDqp7vPT5mJ8cfMtG8CHuJ2j7S8KuvZyzggkjFXW4Lg
+        health        database true, rpc true, last tick slot 9966120 (15 s ago), racing true
+        ok    racing is on
+        ok    Play Demo signs in
+        ok    bootstrap reaches done
+        ok    starter drone is cached
+        ok    allocate 20 points
+        ok    allocation is on chain
+        ok    starter mod is equipped
+        ok    unequip the mod
+        ok    mod is off on chain
+        ok    equip the mod
+        ok    mod is equipped on chain
+        ok    drone is active
+        ok    drone enters a batch
+        ok    drone is parked
+        ok    race row is settled
+        ok    verify answers match true
+        ok    on-chain ELO moved
+        ok    settle tx link is a NearBlocks URL
+        ok    GET /api/health answers 200
+      ```
+
+      Tick 1, slot 9966119: 9 races, commit_batch https://testnet.nearblocks.io/txns/GtrGtdg6KWS2z1QbNPdhvhDhd3HxhQ5jeHQrqN52bidW. Tick 2, slot 9966120: `{ "9966119": "settled" }` and the next batch committed, https://testnet.nearblocks.io/txns/7UdkXxFsXxmsGiDSN1bZra6KFBWjkPYMuWdBi1f37UHP. Then, as after the first run, `racing_enabled` `false`, one tick in slot 9966121 (`{ "9966120": "settled" }`, settle_batch https://testnet.nearblocks.io/txns/2C3rJUha8ftQZF37LftJitB6eVGyLiFzUhdkWiECS75k, `commit: { skipped: "paused" }`), `racing_enabled` back to `true`. Final state, cache and chain equal: `d:50` (`PILOT_IILC`) inactive, 0-1, ELO 984, mod `m:45` equipped; `d:49` 1-3, ELO 968 (it stayed active and raced in both later batches); no drone with `in_batch`; the game account owns 20 tokens. dRPC answered the `create_player` send with HTTP 500 in this run too; the adapter resolved it by hash.
+- Open:
+  - Push, PR and CI wait for the GitHub write window (weekdays after 18:00 America/New_York); 10 local commits on `task/T13-world-seed-smoke`. PR body draft: `tmp/pr-body.md`.
+  - Bot count: the brief says 20 drones and 4 per bracket; 4 per bracket over the 4 brackets a drone can be in is 16. 20 were minted, 5 per bracket (DECISIONS 5.39). If 16 was meant, the 4 spare bots (one per bracket) only race when a bracket needs a fifth.
+  - Neon dev after the runs: migration 0003 applied, 20 bot rows, 58 `catalog_templates` rows, `racing_enabled = true`, 5 demo users (`PILOT_DYI1` with `d:49` still active, from the first run before the smoke parked its drone; `PILOT_IILC` with `d:50` inactive), no committed batch. Nothing ticks it. The 12 team drones raced in the four smoke batches (the T12 runner is not hooked in yet, so the teams did not act).
+  - The mod rows of `catalog_templates` have no reader: the capsule previews on the marketplace page use the page's own name list.
+  - Other baseline seeds still write database-only rows without tokens (`lib/db/seed.js`, `seed-marketplace.js`, `seed-more-drones.js`, `seed-mods.js`, `scripts/seed-*.js`, npm `seed`, `seed:marketplace`, `seed:more-drones`). The world seed supersedes them (DECISIONS 5.16); they are not deleted in this task.
+  - The smoke's second tick commits the next batch. With a scheduler the next tick settles it; without one, settle it by hand (deploy runbook, "Before a deploy").
+  - The smoke's ELO assertion fails if the new drone is paired with an opponent rated 720 or more away (the contract's delta rounds to 0); a race the scheduler finished from stored snapshots has no `settle_tx` and fails the settled and link assertions. Neither was seen.
+  - Bots level up: a bracket whose bots have left it is topped up by the next seed run, nothing does it automatically.
+  - dRPC answered both smoke runs' `create_player` sends with HTTP 500 (as in T12's seed); the adapter's by-hash lookup covers it, at the cost of a few seconds.
+  - A mint whose outcome stays unknown stops the seed; a re-run before that transaction lands could mint one spare bot (DECISIONS 5.38).
+  - `GET /api/health` does not report Pusher (no event is sent yet, DECISIONS 5.35).
+
 ## 2026-11-05 T9 Scheduler: cron_ticks, settle and commit phases, caches from events
 
 - Changed:
