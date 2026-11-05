@@ -97,6 +97,7 @@ describe('mock adapter', () => {
   it('runs handlers for results and events, and logs ops and settlement calls', async () => {
     const near = createMockNear({ constants: { laps: 3 } });
     near.mock.on('mint_drone', () => ({ result: 'd:9', events: [] }));
+    near.mock.on('commit_batch', () => ({}));
     expect((await near.callAsOps('mint_drone', { owner: 'x' })).result).toBe('d:9');
     await near.callAsSettlement('commit_batch', { batch_id: 1 });
     expect(await near.getConstants()).toEqual({ laps: 3 });

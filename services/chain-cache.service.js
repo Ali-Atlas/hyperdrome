@@ -3,7 +3,8 @@
  * `applyEvents` reads the hyperdrome, nep171 and nep141 events of one outcome and writes the
  * drones, skins, mods, bound and equipped rows, the listings cache and `users.points`. It reads
  * the chain only where an event lacks a field the cache needs (a new drone's stats, a placeholder
- * skin's name, a Volt balance after any Volt movement). T9 adds `batch_settled` here.
+ * skin's name, a Volt balance after any Volt movement). `batch_settled` writes each drone's
+ * post-race level, xp, elo, record and lock; `batch_aborted` clears the cached lock.
  */
 import { and, eq } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
@@ -16,27 +17,19 @@ import {
 } from '@/lib/game-engine/skin-templates.js';
 import { modTemplate, statsFromArray } from '@/lib/game-engine/templates.js';
 import { getNear } from '@/lib/near';
+import { rowFor, userIdFor } from './chain-cache-rows.js';
+import { raceSettled } from './chain-cache-settle.js';
+
+export { tokenKind } from './chain-cache-rows.js';
 
 const { users, drones, skins, mods, droneSkins, droneMods, marketplaceListings } = schema;
 
 /**
  * @typedef {import('@/lib/near').NearEvent} NearEvent
- * @typedef {{ db: any, near: import('@/lib/near').NearAdapter, userIds: Map<string, string | null>, voltAccounts: Set<string> }} Ctx
+ * @typedef {import('./chain-cache-rows.js').Ctx} Ctx
  * @typedef {{ stats: number[], name: string }} DroneCold
  * @typedef {{ level: number, xp: number, elo: number, wins: number, losses: number }} DroneHot
  */
-
-/** Item kind by token prefix. */
-const KIND_BY_PREFIX = /** @type {const} */ ({ d: 'drone', s: 'skin', m: 'mod' });
-
-/**
- * `drone`, `skin` or `mod` for a token id (`d:1`, `s:2`, `m:3`).
- * @param {string} token
- * @returns {'drone' | 'skin' | 'mod' | null}
- */
-export function tokenKind(token) {
-  return KIND_BY_PREFIX[/** @type {'d' | 's' | 'm'} */ (token.split(':')[0])] ?? null;
-}
 
 /**
  * Apply one outcome's events to the caches.
@@ -118,6 +111,14 @@ async function applyOne(ctx, e) {
         .update(marketplaceListings)
         .set({ status: 'cancelled' })
         .where(activeListing(d.token));
+    case 'batch_settled':
+      for (const race of d.races) await raceSettled(ctx, race);
+      return;
+    case 'batch_aborted':
+      return ctx.db
+        .update(drones)
+        .set({ inBatch: null, chainSyncedAt: new Date() })
+        .where(eq(drones.inBatch, Number(d.batch_id)));
     default:
   }
 }
@@ -128,40 +129,6 @@ const asList = (data) => /** @type {any[]} */ (Array.isArray(data) ? data : [dat
 /** @param {string} token */
 const activeListing = (token) =>
   and(eq(marketplaceListings.tokenId, token), eq(marketplaceListings.status, 'active'));
-
-/**
- * The user row id for a NEAR account, or null (bots, the contract, unknown accounts).
- * @param {Ctx} ctx
- * @param {string} account
- */
-async function userIdFor(ctx, account) {
-  if (!ctx.userIds.has(account)) {
-    const [row] = await ctx.db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.nearAccountId, account))
-      .limit(1);
-    ctx.userIds.set(account, row?.id ?? null);
-  }
-  return ctx.userIds.get(account) ?? null;
-}
-
-/**
- * The cache table and row for a token, or null when it is not cached.
- * @param {Ctx} ctx
- * @param {string} token
- */
-async function rowFor(ctx, token) {
-  const kind = tokenKind(token);
-  if (!kind) return null;
-  const table = { drone: drones, skin: skins, mod: mods }[kind];
-  const [row] = await ctx.db
-    .select({ id: table.id, userId: table.userId })
-    .from(table)
-    .where(eq(table.tokenId, token))
-    .limit(1);
-  return row ? { kind, table, id: /** @type {string} */ (row.id), userId: row.userId } : null;
-}
 
 /**
  * A new drone (vendor or milestone): read its stats and name, insert the cache row.
