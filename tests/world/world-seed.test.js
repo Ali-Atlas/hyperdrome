@@ -20,7 +20,7 @@ import {
 } from '../../lib/world/bot-roster.js';
 import { getSkinCatalog } from '../../services/catalog.service.js';
 import { seedWorld } from '../../services/world-seed.service.js';
-import { dbEnabled, testDb } from '../gameplay/setup.js';
+import { dbEnabled, newPlayer, testDb } from '../gameplay/setup.js';
 import { catalogView, createFakeWorld } from './fake-world.js';
 
 const { adminConfig, catalogTemplates, drones, tracks } = schema;
@@ -204,6 +204,34 @@ describe.skipIf(!dbEnabled)('world seed', () => {
         rows.filter((/** @type {{ level: number }} */ r) => getLevelBracket(r.level) === bracket)
       ).toHaveLength(5);
     }
+  });
+
+  it('reads every page of the contract account: 20 bots among exactly 50 and 120 tokens', async () => {
+    for (const escrowed of [30, 100]) {
+      const w = world();
+      w.addEscrowedItems(escrowed - 2);
+      w.addEscrowedListing(3);
+      w.addEscrowedListing(8);
+      /** @type {string[]} */
+      const seen = [];
+      const first = await seedWorld({}, { db, near: w.near, onMint: (tx) => seen.push(tx.txHash) });
+      expect(stepOf(first.steps, 'bots minted')).toMatchObject({ created: 20, skipped: 0 });
+      expect(seen).toEqual(first.txs.map((tx) => tx.txHash));
+      // 20 bots and the escrowed tokens: a full last page, which the contract refuses to go past.
+      const second = await seedWorld({}, { db, near: w.near });
+      expect(stepOf(second.steps, 'bots minted')).toMatchObject({ created: 0, skipped: 20 });
+      expect(stepOf(second.steps, 'bots cached')).toMatchObject({ created: 0, skipped: 20 });
+    }
+  });
+
+  it('stops when a bot on chain has a cache row that belongs to a user', async () => {
+    const w = world();
+    await seedWorld({}, { db, near: w.near });
+    const { user } = await newPlayer(db, w.near);
+    await db.update(drones).set({ userId: user.id }).where(eq(drones.tokenId, w.minted[0]));
+    await expect(seedWorld({}, { db, near: w.near })).rejects.toThrow('belongs to a user');
+    const [row] = await botRows([w.minted[0]]);
+    expect(row).toMatchObject({ userId: user.id });
   });
 
   it('caches a bot that is on chain without a row, and repairs a catalog row that drifted', async () => {

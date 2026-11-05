@@ -15,18 +15,14 @@ import { droneImagePath } from '@/lib/game-engine/skin-templates.js';
 import { statsFromArray } from '@/lib/game-engine/templates.js';
 import { TRACKS } from '@/lib/game-engine/tracks.js';
 import { getNear } from '@/lib/near';
-import {
-  BOTS_PER_BRACKET,
-  BOT_BRACKET_LEVELS,
-  botLevel,
-  walkStats,
-} from '@/lib/world/bot-roster.js';
+import { BOTS_PER_BRACKET, botRoster, walkStats } from '@/lib/world/bot-roster.js';
 import { syncCatalog } from './catalog.service.js';
 
 const { adminConfig, drones, tracks } = schema;
 
 /**
- * @typedef {{ db?: any, near?: import('@/lib/near').NearAdapter, randomInt?: (max: number) => number }} Deps
+ * @typedef {{ db?: any, near?: import('@/lib/near').NearAdapter, randomInt?: (max: number) => number, onMint?: (tx: SeedTx) => void }} Deps
+ *   `onMint` is called after each bot mint, so a run that stops later has still reported it
  * @typedef {{ step: string, created: number, updated: number, skipped: number, note: string }} StepReport
  * @typedef {{ label: string, txHash: string, url: string }} SeedTx
  * @typedef {{ token_id: string, owner: string, listed: boolean, hot: { level: number, xp: number, elo: number, wins: number, losses: number, in_batch: number | null }, cold: { stats: number[], name: string } }} ChainDrone
@@ -49,9 +45,10 @@ export async function seedWorld({ racingOn = false } = {}, deps = {}) {
   const near = deps.near ?? getNear();
   const randomInt = deps.randomInt ?? cryptoRandomInt;
   const trackStep = await seedTracks(db);
-  const switchStep = await seedRacingSwitch(db, racingOn);
-  const bots = await seedBots({ db, near, randomInt });
+  const bots = await seedBots({ db, near, randomInt, onMint: deps.onMint });
   const catalog = await syncCatalog({ db, near });
+  // Last, so racing is never switched on over a roster a stopped run left incomplete.
+  const switchStep = await seedRacingSwitch(db, racingOn);
   return {
     steps: [
       trackStep,
@@ -140,43 +137,46 @@ async function seedRacingSwitch(db, racingOn) {
 
 /**
  * Step 3: the bots. Each bracket is topped up to `BOTS_PER_BRACKET` contract-owned drones with
- * `mint_drone` (ops key, owner = the game account), then every bot on chain gets its cache row.
- * @param {{ db: any, near: import('@/lib/near').NearAdapter, randomInt: (max: number) => number }} ctx
+ * `mint_drone` (ops key, owner = the game account), and every bot on chain gets its cache row.
+ * Brackets are counted by the bots' current levels: bots earn XP, so once one has levelled out of
+ * its bracket a later run mints its replacement there.
+ * @param {{ db: any, near: import('@/lib/near').NearAdapter, randomInt: (max: number) => number, onMint?: (tx: SeedTx) => void }} ctx
  * @returns {Promise<{ steps: StepReport[], txs: SeedTx[] }>}
  */
-async function seedBots({ db, near, randomInt }) {
+async function seedBots({ db, near, randomInt, onMint }) {
   const onChain = await chainBots(near);
   /** @type {SeedTx[]} */
   const txs = [];
   const minted = { step: 'bots minted', created: 0, updated: 0, skipped: onChain.length, note: '' };
   const cached = await cacheBots(db, onChain);
-  const brackets = /** @type {(keyof typeof BOT_BRACKET_LEVELS)[]} */ (
-    Object.keys(BOT_BRACKET_LEVELS)
-  );
-  for (const bracket of brackets) {
-    const have = onChain.filter((b) => getLevelBracket(b.hot.level) === bracket).length;
-    for (let slot = have; slot < BOTS_PER_BRACKET; slot++) {
-      const level = botLevel(bracket, slot);
-      const name = await generateUniqueDroneName(db, drones);
-      const res = await near.callAsOps('mint_drone', {
-        owner: near.gameId,
-        name,
-        level,
-        stats: walkStats(level, randomInt),
-        active_hint: true,
-      });
-      const token = String(res.result);
-      txs.push({
-        label: `mint_drone ${name} (level ${level}) -> ${token}`,
-        txHash: res.txHash,
-        url: near.explorerTx(res.txHash),
-      });
-      const view = /** @type {ChainDrone | null} */ (await near.view('get_drone', { token }));
-      if (!view) throw new Error(`minted bot ${token} is not readable`);
-      // Cached at once, so a run that stops here leaves no minted bot without its row.
-      cached.created += (await cacheBots(db, [view])).created;
-      minted.created += 1;
-    }
+  /** @type {Record<string, number>} */
+  const have = {};
+  for (const bot of onChain) {
+    const bracket = getLevelBracket(bot.hot.level);
+    have[bracket] = (have[bracket] ?? 0) + 1;
+  }
+  for (const { level } of botRoster().filter((b) => b.slot >= (have[b.bracket] ?? 0))) {
+    const name = await generateUniqueDroneName(db, drones);
+    const res = await near.callAsOps('mint_drone', {
+      owner: near.gameId,
+      name,
+      level,
+      stats: walkStats(level, randomInt),
+      active_hint: true,
+    });
+    const token = String(res.result);
+    const tx = {
+      label: `mint_drone ${name} (level ${level}) -> ${token}`,
+      txHash: res.txHash,
+      url: near.explorerTx(res.txHash),
+    };
+    txs.push(tx);
+    onMint?.(tx);
+    const view = /** @type {ChainDrone | null} */ (await near.view('get_drone', { token }));
+    if (!view) throw new Error(`minted bot ${token} is not readable`);
+    // Cached at once, so a run that stops here leaves no minted bot without its row.
+    cached.created += (await cacheBots(db, [view])).created;
+    minted.created += 1;
   }
   minted.note = `owner ${near.gameId}, ${BOTS_PER_BRACKET} per bracket`;
   return { steps: [minted, cached], txs };
@@ -184,13 +184,16 @@ async function seedBots({ db, near, randomInt }) {
 
 /**
  * Every bot on chain: the drones the game account owns, less the listings it holds in escrow.
+ * The owner's token count is read first: `nft_tokens_for_owner` panics on a `from_index` at or
+ * past the end, so a page is asked for only while tokens remain.
  * @param {import('@/lib/near').NearAdapter} near
  * @returns {Promise<ChainDrone[]>}
  */
-export async function chainBots(near) {
+async function chainBots(near) {
+  const supply = Number(await near.view('nft_supply_for_owner', { account_id: near.gameId }));
   /** @type {string[]} */
   const tokens = [];
-  for (let from = 0; ; from += PAGE) {
+  for (let from = 0; from < supply; from += PAGE) {
     const page = /** @type {{ token_id: string }[] | null} */ (
       await near.view('nft_tokens_for_owner', {
         account_id: near.gameId,
@@ -199,7 +202,6 @@ export async function chainBots(near) {
       })
     );
     tokens.push(...(page ?? []).map((t) => t.token_id));
-    if (!page || page.length < PAGE) break;
   }
   const droneTokens = tokens.filter((t) => t.startsWith('d:'));
   /** @type {ChainDrone[]} */
@@ -214,8 +216,10 @@ export async function chainBots(near) {
 }
 
 /**
- * Cache rows for bots: a missing row is inserted from the chain view, a row not flagged as a bot is
- * flagged, the rest are left to the settlement events that keep them current.
+ * Cache rows for bots: a missing row is inserted from the chain view, an ownerless row not flagged as
+ * a bot is flagged, the rest are left to the settlement events that keep them current. A row that
+ * belongs to a user is never turned into a bot: that is a cache from another contract deployment,
+ * and the seed stops.
  * @param {any} db
  * @param {ChainDrone[]} bots
  * @returns {Promise<StepReport>}
@@ -223,9 +227,9 @@ export async function chainBots(near) {
 async function cacheBots(db, bots) {
   const report = { step: 'bots cached', created: 0, updated: 0, skipped: 0, note: 'is_bot true' };
   if (bots.length === 0) return report;
-  /** @type {{ id: string, tokenId: string | null, isBot: boolean }[]} */
+  /** @type {{ id: string, tokenId: string | null, isBot: boolean, userId: string | null }[]} */
   const rows = await db
-    .select({ id: drones.id, tokenId: drones.tokenId, isBot: drones.isBot })
+    .select({ id: drones.id, tokenId: drones.tokenId, isBot: drones.isBot, userId: drones.userId })
     .from(drones)
     .where(
       inArray(
@@ -261,6 +265,10 @@ async function cacheBots(db, bots) {
         })
         .onConflictDoNothing();
       report.created += 1;
+    } else if (row.userId) {
+      throw new Error(
+        `${bot.token_id} is a bot on chain, and its cache row belongs to a user: this database caches another contract`
+      );
     } else if (!row.isBot) {
       await db.update(drones).set({ isBot: true }).where(eq(drones.id, row.id));
       report.updated += 1;

@@ -8,7 +8,7 @@
  *   npm run seed:world -- --racing-on   # the same, and racing_enabled = true
  *
  * Bots are minted with the ops key (`NEAR_OPS_KEY`) to the game account (`NEAR_GAME_ID`). Keep
- * other users of the ops key off while it runs.
+ * other users of the ops key off while it runs. It needs the real adapter: the mock has no mint.
  */
 import { RpcUnknownOutcomeError, getNear } from '../lib/near/index.js';
 import { seedWorld } from '../services/world-seed.service.js';
@@ -42,12 +42,13 @@ function table(steps) {
 try {
   const near = getNear();
   say(`World seed: contract ${near.gameId}, ops calls signed by ${near.ownerId}\n`);
-  const { steps, txs } = await seedWorld({ racingOn: args.includes('--racing-on') }, { near });
+  // Each mint is printed as it lands, so a run that stops later has still shown its transactions.
+  const { steps, txs } = await seedWorld(
+    { racingOn: args.includes('--racing-on') },
+    { near, onMint: (tx) => say(`  ${tx.label}  ${tx.url}`) }
+  );
+  say(`${txs.length > 0 ? '\n' : ''}${txs.length} bots minted.\n`);
   table(steps);
-  if (txs.length > 0) {
-    say(`\nTransactions (${txs.length}):`);
-    for (const tx of txs) say(`  ${tx.label}  ${tx.url}`);
-  }
   const changed = steps.reduce((n, s) => n + s.created + s.updated, 0);
   say(changed === 0 ? '\nNothing to do: every step skipped.' : `\nDone: ${changed} changes.`);
   process.exit(0);
@@ -57,7 +58,9 @@ try {
       `\nA mint was sent and its outcome is unknown (${err.txHash}). Wait a minute, then run the seed again: it reads the chain first and mints only what is missing.`
     );
   } else {
-    console.error('\nWorld seed failed.', err);
+    console.error(
+      `\nWorld seed failed. ${err instanceof Error ? (err.stack ?? err.message) : err}`
+    );
   }
   process.exit(1);
 }

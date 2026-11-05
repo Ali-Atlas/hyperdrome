@@ -62,6 +62,8 @@ export function createFakeWorld(options = {}) {
   const listed = new Set();
   /** @type {string[]} */
   const minted = [];
+  /** Skins and mods the contract holds in escrow. @type {string[]} */
+  const escrowedItems = [];
   /** @type {ReturnType<typeof catalogView>} */
   let catalog = catalogView();
 
@@ -88,9 +90,21 @@ export function createFakeWorld(options = {}) {
     minted.push(token);
     return { result: token, events: [] };
   });
+  /** @param {string} account */
+  const ownedBy = (account) => [
+    ...[...chain.drones].filter(([, d]) => d.owner === account).map(([id]) => id),
+    ...(account === near.gameId ? escrowedItems : []),
+  ];
+  on('nft_supply_for_owner', ({ account_id }) => ({ result: String(ownedBy(account_id).length) }));
   on('nft_tokens_for_owner', ({ account_id, from_index, limit }) => {
-    const owned = [...chain.drones].filter(([, d]) => d.owner === account_id).map(([id]) => id);
+    const owned = ownedBy(account_id);
     const from = Number(from_index);
+    // near-contract-standards panics on a start index at or past the end.
+    if (from >= owned.length) {
+      throw new ContractPanicError('Out of bounds, please use a smaller from_index.', {
+        method: 'nft_tokens_for_owner',
+      });
+    }
     return { result: owned.slice(from, from + limit).map((token_id) => ({ token_id })) };
   });
   on('get_drones', ({ tokens }) => ({
@@ -118,6 +132,13 @@ export function createFakeWorld(options = {}) {
       chain.addDrone(token, { owner: near.gameId, level });
       listed.add(token);
       return token;
+    },
+    /**
+     * Listed skins and mods held in escrow: contract-owned tokens that are not drones.
+     * @param {number} count
+     */
+    addEscrowedItems(count) {
+      for (let i = 0; i < count; i++) escrowedItems.push(`${i % 2 ? 's' : 'm'}:${++counter}`);
     },
     /** @param {ReturnType<typeof catalogView>} next */
     setCatalog(next) {

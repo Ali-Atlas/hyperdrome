@@ -110,8 +110,9 @@ export async function syncCatalog(deps = {}) {
 }
 
 /**
- * The skins a pack can drop, for the marketplace page's preview cards (`GET /api/skins/catalog`):
- * every catalog skin, by rarity then name. Empty until the world seed has run.
+ * Every catalog skin, by rarity then name, for the marketplace page's preview cards
+ * (`GET /api/skins/catalog`). Ember is included, though no pack draws it. Empty until the world
+ * seed has run.
  * @param {Deps} [deps]
  * @returns {Promise<{ id: string, template: number, name: string, rarity: string, imageUrl: string | null, cap: number | null }[]>}
  */
