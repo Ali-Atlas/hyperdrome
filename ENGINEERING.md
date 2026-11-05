@@ -98,7 +98,7 @@ Assets: player items and Volts, the treasury, the settlement authority, player k
 - Every chain write is idempotent and retried with backoff; the `action_id` or `batch_id` makes the retry safe.
 - RPC: `FailoverRpcProvider` with FastNear primary and Lava secondary, 10 s timeout per call.
 - Gas budgets per method live in SPEC.md; settlement gas is asserted in tests, other budgets are measured on testnet and recorded in HANDOFF.md. Settlement batches attach 200 TGas and cap at the batch size the measured gas allows.
-- Structured logs with a request id; `GET /api/health` reports database, RPC, Pusher and scheduler lag.
+- Structured logs with a request id; `GET /api/health` reports database, RPC and scheduler lag (and Pusher once events are sent, SPEC.md 9).
 - Landing page budget: first contentful paint under 2 s on a mid-range phone; the hero video streams after first paint; total JS under 300 KB gzipped on the landing route.
 - The hosted demo stays up through 2026-11-25; the deploy runbook in `docs/runbooks/deploy.md` includes the rollback step.
 

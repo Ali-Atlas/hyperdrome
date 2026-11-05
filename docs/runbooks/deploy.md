@@ -1,10 +1,38 @@
 # Deploy
 
-Operating the hosted app. T15 adds the Vercel project setup, health checks and the rollback step; this file starts with the scheduler, which T9 ships.
+Operating the hosted app. T15 adds the Vercel project setup and the rollback step; this file covers the world seed, the smoke test and the health route (T13) and the scheduler (T9).
+
+## World seed
+
+A new environment (a database and the contract it points at) is seeded once, after `npm run db:migrate`:
+
+```sh
+npm run seed:world                  # tracks, racing_enabled (created false), 20 bots, catalog cache
+npm run seed:world -- --racing-on   # the same, and racing_enabled = true
+```
+
+The script reads `.env.local` and prints one line per step with what it created, updated and skipped, then the explorer link of every bot it minted. Every step checks before it acts: a second run prints `Nothing to do: every step skipped.`, and a run that stopped part way resumes. Bots earn XP and level up: when one has left its bracket (weeks of racing), a later run mints its replacement, so run the seed again if a bracket runs short of bots. The seed needs the real adapter (`NEAR_ADAPTER` unset). Bots are minted with the ops key to the game account, so keep other users of the ops key (a second seed, a command-line owner call) off while it runs. If it stops with "outcome is unknown", wait a minute before running it again: it counts the bots on chain first, and a transaction that has not landed yet would be minted a second time (one spare bot, harmless).
+
+## Before a deploy: the smoke test
+
+`scripts/smoke-testnet.mjs` plays one new demo account through the whole loop on testnet and fails loudly if any link is broken (SPEC.md 13). Run it against the build that is about to go out, with racing on:
+
+```sh
+npm run smoke                                   # a local server on http://localhost:3000
+SMOKE_BASE_URL=https://<app> npm run smoke      # a preview or the production deployment
+```
+
+It needs `CRON_SECRET` for the target and the chain adapter's variables in `.env.local` (it reads the drone's ELO from the contract). It takes 4 to 10 minutes: it ticks, waits for the next 3-minute slot and ticks again. Exit 0 prints the report (player, drone, race, ELO before and after, the settle transaction link, the health line); exit 1 names the assertion that failed. Record the report in HANDOFF.md. Each run leaves one demo account with its drone inactive, counted against `DEMO_ACCOUNT_CAP` and the 5 per IP per hour limit. It works with a scheduler running on the target: a slot the scheduler already ticked is read instead.
+
+The second tick of a run commits the next batch. With a scheduler running, the next tick settles it. On an environment nobody ticks, settle it by hand so no drone stays locked: set `racing_enabled` to `false`, send one tick in the next slot (`node scripts/tick.mjs <url>`), then set it back.
+
+## Health
+
+`GET /api/health` is public and cached for 60 s. It answers 200 with `ok: true` when the database answers (the migrations applied) and the RPC answers a `get_constants` view, each within 8 s, and 503 otherwise with the failed check `false`. `scheduler.lastTickAgeSeconds` is the time since the last tick started: over 360 with racing on means the scheduler has missed a slot. `racingEnabled` is the kill switch below.
 
 ## Scheduler
 
-The race loop is one HTTP route, `POST /api/races/run` (GET works too), guarded by `CRON_SECRET` and run every 3 minutes (SPEC.md 2.3, 6). Each call is one tick: it claims the slot `floor(unix_seconds / 180)` in `cron_ticks` (a second call in the same slot answers `claimed: false` and does nothing), settles the batches of earlier slots, then commits this slot's batch. A tick that fails leaves its batch in a state the next tick resumes from, so a missed or doubled call is safe. `vercel.json` ships with `crons: []`; pick one of the two schedulers below.
+The race loop is one HTTP route, `POST /api/races/run` (GET works too), guarded by `CRON_SECRET` and run every 3 minutes (SPEC.md 2.3, 6). Each call is one tick: it claims the slot `floor(unix_seconds / 180)` in `cron_ticks` (a second call in the same slot answers `claimed: false` and does nothing), settles the batches of earlier slots, commits this slot's batch, then lets each AI team take at most one action (SPEC.md 10; no team starts later than 40 s into the tick, and the answer lists each team's outcome under `teams`). A tick that fails leaves its batch in a state the next tick resumes from, so a missed or doubled call is safe. `vercel.json` ships with `crons: []`; pick one of the two schedulers below.
 
 ### Option A: Vercel cron (Pro plan)
 

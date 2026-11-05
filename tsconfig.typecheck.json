@@ -71,6 +71,15 @@
     "services/team-seed.service.js",
     "services/team-seed-kit.js",
     "scripts/seed-teams.mjs",
-    "scripts/register-alias.mjs"
+    "lib/world/**/*.js",
+    "services/world-seed.service.js",
+    "services/catalog.service.js",
+    "services/health.service.js",
+    "app/api/health/**/*.js",
+    "app/api/skins/catalog/**/*.js",
+    "scripts/register-alias.mjs",
+    "scripts/seed-world.mjs",
+    "scripts/smoke-testnet.mjs",
+    "scripts/smoke-client.mjs"
   ]
 }
