@@ -74,6 +74,7 @@
     "app/api/skins/catalog/**/*.js",
     "scripts/register-alias.mjs",
     "scripts/seed-world.mjs",
-    "scripts/smoke-testnet.mjs"
+    "scripts/smoke-testnet.mjs",
+    "scripts/smoke-client.mjs"
   ]
 }

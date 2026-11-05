@@ -2,112 +2,53 @@
 /**
  * End-to-end smoke test on testnet (SPEC.md 13; ENGINEERING.md 3), the check before every deploy.
  * Against a running app it plays one new demo account through the whole loop: Play Demo, the
- * bootstrap to `done`, 20 stat points, the drone active, a scheduler tick that commits its race,
- * the next slot, a tick that settles it. Then it asserts: the race row is settled, the server
- * replay matches, the drone's on-chain ELO moved, the settle transaction's explorer link is a
- * NearBlocks URL and GET /api/health answers 200.
+ * bootstrap to `done`, 20 stat points, the mod unequipped and equipped again, the drone active, a
+ * scheduler tick that commits its race, the next slot, a tick that settles it. Then it asserts: the
+ * race row is settled, the server replay matches, the drone's on-chain ELO moved, the settle
+ * transaction's explorer link is a NearBlocks URL and GET /api/health answers 200.
  *
  *   npm run smoke                                   # http://localhost:3000
  *   SMOKE_BASE_URL=https://app.url npm run smoke    # any deployment
  *
  * Environment: `SMOKE_BASE_URL`, `CRON_SECRET` and the chain adapter's variables (SPEC.md 15; the
  * on-chain reads go through lib/near). Racing must be on (`npm run seed:world -- --racing-on`).
- * Exit 0 with a report on a pass, exit 1 naming the failed assertion. The demo account stays:
- * one per run, counted against `DEMO_ACCOUNT_CAP` and the 5 per IP per hour limit.
+ * Exit 0 with a report on a pass, exit 1 naming the failed assertion. The demo account stays, its
+ * drone inactive: one per run, counted against `DEMO_ACCOUNT_CAP` and the 5 per IP per hour limit.
+ * The target may have its own scheduler: a slot it already ticked is read, then waited out.
  */
 import { randomUUID } from 'node:crypto';
 import { STAT_KEYS } from '../lib/game-engine/templates.js';
 import { getNear } from '../lib/near/index.js';
+import {
+  RETRY_MS,
+  SmokeFailure,
+  base,
+  call,
+  check,
+  hasSession,
+  passed,
+  say,
+  seen,
+  sleep,
+} from './smoke-client.mjs';
 
 /** Stat points a level 1 starter drone can take: TSB(1) - 9 (SPEC.md 2.1). */
 const POINTS = 20;
 /** Slots the drone may wait for a matchup, and a committed race for its settlement. */
 const SLOT_TRIES = 3;
 const BOOTSTRAP_DEADLINE_MS = 5 * 60_000;
-const REQUEST_TIMEOUT_MS = 120_000;
-const RETRY_MS = 3_000;
+/** How long another scheduler's tick, still running, is given to write its rows. */
+const OTHER_TICK_MS = 60_000;
 
-const base = new URL(process.env.SMOKE_BASE_URL || 'http://localhost:3000');
 const secret = process.env.CRON_SECRET;
 const startedAt = Date.now();
-/** @type {Map<string, string>} */
-const jar = new Map();
-/** @type {string[]} */
-const passed = [];
 /** @type {[string, string][]} */
 const facts = [];
-
-/** @param {string} line */
-const say = (line) => void process.stdout.write(`${line}\n`);
-/** @param {number} ms */
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** A failed assertion: `name` is what the report names. */
-class SmokeFailure extends Error {
-  /**
-   * @param {string} name
-   * @param {string} detail
-   */
-  constructor(name, detail) {
-    super(detail);
-    this.assertion = name;
-  }
-}
-
-/**
- * Record a passed assertion or stop the run on a failed one.
- * @param {string} name
- * @param {unknown} condition
- * @param {string} detail what was seen, shown when the assertion fails
- * @returns {asserts condition}
- */
-function check(name, condition, detail) {
-  if (!condition) throw new SmokeFailure(name, detail);
-  passed.push(name);
-}
-
-/**
- * One request with the cookie jar and the Origin header a browser sends.
- * @param {'GET' | 'POST'} method
- * @param {string} path
- * @param {{ body?: unknown, headers?: Record<string, string> }} [options]
- * @returns {Promise<{ status: number, json: any, text: string }>}
- */
-async function call(method, path, { body, headers = {} } = {}) {
-  const res = await fetch(new URL(path, base), {
-    method,
-    redirect: 'manual',
-    headers: {
-      origin: base.origin,
-      cookie: [...jar].map(([k, v]) => `${k}=${v}`).join('; '),
-      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-      ...headers,
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  for (const cookie of res.headers.getSetCookie()) {
-    const pair = cookie.split(';')[0];
-    const at = pair.indexOf('=');
-    jar.set(pair.slice(0, at), pair.slice(at + 1));
-  }
-  const text = await res.text();
-  let json = null;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    // Not JSON (an HTML error page): the caller reports `text`.
-  }
-  return { status: res.status, json, text };
-}
-
-/** @param {{ status: number, json: any, text: string }} res */
-const seen = (res) => `HTTP ${res.status} ${res.json?.error ?? res.text.slice(0, 200)}`;
 
 /** The drone's state on chain. @param {string} token */
 async function chainDrone(token) {
   const view =
-    /** @type {{ hot: { elo: number, wins: number, losses: number }, cold: { stats: number[] } } | null} */ (
+    /** @type {{ hot: { elo: number, wins: number, losses: number, equipped_mod: string | null }, cold: { stats: number[] } } | null} */ (
       await getNear().view('get_drone', { token })
     );
   if (!view) throw new SmokeFailure('drone on chain', `get_drone(${token}) returned null`);
@@ -117,7 +58,7 @@ async function chainDrone(token) {
 /** Play Demo, then the bootstrap until `done`. */
 async function signUp() {
   const demo = await call('POST', '/api/auth/demo');
-  check('Play Demo signs in', demo.status === 200 && jar.size > 0, seen(demo));
+  check('Play Demo signs in', demo.status === 200 && hasSession(), seen(demo));
   const deadline = Date.now() + BOOTSTRAP_DEADLINE_MS;
   let failures = 0;
   while (Date.now() < deadline) {
@@ -142,23 +83,54 @@ async function signUp() {
 }
 
 /**
+ * One chain action of the player (SPEC.md 8): a 202 means the outcome is unknown, and the same
+ * action id again resolves it.
+ * @param {string} name the assertion this action is
+ * @param {string} path
+ * @param {Record<string, unknown>} fields the body without its action id
+ * @returns {Promise<string>} the transaction's explorer link
+ */
+async function action(name, path, fields) {
+  const body = { actionId: randomUUID(), ...fields };
+  for (let attempt = 0; ; attempt++) {
+    const res = await call('POST', path, { body });
+    if (res.status === 202 && attempt < 10) {
+      await sleep(RETRY_MS);
+      continue;
+    }
+    check(name, res.status === 200 && res.json?.txHash, seen(res));
+    return res.json.explorerUrl;
+  }
+}
+
+/**
  * Allocate the starter drone's 20 points, one at a time across the 9 stats.
  * @param {{ id: string } & Record<string, number>} drone
  */
 async function allocate(drone) {
   const stats = STAT_KEYS.map((k) => drone[k]);
   for (let i = 0; i < POINTS; i++) stats[i % stats.length] += 1;
-  const body = { actionId: randomUUID(), stats };
-  for (let attempt = 0; ; attempt++) {
-    const res = await call('POST', `/api/drones/${drone.id}/allocate`, { body });
-    // 202: the outcome is unknown; the same action id again resolves it (SPEC.md 8).
-    if (res.status === 202 && attempt < 10) {
-      await sleep(RETRY_MS);
-      continue;
-    }
-    check('allocate 20 points', res.status === 200 && res.json?.txHash, seen(res));
-    return { stats, explorerUrl: /** @type {string} */ (res.json.explorerUrl) };
-  }
+  const explorerUrl = await action('allocate 20 points', `/api/drones/${drone.id}/allocate`, {
+    stats,
+  });
+  return { stats, explorerUrl };
+}
+
+/**
+ * Take the starter mod off and put it back (SPEC.md 4.4 `equip`), checking the chain each time.
+ * @param {{ id: string, tokenId: string }} drone
+ */
+async function reequip(drone) {
+  const mod = (await chainDrone(drone.tokenId)).hot.equipped_mod;
+  check('starter mod is equipped', mod, 'get_drone shows no equipped mod after the bootstrap');
+  const path = `/api/drones/${drone.id}/equip`;
+  await action('unequip the mod', path, { kind: 'mod', item: null });
+  const off = (await chainDrone(drone.tokenId)).hot.equipped_mod;
+  check('mod is off on chain', off === null, `equipped_mod ${off}`);
+  const explorerUrl = await action('equip the mod', path, { kind: 'mod', item: mod });
+  const on = (await chainDrone(drone.tokenId)).hot.equipped_mod;
+  check('mod is equipped on chain', on === mod, `equipped_mod ${on}, expected ${mod}`);
+  return { mod, explorerUrl };
 }
 
 /** One scheduler tick, as an external scheduler sends it. */
@@ -171,25 +143,46 @@ async function tick() {
   return res.json.data;
 }
 
-/** The slot the clock is in, and when the next one starts. */
+/** The slot the server's clock is in, and how long until the next one starts. */
 async function clock() {
   const res = await call('GET', '/api/races/next');
   if (res.status !== 200) throw new SmokeFailure('race clock', seen(res));
   const { slot, nextRaceAt, paused } = res.json.data;
-  return { slot: slot - 1, nextSlotAt: Date.parse(nextRaceAt), paused: Boolean(paused) };
+  // Measured on the server's clock, so a skewed clock on this machine does not move the wait.
+  const untilNext = Math.max(0, Date.parse(nextRaceAt) - res.date);
+  return { slot: slot - 1, untilNext, paused: Boolean(paused) };
 }
 
 /** Sleep until the next slot has started. */
 async function nextSlot() {
-  const { slot, nextSlotAt } = await clock();
-  const wait = Math.max(0, nextSlotAt - Date.now()) + 2_000;
+  const { slot, untilNext } = await clock();
+  // The `Date` header has whole seconds; 3 s clears that and the slot edge.
+  const wait = untilNext + 3_000;
   say(`  waiting ${Math.round(wait / 1000)} s for slot ${slot + 1}`);
   await sleep(wait);
 }
 
 /**
+ * Read until `found` answers. One read when this run's own tick did the work; when another
+ * scheduler holds the slot (`claimed: false`), its tick may still be writing, so keep reading.
+ * @template T
+ * @param {boolean} claimed
+ * @param {() => Promise<T | null>} found
+ * @returns {Promise<T | null>}
+ */
+async function readAfterTick(claimed, found) {
+  const deadline = Date.now() + (claimed ? 0 : OTHER_TICK_MS);
+  for (;;) {
+    const value = await found();
+    if (value !== null || Date.now() >= deadline) return value;
+    await sleep(RETRY_MS);
+  }
+}
+
+/**
  * Tick until the drone has a race in a committed batch.
  * @param {string} droneId
+ * @returns {Promise<{ id: string, batchSlot: number }>}
  */
 async function enterBatch(droneId) {
   for (let attempt = 1; attempt <= SLOT_TRIES; attempt++) {
@@ -197,11 +190,14 @@ async function enterBatch(droneId) {
     if (data.commit?.failed) {
       throw new SmokeFailure('batch committed', `commit_batch refused: ${data.commit.failed}`);
     }
-    const res = await call('GET', '/api/races/upcoming');
-    if (res.status !== 200) throw new SmokeFailure('upcoming races', seen(res));
-    const race = res.json.data.races.find(
-      (/** @type {{ userDroneId: string | null }} */ r) => r.userDroneId === droneId
-    );
+    const race = await readAfterTick(data.claimed, async () => {
+      const res = await call('GET', '/api/races/upcoming');
+      if (res.status !== 200) throw new SmokeFailure('upcoming races', seen(res));
+      const mine = res.json.data.races.find(
+        (/** @type {{ userDroneId: string | null }} */ r) => r.userDroneId === droneId
+      );
+      return mine ?? null;
+    });
     if (race) return race;
     if (attempt < SLOT_TRIES) await nextSlot();
   }
@@ -218,17 +214,35 @@ async function enterBatch(droneId) {
 async function settle(race) {
   for (let attempt = 1; attempt <= SLOT_TRIES; attempt++) {
     if ((await clock()).slot <= race.batchSlot || attempt > 1) await nextSlot();
-    await tick();
-    const res = await call('GET', `/api/races/${race.id}`);
-    if (res.status !== 200) throw new SmokeFailure('race detail', seen(res));
-    if (res.json.data.status !== 'pending') return res.json.data;
+    const data = await tick();
+    const settled = await readAfterTick(data.claimed, async () => {
+      const res = await call('GET', `/api/races/${race.id}`);
+      if (res.status !== 200) throw new SmokeFailure('race detail', seen(res));
+      return res.json.data.status === 'pending' ? null : res.json.data;
+    });
+    if (settled) return settled;
   }
   throw new SmokeFailure('race row is settled', `still pending after ${SLOT_TRIES} slots`);
+}
+
+/**
+ * The server's replay of the race. The batch's seed is stored just after its races are completed,
+ * so a 409 right behind a settle is read again.
+ * @param {string} raceId
+ */
+async function verified(raceId) {
+  for (let attempt = 1; ; attempt++) {
+    const res = await call('GET', `/api/races/${raceId}/verify`);
+    if (res.status !== 409 || attempt >= 5) return res;
+    await sleep(RETRY_MS);
+  }
 }
 
 async function main() {
   if (!secret) throw new SmokeFailure('environment', 'CRON_SECRET is not set');
   say(`Hyperdrome smoke against ${base.origin}`);
+  // Read the adapter's configuration before anything is created: a bad one costs no demo account.
+  const near = getNear();
   const before = await clock();
   check(
     'racing is on',
@@ -240,7 +254,7 @@ async function main() {
   const fleet = await call('GET', '/api/drones');
   const drone = fleet.json?.data?.find((/** @type {{ id: string }} */ d) => d.id === droneId);
   check('starter drone is cached', drone?.tokenId, seen(fleet));
-  facts.push(['player', `${accountId}  ${getNear().explorerAccount(accountId)}`]);
+  facts.push(['player', `${accountId}  ${near.explorerAccount(accountId)}`]);
   const eloBefore = (await chainDrone(drone.tokenId)).hot.elo;
 
   const allocation = await allocate(drone);
@@ -252,12 +266,18 @@ async function main() {
   );
   facts.push(['drone', `${drone.name} ${drone.tokenId}, stats ${allocated.join(' ')}`]);
   facts.push(['allocate tx', allocation.explorerUrl]);
+  const equipped = await reequip(drone);
+  facts.push(['equip tx', `${equipped.mod}  ${equipped.explorerUrl}`]);
 
-  const toggled = await call('POST', `/api/drones/${droneId}/toggle`, { body: { active: true } });
+  const toggle = `/api/drones/${droneId}/toggle`;
+  const toggled = await call('POST', toggle, { body: { active: true } });
   check('drone is active', toggled.status === 200 && toggled.json?.data?.active, seen(toggled));
 
   const matchup = await enterBatch(droneId);
   check('drone enters a batch', Number.isInteger(matchup.batchSlot), JSON.stringify(matchup));
+  // One race is enough: inactive, the drone is in no later batch and its record stays at 1.
+  const parked = await call('POST', toggle, { body: { active: false } });
+  check('drone is parked', parked.status === 200 && !parked.json?.data?.active, seen(parked));
   const race = await settle(matchup);
 
   check(
@@ -265,13 +285,13 @@ async function main() {
     race.status === 'completed' && race.winnerDroneId && race.settleTx,
     `status ${race.status}, winner ${race.winnerDroneId}, settle_tx ${race.settleTx}`
   );
-  const verify = await call('GET', `/api/races/${race.id}/verify`);
+  const verify = await verified(race.id);
   check('verify answers match true', verify.json?.data?.match === true, seen(verify));
   const after = await chainDrone(drone.tokenId);
   check(
     'on-chain ELO moved',
     after.hot.elo !== eloBefore && after.hot.wins + after.hot.losses === 1,
-    `ELO ${eloBefore} -> ${after.hot.elo}, record ${after.hot.wins}-${after.hot.losses}`
+    `ELO ${eloBefore} -> ${after.hot.elo}, record ${after.hot.wins}-${after.hot.losses} (a rating 720 or more away from the opponent's moves by 0)`
   );
   const link = URL.canParse(race.settleExplorerUrl) ? new URL(race.settleExplorerUrl) : null;
   check(
