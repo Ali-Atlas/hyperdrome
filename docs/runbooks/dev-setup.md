@@ -108,7 +108,7 @@ Never commit a `.env*` file; `.env.example` is the template. Copy it to `.env.lo
 2. Google Cloud console, APIs and Services, Credentials: create an OAuth client ID (web application) with the authorized redirect URI `http://localhost:3000/api/auth/callback/google` (and `<app url>/api/auth/callback/google` per deployed environment); copy the client id and secret into `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`.
 3. `AUTH_SECRET`: `openssl rand -base64 32`. `KEY_ENCRYPTION_KEY` and `ADMIN_KEY_ENCRYPTION_KEY`: `openssl rand -hex 32` each, generated once per environment, different from each other, never committed. Losing them makes every stored player key unreadable.
 4. `NEAR_OPS_KEY` and `NEAR_SETTLEMENT_KEY`: see Export a key for the app's env.
-5. `npm run db:migrate` (applies `drizzle/`), then `npm run dev`. Schema changes: edit `lib/db/schema.js`, `npm run db:generate -- --name <change>`, commit the new migration, `npm run db:migrate`.
+5. `npm run db:migrate` (applies `drizzle/`), then `npm run seed:world` (tracks, the racing switch, bots and the catalog cache; it mints on testnet, so it needs the real adapter and the ops key; docs/runbooks/deploy.md, World seed), then `npm run dev`. Schema changes: edit `lib/db/schema.js`, `npm run db:generate -- --name <change>`, commit the new migration, `npm run db:migrate`.
 
 ### Test database
 
