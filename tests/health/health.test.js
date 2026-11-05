@@ -84,4 +84,29 @@ describe('health report when a dependency is down', () => {
     expect(logged).toHaveBeenCalledTimes(2);
     logged.mockRestore();
   });
+
+  it('fails a check that hangs, and a database that answers select 1 without the tables', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const hung = await getHealth({
+      db: { execute: () => new Promise(() => {}) },
+      near: () => /** @type {any} */ ({ view: () => new Promise(() => {}) }),
+      timeoutMs: 20,
+    });
+    expect(hung).toMatchObject({ ok: false, database: { ok: false }, rpc: { ok: false } });
+
+    const unmigrated = {
+      execute: async () => ({ rows: [{ '?column?': 1 }] }),
+      select: () => {
+        throw new Error('relation "cron_ticks" does not exist');
+      },
+    };
+    const report = await getHealth({ db: unmigrated, near: () => createMockNear() });
+    expect(report).toMatchObject({
+      ok: false,
+      database: { ok: false },
+      rpc: { ok: true },
+      racingEnabled: null,
+    });
+    logged.mockRestore();
+  });
 });

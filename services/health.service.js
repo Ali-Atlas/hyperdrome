@@ -20,6 +20,27 @@ const { cronTicks } = schema;
  * @property {string} checkedAt ISO time of this report
  */
 
+/** How long one check may take before it counts as failed. */
+const CHECK_TIMEOUT_MS = 8_000;
+
+/**
+ * Reject when `work` has not settled within `ms`.
+ * @template T
+ * @param {Promise<T>} work
+ * @param {number} ms
+ * @returns {Promise<T>}
+ */
+function within(work, ms) {
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms);
+  });
+  return /** @type {Promise<T>} */ (Promise.race([work, timeout])).finally(() =>
+    clearTimeout(timer)
+  );
+}
+
 /**
  * @param {string} check
  * @param {unknown} err
@@ -30,14 +51,16 @@ function logFailure(check, err) {
 
 /**
  * Run the checks.
- * @param {{ db?: any, near?: () => import('@/lib/near').NearAdapter, now?: number }} [deps]
- *   `near` is a getter, so a broken adapter configuration is a failed RPC check
+ * @param {{ db?: any, near?: () => import('@/lib/near').NearAdapter, now?: number, timeoutMs?: number }} [deps]
+ *   `near` is a getter, so a broken adapter configuration is a failed RPC check; each check fails
+ *   after `timeoutMs` (8 s), so a hung dependency still gets an answer
  * @returns {Promise<HealthReport>}
  */
 export async function getHealth(deps = {}) {
   const db = deps.db ?? defaultDb;
   const near = deps.near ?? getNear;
   const now = deps.now ?? Date.now();
+  const timeoutMs = deps.timeoutMs ?? CHECK_TIMEOUT_MS;
   /** @type {HealthReport} */
   const report = {
     ok: false,
@@ -48,24 +71,32 @@ export async function getHealth(deps = {}) {
     checkedAt: new Date(now).toISOString(),
   };
 
-  const database = (async () => {
-    await db.execute(sql`select 1`);
-    report.database.ok = true;
-    /** @type {{ slot: number, startedAt: Date }[]} */
-    const [tick] = await db.select().from(cronTicks).orderBy(desc(cronTicks.slot)).limit(1);
-    if (tick) {
-      report.scheduler = {
-        lastTickSlot: Number(tick.slot),
-        lastTickAgeSeconds: Math.max(0, Math.round((now - tick.startedAt.getTime()) / 1000)),
-      };
-    }
-    report.racingEnabled = await isRacingEnabled({ db });
-  })().catch((err) => logFailure('database', err));
+  // The database is ok only when every read the report needs answered: a database without the
+  // migrations is not a healthy one.
+  const database = within(
+    (async () => {
+      await db.execute(sql`select 1`);
+      /** @type {{ slot: number, startedAt: Date }[]} */
+      const [tick] = await db.select().from(cronTicks).orderBy(desc(cronTicks.slot)).limit(1);
+      const racingEnabled = await isRacingEnabled({ db });
+      if (tick) {
+        report.scheduler = {
+          lastTickSlot: Number(tick.slot),
+          lastTickAgeSeconds: Math.max(0, Math.round((now - tick.startedAt.getTime()) / 1000)),
+        };
+      }
+      report.racingEnabled = racingEnabled;
+      report.database.ok = true;
+    })(),
+    timeoutMs
+  ).catch((err) => logFailure('database', err));
 
   // The view goes to the RPC every time; `getConstants()` would answer from the process cache.
-  const rpc = (async () => {
-    report.rpc.ok = (await near().view('get_constants', {})) !== null;
-  })().catch((err) => logFailure('rpc', err));
+  const rpc = within((async () => (await near().view('get_constants', {})) !== null)(), timeoutMs)
+    .then((ok) => {
+      report.rpc.ok = ok;
+    })
+    .catch((err) => logFailure('rpc', err));
 
   await Promise.all([database, rpc]);
   report.ok = report.database.ok && report.rpc.ok;
