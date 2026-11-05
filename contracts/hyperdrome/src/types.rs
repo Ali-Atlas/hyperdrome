@@ -1,6 +1,8 @@
 //! On-chain record types (SPEC.md 4.2). Every record that may change shape later is wrapped in a
 //! single-variant versioned enum so a new variant can be added without a bulk migration.
 
+use std::borrow::Cow;
+
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::{AccountId, BorshStorageKey, near};
 
@@ -122,22 +124,72 @@ pub struct Matchup {
     pub tod: u8,
 }
 
-/// A committed race batch.
+/// A committed race batch (current layout, `VersionedBatch::V2`).
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug)]
 pub struct Batch {
     pub seed_hash: [u8; 32],
     pub committed_at_ms: u64,
+    /// The races, in order; emptied when the final chunk settles or the batch is aborted, so the
+    /// storage stake is refunded.
     pub matchups: Vec<Matchup>,
     pub settled: bool,
-    /// Races settled so far, from index 0; `settled` once it equals `matchups.len()`. Same Borsh
-    /// position and type as the field's first name, `settle_tx_count`.
+    /// Races settled so far, from index 0; `settled` once it equals the matchup count.
     pub settled_count: u32,
+    /// Set by `abort_batch`: the batch pays nothing and can no longer be settled.
+    pub aborted: bool,
+}
+
+/// The T6 batch layout (`VersionedBatch::V1`): `Batch` without `aborted`. Read-only; a V1 record
+/// becomes V2 when it is next read.
+#[near(serializers = [borsh])]
+#[derive(Clone, Debug)]
+pub struct BatchV1 {
+    pub seed_hash: [u8; 32],
+    pub committed_at_ms: u64,
+    pub matchups: Vec<Matchup>,
+    pub settled: bool,
+    pub settled_count: u32,
+}
+
+impl From<BatchV1> for Batch {
+    fn from(b: BatchV1) -> Self {
+        Self {
+            seed_hash: b.seed_hash,
+            committed_at_ms: b.committed_at_ms,
+            matchups: b.matchups,
+            settled: b.settled,
+            settled_count: b.settled_count,
+            aborted: false,
+        }
+    }
 }
 
 #[near(serializers = [borsh])]
 pub enum VersionedBatch {
-    V1(Batch),
+    V1(BatchV1),
+    V2(Batch),
+}
+
+impl VersionedBatch {
+    /// The batch in the current layout: borrowed for V2, converted for V1.
+    pub fn current(&self) -> Cow<'_, Batch> {
+        match self {
+            Self::V1(b) => Cow::Owned(b.clone().into()),
+            Self::V2(b) => Cow::Borrowed(b),
+        }
+    }
+
+    /// Rewrites a V1 record as V2 in place and returns the batch for mutation.
+    pub fn upgrade(&mut self) -> &mut Batch {
+        if let Self::V1(b) = self {
+            *self = Self::V2(b.clone().into());
+        }
+        match self {
+            Self::V2(b) => b,
+            Self::V1(_) => unreachable!("upgraded above"),
+        }
+    }
 }
 
 /// A committed pack or capsule open (T5).

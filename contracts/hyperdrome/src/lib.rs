@@ -19,6 +19,8 @@ pub mod views;
 #[cfg(test)]
 mod unit_tests;
 
+use std::borrow::Cow;
+
 use near_contract_standards::fungible_token::FungibleToken;
 use near_contract_standards::fungible_token::metadata::{FT_METADATA_SPEC, FungibleTokenMetadata};
 use near_contract_standards::non_fungible_token::metadata::{
@@ -194,21 +196,29 @@ impl Contract {
         self.s().items.get(token_id).map(|VersionedItem::V1(i)| i)
     }
 
-    pub(crate) fn batch(&self, batch_id: u64) -> Option<&Batch> {
-        self.s()
+    /// A batch in the current layout (a stored V1 record is converted, not rewritten: views
+    /// cannot write).
+    pub(crate) fn batch(&self, batch_id: u64) -> Option<Cow<'_, Batch>> {
+        self.s().batches.get(&batch_id).map(VersionedBatch::current)
+    }
+
+    /// A batch for mutation; a stored V1 record is rewritten as V2.
+    pub(crate) fn batch_mut(&mut self, batch_id: u64) -> Option<&mut Batch> {
+        self.s_mut()
             .batches
-            .get(&batch_id)
-            .map(|VersionedBatch::V1(b)| b)
+            .get_mut(&batch_id)
+            .map(VersionedBatch::upgrade)
     }
 
     pub(crate) fn token_owner(&self, token_id: &TokenId) -> Option<AccountId> {
         self.s().nft.owner_by_id.get(token_id)
     }
 
-    /// Lock rule (SPEC.md 4.4): in an unsettled batch and at least 120 s past its commit.
+    /// Lock rule (SPEC.md 4.4): in a batch neither settled nor aborted, at least 120 s past its
+    /// commit.
     pub(crate) fn is_locked(&self, hot: &DroneHot) -> bool {
         hot.in_batch.and_then(|id| self.batch(id)).is_some_and(|b| {
-            !b.settled && is_locked_at(b.committed_at_ms, env::block_timestamp_ms())
+            !b.settled && !b.aborted && is_locked_at(b.committed_at_ms, env::block_timestamp_ms())
         })
     }
 

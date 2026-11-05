@@ -1,152 +1,18 @@
 //! Sandbox tests for settlement (SPEC.md 4.4): commit and chunked settle, payouts to owners,
 //! escrow sellers and nobody for bots, ELO, XP and level-ups, the exact events, every failure path
-//! by its panic string, the lock rule on player methods, and the chunk-size gas and log budget
-//! (SPEC.md 13).
+//! by its panic string, and the lock rule on player methods. The chunk budget test is in
+//! `settlement_budget.rs`; abort, pruning and the V1 upgrade are in `abort.rs`.
 
 #[allow(dead_code)] // each test binary uses a subset of the shared helpers
 mod common;
 
-use common::{Env, R, assert_fails, done, event, ok, record_gas, tgas};
+use common::batches::{
+    ONES, SEED, commit, commit_args, drone, matchup, mint_bots, race, record, result, settle,
+    settle_args, win_races,
+};
+use common::{Env, R, assert_fails, done, event, ok, record_gas};
 use near_api::NearToken;
-use near_api::types::transaction::result::ExecutionFinalResult;
 use near_sdk::serde_json::{Value, json};
-
-const SEED: [u8; 32] = [42; 32];
-const ONES: [u8; 9] = [1; 9];
-/// SPEC.md 13: one chunk of `CHUNK` races burns at most 150 TGas and logs at most 14,000 bytes.
-/// 50 races logged 15,779 bytes in the worst case below, so the chunk is 40.
-const CHUNK: usize = 40;
-const CHUNK_TGAS_BUDGET: f64 = 150.0;
-const CHUNK_LOG_BYTES_BUDGET: usize = 14_000;
-/// Widths each `batch_settled` field is counted at in the log budget, its longest realistic value:
-/// token ids "d:99999", XP 72,199 (5 digits, L19), levels 20, Volts per race at most 51, ELO 4
-/// digits. `ft_mint` amounts are counted at 2 digits.
-const FIELD_WIDTHS: [(&str, usize); 11] = [
-    ("a", 7),
-    ("b", 7),
-    ("winner", 7),
-    ("xp_a", 5),
-    ("xp_b", 5),
-    ("lvl_a", 2),
-    ("lvl_b", 2),
-    ("va", 2),
-    ("vb", 2),
-    ("elo_a", 4),
-    ("elo_b", 4),
-];
-const MINT_AMOUNT_WIDTH: usize = 2;
-
-/// Characters `value` (a JSON string or number) falls short of `width`.
-fn shortfall(value: &Value, width: usize) -> usize {
-    let len = value
-        .as_str()
-        .map_or_else(|| value.to_string().len(), str::len);
-    width.saturating_sub(len)
-}
-
-type Outcome = Result<ExecutionFinalResult, String>;
-
-fn seed_hash(seed: [u8; 32]) -> [u8; 32] {
-    near_sdk::env::sha256_array(seed)
-}
-
-fn matchup(a: &str, b: &str, track: u8) -> Value {
-    json!({ "a": a, "b": b, "track": track, "weather": 2, "tod": 3 })
-}
-
-async fn drone(env: &Env, token: &str) -> R<Value> {
-    env.view("get_drone", json!({ "token": token })).await
-}
-
-async fn stats_hash(env: &Env, token: &str) -> R<[u8; 32]> {
-    env.view("stats_hash", json!({ "token": token })).await
-}
-
-/// A result for `a` vs `b` carrying both drones' current stats hashes.
-async fn result(env: &Env, a: &str, b: &str, winner: &str, ta: u32, tb: u32) -> R<Value> {
-    Ok(json!({
-        "a": a, "b": b, "winner": winner, "time_a_ms": ta, "time_b_ms": tb,
-        "stats_hash_a": stats_hash(env, a).await?, "stats_hash_b": stats_hash(env, b).await?,
-    }))
-}
-
-fn commit_args(batch_id: u64, matchups: &[Value]) -> Value {
-    json!({ "batch_id": batch_id, "seed_hash": seed_hash(SEED), "matchups": matchups })
-}
-
-fn settle_args(batch_id: u64, seed: [u8; 32], from: u32, results: &[Value]) -> Value {
-    json!({ "batch_id": batch_id, "seed": seed, "from": from, "results": results })
-}
-
-async fn commit(env: &Env, batch_id: u64, matchups: &[Value]) -> Outcome {
-    let args = commit_args(batch_id, matchups);
-    env.call(&env.game, "commit_batch", args).await
-}
-
-async fn settle(env: &Env, batch_id: u64, from: u32, results: &[Value]) -> Outcome {
-    let args = settle_args(batch_id, SEED, from, results);
-    env.call(&env.game, "settle_batch", args).await
-}
-
-/// `(elo, xp, level, wins, losses)` and `in_batch` of a drone.
-async fn record(env: &Env, token: &str) -> R<((i64, u64, u64, u64, u64), Value)> {
-    let h = drone(env, token).await?["hot"].clone();
-    let n = |k: &str| h[k].as_u64().unwrap_or(u64::MAX);
-    let elo = h["elo"].as_i64().unwrap_or(i64::MIN);
-    Ok((
-        (elo, n("xp"), n("level"), n("wins"), n("losses")),
-        h["in_batch"].clone(),
-    ))
-}
-
-/// `count` one-race batches from `first_id` in which `winner` beats `loser`, committed and settled
-/// in the same transaction, five batches per transaction.
-async fn win_races(env: &Env, winner: &str, loser: &str, first_id: u64, count: u64) -> R<()> {
-    let r = result(env, winner, loser, winner, 60_000, 61_000).await?;
-    let m = matchup(winner, loser, 0);
-    let ids: Vec<u64> = (first_id..first_id + count).collect();
-    for group in ids.chunks(5) {
-        let mut calls = Vec::new();
-        for &id in group {
-            let settle = settle_args(id, SEED, 0, std::slice::from_ref(&r));
-            calls.push(("commit_batch", commit_args(id, std::slice::from_ref(&m))));
-            calls.push(("settle_batch", settle));
-        }
-        done(
-            env.multi_call_as(&env.game, env.signer.clone(), calls, 25)
-                .await,
-        );
-    }
-    Ok(())
-}
-
-/// Mints `count` level-1 drones to the contract (bots) in one transaction; ids follow `first`.
-async fn mint_bots(env: &Env, first: u64, count: u64) -> R<Vec<String>> {
-    let args =
-        json!({ "owner": env.game, "name": "B", "level": 1, "stats": ONES, "active_hint": true });
-    let calls = (0..count).map(|_| ("mint_drone", args.clone())).collect();
-    done(
-        env.multi_call_as(&env.owner, env.signer.clone(), calls, 15)
-            .await,
-    );
-    Ok((first..first + count).map(|n| format!("d:{n}")).collect())
-}
-
-fn race(
-    i: u32,
-    (a, b, winner): (&str, &str, &str),
-    (ta, tb): (u32, u32),
-    (va, vb): (u128, u128),
-    (elo_a, elo_b): (i32, i32),
-    (xp_a, xp_b): (u32, u32),
-    (lvl_a, lvl_b): (u8, u8),
-) -> Value {
-    json!({
-        "i": i, "a": a, "b": b, "winner": winner, "ta": ta, "tb": tb,
-        "va": va.to_string(), "vb": vb.to_string(), "elo_a": elo_a, "elo_b": elo_b,
-        "xp_a": xp_a, "xp_b": xp_b, "lvl_a": lvl_a, "lvl_b": lvl_b,
-    })
-}
 
 #[tokio::test]
 async fn four_race_batch_pays_owners_sellers_and_level_ups() -> R<()> {
@@ -503,84 +369,5 @@ async fn locked_drones_refuse_player_moves_until_settled() -> R<()> {
     let settled = &event(&out, "hyperdrome", "batch_settled")["data"]["races"][0];
     assert_eq!((&settled["va"], &settled["vb"]), (&json!("0"), &json!("0")));
     assert_eq!(drone(&env, &d).await?["hot"]["wins"], 1);
-    Ok(())
-}
-
-/// The worst case for one chunk: a distinct beneficiary per drone, each id as long as a player id
-/// can be (`p-<20>.game.hyperdrome.testnet`, 46 characters), so the aggregated ft_mint carries two
-/// entries per race; six-digit times in `batch_settled`; other fields counted at `FIELD_WIDTHS`.
-#[tokio::test]
-async fn settle_chunk_fits_gas_and_log_budgets() -> R<()> {
-    let env = Env::start().await?;
-    let owners: Vec<String> = (0..2 * CHUNK)
-        .map(|i| format!("p-{i:0>20}.game.hyperdrome.testnet"))
-        .collect();
-    assert!(owners.iter().all(|o| o.len() == 46));
-    for group in owners.chunks(10) {
-        let mut calls = Vec::new();
-        for o in group {
-            calls.push(("register_player", json!({ "account_id": o })));
-            let mint = json!({ "owner": o, "name": "WORD-A1", "level": 1, "stats": ONES, "active_hint": true });
-            calls.push(("mint_drone", mint));
-        }
-        done(
-            env.multi_call_as(&env.owner, env.signer.clone(), calls, 12)
-                .await,
-        );
-    }
-    let ids: Vec<String> = (1..=2 * CHUNK).map(|n| format!("d:{n}")).collect();
-    let hash = stats_hash(&env, &ids[0]).await?;
-
-    let mut matchups = Vec::new();
-    let mut results = Vec::new();
-    for (k, pair) in ids.chunks(2).enumerate() {
-        let (a, b) = (&pair[0], &pair[1]);
-        let ta = 100_000 + u32::try_from(k)? * 997;
-        let tb = 150_000 - u32::try_from(k)? * 991;
-        let winner = if ta <= tb { a } else { b };
-        matchups.push(matchup(a, b, u8::try_from(k % 16)?));
-        results.push(json!({
-            "a": a, "b": b, "winner": winner, "time_a_ms": ta, "time_b_ms": tb,
-            "stats_hash_a": hash, "stats_hash_b": hash,
-        }));
-    }
-    let out = ok(commit(&env, 1, &matchups).await)?;
-    record_gas(&out, &format!("commit_batch ({CHUNK} races)"));
-
-    let out = ok(settle(&env, 1, 0, &results).await)?;
-    record_gas(&out, &format!("settle_batch ({CHUNK} races)"));
-    let mint = event(&out, "nep141", "ft_mint");
-    assert_eq!(mint["data"].as_array().map(Vec::len), Some(2 * CHUNK));
-    let logs = out.logs();
-    assert_eq!(logs.len(), 2);
-    let measured: usize = logs.iter().map(|l| l.len()).sum();
-    let races = event(&out, "hyperdrome", "batch_settled")["data"]["races"].clone();
-    let race_padding: usize = races
-        .as_array()
-        .map(|rs| {
-            rs.iter()
-                .flat_map(|r| FIELD_WIDTHS.iter().map(move |(k, w)| shortfall(&r[*k], *w)))
-                .sum()
-        })
-        .unwrap_or(0);
-    let mint_padding: usize = mint["data"]
-        .as_array()
-        .map(|es| {
-            es.iter()
-                .map(|e| shortfall(&e["amount"], MINT_AMOUNT_WIDTH))
-                .sum()
-        })
-        .unwrap_or(0);
-    let log_bytes = measured + race_padding + mint_padding;
-    println!(
-        "CHUNK {CHUNK} races: {:.3} TGas, {measured} log bytes, {log_bytes} at the longest realistic widths",
-        tgas(&out)
-    );
-    assert!(
-        tgas(&out) <= CHUNK_TGAS_BUDGET,
-        "gas {:.3} TGas",
-        tgas(&out)
-    );
-    assert!(log_bytes <= CHUNK_LOG_BYTES_BUDGET, "log bytes {log_bytes}");
     Ok(())
 }
