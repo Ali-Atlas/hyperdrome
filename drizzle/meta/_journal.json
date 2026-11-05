@@ -15,6 +15,13 @@
       "when": 1793737717973,
       "tag": "0001_gameplay_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793849159088,
+      "tag": "0002_scheduler",
+      "breakpoints": true
     }
   ]
 }
