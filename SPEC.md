@@ -10,11 +10,11 @@ Sections: 1 product and loop, 2 constants, 3 architecture, 4 contract, 5 engine,
 
 Idle drone-racing strategy game. Every 3 minutes, every active drone is paired by level bracket and ELO and raced 1v1 by a deterministic simulator. A race is announced 3 minutes before it runs; the first 2 minutes are the strategy window (swap the equipped mod and skin, allocate stats), the last minute is locked. Winners earn Volts and XP, losers earn less of both. Volts buy stat upgrades, packs, capsules, vendor drones and marketplace items. Drones, skins and mods are on-chain tokens; a drone carries every item bound to it through a sale. AI racing teams own accounts, drones and Volts and play the same loop.
 
-Loop: sign in (Google or email) -> account and starter kit created on-chain -> allocate 20 stat points -> drone is active -> matchup appears -> swap loadout -> race settles on-chain -> Volts and XP arrive -> repeat.
+Loop: sign in (Google or Play Demo, 12) -> account and starter kit created on-chain -> allocate 20 stat points -> drone is active -> matchup appears -> swap loadout -> race settles on-chain -> Volts and XP arrive -> repeat.
 
 ## 2. Constants
 
-All constants that affect settlement live in the contract (`constants.rs`). The app reads them through `get_constants()` and never redefines them.
+All constants that affect settlement live in the contract (`src/constants/`). The app reads them through `get_constants()` and never redefines them.
 
 ### 2.1 Drones
 
@@ -225,7 +225,7 @@ Lock rule: a drone is locked when `in_batch` is set, the batch is neither settle
 
 ### 4.7 Events (NEP-297, standard `hyperdrome`, version `1.0.0`)
 
-`drone_minted {token, owner, level}`, `item_minted {token, owner, kind, template, rarity}`, `stats_allocated {drone, stats, cost}`, `equipped {drone, kind, item}`, `item_bound {drone, item}`, `listed {token, seller, price}`, `sold {token, seller, buyer, price, fee}`, `cancelled {token}`, `pack_committed {pack_id, buyer, kind, tier}`, `pack_opened {pack_id, tokens}`, `batch_committed {batch_id, count}`, `batch_aborted {batch_id, count}` (count = drones unlocked), `batch_settled {batch_id, races: [{i, a, b, winner, ta, tb, va, vb, elo_a, elo_b, xp_a, xp_b, lvl_a, lvl_b}]}` where `i` is the race's index in the batch, `ta`/`tb` the times in ms, `va`/`vb` the Volts minted for that drone in this race (payout plus 20 per level gained, 0 when nobody receives them; U128 strings), and `elo`, `xp`, `lvl` the drone's values after the race. One `batch_settled` per settle call, after its aggregated `ft_mint`. Snapshots are not in the event: the database stores them at commit and the contract checks them through `stats_hash`. Standard nep141 and nep171 events on every mint, transfer and burn.
+`drone_minted {token, owner, level}`, `item_minted {token, owner, kind, template, rarity}`, `stats_allocated {drone, stats, cost}`, `equipped {drone, kind, item}`, `item_bound {drone, item}`, `listed {token, seller, price}`, `sold {token, seller, buyer, price, fee}`, `cancelled {token}`, `pack_committed {pack_id, buyer, kind, tier}`, `pack_opened {pack_id, tokens}`, `batch_committed {batch_id, count}`, `batch_aborted {batch_id, count}` (count = drones unlocked), `batch_settled {batch_id, races: [{i, a, b, winner, ta, tb, va, vb, elo_a, elo_b, xp_a, xp_b, lvl_a, lvl_b}]}` where `i` is the race's index in the batch, `ta`/`tb` the times in ms, `va`/`vb` the Volts minted for that drone in this race (payout plus 20 per level gained, 0 when nobody receives them; U128 strings), and `elo`, `xp`, `lvl` the drone's values after the race. One `batch_settled` per settle call, after its aggregated `ft_mint`. Snapshots are not in the event: the database stores them at settlement, before the call is sent (6), and the contract checks them through `stats_hash`. Standard nep141 and nep171 events on every mint, transfer and burn.
 
 ### 4.8 Errors
 
