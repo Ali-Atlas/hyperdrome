@@ -50,6 +50,12 @@
     "app/api/marketplace/buy/**/*.js",
     "app/api/marketplace/cancel/**/*.js",
     "app/api/packs/**/*.js",
-    "app/api/metadata/**/*.js"
+    "app/api/metadata/**/*.js",
+    "lib/teams/**/*.js",
+    "services/teams.service.js",
+    "services/team-seed.service.js",
+    "services/team-seed-kit.js",
+    "scripts/seed-teams.mjs",
+    "scripts/register-alias.mjs"
   ]
 }
