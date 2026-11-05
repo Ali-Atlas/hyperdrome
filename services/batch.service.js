@@ -25,10 +25,11 @@ const { drones, tracks, batches, races } = schema;
 const VIEW_CHUNK = 50;
 
 /**
- * Commit the batch for `slot`: nothing when no drone can race.
+ * Commit the batch for `slot`: nothing when no drone can race. `matchups` is what was sent to
+ * `commit_batch`, returned only when the commit stands on chain (the AI teams act on it).
  * @param {number} slot
  * @param {Deps} [deps]
- * @returns {Promise<{ slot: number, races: number, txHash?: string | null, failed?: string }>}
+ * @returns {Promise<{ slot: number, races: number, txHash?: string | null, failed?: string, matchups?: { a: string, b: string, track: number, weather: number, tod: number }[] }>}
  */
 export async function commitBatch(slot, deps = {}) {
   const { db, near, secretKey } = resolveDeps(deps);
@@ -65,8 +66,8 @@ export async function commitBatch(slot, deps = {}) {
   await db.update(drones).set({ inBatch: slot }).where(inArray(drones.id, droneIds));
 
   const matchups = pairings.map((p) => ({
-    a: p.a.tokenId,
-    b: p.b.tokenId,
+    a: String(p.a.tokenId),
+    b: String(p.b.tokenId),
     track: p.trackIndex,
     ...conditionIndexes(p.weather, p.timeOfDay),
   }));
@@ -108,7 +109,7 @@ export async function commitBatch(slot, deps = {}) {
     .update(batches)
     .set({ commitTx: txHash, committedAt: new Date() })
     .where(eq(batches.slot, slot));
-  return { slot, races: pairings.length, txHash };
+  return { slot, races: pairings.length, txHash, matchups };
 }
 
 /**

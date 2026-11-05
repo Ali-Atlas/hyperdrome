@@ -19,6 +19,7 @@
     "seed": "node --env-file=.env.local lib/db/seed.js",
     "seed:marketplace": "node --env-file=.env.local lib/db/seed-marketplace.js",
     "seed:more-drones": "node --env-file=.env.local lib/db/seed-more-drones.js",
+    "seed:teams": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/seed-teams.mjs",
     "seed:world": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/seed-world.mjs",
     "smoke": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/smoke-testnet.mjs",
     "prepare": "husky",

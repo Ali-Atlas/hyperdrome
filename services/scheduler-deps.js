@@ -12,7 +12,8 @@ export const CADENCE_S = 180;
 export const STRATEGY_WINDOW_MS = 120_000;
 
 /**
- * @typedef {{ db?: any, near?: import('@/lib/near').NearAdapter, secretKey?: string }} Deps
+ * @typedef {{ db?: any, near?: import('@/lib/near').NearAdapter, secretKey?: string, teamPhase?: typeof import('./teams.service.js').runTeamPhase | null }} Deps
+ *   `teamPhase`: the AI team phase of a tick (default `runTeamPhase`; null runs none)
  * @typedef {{ db: any, near: import('@/lib/near').NearAdapter, secretKey: string }} FullDeps
  */
 

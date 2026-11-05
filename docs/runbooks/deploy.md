@@ -32,7 +32,7 @@ The second tick of a run commits the next batch. With a scheduler running, the n
 
 ## Scheduler
 
-The race loop is one HTTP route, `POST /api/races/run` (GET works too), guarded by `CRON_SECRET` and run every 3 minutes (SPEC.md 2.3, 6). Each call is one tick: it claims the slot `floor(unix_seconds / 180)` in `cron_ticks` (a second call in the same slot answers `claimed: false` and does nothing), settles the batches of earlier slots, then commits this slot's batch. A tick that fails leaves its batch in a state the next tick resumes from, so a missed or doubled call is safe. `vercel.json` ships with `crons: []`; pick one of the two schedulers below.
+The race loop is one HTTP route, `POST /api/races/run` (GET works too), guarded by `CRON_SECRET` and run every 3 minutes (SPEC.md 2.3, 6). Each call is one tick: it claims the slot `floor(unix_seconds / 180)` in `cron_ticks` (a second call in the same slot answers `claimed: false` and does nothing), settles the batches of earlier slots, commits this slot's batch, then lets each AI team take at most one action (SPEC.md 10; no team starts later than 40 s into the tick, and the answer lists each team's outcome under `teams`). A tick that fails leaves its batch in a state the next tick resumes from, so a missed or doubled call is safe. `vercel.json` ships with `crons: []`; pick one of the two schedulers below.
 
 ### Option A: Vercel cron (Pro plan)
 
