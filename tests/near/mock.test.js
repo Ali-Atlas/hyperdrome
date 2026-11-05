@@ -94,6 +94,24 @@ describe('mock adapter', () => {
     await expect(near.rotatePlayKey(accountId, playKeyEnc)).rejects.toThrow();
   });
 
+  it('records the rotation allowance (default 1 NEAR) and reports a set NEAR balance', async () => {
+    const near = createMockNear();
+    const { accountId, adminKeyEnc } = await near.createPlayerAccount({
+      slug: 'gina',
+      isTeam: true,
+    });
+    await near.rotatePlayKey(accountId, adminKeyEnc, { keyVersion: 1 });
+    await near.rotatePlayKey(accountId, adminKeyEnc, { keyVersion: 2, allowance: 2n * 10n ** 24n });
+    const rotations = near.mock.calls.filter((c) => c.kind === 'rotate').map((c) => c.args);
+    expect(rotations).toEqual([
+      { key_version: 1, allowance: '1000000000000000000000000' },
+      { key_version: 2, allowance: '2000000000000000000000000' },
+    ]);
+    expect(await near.accountBalance(accountId)).toBe(0n);
+    near.mock.setBalance(accountId, 5n);
+    expect(await near.accountBalance(accountId)).toBe(5n);
+  });
+
   it('runs handlers for results and events, and logs ops and settlement calls', async () => {
     const near = createMockNear({ constants: { laps: 3 } });
     near.mock.on('mint_drone', () => ({ result: 'd:9', events: [] }));

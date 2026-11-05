@@ -9,10 +9,12 @@ import {
   RpcUnknownOutcomeError,
 } from '../../lib/near/errors.js';
 import { generateKeyPair, openKey, sealKey } from '../../lib/near/keys.js';
+import { PLAY_KEY_ALLOWANCE, PLAY_KEY_METHODS } from '../../lib/near/play-key.js';
 import {
   ZERO_HASH,
   chainBasics,
   decodeFunctionCall,
+  decodeKeyRotation,
   outcome,
   startFakeRpc,
   viewResult,
@@ -292,6 +294,77 @@ describe('real adapter over a fake RPC', () => {
     await expect(near.createPlayerAccount({ slug: 'bob', isTeam: false })).rejects.toBeInstanceOf(
       AccountCreateError
     );
+  });
+
+  it('rotatePlayKey deletes the old play key and adds one with the given allowance (default 1 NEAR)', async () => {
+    const admin = generateKeyPair();
+    const adminKeyEnc = sealKey(admin.secretKey, adminKeyEncryptionKey, PLAYER);
+    /** @type {ReturnType<typeof decodeKeyRotation>[]} */
+    const sent = [];
+    /** @type {FakeRpcHandler} */
+    const handler = ({ method, params }) => {
+      if (method === 'query' && params.request_type === 'view_access_key_list') {
+        const fc = { allowance: '1', receiver_id: GAME, method_names: ['bind'] };
+        return {
+          result: {
+            keys: [
+              { public_key: admin.publicKey, access_key: { nonce: 1, permission: 'FullAccess' } },
+              {
+                public_key: playKey.publicKey,
+                access_key: { nonce: 2, permission: { FunctionCall: fc } },
+              },
+            ],
+            block_height: 100,
+            block_hash: ZERO_HASH,
+          },
+        };
+      }
+      if (method === 'send_tx') {
+        sent.push(decodeKeyRotation(params.signed_tx_base64));
+        return { result: outcome({ hash: 'x', status: { SuccessValue: '' } }) };
+      }
+      return chain({})({ method, params });
+    };
+    const { near } = await adapterOver(handler);
+
+    const twoNear = 2n * PLAY_KEY_ALLOWANCE;
+    const rotated = await near.rotatePlayKey(PLAYER, adminKeyEnc, {
+      keyVersion: 1,
+      allowance: twoNear,
+    });
+    expect(rotated.keyVersion).toBe(2);
+    expect(openKey(rotated.playKeyEnc, keyEncryptionKey, PLAYER)).toMatch(/^ed25519:/);
+    expect(sent[0]).toMatchObject({ signerId: PLAYER, receiverId: PLAYER });
+    expect(sent[0].deleted).toHaveLength(1);
+    expect(sent[0].added).toMatchObject({
+      allowance: twoNear,
+      receiverId: GAME,
+      methodNames: PLAY_KEY_METHODS,
+    });
+    expect(sent[0].added.publicKey).not.toBe(sent[0].deleted[0]);
+
+    await near.rotatePlayKey(PLAYER, adminKeyEnc, { keyVersion: 2 });
+    expect(sent[1].added.allowance).toBe(PLAY_KEY_ALLOWANCE);
+  });
+
+  it('accountBalance returns the account amount in yoctoNEAR', async () => {
+    /** @type {FakeRpcHandler} */
+    const handler = ({ method, params }) =>
+      method === 'query' && params.request_type === 'view_account'
+        ? {
+            result: {
+              amount: '2050000000000000000000000',
+              locked: '0',
+              code_hash: ZERO_HASH,
+              storage_usage: 182,
+              storage_paid_at: 0,
+              block_height: 100,
+              block_hash: ZERO_HASH,
+            },
+          }
+        : undefined;
+    const { near } = await adapterOver(handler);
+    expect(await near.accountBalance(PLAYER)).toBe(2_050_000_000_000_000_000_000_000n);
   });
 
   it('resolveOutcome: applied when seq reached the sent value, otherwise not', async () => {
