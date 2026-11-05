@@ -7,6 +7,7 @@
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { db as maybeDb, schema } from '@/lib/db';
 import { ApiError } from '@/lib/api/response.js';
+import { getNear } from '@/lib/near';
 
 const { drones, users, races, tracks, skins, mods } = schema;
 
@@ -250,6 +251,8 @@ export async function getRaceById(raceId) {
     snapshotA: settled ? race.snapshotA : null,
     snapshotB: settled ? race.snapshotB : null,
     log: settled ? race.log : null,
+    // The settle transaction on the explorer (SPEC.md 6 `explorerTx`), once there is one.
+    settleExplorerUrl: race.settleTx ? getNear().explorerTx(race.settleTx) : null,
     track: row.track,
     drone1: byId[race.drone1Id],
     drone2: byId[race.drone2Id],
