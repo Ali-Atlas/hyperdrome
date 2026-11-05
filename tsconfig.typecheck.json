@@ -65,6 +65,15 @@
     "app/api/races/next/**/*.js",
     "app/api/races/upcoming/**/*.js",
     "app/api/races/*/verify/**/*.js",
-    "scripts/tick.mjs"
+    "scripts/tick.mjs",
+    "lib/world/**/*.js",
+    "services/world-seed.service.js",
+    "services/catalog.service.js",
+    "services/health.service.js",
+    "app/api/health/**/*.js",
+    "app/api/skins/catalog/**/*.js",
+    "scripts/register-alias.mjs",
+    "scripts/seed-world.mjs",
+    "scripts/smoke-testnet.mjs"
   ]
 }
