@@ -2,6 +2,73 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-05 T11 part 2: race pages on the T9 fields, smoke with the team phase
+
+- Changed:
+  - Merged `main` (T9, T12, T13; 0135ec0) into `task/T11-page-wiring`: conflicts in `HANDOFF.md` (both sides kept), `DECISIONS.md` section 5 (main's rows with T11's 5.15 wording and 5.29) and `tsconfig.typecheck.json` (both lists kept).
+  - Race detail `app/races/[raceId]/page.jsx` (minimal edits, lint exception): the fetched race goes through `asRaced` (new `lib/client/race-view.js`); the results view reads `race.log` where it read `race.raceLog`; lead changes and the Lead Tracker gaps come from the cumulative gap; the Race Log's two drone columns and the two drone lines of the chart tooltip show each drone's gain on the other in the segment (the change of `gapMs`, formatted like the chart's gap labels) where they showed segment times; the Lead arrow and the tooltip's "won (+x s)" line use the same per-segment change; the chart gets no segment clock, so it spaces the segments evenly and shows no time axis (its existing fallback); the drone cards take the rating before the race from the snapshot; the race id in the header is a link to `settleExplorerUrl` when there is one (same class, global `a` style inherits the color, no new copy). Not touched and now without data: the battery note in the tooltip and the final-lap sentence of the commentary read per-drone segment times, which the client-safe log does not carry; they no longer appear.
+  - `lib/client/race-view.js` (new, pure, typechecked): `racedDrone(drone, snapshot)` (snapshot stats, level and the mod by template id over the cached drone; the skin stays the cached one), `segmentRows(log)` (`segment`, `gap`, `step`, `drone1Gain`, `drone2Gain` per entry), `asRaced(race)` (a settled race with both; anything else unchanged). `tests/client/race-view.test.js` (8 tests).
+  - Footer countdown `components/ui/NavShell/index.jsx`: Strategy Lock counts down to the `lockAt` of the viewer's first upcoming race, else to the next race minus 60 s as before. Next Auto-Race already read `nextRaceAt` and `paused` from `GET /api/races/next`.
+  - No edit needed: `app/races/page.jsx` (list from `GET /api/races`, banner from `GET /api/races/upcoming`; so no Prettier-only commit either), `app/dashboard/page.jsx` (pending feed, recent results, the shared upcoming store), the matchup view of the race detail page and `lib/upcoming-races-store.js`. T9 kept the shapes these read.
+  - `SPEC.md` 11 (what the race pages read and show), `DECISIONS.md` 5.45.
+  - Local only: this worktree's `.env.local` had an empty `CRON_SECRET`; filled from the T13 worktree's file (the only key that differed; value never printed).
+- Verified:
+  - Smoke with the team phase, 2026-11-05, `next dev -p 3011` on this branch after the merge, Neon dev, real adapter: `SMOKE_BASE_URL=http://localhost:3011 npm run smoke`, exit 0. A first attempt stopped at once on the empty `CRON_SECRET` (no account made). Report:
+
+    ```
+    Hyperdrome smoke: PASS (2 min 43 s)
+      target        http://localhost:3011
+      player        p-pilotgp7e.game.hyperdrome.testnet  https://testnet.nearblocks.io/address/p-pilotgp7e.game.hyperdrome.testnet
+      drone         ALPHA-D5 d:51, stats 4 4 3 3 3 3 3 3 3
+      allocate tx   https://testnet.nearblocks.io/txns/6N7hAU8WYuNZBDgA1jiW38KFCN9iREJRjY3f2n7GiPa2
+      equip tx      m:57  https://testnet.nearblocks.io/txns/2gi7b5fW82iTEHHxgACqiF2mfF2WfLkYND3ZddSjUx1V
+      race          f01a7af5-4189-4065-b8e2-203022910003, slot 9966191 index 2
+      result        lost 53.429 s to 51.985 s against VORTEX-V1 on The Grid, clouds, day
+      ELO on chain  1000 -> 983
+      settle tx     https://testnet.nearblocks.io/txns/AJ86xh53KcoND2eUNAVeQ3cajiFxS3P6M3cEWkD6UBf9
+      health        database true, rpc true, last tick slot 9966192 (28 s ago), racing true
+      ok    racing is on
+      ok    Play Demo signs in
+      ok    bootstrap reaches done
+      ok    starter drone is cached
+      ok    allocate 20 points
+      ok    allocation is on chain
+      ok    starter mod is equipped
+      ok    unequip the mod
+      ok    mod is off on chain
+      ok    equip the mod
+      ok    mod is equipped on chain
+      ok    drone is active
+      ok    drone enters a batch
+      ok    drone is parked
+      ok    race row is settled
+      ok    verify answers match true
+      ok    on-chain ELO moved
+      ok    settle tx link is a NearBlocks URL
+      ok    GET /api/health answers 200
+    ```
+
+    Both ticks ran the team phase and answered it under `teams`, every action `applied`. Slot 9966191 (9 races committed, `Ax4KRNWDhFS1BpoeKzau9DNvybBkHYM9rYToTEWvKR3C`): vortex bind `m:52`, hairpin equip on `d:25`, nimbus equip on `d:22`, static bind `m:56`. Slot 9966192 (settled 9966191; 9 races committed, `smSo1zuuNmdHqQa5wX11712qMwHDC4CQCYcGxbTjZpN`): hairpin equip on `d:25`, nimbus bind `m:50`, static equip on `d:27`, vortex equip on `d:19`. These are the first binds on testnet (T12 had seen equips and capsules only). The smoke's bootstrap met one dRPC HTTP 500 on `create_player`; the adapter recovered the outcome.
+
+  - Walk-through of the race pages, 2026-11-05, in a browser (headless Firefox 132 driven by playwright-core 1.49.1 from a scratch folder; nothing added to the repo) against `next build` + `next start -p 3011` on this branch, Neon dev, real adapter. No console error and no failed request on any page except the Vercel Analytics script, which exists only on Vercel. Demo account `PILOT_S703` made with the Play Demo button on the landing page, drone `TUNDRA-Y8` `d:52` set active.
+    - Tick through the route at 21:48:04 UTC (slot 9966196): settled 9966192, committed 9 races (`EtArPQouzJB3qZD9fnfeSccm89brtFQkScBqjMQkuWcY`), teams: hairpin, nimbus and static equips, vortex a starter capsule.
+    - `GET /api/races/upcoming`: 1 race, `df010b6d-86d9-4674-8607-57c76fd864af`, slot 9966196 index 3, TUNDRA-Y8 against NIMBUS-N1 (a team drone) on Horizon Express, haze, dawn, `lockAt` 21:50:16.172Z, `scheduledAt` 21:51:00Z, `activeDroneCount` 1. `GET /api/races/next`: slot 9966197, `nextRaceAt` 21:51:00Z, not paused.
+    - Dashboard at 21:49:48: footer "Next Auto-Race in 01:11 · Strategy Lock in 00:27 · Races: 1 2 3" (the lock counts to `lockAt`; 21:50:00 would have read 00:12), the pending feed has the 9 races.
+    - `/races`: banner "You have 1 upcoming race", 50 rows; VIEW MATCHUP opens `/races/df010b6d-…`: the matchup view with both drones (TUNDRA-Y8 LV 1 YOU, mod Night Lens; NIMBUS-N1 LV 4, Nimbus Racing, no mod), the track card (Horizon Express, haze, dawn) and the race edge card.
+    - After the lock, 21:50:39: footer "Next Auto-Race in 00:21 · LOCKED IN".
+    - Settle-only tick at 21:51:04 (slot 9966197, `runTick({ commit: false })` from a one-off script, so nothing new is committed; 9.8 s; one dRPC 500 recovered): 9966196 settled, `De4UQLRQpnF97xdmq6MEWgMB19Nzam3bab9p9ZR5Nt4K`. The open race page turned into the results view by itself at 21:51:12 (its 5 s poll).
+    - Results view against the API answer: winner NIMBUS-N1, "wins by 0.35s" (20.278 s to 19.929 s), "MAX GAP 0.35S", times 20.28s and 19.93s; cards show the snapshots (TUNDRA-Y8 LV 1, ELO 1000, Night Lens = template 6; NIMBUS-N1 LV 4, ELO 981, no mod = template 0) while the cached drones already read 985 and 998; Race Log 12 rows for the 12 log entries, row 1 "1 1 TURN -0.06s +0.06s ▶" for `gapMs` 55, row 3 "-0.01s +0.01s" for 156 to 170, last cumulative +0.35s for 350; chart tooltip at the start "LAP 1, TURN 1 · TUNDRA-Y8 -0.06s · NIMBUS-N1 +0.06s · NIMBUS-N1 won (+0.06s). turning edge 10 vs 1. · CUMULATIVE +0.06S" (10 and 1 are the snapshot stats); the race id `#6FD864AF` links to `https://testnet.nearblocks.io/txns/De4UQLRQpnF97xdmq6MEWgMB19Nzam3bab9p9ZR5Nt4K`; `GET /api/races/df010b6d-…/verify`: 200 `{ match: true }`.
+    - `/races`: the newest row "#94D43FDD … Crossfire CLOUDS NIGHT VORTEX-V3 Lv8 KRYPT-R1 Lv9 VORTEX-V3 Lv8 0", no banner; Your Races on: 1 row, "#6FD864AF … Horizon Express HAZE DAWN TUNDRA-Y8 Lv1 NIMBUS-N1 Lv4 NIMBUS-N1 Lv4 0"; the row opens the race.
+    - Dashboard after the settle: record 0W / 1L, ELO 985, "No upcoming race", Your Recent Results "TUNDRA-Y8 LV1 NIMBUS-N1 LV4 Horizon Express LOSS +0", balance 1,001.
+    - After the helpers moved to `lib/client/race-view.js` the app was rebuilt and the results view checked again on two races: the one above (same text) and the smoke's `f01a7af5-…` (VORTEX-V1 LV 4 with Light Frame = template 9, ALPHA-D5 with Quick Charge, "LEAD CHANGED 1×", 24 rows, tooltip "speed advantage 25 vs 4" from the snapshots, the link to `AJ86xh53…`).
+    - Left clean: the drone is parked; Neon dev has 92 completed races, all with the new log and none with a `race_log`, 12 batches all settled, no drone locked.
+  - `npm run lint`, `npm run format:check`, `npm run typecheck`: exit 0. `DATABASE_URL=postgresql://ci@127.0.0.1:54329/t11 npm test` (a new local database, migrated to 0003): 31 files passed, 1 skipped (the gated testnet run); 230 tests passed, 1 skipped. `npm run build`: exit 0.
+- Open:
+  - Volts, XP and the rating change of a race show column defaults on every page that reads them (race detail: "+0" Volts for the winner, the headline chip 0, XP "+10" and "+4", no rating change; races list and dashboard results: 0). Settlement writes the winner, the times, the log and the snapshots, but not `races.points_awarded`, `loser_points_awarded`, `xp_winner`, `xp_loser`, `drone1_elo_change`, `drone2_elo_change`. `batch_settled` carries `va`, `vb` and each drone's `elo` and `xp` after the race, so `services/chain-cache-settle.js` `raceSettled` could store them on the race row (the rating change is the event's `elo` minus the snapshot's; the XP gained needs the XP before, which the snapshot does not hold). That is settlement code and a SPEC 7 line, outside this task's wiring scope.
+  - `next dev` reloaded every page in a loop (about every 300 ms, "Compiled" before each load) under the headless Firefox 132 used here, on `/` and `/login` alike; the production build did not. Not checked in a current desktop browser, so it may be this browser build with Next's hot-reload client rather than the app.
+  - The walk-through's first-visit tour was switched off through its `onboarding_complete` localStorage flag; the tour itself was not walked.
+  - Carried from part 1: the pack-open 200 body carries no `volts`.
+
 ## 2026-11-04 T11 part 1: pages wired to the NEAR routes in place
 
 - Changed:
