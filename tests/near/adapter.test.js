@@ -256,6 +256,46 @@ describe('real adapter over a fake RPC', () => {
     expect(lookups.every((r) => JSON.stringify(r.params).includes(res.txHash))).toBe(true);
   });
 
+  it('resends an ops call once with a fresh nonce after InvalidNonce when the hash is unknown', async () => {
+    const event = { standard: 'nep141', version: '1.0.0', event: 'ft_mint', data: [] };
+    const nonce = invalidTx({ InvalidNonce: { tx_nonce: 6, ak_nonce: 9 } });
+    const unknownTx = {
+      error: {
+        name: 'HANDLER_ERROR',
+        cause: { name: 'UNKNOWN_TRANSACTION', info: {} },
+        code: -32000,
+        message: 'Server error',
+        data: 'Transaction unknown',
+      },
+    };
+    let sends = 0;
+    // Both providers share this handler: the first round of sends is rejected on each, the
+    // by-hash lookups find nothing, and the rebuilt resend succeeds.
+    const handler = chain({
+      send: () =>
+        ++sends <= 2
+          ? nonce
+          : {
+              result: outcome({
+                hash: 'x',
+                status: { SuccessValue: '' },
+                receiptLogs: [[`EVENT_JSON:${JSON.stringify(event)}`]],
+              }),
+            },
+      tx: () => unknownTx,
+    });
+    const { near, primary, failover } = await adapterOver(handler, handler);
+    const res = await near.callAsOps('mint_volts', { to: PLAYER, amount: '5' });
+    expect(res.events.map((e) => e.event)).toEqual(['ft_mint']);
+    const sent = [...primary.requests, ...failover.requests].filter((r) => r.method === 'send_tx');
+    expect(sent).toHaveLength(3);
+    expect(sent.map((r) => decodeFunctionCall(r.params.signed_tx_base64).methodName)).toEqual([
+      'mint_volts',
+      'mint_volts',
+      'mint_volts',
+    ]);
+  });
+
   it('nextSeq panics `not player` for an unregistered account', async () => {
     const { near } = await adapterOver(chain({ seq: null }));
     await expect(near.nextSeq(PLAYER)).rejects.toMatchObject({ panic: 'not player' });

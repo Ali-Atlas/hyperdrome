@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, like, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 
 const { skins, droneSkins } = schema;
@@ -32,27 +32,6 @@ export async function getUserSkins(userId) {
   const bindMap = Object.fromEntries(bindings.map((b) => [b.skinId, b.droneId]));
 
   return owned.map((s) => ({ ...s, boundDroneId: bindMap[s.id] ?? null }));
-}
-
-/**
- * Catalog of all image-backed skins (`image_url` matches `/skins/...webp`).
- * Returns every image-backed row regardless of ownership - the marketplace
- * uses this to populate the "WHAT YOU COULD PULL" preview cards on each
- * pack. Excludes the legacy placeholder skins whose `image_url` points to
- * non-existent paths (those still render as SkinMini SVG fallbacks
- * elsewhere; they're not droppable from packs).
- */
-export async function getCatalogImageBacked() {
-  return db
-    .select({
-      id: skins.id,
-      name: skins.name,
-      rarity: skins.rarity,
-      imageUrl: skins.imageUrl,
-    })
-    .from(skins)
-    .where(and(like(skins.imageUrl, '/skins/%'), like(skins.imageUrl, '%.webp')))
-    .orderBy(asc(skins.rarity), asc(skins.name));
 }
 
 /**

@@ -88,12 +88,15 @@ export default defineConfig([
     name: 'hyperdrome/pure-engine',
     files: [
       'lib/game-engine/economy.js',
+      'lib/game-engine/mod-fit.js',
       'lib/game-engine/mods.js',
       'lib/game-engine/prng.js',
       'lib/game-engine/race-simulator.js',
       'lib/game-engine/sha256.js',
       'lib/game-engine/stats-hash.js',
       'lib/game-engine/templates.js',
+      'lib/teams/allocation.js',
+      'lib/teams/policy.js',
     ],
     rules: {
       'no-restricted-properties': [

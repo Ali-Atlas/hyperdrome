@@ -88,11 +88,11 @@ export function viewResult(value) {
 }
 
 /**
- * Decodes the function call of a base64 signed transaction (Borsh, Transaction V0).
+ * A minimal Borsh reader over a signed transaction, positioned after the header (signer, public
+ * key, nonce, receiver, block hash) at the action count.
  * @param {string} signedTxBase64
- * @returns {{ signerId: string, receiverId: string, nonce: bigint, methodName: string, args: any, gas: bigint, deposit: bigint }}
  */
-export function decodeFunctionCall(signedTxBase64) {
+function readTransaction(signedTxBase64) {
   const buf = Buffer.from(signedTxBase64, 'base64');
   let at = 0;
   const u8 = () => buf[at++];
@@ -114,20 +114,65 @@ export function decodeFunctionCall(signedTxBase64) {
     return out;
   };
   const string = () => bytes().toString('utf8');
+  /** An ed25519 public key (type byte 0, then 32 bytes) as hex. */
+  const publicKey = () => {
+    u8();
+    const key = buf.subarray(at, at + 32).toString('hex');
+    at += 32;
+    return key;
+  };
 
   const signerId = string();
-  u8(); // public key type (0 = ed25519)
-  at += 32; // public key
+  publicKey();
   const nonce = u64();
   const receiverId = string();
   at += 32; // block hash
-  const actionCount = u32();
-  if (actionCount !== 1 || u8() !== 2) throw new Error('expected exactly one FunctionCall action');
-  const methodName = string();
-  const args = JSON.parse(bytes().toString('utf8'));
-  const gas = u64();
-  const deposit = u128();
+  return { signerId, receiverId, nonce, u8, u32, u64, u128, bytes, string, publicKey };
+}
+
+/**
+ * Decodes the function call of a base64 signed transaction (Borsh, Transaction V0).
+ * @param {string} signedTxBase64
+ * @returns {{ signerId: string, receiverId: string, nonce: bigint, methodName: string, args: any, gas: bigint, deposit: bigint }}
+ */
+export function decodeFunctionCall(signedTxBase64) {
+  const { signerId, receiverId, nonce, ...r } = readTransaction(signedTxBase64);
+  if (r.u32() !== 1 || r.u8() !== 2) throw new Error('expected exactly one FunctionCall action');
+  const methodName = r.string();
+  const args = JSON.parse(r.bytes().toString('utf8'));
+  const gas = r.u64();
+  const deposit = r.u128();
   return { signerId, receiverId, nonce, methodName, args, gas, deposit };
+}
+
+/**
+ * Decodes a key rotation: DeleteKey actions (Borsh action 6) followed by one AddKey (action 5) of
+ * a function-call key. Public keys are hex.
+ * @param {string} signedTxBase64
+ * @returns {{ signerId: string, receiverId: string, deleted: string[], added: { publicKey: string, allowance: bigint | null, receiverId: string, methodNames: string[] } }}
+ */
+export function decodeKeyRotation(signedTxBase64) {
+  const { signerId, receiverId, ...r } = readTransaction(signedTxBase64);
+  const count = r.u32();
+  /** @type {string[]} */
+  const deleted = [];
+  for (let i = 0; i < count - 1; i += 1) {
+    if (r.u8() !== 6) throw new Error('expected a DeleteKey action');
+    deleted.push(r.publicKey());
+  }
+  if (r.u8() !== 5) throw new Error('expected an AddKey action last');
+  const publicKey = r.publicKey();
+  r.u64(); // access key nonce
+  if (r.u8() !== 0) throw new Error('expected a function-call access key');
+  const allowance = r.u8() === 1 ? r.u128() : null;
+  const keyReceiver = r.string();
+  const methodNames = Array.from({ length: r.u32() }, () => r.string());
+  return {
+    signerId,
+    receiverId,
+    deleted,
+    added: { publicKey, allowance, receiverId: keyReceiver, methodNames },
+  };
 }
 
 /**

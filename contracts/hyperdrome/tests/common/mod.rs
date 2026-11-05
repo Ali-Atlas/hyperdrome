@@ -1,6 +1,9 @@
 //! Sandbox helpers: one contract build per test binary, a fresh sandbox per test, calls that
 //! report gas and events, and failure assertions that match the contract's panic messages.
 
+pub mod batches;
+mod outcome;
+
 use std::sync::{Arc, OnceLock};
 
 use near_api::types::transaction::actions::FunctionCallAction;
@@ -11,6 +14,7 @@ use near_api::{
     Transaction,
 };
 use near_sdk::serde_json::{Value, json};
+pub use outcome::*;
 
 pub type R<T> = testresult::TestResult<T>;
 
@@ -172,8 +176,14 @@ impl Env {
 }
 
 impl Env {
-    /// Starts a sandbox, creates `game`, `owner` and `stranger`, deploys and initializes.
+    /// Starts a sandbox, creates `game`, `owner` and `stranger`, deploys this build and
+    /// initializes it.
     pub async fn start() -> R<Self> {
+        Self::start_with(wasm()).await
+    }
+
+    /// `start` with `code` deployed instead of this build (upgrade tests).
+    pub async fn start_with(code: Vec<u8>) -> R<Self> {
         let slot = SANDBOX_SLOTS.acquire().await?;
         let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
         let net = NetworkConfig::from_rpc_url("sandbox", sandbox.rpc_addr.parse()?);
@@ -204,7 +214,7 @@ impl Env {
             stranger: ids[2].clone(),
         };
         Contract::deploy(env.game.clone())
-            .use_code(wasm())
+            .use_code(code)
             .with_init_call(
                 "new",
                 json!({ "owner_id": env.owner, "treasury_id": env.owner }),
@@ -355,46 +365,4 @@ pub fn assert_fails(out: Result<ExecutionFinalResult, String>, needle: &str) {
         Ok(o) => format!("{:?}", o.failures()),
     };
     assert!(text.contains(needle), "expected {needle:?} in {text}");
-}
-
-/// Every NEP-297 event logged by the transaction, as JSON.
-pub fn events(out: &ExecutionFinalResult) -> Vec<Value> {
-    out.logs()
-        .into_iter()
-        .filter_map(|l| l.strip_prefix("EVENT_JSON:"))
-        .filter_map(|j| near_sdk::serde_json::from_str(j).ok())
-        .collect()
-}
-
-/// The single event with this standard and name; panics if there is not exactly one.
-#[track_caller]
-pub fn event(out: &ExecutionFinalResult, standard: &str, name: &str) -> Value {
-    let found: Vec<Value> = events(out)
-        .into_iter()
-        .filter(|e| e["standard"] == standard && e["event"] == name)
-        .collect();
-    assert_eq!(
-        found.len(),
-        1,
-        "expected one {standard}/{name} event, got {found:?}"
-    );
-    found[0].clone()
-}
-
-pub fn tgas(out: &ExecutionFinalResult) -> f64 {
-    out.total_gas_burnt.as_gas() as f64 / 1e12
-}
-
-/// Prints the gas `out` burnt. SPEC.md 13 asserts only settlement gas; other methods are measured
-/// on testnet and recorded in HANDOFF.md, so this records without asserting.
-pub fn record_gas(out: &ExecutionFinalResult, method: &str) {
-    println!("GAS {method} {:.3} TGas", tgas(out));
-}
-
-/// The NEP-297 events of `standard` named `name`, in log order.
-pub fn events_named(out: &ExecutionFinalResult, standard: &str, name: &str) -> Vec<Value> {
-    events(out)
-        .into_iter()
-        .filter(|e| e["standard"] == standard && e["event"] == name)
-        .collect()
 }

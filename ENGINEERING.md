@@ -68,7 +68,7 @@ Assets: player items and Volts, the treasury, the settlement authority, player k
 
 ### Keys and custody
 
-- Least privilege everywhere. Player keys: function-call only, scoped to the game contract and the listed methods, zero deposit. Settlement key: `commit_batch` and `settle_batch` only. AI-team keys: scoped like player keys, with on-chain spend caps. Full-access keys: deploys and account administration only, never loaded by application code, with one named exception: `lib/near` `rotatePlayKey` opens a player's admin key for a single DeleteKey + AddKey transaction that replaces that player's play key (DECISIONS.md 2.22).
+- Least privilege everywhere. Player keys: function-call only, scoped to the game contract and the listed methods, zero deposit. Settlement key: `commit_batch`, `settle_batch` and `abort_batch` only. AI-team keys: scoped like player keys, with on-chain spend caps. Full-access keys: deploys and account administration only, never loaded by application code, with one named exception: `lib/near` `rotatePlayKey` opens a player's admin key for a single DeleteKey + AddKey transaction that replaces that player's play key (DECISIONS.md 2.22).
 - Player secret keys are encrypted at rest with AES-256-GCM under `KEY_ENCRYPTION_KEY`; admin keys under a separate `ADMIN_KEY_ENCRYPTION_KEY`. Both are Vercel encrypted env vars. Rotation runbook in `docs/runbooks/key-rotation.md`: one transaction deletes the old key and adds the new one; rotation is tested in CI against the sandbox.
 - Every environment (local, preview, production) has its own NEAR accounts, database, Pusher app and secrets. Nothing is shared with the MegaETH deployment or the live hyperdrome.vercel.app database.
 
@@ -98,7 +98,7 @@ Assets: player items and Volts, the treasury, the settlement authority, player k
 - Every chain write is idempotent and retried with backoff; the `action_id` or `batch_id` makes the retry safe.
 - RPC: `FailoverRpcProvider` with FastNear primary and Lava secondary, 10 s timeout per call.
 - Gas budgets per method live in SPEC.md; settlement gas is asserted in tests, other budgets are measured on testnet and recorded in HANDOFF.md. Settlement batches attach 200 TGas and cap at the batch size the measured gas allows.
-- Structured logs with a request id; `GET /api/health` reports database, RPC, Pusher and scheduler lag.
+- Structured logs with a request id; `GET /api/health` reports database, RPC and scheduler lag (and Pusher once events are sent, SPEC.md 9).
 - Landing page budget: first contentful paint under 2 s on a mid-range phone; the hero video streams after first paint; total JS under 300 KB gzipped on the landing route.
 - The hosted demo stays up through 2026-11-25; the deploy runbook in `docs/runbooks/deploy.md` includes the rollback step.
 

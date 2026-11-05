@@ -108,7 +108,7 @@ Never commit a `.env*` file; `.env.example` is the template. Copy it to `.env.lo
 2. Google Cloud console, APIs and Services, Credentials: create an OAuth client ID (web application) with the authorized redirect URI `http://localhost:3000/api/auth/callback/google` (and `<app url>/api/auth/callback/google` per deployed environment); copy the client id and secret into `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`.
 3. `AUTH_SECRET`: `openssl rand -base64 32`. `KEY_ENCRYPTION_KEY` and `ADMIN_KEY_ENCRYPTION_KEY`: `openssl rand -hex 32` each, generated once per environment, different from each other, never committed. Losing them makes every stored player key unreadable.
 4. `NEAR_OPS_KEY` and `NEAR_SETTLEMENT_KEY`: see Export a key for the app's env.
-5. `npm run db:migrate` (applies `drizzle/`), then `npm run dev`. Schema changes: edit `lib/db/schema.js`, `npm run db:generate -- --name <change>`, commit the new migration, `npm run db:migrate`.
+5. `npm run db:migrate` (applies `drizzle/`), then `npm run seed:world` (tracks, the racing switch, bots and the catalog cache; it mints on testnet, so it needs the real adapter and the ops key; docs/runbooks/deploy.md, World seed), then `npm run dev`. Schema changes: edit `lib/db/schema.js`, `npm run db:generate -- --name <change>`, commit the new migration, `npm run db:migrate`.
 
 ### Test database
 
@@ -162,7 +162,7 @@ Keys live only in `~/.near-credentials/testnet/` on the operator's machine (near
 | ------------------------------------------------------------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `hyperdrome.testnet.json` (and `hyperdrome.testnet/ed25519_<pubkey>.json`)           | Parent account key                                             | Full access                                                                                                                                                                                 |
 | `game.hyperdrome.testnet.json` (and `game.hyperdrome.testnet/ed25519_<pubkey>.json`) | Contract account key, for deploys and account administration   | Full access                                                                                                                                                                                 |
-| `hyperdrome.testnet-settlement.json`                                                 | Settlement signer on `game.hyperdrome.testnet`                 | Function call: `commit_batch`, `settle_batch` on `game.hyperdrome.testnet`, allowance 5 NEAR                                                                                                |
+| `hyperdrome.testnet-settlement.json`                                                 | Settlement signer on `game.hyperdrome.testnet`                 | Function call: `commit_batch`, `settle_batch`, `abort_batch` on `game.hyperdrome.testnet`, allowance 5 NEAR                                                                                 |
 | `hyperdrome.testnet-ops.json`                                                        | Ops key on `hyperdrome.testnet` (the owner), for owner methods | Function call: `create_player`, `register_player`, `mint_drone`, `mint_item`, `mint_volts`, `set_team_budget`, `set_paused`, `set_base_uri` on `game.hyperdrome.testnet`, allowance 10 NEAR |
 | `p-smoke.game.hyperdrome.testnet-admin.json`, `-play.json`                           | Smoke player's admin and play keys                             | Full access; function call on the play methods, allowance 1 NEAR                                                                                                                            |
 | `p-smokeb.game.hyperdrome.testnet-admin.json`, `-play.json`                          | Second smoke player's admin and play keys                      | Full access; function call on the play methods, allowance 1 NEAR                                                                                                                            |
@@ -192,6 +192,21 @@ near account list-keys game.hyperdrome.testnet network-config testnet now
   ```
 
 - Settlement and ops key allowances: an allowance cannot be raised in place. Add a new function-call key with the same contract and methods, then delete the old one (key rotation runbook, `docs/runbooks/key-rotation.md`, once written).
+
+### Rotate the settlement key's method list
+
+A function-call key's method list cannot be edited in place. To change it (T6b added `abort_batch`), delete the key and add the same public key back with the new list and the same allowance; the private key in `NEAR_SETTLEMENT_KEY` does not change. Both actions are signed by the contract account's full-access key from the legacy keychain. Read the public key from the key file, never the private key:
+
+```sh
+PK=$(node -p "require(process.env.HOME + '/.near-credentials/testnet/hyperdrome.testnet-settlement.json').public_key")
+near account delete-keys game.hyperdrome.testnet public-keys "$PK" network-config testnet sign-with-legacy-keychain send
+near account add-key game.hyperdrome.testnet grant-function-call-access --allowance '5 NEAR' \
+  --contract-account-id game.hyperdrome.testnet --function-names 'commit_batch,settle_batch,abort_batch' \
+  use-manually-provided-public-key "$PK" network-config testnet sign-with-legacy-keychain send
+near account list-keys game.hyperdrome.testnet network-config testnet now
+```
+
+Between the two transactions the app cannot settle, so run them back to back while the scheduler is off. Done on testnet on 2026-11-04 (T6b): delete https://testnet.nearblocks.io/txns/C8aArL2DpG4N31SdV4CQ8W2rDkmYrLj6ZnYejpJccAnX, add https://testnet.nearblocks.io/txns/7VVUxQDtUrsfM2Pyo65i55C2WuSQHhF2CGFSfmxt75Sb (the key file `hyperdrome.testnet-settlement.json` is unchanged; `near account list-keys` shows the three methods and a fresh 5 NEAR allowance).
 
 ### Export a key for the app's env
 

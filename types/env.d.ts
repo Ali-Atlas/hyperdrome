@@ -32,6 +32,8 @@ declare namespace NodeJS {
     readonly NEAR_ADAPTER?: 'real' | 'mock';
     /** `1` runs tests/near/testnet.integration.test.js against testnet. */
     readonly NEAR_TESTNET_INTEGRATION?: string;
+    /** The app scripts/smoke-testnet.mjs runs against; default http://localhost:3000. */
+    readonly SMOKE_BASE_URL?: string;
 
     // Pusher
     readonly PUSHER_APP_ID?: string;
