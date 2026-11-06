@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useEffect, useId, useRef, useState } from 'react';
+import { use, useEffect, useId, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Trophy, Bot, ChevronLeft, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
@@ -19,6 +19,7 @@ import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import TrackPlaceholder from '@/components/tracks/TrackPlaceholder';
 import { STAT_KEYS } from '@/lib/game-engine/economy.js';
+import { asRaced } from '@/lib/client/race-view.js';
 import styles from './page.module.css';
 
 /** Tracks with a transparent-optimized image at /tracks/<slug>.webp.
@@ -102,7 +103,7 @@ function countLeadChanges(log) {
   let cumDiff = 0;
   let prevSign = 0;
   for (const seg of log) {
-    cumDiff += Number(seg.drone1Time) - Number(seg.drone2Time);
+    cumDiff = seg.gap;
     const sign = cumDiff > 0 ? 1 : cumDiff < 0 ? -1 : 0;
     if (sign !== 0) {
       if (prevSign !== 0 && sign !== prevSign) changes += 1;
@@ -115,17 +116,7 @@ function countLeadChanges(log) {
 /** Cumulative lead gap per segment (+ = winner ahead, − = loser ahead). */
 function computeWinnerGaps(log, winnerIsDrone1) {
   if (!log || log.length === 0) return [];
-  const gaps = [];
-  let cumW = 0;
-  let cumL = 0;
-  for (const seg of log) {
-    const winT = Number(winnerIsDrone1 ? seg.drone1Time : seg.drone2Time);
-    const losT = Number(winnerIsDrone1 ? seg.drone2Time : seg.drone1Time);
-    cumW += winT;
-    cumL += losT;
-    gaps.push(cumL - cumW);
-  }
-  return gaps;
+  return log.map((seg) => (winnerIsDrone1 ? -seg.gap : seg.gap));
 }
 
 /**
@@ -221,7 +212,8 @@ export default function RaceDetailPage({ params }) {
    * via `window.history.replaceState` inside `swapToRaceId` so a copied
    * link still resolves to the displayed race. */
   const [currentRaceId, setCurrentRaceId] = useState(raceId);
-  const [race, setRace] = useState(null);
+  const [fetched, setRace] = useState(null);
+  const race = useMemo(() => asRaced(fetched), [fetched]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   /* Chronological neighbors for the prev/next chevrons in the FINAL
@@ -400,25 +392,13 @@ export default function RaceDetailPage({ params }) {
       : null;
 
   const winnerIsDrone1 = winnerId === race.drone1Id;
-  const leadChanges = countLeadChanges(race.raceLog);
-  const gaps = computeWinnerGaps(race.raceLog, winnerIsDrone1);
-  // Per-segment cumulative race time (average of the two drones) so the
-  // x-axis can label "race seconds at this segment" without committing
-  // to either drone's clock.
-  const segmentTimes = (() => {
-    if (!race.raceLog || race.raceLog.length === 0) return [];
-    const out = [];
-    let c1 = 0;
-    let c2 = 0;
-    for (const seg of race.raceLog) {
-      c1 += Number(seg.drone1Time) || 0;
-      c2 += Number(seg.drone2Time) || 0;
-      out.push((c1 + c2) / 2);
-    }
-    return out;
-  })();
+  const leadChanges = countLeadChanges(race.log);
+  const gaps = computeWinnerGaps(race.log, winnerIsDrone1);
+  // The client-safe log has no clock per segment, so the chart spaces the
+  // segments evenly (its fallback when no times are supplied).
+  const segmentTimes = [];
   const maxGap = gaps.length > 0 ? Math.max(...gaps.map(Math.abs)) : null;
-  const commentary = generateCommentary(race.raceLog, winnerIsDrone1, winnerDrone?.name);
+  const commentary = generateCommentary(race.log, winnerIsDrone1, winnerDrone?.name);
 
   // Tracks now store difficulty as an absolute 1-10 rating, paired with
   // level brackets enforced at matchmaking time - no client-side scaling.
@@ -451,7 +431,18 @@ export default function RaceDetailPage({ params }) {
         <div className={styles.topStrip}>
           <div className={styles.metaLeft}>
             <span className={styles.metaLabel}>RACE</span>
-            <span className={styles.metaId}>{shortId(race.id)}</span>
+            {race.settleExplorerUrl ? (
+              <a
+                className={styles.metaId}
+                href={race.settleExplorerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {shortId(race.id)}
+              </a>
+            ) : (
+              <span className={styles.metaId}>{shortId(race.id)}</span>
+            )}
             <span className={styles.metaDivider} aria-hidden="true" />
             <span className={styles.metaTimestamp}>{formatTimestamp(race.createdAt)}</span>
           </div>
@@ -560,7 +551,7 @@ export default function RaceDetailPage({ params }) {
                 drone={race.drone1}
                 isWinner={drone1IsWinner}
                 time={race.drone1Time}
-                eloBefore={race.drone1EloBefore}
+                eloBefore={race.snapshotA?.elo ?? race.drone1EloBefore}
                 eloChange={race.drone1EloChange}
                 viewerUserId={viewerUserId}
                 points={drone1Points}
@@ -572,7 +563,7 @@ export default function RaceDetailPage({ params }) {
                 drone={race.drone2}
                 isWinner={drone2IsWinner}
                 time={race.drone2Time}
-                eloBefore={race.drone2EloBefore}
+                eloBefore={race.snapshotB?.elo ?? race.drone2EloBefore}
                 eloChange={race.drone2EloChange}
                 viewerUserId={viewerUserId}
                 points={drone2Points}
@@ -596,7 +587,7 @@ export default function RaceDetailPage({ params }) {
                   <GapSparkline
                     gaps={gaps}
                     segmentTimes={segmentTimes}
-                    log={race.raceLog ?? []}
+                    log={race.log ?? []}
                     drone1={race.drone1}
                     drone2={race.drone2}
                   />
@@ -687,23 +678,23 @@ export default function RaceDetailPage({ params }) {
                     render: (r) => <span className={styles.logSegType}>{r.type}</span>,
                   },
                   {
-                    key: 'drone1Time',
+                    key: 'drone1Gain',
                     label: race.drone1?.name ?? 'Drone 1',
                     shortLabel: 'D1',
                     align: 'left',
                     sortable: true,
                     render: (r) => (
-                      <span className={styles.logMono}>{Number(r.drone1Time).toFixed(2)}s</span>
+                      <span className={styles.logMono}>{formatGapSeconds(r.drone1Gain)}</span>
                     ),
                   },
                   {
-                    key: 'drone2Time',
+                    key: 'drone2Gain',
                     label: race.drone2?.name ?? 'Drone 2',
                     shortLabel: 'D2',
                     align: 'left',
                     sortable: true,
                     render: (r) => (
-                      <span className={styles.logMono}>{Number(r.drone2Time).toFixed(2)}s</span>
+                      <span className={styles.logMono}>{formatGapSeconds(r.drone2Gain)}</span>
                     ),
                   },
                   {
@@ -711,7 +702,7 @@ export default function RaceDetailPage({ params }) {
                     label: 'Lead',
                     align: 'center',
                     render: (r) => {
-                      const lead = r.drone1Time <= r.drone2Time ? 1 : 2;
+                      const lead = r.step <= 0 ? 1 : 2;
                       return (
                         <span className={lead === 1 ? styles.lead1 : styles.lead2}>
                           {lead === 1 ? '◀' : '▶'}
@@ -720,7 +711,7 @@ export default function RaceDetailPage({ params }) {
                     },
                   },
                 ]}
-                data={race.raceLog ?? []}
+                data={race.log ?? []}
               />
             </div>
           </Card>
@@ -936,12 +927,12 @@ function GapSparkline({ gaps, segmentTimes, log, drone1, drone2 }) {
   let reasonLine = null;
   let reasonIsLeadChange = false;
   if (hoverSeg) {
-    const t1 = Number(hoverSeg.drone1Time) || 0;
-    const t2 = Number(hoverSeg.drone2Time) || 0;
-    if (t1 !== t2) {
-      const winner1 = t1 < t2;
+    // Drone 1's time in this segment minus drone 2's (the change of the gap).
+    const step = Number(hoverSeg.step) || 0;
+    if (step !== 0) {
+      const winner1 = step < 0;
       const winnerName = winner1 ? drone1Name : drone2Name;
-      const margin = Math.abs(t1 - t2);
+      const margin = Math.abs(step);
       const statKey = hoverType === 'turn' ? 'turning' : 'speed';
       const statLabel = hoverType === 'turn' ? 'turning' : 'speed';
       const edgeWord = hoverType === 'turn' ? 'turning edge' : 'speed advantage';
@@ -1125,13 +1116,13 @@ function GapSparkline({ gaps, segmentTimes, log, drone1, drone2 }) {
               <div className={styles.sparklineTooltipRow}>
                 <span className={styles.sparklineTooltipDrone}>{drone1Name}</span>
                 <span className={styles.sparklineTooltipTime}>
-                  {Number(hoverSeg.drone1Time ?? 0).toFixed(2)}s
+                  {formatGapSeconds(hoverSeg.drone1Gain ?? 0)}
                 </span>
               </div>
               <div className={styles.sparklineTooltipRow}>
                 <span className={styles.sparklineTooltipDrone}>{drone2Name}</span>
                 <span className={styles.sparklineTooltipTime}>
-                  {Number(hoverSeg.drone2Time ?? 0).toFixed(2)}s
+                  {formatGapSeconds(hoverSeg.drone2Gain ?? 0)}
                 </span>
               </div>
               {reasonLine && (

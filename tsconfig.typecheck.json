@@ -51,6 +51,7 @@
     "app/api/marketplace/cancel/**/*.js",
     "app/api/packs/**/*.js",
     "app/api/metadata/**/*.js",
+    "lib/client/**/*.js",
     "services/batch.service.js",
     "services/settle.service.js",
     "services/settle-store.js",

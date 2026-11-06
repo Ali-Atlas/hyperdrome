@@ -33,6 +33,8 @@ import Skeleton from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
+import { useChainAction } from '@/hooks/useChainAction';
+import { actionError } from '@/lib/client/chain-action';
 import {
   clearPendingToggle,
   getPendingToggle,
@@ -80,17 +82,12 @@ const RADAR_SHORT_LABELS = {
   consistency: 'CST',
 };
 
-const SNAKE_KEYS = {
-  speed: 'speed',
-  turning: 'turning',
-  acceleration: 'acceleration',
-  durability: 'durability',
-  nightVision: 'night_vision',
-  batteryCapacity: 'battery_capacity',
-  rainHandling: 'rain_handling',
-  windResistance: 'wind_resistance',
-  consistency: 'consistency',
-};
+/** The on-chain token id (SPEC.md 4.2) of a cached skin or mod row, by its database id. */
+function tokenOf(items, id) {
+  const token = (items ?? []).find((it) => it.id === id)?.tokenId;
+  if (!token) throw new Error('This item has no on-chain token yet.');
+  return token;
+}
 
 const CONDITION_ICONS = {
   'Clear Day': Sun,
@@ -201,6 +198,7 @@ export default function DroneDetailPage({ params }) {
 function DroneDetailView({ drone, isOwner, listing, onReload }) {
   const { showToast } = useToast();
   const { user } = useSession();
+  const sendAction = useChainAction();
   const [editedStats, setEditedStats] = useState(() => pickStats(drone));
   const [saving, setSaving] = useState(false);
   const [togglePending, setTogglePending] = useState(false);
@@ -291,33 +289,15 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   const save = async () => {
     setSaving(true);
     try {
-      const changes = {};
-      for (const key of STAT_KEYS) {
-        if (editedStats[key] !== baseStats[key]) {
-          changes[SNAKE_KEYS[key]] = editedStats[key];
-        }
-      }
-      const res = await fetch(`/api/drones/${drone.id}/allocate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stat_changes: changes }),
+      // POST /api/drones/[id]/allocate (SPEC.md 8) takes the full new stat line in SPEC.md 2.1
+      // order (STAT_KEYS); the new balance reaches NavShell through useChainAction.
+      const res = await sendAction(`/api/drones/${drone.id}/allocate`, {
+        stats: STAT_KEYS.map((key) => editedStats[key]),
       });
-      const body = await res.json();
       if (!res.ok) {
-        showToast(body?.error || 'Save failed', 'error');
+        showToast(actionError(res, 'Save failed'), 'error');
       } else {
         showToast('Stats saved', 'success');
-        // Dispatch the post-allocate balance so NavShell updates the
-        // volts display immediately. Without this the user has to wait
-        // for the next on-chain poll (30s) or refresh the page to see
-        // the deduction. Mirrors the marketplace / pack purchase flow.
-        if (typeof body.data?.balance === 'number') {
-          window.dispatchEvent(
-            new CustomEvent('volts:update', {
-              detail: { balance: body.data.balance },
-            })
-          );
-        }
         await onReload();
       }
     } catch (err) {
@@ -452,14 +432,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
     if (modId === current) return;
     setModActionPending(true);
     try {
-      const res = await fetch(`/api/drones/${drone.id}/mods/equip`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mod_id: modId }),
+      const res = await sendAction(`/api/drones/${drone.id}/equip`, {
+        kind: 'mod',
+        item: modId == null ? null : tokenOf(drone.boundMods, modId),
       });
-      const body = await res.json();
       if (!res.ok) {
-        showToast(body?.error || 'Equip failed', 'error');
+        showToast(actionError(res, 'Equip failed'), 'error');
       } else {
         showToast(modId == null ? 'Mod unequipped' : 'Mod equipped', 'success');
         await onReload();
@@ -474,14 +452,11 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   const bindModFn = async (modId) => {
     setModActionPending(true);
     try {
-      const res = await fetch(`/api/drones/${drone.id}/mods/bind`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mod_id: modId }),
+      const res = await sendAction(`/api/drones/${drone.id}/bind`, {
+        item: tokenOf(unboundMods, modId),
       });
-      const body = await res.json();
       if (!res.ok) {
-        showToast(body?.error || 'Bind failed', 'error');
+        showToast(actionError(res, 'Bind failed'), 'error');
       } else {
         showToast('Mod bound to drone', 'success');
         await onReload();
@@ -501,14 +476,12 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
     if (skinId === current) return;
     setSkinActionPending(true);
     try {
-      const res = await fetch('/api/skins/equip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ drone_id: drone.id, skin_id: skinId }),
+      const res = await sendAction(`/api/drones/${drone.id}/equip`, {
+        kind: 'skin',
+        item: skinId == null ? null : tokenOf(drone.boundSkins, skinId),
       });
-      const body = await res.json();
       if (!res.ok) {
-        showToast(body?.error || 'Equip failed', 'error');
+        showToast(actionError(res, 'Equip failed'), 'error');
       } else {
         showToast(skinId == null ? 'Skin unequipped' : 'Skin equipped', 'success');
         await onReload();
@@ -523,14 +496,11 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
   const bindSkinFn = async (skinId) => {
     setSkinActionPending(true);
     try {
-      const res = await fetch('/api/skins/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ drone_id: drone.id, skin_id: skinId }),
+      const res = await sendAction(`/api/drones/${drone.id}/bind`, {
+        item: tokenOf(unboundSkins, skinId),
       });
-      const body = await res.json();
       if (!res.ok) {
-        showToast(body?.error || 'Bind failed', 'error');
+        showToast(actionError(res, 'Bind failed'), 'error');
       } else {
         showToast('Skin bound to drone', 'success');
         await onReload();
