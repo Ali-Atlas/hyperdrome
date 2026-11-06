@@ -191,7 +191,7 @@ near account list-keys game.hyperdrome.testnet network-config testnet now
   near tokens hyperdrome.testnet send-near game.hyperdrome.testnet '10 NEAR' network-config testnet sign-with-legacy-keychain send
   ```
 
-- Settlement and ops key allowances: an allowance cannot be raised in place. Add a new function-call key with the same contract and methods, then delete the old one (key rotation runbook, `docs/runbooks/key-rotation.md`, once written).
+- Settlement and ops key allowances: an allowance cannot be raised in place. Add a new function-call key with the same contract and methods, then delete the old one ([key-rotation.md](key-rotation.md)).
 
 ### Rotate the settlement key's method list
 
