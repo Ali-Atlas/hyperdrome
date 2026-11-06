@@ -8,6 +8,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { schema } from '../../lib/db/index.js';
+import { backfillRaceRewards } from '../../services/race-rewards-backfill.js';
 import { verifyRace } from '../../services/race-schedule.service.js';
 import { dbEnabled, testDb } from '../gameplay/setup.js';
 import { schedulerHarness } from './setup.js';
@@ -118,6 +119,67 @@ describe.skipIf(!dbEnabled)('scheduler ticks', () => {
       status: 200,
       body: { match: true, raceId: done.id },
     });
+  });
+
+  it('settlement writes the Volts and rating changes on the race row, and the backfill restores them', async () => {
+    const { near, slot, tick, deps } = await world();
+    const weak = [20, 20, 20, 20, 20, 20, 20, 20, 20];
+    const strong = [40, 40, 40, 40, 40, 40, 40, 40, 40];
+    // Paired by rating: race 0 is 1300 against 1290 (drone b wins), race 1 is 1000 against 990.
+    const a0 = await racer(near, { stats: weak, elo: 1300 });
+    const b0 = await racer(near, { stats: strong, elo: 1290 });
+    const a1 = await racer(near, { stats: strong, elo: 1000 });
+    const b1 = await racer(near, { stats: weak, elo: 990 });
+    await tick();
+    await tick(1, { commit: false });
+
+    const [bWins, aWins] = await raceRows(slot);
+    expect([bWins.drone1Id, bWins.drone2Id]).toEqual([a0.drone.id, b0.drone.id]);
+    expect([aWins.drone1Id, aWins.drone2Id]).toEqual([a1.drone.id, b1.drone.id]);
+    expect(bWins.winnerDroneId).toBe(b0.drone.id);
+    expect(aWins.winnerDroneId).toBe(a1.drone.id);
+    /** @param {{ accountId: string }} r */
+    const volts = (r) => near.mock.chain.balances.get(r.accountId);
+    /** @param {{ token: string }} r */
+    const elo = (r) => Number(near.mock.chain.drones.get(r.token)?.hot.elo);
+    const rewards = {
+      pointsAwarded: volts(b0),
+      loserPointsAwarded: volts(a0),
+      drone1EloChange: elo(a0) - 1300,
+      drone2EloChange: elo(b0) - 1290,
+    };
+    expect(bWins).toMatchObject(rewards);
+    expect(bWins.pointsAwarded).toBeGreaterThanOrEqual(3);
+    expect(bWins.loserPointsAwarded).toBe(1);
+    expect(bWins.drone1EloChange).toBeLessThan(0);
+    expect(bWins.drone2EloChange).toBeGreaterThan(0);
+    expect(aWins).toMatchObject({
+      pointsAwarded: volts(a1),
+      loserPointsAwarded: 1,
+      drone1EloChange: elo(a1) - 1000,
+      drone2EloChange: elo(b1) - 990,
+    });
+    expect(aWins.drone1EloChange).toBeGreaterThan(0);
+    expect(aWins.drone2EloChange).toBeLessThan(0);
+    expect(bWins).toMatchObject({ xpWinner: 10, xpLoser: 4 });
+
+    // A row from before settlement wrote the rewards: the column defaults.
+    const defaults = {
+      pointsAwarded: 0,
+      loserPointsAwarded: null,
+      drone1EloChange: 0,
+      drone2EloChange: 0,
+    };
+    await db.update(races).set(defaults).where(eq(races.id, bWins.id));
+    const views = near.mock.calls.length;
+    const first = await backfillRaceRewards(deps);
+    expect(first.written).toBe(1);
+    const [restored, untouched] = await raceRows(slot);
+    expect(restored).toMatchObject(rewards);
+    expect(untouched).toMatchObject({ pointsAwarded: aWins.pointsAwarded });
+    // Read-only on chain, and a second run finds nothing to write.
+    expect(near.mock.calls.length).toBe(views);
+    expect((await backfillRaceRewards(deps)).written).toBe(0);
   });
 
   it('verify replays a settled race: true as stored, false once a snapshot is altered', async () => {
