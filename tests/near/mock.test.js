@@ -80,6 +80,21 @@ describe('mock adapter', () => {
     expect(near.mock.player(accountId)?.seq).toBe(1);
   });
 
+  it("transactionEvents returns a past call's events by hash, and null for an unknown hash", async () => {
+    const near = createMockNear();
+    const event = {
+      standard: 'hyperdrome',
+      version: '1.0.0',
+      event: 'batch_aborted',
+      data: { batch_id: 7, count: 0 },
+      receiptId: 'r1',
+    };
+    near.mock.on('abort_batch', () => ({ events: [event] }));
+    const { txHash } = await near.callAsSettlement('abort_batch', { batch_id: 7 });
+    expect(await near.transactionEvents(txHash)).toEqual([event]);
+    expect(await near.transactionEvents('nope')).toBeNull();
+  });
+
   it('rotatePlayKey issues a new play key, bumps the version and retires the old key', async () => {
     const near = createMockNear();
     const { accountId, playKeyEnc, adminKeyEnc } = await near.createPlayerAccount({
