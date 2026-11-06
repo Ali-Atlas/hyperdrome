@@ -12,22 +12,16 @@ import VoltIcon from '@/components/ui/VoltIcon';
 import { useToast } from '@/components/ui/Toast';
 import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
-import {
-  cn,
-  getLevelColor,
-  getLevelTier,
-  getLegendaryTheme,
-} from '@/lib/utils';
+import { useChainAction } from '@/hooks/useChainAction';
+import { actionError } from '@/lib/client/chain-action';
+import { cn, getLevelColor, getLevelTier, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
-import {
-  clearAllPendingToggles,
-  usePendingToggle,
-} from '@/lib/pending-toggle';
+import { clearAllPendingToggles, usePendingToggle } from '@/lib/pending-toggle';
 import { useRoundStartTick } from '@/lib/race-round-clock';
 import styles from './page.module.css';
 
-/** NPC vendor price + free-drone milestones. Mirror values in
- *  app/api/drones/create/route.js (DRONE_PRICE=3500). The milestones are
+/** NPC vendor price + free-drone milestones. Mirrors the contract's
+ *  vendor price (SPEC.md 2.1, 3,500 Volts). The milestones are
  *  display-only here; whatever system grants the free drones lives
  *  elsewhere and the toast effect just reacts to the drone count + race
  *  total crossing a threshold between page loads. */
@@ -68,6 +62,7 @@ export default function DronesPage() {
   // page refresh.
   const { balance: userVolts } = useVoltBalance();
   const { showToast } = useToast();
+  const sendAction = useChainAction();
   const [drones, setDrones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // 'all' | 'active' | 'inactive'
@@ -151,23 +146,15 @@ export default function DronesPage() {
       prev = null;
     }
     if (prev) {
-      const crossedFirst =
-        prev.totalRaces < MILESTONE_FIRST && totalRaces >= MILESTONE_FIRST;
-      const crossedSecond =
-        prev.totalRaces < MILESTONE_SECOND && totalRaces >= MILESTONE_SECOND;
+      const crossedFirst = prev.totalRaces < MILESTONE_FIRST && totalRaces >= MILESTONE_FIRST;
+      const crossedSecond = prev.totalRaces < MILESTONE_SECOND && totalRaces >= MILESTONE_SECOND;
       const droneAdded = droneCount > prev.droneCount;
       if ((crossedFirst || crossedSecond) && droneAdded) {
-        showToast(
-          'Milestone reached! New drone added to your fleet.',
-          'success',
-        );
+        showToast('Milestone reached! New drone added to your fleet.', 'success');
       }
     }
     try {
-      localStorage.setItem(
-        key,
-        JSON.stringify({ totalRaces, droneCount }),
-      );
+      localStorage.setItem(key, JSON.stringify({ totalRaces, droneCount }));
     } catch {
       /* localStorage may be disabled - skip silently */
     }
@@ -177,22 +164,12 @@ export default function DronesPage() {
     setVendorPending(true);
     setVendorError(null);
     try {
-      const res = await fetch('/api/drones/create', { method: 'POST' });
-      const body = await res.json();
+      // POST /api/drones/vendor (SPEC.md 8); the balance reaches NavShell through useChainAction.
+      const res = await sendAction('/api/drones/vendor', {});
       if (!res.ok) {
-        setVendorError(body?.error?.message || 'Purchase failed.');
+        setVendorError(actionError(res, 'Purchase failed.'));
         setVendorPending(false);
         return;
-      }
-      // Push the new balance to the NavShell so the volts display
-      // updates without a page refresh. The /api/drones/create route
-      // returns the post-debit balance alongside the drone.
-      if (typeof body.data?.balance === 'number') {
-        window.dispatchEvent(
-          new CustomEvent('volts:update', {
-            detail: { balance: body.data.balance },
-          }),
-        );
       }
       await refreshDrones();
       showToast('Drone added to your fleet.', 'success');
@@ -288,12 +265,7 @@ function VendorCard({ onClick }) {
       onClick={onClick}
       aria-label="Recruit new drone"
     >
-      <Plus
-        size={48}
-        strokeWidth={1.5}
-        className={styles.vendorIcon}
-        aria-hidden="true"
-      />
+      <Plus size={48} strokeWidth={1.5} className={styles.vendorIcon} aria-hidden="true" />
       <span className={styles.vendorTitle}>New Drone</span>
       <span className={styles.vendorPrice}>
         <VoltIcon size={14} />
@@ -303,25 +275,13 @@ function VendorCard({ onClick }) {
   );
 }
 
-function VendorModal({
-  isOpen,
-  onClose,
-  onPurchase,
-  pending,
-  error,
-  userPoints,
-  totalRaces,
-}) {
+function VendorModal({ isOpen, onClose, onPurchase, pending, error, userPoints, totalRaces }) {
   const canAfford = userPoints >= DRONE_PRICE;
   // Starter drone counts as #1; milestones at 1k and 3k races add #2 and
   // #3. The bar always spans 0 -> 3,000 (the full free-drone journey) so
   // a single visual carries both milestones.
   const freeEarned =
-    totalRaces >= MILESTONE_SECOND
-      ? FREE_DRONE_CAP
-      : totalRaces >= MILESTONE_FIRST
-        ? 2
-        : 1;
+    totalRaces >= MILESTONE_SECOND ? FREE_DRONE_CAP : totalRaces >= MILESTONE_FIRST ? 2 : 1;
   const allEarned = freeEarned >= FREE_DRONE_CAP;
   const fillPct = Math.min(100, (totalRaces / MILESTONE_SECOND) * 100);
   const milestone1Pct = (MILESTONE_FIRST / MILESTONE_SECOND) * 100;
@@ -343,8 +303,7 @@ function VendorModal({
       </div>
       <div className={styles.vendorModalBody}>
         <p className={styles.vendorModalIntro}>
-          You earn up to 3 free drones from racing. You can also buy one any
-          time.
+          You earn up to 3 free drones from racing. You can also buy one any time.
         </p>
 
         <section className={styles.milestoneSection}>
@@ -364,10 +323,7 @@ function VendorModal({
             aria-valuenow={Math.min(totalRaces, MILESTONE_SECOND)}
             aria-label="Race progress toward free drone milestones"
           >
-            <div
-              className={styles.milestoneFill}
-              style={{ width: `${fillPct}%` }}
-            />
+            <div className={styles.milestoneFill} style={{ width: `${fillPct}%` }} />
             {[
               { pct: 0, value: 0 },
               { pct: milestone1Pct, value: MILESTONE_FIRST },
@@ -377,9 +333,7 @@ function VendorModal({
                 key={value}
                 className={cn(
                   styles.milestoneTick,
-                  fillPct >= pct
-                    ? styles.milestoneTickPast
-                    : styles.milestoneTickFuture,
+                  fillPct >= pct ? styles.milestoneTickPast : styles.milestoneTickFuture
                 )}
                 style={{ left: `${pct}%` }}
                 aria-hidden="true"
@@ -387,30 +341,22 @@ function VendorModal({
             ))}
           </div>
           <div className={styles.milestoneLabels} aria-hidden="true">
-            <span className={styles.milestoneLabel} style={{ left: '0%' }}>0</span>
-            <span
-              className={styles.milestoneLabel}
-              style={{ left: `${milestone1Pct}%` }}
-            >
+            <span className={styles.milestoneLabel} style={{ left: '0%' }}>
+              0
+            </span>
+            <span className={styles.milestoneLabel} style={{ left: `${milestone1Pct}%` }}>
               {MILESTONE_FIRST.toLocaleString()}
             </span>
-            <span
-              className={styles.milestoneLabel}
-              style={{ left: '100%' }}
-            >
+            <span className={styles.milestoneLabel} style={{ left: '100%' }}>
               {MILESTONE_SECOND.toLocaleString()}
             </span>
           </div>
           <div className={styles.milestoneStatus}>
             {allEarned ? (
-              <>
-                All 3 free drones earned ·{' '}
-                {totalRaces.toLocaleString()} races
-              </>
+              <>All 3 free drones earned · {totalRaces.toLocaleString()} races</>
             ) : (
               <>
-                {totalRaces.toLocaleString()} of{' '}
-                {nextThreshold.toLocaleString()} races
+                {totalRaces.toLocaleString()} of {nextThreshold.toLocaleString()} races
               </>
             )}
           </div>
@@ -419,15 +365,9 @@ function VendorModal({
         <section className={styles.buySection}>
           <h3 className={styles.buyHeader}>Or buy one now</h3>
           <div className={styles.buyContent}>
-            <img
-              src="/drones/tier-1.webp"
-              alt="LV 1 starter drone"
-              className={styles.buyImage}
-            />
+            <img src="/drones/tier-1.webp" alt="LV 1 starter drone" className={styles.buyImage} />
             <div className={styles.buyDetails}>
-              <span className={styles.buyMeta}>
-                LV 1 · 1 common skin · 1 common mod
-              </span>
+              <span className={styles.buyMeta}>LV 1 · 1 common skin · 1 common mod</span>
               <span className={styles.buyPrice}>
                 <VoltIcon size={16} />
                 {DRONE_PRICE.toLocaleString()}
@@ -439,20 +379,11 @@ function VendorModal({
         {error && <p className={styles.vendorError}>{error}</p>}
 
         <div className={styles.vendorActions}>
-          <Link
-            href="/faq"
-            className={styles.vendorGuideLink}
-            onClick={onClose}
-          >
+          <Link href="/faq" className={styles.vendorGuideLink} onClick={onClose}>
             How drone acquisition works
           </Link>
           <div className={styles.vendorActionsRight}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              disabled={pending}
-            >
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
             <span
@@ -538,10 +469,7 @@ function FleetOverview({ fleet }) {
           <FleetStat label="Avg Level" value={fleet.avgLevel} />
           <FleetStat label="Avg ELO" value={fleet.avgElo.toLocaleString()} />
           <FleetStat label="Races" value={fleet.totalRaces.toLocaleString()} />
-          <FleetStat
-            label="Win Rate"
-            value={`${(fleet.fleetWinRate * 100).toFixed(1)}%`}
-          />
+          <FleetStat label="Win Rate" value={`${(fleet.fleetWinRate * 100).toFixed(1)}%`} />
         </div>
         <TierDistribution counts={fleet.tierCounts} total={fleet.total} />
       </div>
@@ -560,10 +488,7 @@ function TopPerformerCard({ top }) {
       </span>
       <span className={styles.topPerfName}>{top.name}</span>
       <span className={styles.topPerfMeta}>
-        <span
-          className={styles.topPerfLevel}
-          style={{ color: getLevelColor(top.level) }}
-        >
+        <span className={styles.topPerfLevel} style={{ color: getLevelColor(top.level) }}>
           L{top.level}
         </span>
         <span className={styles.topPerfElo}>ELO {top.eloRating}</span>
@@ -580,7 +505,7 @@ function FleetStat({ label, value, tone }) {
         className={cn(
           styles.fleetStatValue,
           tone === 'accent' && styles.fleetStatAccent,
-          tone === 'warn' && styles.fleetStatWarn,
+          tone === 'warn' && styles.fleetStatWarn
         )}
       >
         {value}
@@ -611,10 +536,7 @@ function TierDistribution({ counts, total }) {
       <div className={styles.tierLegend}>
         {TIERS.map((t) => (
           <span key={t} className={styles.tierLegendItem}>
-            <span
-              className={cn(styles.tierSwatch, styles[`tierSwatch_${t}`])}
-              aria-hidden="true"
-            />
+            <span className={cn(styles.tierSwatch, styles[`tierSwatch_${t}`])} aria-hidden="true" />
             <span className={styles.tierLegendLabel}>{TIER_LABELS[t]}</span>
             <span className={styles.tierLegendValue}>{counts[t] ?? 0}</span>
           </span>
@@ -628,14 +550,7 @@ function TierDistribution({ counts, total }) {
 /* Control bar - filter toggle + sort dropdown                                 */
 /* -------------------------------------------------------------------------- */
 
-function ControlBar({
-  filter,
-  onFilter,
-  sort,
-  onSort,
-  active,
-  total,
-}) {
+function ControlBar({ filter, onFilter, sort, onSort, active, total }) {
   return (
     <div className={styles.controls}>
       <div className={styles.segGroup} role="tablist">
@@ -649,10 +564,7 @@ function ControlBar({
             type="button"
             role="tab"
             aria-selected={filter === opt.id}
-            className={cn(
-              styles.segBtn,
-              filter === opt.id && styles.segBtnActive,
-            )}
+            className={cn(styles.segBtn, filter === opt.id && styles.segBtnActive)}
             onClick={() => onFilter(opt.id)}
           >
             {opt.label}
@@ -689,8 +601,7 @@ function DroneCard({ drone }) {
   const wrLabel = drone.totalRaces > 0 ? `${(wr * 100).toFixed(0)}%` : '-';
   const tier = getLevelTier(drone.level);
   const skin = drone.appliedSkin;
-  const legendaryTheme =
-    skin?.rarity === 'legendary' ? getLegendaryTheme(skin.name) : null;
+  const legendaryTheme = skin?.rarity === 'legendary' ? getLegendaryTheme(skin.name) : null;
   const legendaryStyle = legendaryTheme
     ? {
         '--legendary-bg': legendaryTheme.bg,
@@ -706,34 +617,25 @@ function DroneCard({ drone }) {
   // `drone.active` already reflects the DB-flipped (= intended) value,
   // so when a pending entry exists the OLD state is its inverse.
   const pendingToggle = usePendingToggle(drone.id);
-  const showAsActive = pendingToggle
-    ? !pendingToggle.intended
-    : drone.active;
+  const showAsActive = pendingToggle ? !pendingToggle.intended : drone.active;
   const isPendingActivating = pendingToggle?.intended === true;
   const isPendingDeactivating = pendingToggle?.intended === false;
 
   return (
-    <Link
-      key={drone.id}
-      href={`/drones/${drone.id}`}
-      className={styles.cardLink}
-    >
+    <Link key={drone.id} href={`/drones/${drone.id}`} className={styles.cardLink}>
       <article
         className={cn(
           styles.droneCard,
           styles[`level_${tier}`],
           legendaryTheme && styles.skinRarity_legendary,
-          showAsActive && styles.active,
+          showAsActive && styles.active
         )}
         style={legendaryStyle}
       >
         <header className={styles.cardHead}>
           <h3 className={styles.droneName}>{drone.name}</h3>
           <div className={styles.cardHeadMeta}>
-            <span
-              className={styles.levelChip}
-              style={{ color: getLevelColor(drone.level) }}
-            >
+            <span className={styles.levelChip} style={{ color: getLevelColor(drone.level) }}>
               LV {drone.level}
             </span>
             {/* Three mutually exclusive badges. Inactive renders nothing -
@@ -741,26 +643,14 @@ function DroneCard({ drone }) {
                 styling pins the badge to the card's top-right corner;
                 small-mobile breakpoint flips it to static so it flows
                 into this meta row instead of overlapping a long name. */}
-            {showAsActive && !pendingToggle && (
-              <span className={styles.activeRibbon}>Active</span>
-            )}
+            {showAsActive && !pendingToggle && <span className={styles.activeRibbon}>Active</span>}
             {showAsActive && isPendingDeactivating && (
-              <span
-                className={cn(
-                  styles.activeRibbon,
-                  styles.activeRibbonDeactivating,
-                )}
-              >
+              <span className={cn(styles.activeRibbon, styles.activeRibbonDeactivating)}>
                 Deactivating
               </span>
             )}
             {!showAsActive && isPendingActivating && (
-              <span
-                className={cn(
-                  styles.activeRibbon,
-                  styles.activeRibbonActivating,
-                )}
-              >
+              <span className={cn(styles.activeRibbon, styles.activeRibbonActivating)}>
                 Activating
               </span>
             )}
@@ -768,20 +658,13 @@ function DroneCard({ drone }) {
         </header>
 
         <div className={styles.imageFrame}>
-          <DroneImage
-            drone={drone}
-            alt={drone.name}
-            className={styles.droneImg}
-          />
+          <DroneImage drone={drone} alt={drone.name} className={styles.droneImg} />
         </div>
 
         <div className={styles.cardBody}>
           <div className={styles.kpiRow}>
             <Kpi label="ELO" value={drone.eloRating.toLocaleString()} />
-            <Kpi
-              label="W / L"
-              value={`${drone.wins}/${drone.losses}`}
-            />
+            <Kpi label="W / L" value={`${drone.wins}/${drone.losses}`} />
             <Kpi
               label="Win Rate"
               value={wrLabel}
@@ -790,12 +673,7 @@ function DroneCard({ drone }) {
           </div>
 
           {skin ? (
-            <div
-              className={cn(
-                styles.skinChip,
-                styles[`skinRarityColor_${skin.rarity}`],
-              )}
-            >
+            <div className={cn(styles.skinChip, styles[`skinRarityColor_${skin.rarity}`])}>
               <span className={styles.skinDiamond} aria-hidden="true">
                 ◆
               </span>
@@ -819,7 +697,7 @@ function Kpi({ label, value, tone }) {
         className={cn(
           styles.kpiValue,
           tone === 'good' && styles.kpiValueGood,
-          tone === 'bad' && styles.kpiValueBad,
+          tone === 'bad' && styles.kpiValueBad
         )}
       >
         {value}

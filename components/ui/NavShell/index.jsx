@@ -338,8 +338,13 @@ function CountdownBar() {
   // back a fresh future timestamp - prevents the visible MM:SS from
   // jumping at 00:00 with stale data while the server catches up.
   const batchExpired = batchAt != null && batchAt <= now;
-  // Derive the mod-lock target from the same next-race timestamp.
-  const strategyLockAt = batchAt != null ? batchAt - STRATEGY_LOCK_LEAD_MS : null;
+  // The mod-lock target: the committed batch's `lockAt` from /api/races/upcoming when the
+  // viewer has a race in it, else derived from the same next-race timestamp.
+  const upcomingLockAt = upcomingRaces[0]?.lockAt
+    ? new Date(upcomingRaces[0].lockAt).getTime()
+    : null;
+  const strategyLockAt =
+    upcomingLockAt ?? (batchAt != null ? batchAt - STRATEGY_LOCK_LEAD_MS : null);
   const strategyLockExpired = strategyLockAt != null && strategyLockAt <= now;
   const strategyLockText = formatRemaining(strategyLockAt);
 
