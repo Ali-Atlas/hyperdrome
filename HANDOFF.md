@@ -2,6 +2,20 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-08 T14 README and runbooks: merge of main (T9b), last document fixes
+
+- Changed:
+  - Merged main (`c41287a`, T9b). `HANDOFF.md` keeps both entries; `DECISIONS.md` and `SPEC.md` merged without conflict and keep both sides.
+  - `README.md`: section 1's smoke sentence names T9b's report as the latest; section 8 covers the four recorded runs (1 min 38 s to 3 min 32 s). `docs/runbooks/deploy.md`: the run count and T9b's 1 min 38 s.
+  - `SPEC.md` 10 places `allocateAlongPersona` in `lib/teams/allocation.js`; `SPEC.md` 8 drops `POST /api/pusher/auth`. `DECISIONS.md` 1.16 lists both (five references now); Prettier re-padded section 1's table for the longer row.
+  - PR #34's description set from the T11 worktree's `tmp/T11-pr.md`, through the REST API (`gh pr edit` fails on the Projects (classic) GraphQL error).
+- Verified:
+  - `npm run format:check` exit 0. `tests/http/chain-errors.test.js` (reads `SPEC.md`) 37 passed.
+  - Document checks (a one-off script, not in the tree; rewritten for this run from the check list in PR #39, the original was not kept): the same link counts as PR #39 (README 158 relative links and 15 transaction links, evidence file 4 and 32), every relative link and backticked repository path resolves, env lists 27 in SPEC, `.env.example` and README.
+- Open:
+  - The transaction links were compared with the hashes in `HANDOFF.md` and the evidence file, not read again through RPC; these edits do not touch them.
+  - The local branch `task/T9b-race-rewards` stays while the `hyperdrome-t9b` worktree holds it; the remote branch is deleted.
+
 ## 2026-11-05 T14 README and runbooks
 
 - Changed:
