@@ -30,7 +30,7 @@ The same things on NearBlocks:
 - The starter kit: 7 transactions. `create_player`, `mint_drone`, `mint_item` (Ember skin), `mint_item` (a common mod) and `mint_volts` are signed by `hyperdrome.testnet` with the ops key; the two `bind` calls are signed by the player's own play key. A recorded run, account [p-pilotz4rx.game.hyperdrome.testnet](https://testnet.nearblocks.io/address/p-pilotz4rx.game.hyperdrome.testnet): [create_player](https://testnet.nearblocks.io/txns/CuJSi4XJsUuc4uRvfjgpBftxybjhJBYdLK1WEYPnSvgL), [mint_drone](https://testnet.nearblocks.io/txns/ASwAqUQJJZjW7Ny37Hnd3LQyLt4xLXg1rQHygtLkmx1E), [mint_item skin](https://testnet.nearblocks.io/txns/HVLBbPv4Lj4qeAw9LhHcNDJJJB7oSTrkCiMudZu3qo82), [mint_item mod](https://testnet.nearblocks.io/txns/DDGYCxSrhEuBEcDcqCSKj53qDfsaHqx7u2BW3c4AeVQa), [mint_volts](https://testnet.nearblocks.io/txns/43kViDa3XRJ7Bn2DrnWRhfyfQv6Ti5mSvReNj2KCaB9L), [bind skin](https://testnet.nearblocks.io/txns/CWkEhy8yVYKVhJzwDqhvq7583tByAdfqBQPqG1Hec9xY), [bind mod](https://testnet.nearblocks.io/txns/AkJsH85N691EEeacooHV9MJRDnTwJJyZCXf8GgZdhm5f).
 - A settled race: the link on the race id in step 7 (`settleExplorerUrl` in step 8). A recorded one, race `ed3e44c7-7531-45c5-9efe-eac6096c77b7` in batch 9966119: [commit_batch](https://testnet.nearblocks.io/txns/GtrGtdg6KWS2z1QbNPdhvhDhd3HxhQ5jeHQrqN52bidW), then [settle_batch](https://testnet.nearblocks.io/txns/6mDqp7vPT5mJ8cfMtG8CHuJ2j7S8KuvZyzggkjFXW4Lg) in the next slot. The drone's ELO went from 1000 to 984 on chain (`get_drone` for `d:50`).
 
-Without the hosted build, `npm run smoke` plays this loop without the marketplace step, through the same routes, against a local server and asserts each step ([scripts/smoke-testnet.mjs](scripts/smoke-testnet.mjs); its last report is in [HANDOFF.md](HANDOFF.md), T11 part 2).
+Without the hosted build, `npm run smoke` plays this loop without the marketplace step, through the same routes, against a local server and asserts each step ([scripts/smoke-testnet.mjs](scripts/smoke-testnet.mjs); its last report is in [HANDOFF.md](HANDOFF.md), T9b).
 
 ## 2. What is on chain and what is not
 
@@ -199,7 +199,7 @@ npm run db:migrate               # applies drizzle/ to DATABASE_URL
 npm run seed:world -- --racing-on   # 16 tracks, the racing switch, 20 bots, the catalog cache
 npm run dev                      # http://localhost:3000
 node scripts/tick.mjs            # one scheduler tick; a scheduler sends one every 3 minutes
-npm run smoke                    # the end-to-end check; the three recorded runs took 1 min 39 s to 3 min 32 s
+npm run smoke                    # the end-to-end check; the four recorded runs took 1 min 38 s to 3 min 32 s
 ```
 
 `seed:world`, `tick.mjs` and `smoke` send transactions, so they need a contract and the keys for it. The keys of `game.hyperdrome.testnet` are not in the repository. To run the chain steps, deploy the crate to your own testnet account (runbook, "Contract"), add an ops and a settlement function-call key with the method lists of section 7, and point `NEAR_OWNER_ID` and `NEAR_GAME_ID` at it. The two method lists and the `add-key` command are in [docs/runbooks/key-rotation.md](docs/runbooks/key-rotation.md), "Settlement key and ops key". `npm run seed:teams` adds the four AI teams ([docs/runbooks/seed-teams.md](docs/runbooks/seed-teams.md)).
