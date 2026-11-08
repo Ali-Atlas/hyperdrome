@@ -69,7 +69,7 @@ Assets: player items and Volts, the treasury, the settlement authority, player k
 ### Keys and custody
 
 - Least privilege everywhere. Player keys: function-call only, scoped to the game contract and the listed methods, zero deposit. Settlement key: `commit_batch`, `settle_batch` and `abort_batch` only. AI-team keys: scoped like player keys, with on-chain spend caps. Full-access keys: deploys and account administration only, never loaded by application code, with one named exception: `lib/near` `rotatePlayKey` opens a player's admin key for a single DeleteKey + AddKey transaction that replaces that player's play key (DECISIONS.md 2.22).
-- Player secret keys are encrypted at rest with AES-256-GCM under `KEY_ENCRYPTION_KEY`; admin keys under a separate `ADMIN_KEY_ENCRYPTION_KEY`. Both are Vercel encrypted env vars. Rotation runbook in `docs/runbooks/key-rotation.md`: one transaction deletes the old key and adds the new one; rotation is tested in CI against the sandbox.
+- Player secret keys are encrypted at rest with AES-256-GCM under `KEY_ENCRYPTION_KEY`; admin keys under a separate `ADMIN_KEY_ENCRYPTION_KEY`. Both are Vercel encrypted env vars. Rotation runbook in `docs/runbooks/key-rotation.md`: for a play key, one transaction deletes the old key and adds the new one (`rotatePlayKey`; tested in CI against a fake RPC in `tests/near/adapter-keys.test.js` and on testnet by the gated integration test). Neither encryption key can be replaced without re-sealing what it sealed, and no code does that.
 - Every environment (local, preview, production) has its own NEAR accounts, database, Pusher app and secrets. Nothing is shared with the MegaETH deployment or the live hyperdrome.vercel.app database.
 
 ### Contract checklist (reviewed before every deploy)
@@ -96,7 +96,7 @@ Assets: player items and Volts, the treasury, the settlement authority, player k
 
 - The race scheduler cannot double-fire: a database advisory lock or a `batches` row with a unique `(cadence_slot)` guards each tick. A tick that finds the lock held exits.
 - Every chain write is idempotent and retried with backoff; the `action_id` or `batch_id` makes the retry safe.
-- RPC: `FailoverRpcProvider` with FastNear primary and Lava secondary, 10 s timeout per call.
+- RPC: `FailoverRpcProvider` with dRPC primary and FastNear as failover, 10 s timeout per call; `NEAR_RPC_API_KEY` is optional (SPEC.md 6 and 15).
 - Gas budgets per method live in SPEC.md; settlement gas is asserted in tests, other budgets are measured on testnet and recorded in HANDOFF.md. Settlement batches attach 200 TGas and cap at the batch size the measured gas allows.
 - Structured logs with a request id; `GET /api/health` reports database, RPC and scheduler lag (and Pusher once events are sent, SPEC.md 9).
 - Landing page budget: first contentful paint under 2 s on a mid-range phone; the hero video streams after first paint; total JS under 300 KB gzipped on the landing route.

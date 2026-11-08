@@ -1,5 +1,7 @@
 # Archive
 
+The live documents are at the repository root: README.md, SPEC.md, BUILD_PLAN.md, DECISIONS.md, ENGINEERING.md, HANDOFF.md and AGENTS.md, with the runbooks in docs/runbooks/.
+
 Documents from the MegaETH-era build (April to May 2026). Superseded by SPEC.md, ENGINEERING.md, AGENTS.md and DECISIONS.md at the repository root. Kept unchanged for history. Nothing in this folder describes the current game or stack.
 
 - ATLAS.md: project context and stack of the MegaETH build. Superseded by SPEC.md.
