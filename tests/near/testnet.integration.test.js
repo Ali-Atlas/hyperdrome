@@ -15,6 +15,8 @@ import { ContractPanicError } from '../../lib/near/errors.js';
 const enabled = process.env.NEAR_TESTNET_INTEGRATION === '1';
 const GAME = 'game.hyperdrome.testnet';
 const OWNER = 'hyperdrome.testnet';
+/** A well-formed transaction hash that is not on testnet. */
+const UNSEEN_HASH = '7jZ2bEAFfTEiQkCsAaSVQoJCyLQkTn1bCnB6C8AbGYUq';
 
 /** @param {string} name */
 const credential = (name) =>
@@ -142,6 +144,11 @@ describe.skipIf(!enabled)('chain adapter on testnet', () => {
         item: mod.result,
       });
       expect(await near.nextSeq(accountId)).toBe(2);
+      // A finished transaction's events read back by hash; a hash the chain never saw is null.
+      const readBack = await near.transactionEvents(bind.txHash, { senderId: accountId });
+      report(`transactionEvents(bind) events=${JSON.stringify(readBack?.map((e) => e.event))}`);
+      expect(readBack).toEqual(bind.events);
+      expect(await near.transactionEvents(UNSEEN_HASH)).toBeNull();
 
       const again = await near
         .callAsPlayer(accountId, created.playKeyEnc, 'bind', {

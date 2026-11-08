@@ -4,7 +4,8 @@
  * drones, skins, mods, bound and equipped rows, the listings cache and `users.points`. It reads
  * the chain only where an event lacks a field the cache needs (a new drone's stats, a placeholder
  * skin's name, a Volt balance after any Volt movement). `batch_settled` writes each drone's
- * post-race level, xp, elo, record and lock; `batch_aborted` clears the cached lock.
+ * post-race level, xp, elo, record and lock and each race row's rewards; `batch_aborted` clears
+ * the cached lock.
  */
 import { and, eq } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
@@ -112,7 +113,7 @@ async function applyOne(ctx, e) {
         .set({ status: 'cancelled' })
         .where(activeListing(d.token));
     case 'batch_settled':
-      for (const race of d.races) await raceSettled(ctx, race);
+      for (const race of d.races) await raceSettled(ctx, race, Number(d.batch_id));
       return;
     case 'batch_aborted':
       return ctx.db

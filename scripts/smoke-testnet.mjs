@@ -4,8 +4,9 @@
  * Against a running app it plays one new demo account through the whole loop: Play Demo, the
  * bootstrap to `done`, 20 stat points, the mod unequipped and equipped again, the drone active, a
  * scheduler tick that commits its race, the next slot, a tick that settles it. Then it asserts: the
- * race row is settled, the server replay matches, the drone's on-chain ELO moved, the settle
- * transaction's explorer link is a NearBlocks URL and GET /api/health answers 200.
+ * race row is settled, the server replay matches, the race row carries the player's Volts and both
+ * rating changes, the drone's on-chain ELO moved, the settle transaction's explorer link is a
+ * NearBlocks URL and GET /api/health answers 200.
  *
  *   npm run smoke                                   # http://localhost:3000
  *   SMOKE_BASE_URL=https://app.url npm run smoke    # any deployment
@@ -287,6 +288,15 @@ async function main() {
   );
   const verify = await verified(race.id);
   check('verify answers match true', verify.json?.data?.match === true, seen(verify));
+  // Read again: the rewards are written with the settle events, after the row turns completed.
+  const row = (await call('GET', `/api/races/${race.id}`)).json?.data ?? {};
+  const won = row.winnerDroneId === droneId;
+  const volts = won ? row.pointsAwarded : row.loserPointsAwarded;
+  check(
+    'race row has the Volts and both rating changes',
+    volts > 0 && row.drone1EloChange !== 0 && row.drone2EloChange !== 0,
+    `player ${won ? 'won' : 'lost'}: winner Volts ${row.pointsAwarded}, loser Volts ${row.loserPointsAwarded}, rating changes ${row.drone1EloChange} and ${row.drone2EloChange}`
+  );
   const after = await chainDrone(drone.tokenId);
   check(
     'on-chain ELO moved',
@@ -308,7 +318,6 @@ async function main() {
     seen(health)
   );
 
-  const won = race.winnerDroneId === droneId;
   const mine = race.drone1Id === droneId ? race.drone1Time : race.drone2Time;
   const theirs = race.drone1Id === droneId ? race.drone2Time : race.drone1Time;
   const opponent = race.drone1Id === droneId ? race.drone2 : race.drone1;
@@ -318,6 +327,10 @@ async function main() {
       'result',
       `${won ? 'won' : 'lost'} ${Number(mine).toFixed(3)} s to ${Number(theirs).toFixed(3)} s against ${opponent?.name}${opponent?.isBot ? ' (bot)' : ''} on ${race.track?.name}, ${race.weather}, ${race.timeOfDay}`,
     ],
+    [
+      'race rewards',
+      `winner ${row.pointsAwarded} Volts, loser ${row.loserPointsAwarded} Volts, rating ${signed(row.drone1EloChange)} and ${signed(row.drone2EloChange)}`,
+    ],
     ['ELO on chain', `${eloBefore} -> ${after.hot.elo}`],
     ['settle tx', race.settleExplorerUrl],
     [
@@ -326,6 +339,9 @@ async function main() {
     ]
   );
 }
+
+/** @param {number} n */
+const signed = (n) => `${n > 0 ? '+' : ''}${n}`;
 
 /** @param {string} verdict */
 function report(verdict) {
