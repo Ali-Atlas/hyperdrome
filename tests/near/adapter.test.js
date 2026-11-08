@@ -344,6 +344,41 @@ describe('real adapter over a fake RPC', () => {
     expect(await near.resolveOutcome(PLAYER, 6, ZERO_HASH)).toEqual({ applied: false });
   });
 
+  it('transactionEvents reads a transaction by hash under the game account: events, null when unknown, a panic thrown', async () => {
+    const event = {
+      standard: 'hyperdrome',
+      version: '1.0.0',
+      event: 'batch_settled',
+      data: { batch_id: 7, races: [] },
+    };
+    const logs = [[`EVENT_JSON:${JSON.stringify(event)}`]];
+    const found = outcome({ hash: 'x', status: { SuccessValue: '' }, receiptLogs: logs });
+    const { near, primary } = await adapterOver(chain({ tx: () => ({ result: found }) }));
+    expect(await near.transactionEvents(ZERO_HASH)).toEqual([{ ...event, receiptId: 'receipt1' }]);
+    // Asked without waiting, so a hash the node does not have is refused at once.
+    expect(primary.requests).toEqual([
+      {
+        method: 'tx',
+        params: { tx_hash: ZERO_HASH, sender_account_id: GAME, wait_until: 'NONE' },
+      },
+    ]);
+    const pending = { result: { ...found, final_execution_status: 'INCLUDED' } };
+    expect(
+      await (await adapterOver(chain({ tx: () => pending }))).near.transactionEvents(ZERO_HASH)
+    ).toBeNull();
+
+    const unknown = { cause: { name: 'UNKNOWN_TRANSACTION', info: {} }, code: -32000 };
+    const gone = { error: { name: 'HANDLER_ERROR', ...unknown, message: 'Server error' } };
+    const pruned = chain({ tx: () => gone });
+    expect(await (await adapterOver(pruned, pruned)).near.transactionEvents(ZERO_HASH)).toBeNull();
+
+    const failed = outcome({ hash: 'x', status: panicStatus('Smart contract panicked: settled') });
+    const refused = await adapterOver(chain({ tx: () => ({ result: failed }) }));
+    await expect(refused.near.transactionEvents(ZERO_HASH)).rejects.toMatchObject({
+      panic: 'settled',
+    });
+  });
+
   it('builds explorer links', async () => {
     const { near } = await adapterOver(chain({}));
     expect(near.explorerTx('abc')).toBe('https://testnet.nearblocks.io/txns/abc');

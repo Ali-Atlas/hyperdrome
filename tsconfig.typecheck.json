@@ -81,6 +81,8 @@
     "scripts/register-alias.mjs",
     "scripts/seed-world.mjs",
     "scripts/smoke-testnet.mjs",
-    "scripts/smoke-client.mjs"
+    "scripts/smoke-client.mjs",
+    "services/race-rewards-backfill.js",
+    "scripts/backfill-race-rewards.mjs"
   ]
 }
