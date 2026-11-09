@@ -14,7 +14,8 @@ let memo = null;
 
 /**
  * GET /api/health (SPEC.md 8): `{ data: { ok, database, rpc, scheduler, racingEnabled, checkedAt } }`.
- * 200 when the database and the RPC both answer, 503 otherwise (never cached). Public, no secrets.
+ * 200 when the database, the RPC and the scheduler are all ok, 503 otherwise (never cached).
+ * Public, no secrets.
  */
 export async function GET() {
   if (!memo || Date.now() - memo.at >= MEMO_MS) {

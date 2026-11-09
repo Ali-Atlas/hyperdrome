@@ -8,5 +8,8 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.js'],
+    // The database-backed files share one Postgres, and a tick settles every committed batch below
+    // its slot, including another file's. Files run one at a time so a tick sees only its own.
+    fileParallelism: false,
   },
 });

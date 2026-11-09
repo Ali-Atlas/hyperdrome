@@ -1,16 +1,38 @@
 /**
  * GET /api/health (services/health.service.js, app/api/health/route.js; SPEC.md 8): the shape of a
  * healthy answer from the route against a real Postgres and the mock adapter, the last tick and its
- * age, and the report when the database and the RPC are down.
+ * age, the report when the database and the RPC are down, and the scheduler check: a stale tick and
+ * a stuck batch.
  */
 import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { schema } from '../../lib/db/index.js';
 import { createMockNear } from '../../lib/near/mock.js';
-import { getHealth } from '../../services/health.service.js';
+import { MAX_COMMITTED_AGE_S, MAX_TICK_AGE_S, getHealth } from '../../services/health.service.js';
 import { dbEnabled, testDb } from '../gameplay/setup.js';
 
-const { cronTicks } = schema;
+const { adminConfig, batches, cronTicks } = schema;
+
+/**
+ * A database double for the scheduler check, so another test file's racing flag or batches cannot
+ * change the answer.
+ * @param {{ now: number, racing: boolean, tickAgeS?: number, committedAgeS?: number }} state
+ */
+function schedulerDb({ now, racing, tickAgeS, committedAgeS }) {
+  const ago = (/** @type {number} */ seconds) => new Date(now - seconds * 1000);
+  const rows = new Map(
+    /** @type {[unknown, object[]][]} */ ([
+      [cronTicks, tickAgeS === undefined ? [] : [{ slot: 7, startedAt: ago(tickAgeS) }]],
+      [batches, committedAgeS === undefined ? [] : [{ committedAt: ago(committedAgeS) }]],
+      [adminConfig, racing ? [{ value: 'true' }] : []],
+    ])
+  );
+  const query = (/** @type {unknown} */ table) => {
+    const chain = { where: () => chain, orderBy: () => chain, limit: async () => rows.get(table) };
+    return chain;
+  };
+  return { execute: async () => ({}), select: () => ({ from: query }) };
+}
 
 describe.skipIf(!dbEnabled)('GET /api/health', () => {
   const db = testDb();
@@ -25,7 +47,13 @@ describe.skipIf(!dbEnabled)('GET /api/health', () => {
 
   it('answers 200 with the report, cached for 60 s, and nothing else', async () => {
     vi.stubEnv('NEAR_ADAPTER', 'mock');
+    // Another test file can switch racing on; this test is about the answer's shape.
+    vi.doMock('../../services/race-schedule.service.js', () => ({
+      isRacingEnabled: async () => false,
+    }));
+    vi.resetModules();
     const { GET } = await import('../../app/api/health/route.js');
+    vi.doUnmock('../../services/race-schedule.service.js');
     const res = await GET();
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe('public, max-age=60, s-maxage=60');
@@ -40,7 +68,12 @@ describe.skipIf(!dbEnabled)('GET /api/health', () => {
       'scheduler',
     ]);
     expect(body.data).toMatchObject({ ok: true, database: { ok: true }, rpc: { ok: true } });
-    expect(Object.keys(body.data.scheduler).sort()).toEqual(['lastTickAgeSeconds', 'lastTickSlot']);
+    expect(Object.keys(body.data.scheduler).sort()).toEqual([
+      'lastTickAgeSeconds',
+      'lastTickSlot',
+      'ok',
+      'oldestCommittedAgeSeconds',
+    ]);
     expect(typeof body.data.racingEnabled).toBe('boolean');
     expect(new Date(body.data.checkedAt).toISOString()).toBe(body.data.checkedAt);
   });
@@ -52,9 +85,66 @@ describe.skipIf(!dbEnabled)('GET /api/health', () => {
       near: () => createMockNear(),
       now: startedAt.getTime() + 95_000,
     });
-    expect(report.ok).toBe(true);
-    expect(report.scheduler).toEqual({ lastTickSlot: slot, lastTickAgeSeconds: 95 });
+    expect(report.database.ok).toBe(true);
+    expect(report.scheduler).toMatchObject({ lastTickSlot: slot, lastTickAgeSeconds: 95 });
     expect(report.checkedAt).toBe('2026-11-05T12:01:35.000Z');
+  });
+});
+
+describe('scheduler check', () => {
+  const now = Date.parse('2026-11-08T12:00:00Z');
+  const check = (/** @type {Omit<Parameters<typeof schedulerDb>[0], 'now'>} */ state) =>
+    getHealth({ db: schedulerDb({ now, ...state }), near: () => createMockNear(), now });
+
+  it('is ok at the limits', async () => {
+    const report = await check({
+      racing: true,
+      tickAgeS: MAX_TICK_AGE_S,
+      committedAgeS: MAX_COMMITTED_AGE_S,
+    });
+    expect(report.ok).toBe(true);
+    expect(report.scheduler).toEqual({
+      ok: true,
+      lastTickSlot: 7,
+      lastTickAgeSeconds: 300,
+      oldestCommittedAgeSeconds: 600,
+    });
+  });
+
+  it('fails on a stale tick, and on no tick at all', async () => {
+    const stale = await check({ racing: true, tickAgeS: MAX_TICK_AGE_S + 1 });
+    expect(stale).toMatchObject({ ok: false, scheduler: { ok: false, lastTickAgeSeconds: 301 } });
+    expect(stale.database.ok).toBe(true);
+    expect(await check({ racing: true })).toMatchObject({ ok: false, scheduler: { ok: false } });
+  });
+
+  it('fails on a batch stuck in committed while ticks continue', async () => {
+    const stuck = await check({
+      racing: true,
+      tickAgeS: 30,
+      committedAgeS: MAX_COMMITTED_AGE_S + 1,
+    });
+    expect(stuck).toMatchObject({
+      ok: false,
+      scheduler: { ok: false, lastTickAgeSeconds: 30, oldestCommittedAgeSeconds: 601 },
+    });
+  });
+
+  it('is ok while racing is paused, however old the tick and the batch', async () => {
+    const paused = await check({ racing: false, tickAgeS: 90_000, committedAgeS: 90_000 });
+    expect(paused).toMatchObject({ ok: true, scheduler: { ok: true }, racingEnabled: false });
+  });
+
+  it('answers 503, never cached, when the scheduler is not ok', async () => {
+    vi.doMock('../../services/health.service.js', () => ({
+      getHealth: async () => ({ ok: false, scheduler: { ok: false } }),
+    }));
+    vi.resetModules();
+    const { GET } = await import('../../app/api/health/route.js');
+    vi.doUnmock('../../services/health.service.js');
+    const res = await GET();
+    expect(res.status).toBe(503);
+    expect(res.headers.get('cache-control')).toBe('no-store');
   });
 });
 
@@ -77,7 +167,12 @@ describe('health report when a dependency is down', () => {
       ok: false,
       database: { ok: false },
       rpc: { ok: false },
-      scheduler: { lastTickSlot: null, lastTickAgeSeconds: null },
+      scheduler: {
+        ok: false,
+        lastTickSlot: null,
+        lastTickAgeSeconds: null,
+        oldestCommittedAgeSeconds: null,
+      },
       racingEnabled: null,
       checkedAt: '1970-01-01T00:00:00.000Z',
     });

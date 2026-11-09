@@ -1,27 +1,33 @@
 /**
  * The health report behind `GET /api/health` (SPEC.md 8; ENGINEERING.md 5): the database answers,
- * the RPC answers a view of the game contract, when the scheduler last ticked, and whether racing
- * is on. Nothing in it is secret. A failed check is reported, never thrown.
+ * the RPC answers a view of the game contract, the scheduler keeps ticking and settling, and whether
+ * racing is on. Nothing in it is secret. A failed check is reported, never thrown.
  */
-import { desc, sql } from 'drizzle-orm';
+import { asc, desc, eq, sql } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
 import { getNear } from '@/lib/near';
 import { isRacingEnabled } from './race-schedule.service.js';
 
-const { cronTicks } = schema;
+const { batches, cronTicks } = schema;
 
 /**
  * @typedef {object} HealthReport
- * @property {boolean} ok the database and the RPC both answered
+ * @property {boolean} ok the database, the RPC and the scheduler are all ok
  * @property {{ ok: boolean }} database
  * @property {{ ok: boolean }} rpc `get_constants` on the game contract
- * @property {{ lastTickSlot: number | null, lastTickAgeSeconds: number | null }} scheduler the newest `cron_ticks` row; null before the first tick or without a database
+ * @property {{ ok: boolean, lastTickSlot: number | null, lastTickAgeSeconds: number | null, oldestCommittedAgeSeconds: number | null }} scheduler the newest `cron_ticks` row and the oldest batch still `committed`; null when there is none or no database, and `ok` false without a database
  * @property {boolean | null} racingEnabled `admin_config.racing_enabled`; null without a database
  * @property {string} checkedAt ISO time of this report
  */
 
 /** How long one check may take before it counts as failed. */
 const CHECK_TIMEOUT_MS = 8_000;
+
+/** With racing on, a last tick older than this means the scheduler has stopped (a slot is 180 s). */
+export const MAX_TICK_AGE_S = 300;
+
+/** With racing on, a batch still `committed` after this has missed its settlement. */
+export const MAX_COMMITTED_AGE_S = 600;
 
 /**
  * Reject when `work` has not settled within `ms`.
@@ -50,6 +56,15 @@ function logFailure(check, err) {
 }
 
 /**
+ * The whole seconds from `time` to `now`, never negative.
+ * @param {number} now
+ * @param {Date} time
+ */
+function ageSeconds(now, time) {
+  return Math.max(0, Math.round((now - time.getTime()) / 1000));
+}
+
+/**
  * Run the checks.
  * @param {{ db?: any, near?: () => import('@/lib/near').NearAdapter, now?: number, timeoutMs?: number }} [deps]
  *   `near` is a getter, so a broken adapter configuration is a failed RPC check; each check fails
@@ -66,7 +81,12 @@ export async function getHealth(deps = {}) {
     ok: false,
     database: { ok: false },
     rpc: { ok: false },
-    scheduler: { lastTickSlot: null, lastTickAgeSeconds: null },
+    scheduler: {
+      ok: false,
+      lastTickSlot: null,
+      lastTickAgeSeconds: null,
+      oldestCommittedAgeSeconds: null,
+    },
     racingEnabled: null,
     checkedAt: new Date(now).toISOString(),
   };
@@ -78,13 +98,27 @@ export async function getHealth(deps = {}) {
       await db.execute(sql`select 1`);
       /** @type {{ slot: number, startedAt: Date }[]} */
       const [tick] = await db.select().from(cronTicks).orderBy(desc(cronTicks.slot)).limit(1);
+      /** @type {{ committedAt: Date | null }[]} */
+      const [oldest] = await db
+        .select({ committedAt: batches.committedAt })
+        .from(batches)
+        .where(eq(batches.status, 'committed'))
+        .orderBy(asc(batches.committedAt))
+        .limit(1);
       const racingEnabled = await isRacingEnabled({ db });
-      if (tick) {
-        report.scheduler = {
-          lastTickSlot: Number(tick.slot),
-          lastTickAgeSeconds: Math.max(0, Math.round((now - tick.startedAt.getTime()) / 1000)),
-        };
-      }
+      const lastTickAgeSeconds = tick ? ageSeconds(now, tick.startedAt) : null;
+      const oldestCommittedAgeSeconds = oldest?.committedAt
+        ? ageSeconds(now, oldest.committedAt)
+        : null;
+      const stale = lastTickAgeSeconds === null || lastTickAgeSeconds > MAX_TICK_AGE_S;
+      const stuck =
+        oldestCommittedAgeSeconds !== null && oldestCommittedAgeSeconds > MAX_COMMITTED_AGE_S;
+      report.scheduler = {
+        ok: !racingEnabled || (!stale && !stuck),
+        lastTickSlot: tick ? Number(tick.slot) : null,
+        lastTickAgeSeconds,
+        oldestCommittedAgeSeconds,
+      };
       report.racingEnabled = racingEnabled;
       report.database.ok = true;
     })(),
@@ -99,6 +133,6 @@ export async function getHealth(deps = {}) {
     .catch((err) => logFailure('rpc', err));
 
   await Promise.all([database, rpc]);
-  report.ok = report.database.ok && report.rpc.ok;
+  report.ok = report.database.ok && report.rpc.ok && report.scheduler.ok;
   return report;
 }
