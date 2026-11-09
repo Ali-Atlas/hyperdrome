@@ -183,6 +183,11 @@ impl Contract {
         }
     }
 
+    /// View. The wallet linked to `player`, or null (SPEC.md 4.4 `link_wallet`).
+    pub fn get_wallet_link(&self, player: AccountId) -> Option<AccountId> {
+        self.s().wallet_links.get(&player).cloned()
+    }
+
     /// View. The hash `settle_batch` checks for this drone: sha256(9 stat bytes ++ u16 equipped
     /// mod template LE ++ u16 equipped skin template LE), 0 for an empty slot. Null if not a drone.
     pub fn stats_hash(&self, token: TokenId) -> Option<[u8; 32]> {
