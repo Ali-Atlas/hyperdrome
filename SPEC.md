@@ -91,7 +91,7 @@ Supply: unlimited instances. A mod is one token; it is bound to at most one dron
 ### 2.6 Skins (catalog, image-backed, `public/skins/<rarity>/<slug>.webp`)
 
 Common (8): bone, cobalt, dusk, ember, frost, rust, shadow, venom. Rare (8): anodized_blaze, arctic_fury, chrome_fury, copper_king, gunmetal_storm, jade_circuit, midnight_oil, titanium_ghost. Epic (8): crystal_phantom, dragon_scale, frozen_abyss, iridescent_wraith, liquid_mercury, obsidian_core, solar_flare, void_bloom. Legendary (8): apex_predator, celestial, diamond_hands (file diamond_hand.webp), gilded_throne, kraken, necromancer, samurai, valiant.
-Supply caps per template (new, tunable): common 10, rare 6, epic 4, legendary 3; Ember is uncapped. When a rarity has no supply left, packs mint a placeholder skin of that rarity (name from the placeholder pools in the baseline `services/pack.service.js`, carried into the contract's `constants/names.rs`; image `/placeholder/`), unlimited. A placeholder is stored with template 0, its rarity and its name, and never counts against supply. Token images for placeholders and mods are a generated card from `/api/metadata/<token>/image` (8) until art files exist.
+Supply caps per template live in contract state (4.2), one per rarity, each a number or null for unlimited, and the owner changes them with `set_skin_caps` (4.4); `get_catalog` reports the live caps. A new deployment and a migrated contract start at common 10, rare 6, epic 4, legendary 3. The testnet rollout sets common 2,200, rare 1,300, epic 1,100, legendary 3 (DECISIONS.md 5.53). Ember is uncapped. When a rarity has no supply left, packs mint a placeholder skin of that rarity (name from the placeholder pools in the baseline `services/pack.service.js`, carried into the contract's `constants/names.rs`; image `/placeholder/`), unlimited. A placeholder is stored with template 0, its rarity and its name, and never counts against supply. Token images for placeholders and mods are a generated card from `/api/metadata/<token>/image` (8) until art files exist.
 Equip rule: legendary skins equip on any tier; other skins equip only where a tier render exists: ember tier 1; chrome_fury, crystal_phantom, dragon_scale, frozen_abyss, obsidian_core tier 4. (Carried from baseline; tier renders are the content gap.)
 Ember (template 4) is the starter skin: exempt from the supply cap, never drawn by pack rolls or the vendor drone's common skin pick, and listed by `get_catalog` with `cap: null` and its minted count.
 Cosmetic only. Bound to at most one drone, permanently.
@@ -162,6 +162,7 @@ StateV2 {
   teams: LookupMap<AccountId, TeamBudget>,
   skin_minted: LookupMap<u16, u32>,          // template id -> minted count
   next_drone: u64, next_skin: u64, next_mod: u64, next_pack: u64,
+  skin_caps: [Option<u32>; 4],                  // per-template cap by rarity (common, rare, epic, legendary); null is unlimited; V3, T20
   wallet_links: LookupMap<AccountId, AccountId>,   // player account -> linked wallet
 }
 Player { seq: u64, created_at_ms: u64, is_team: bool }
@@ -193,6 +194,7 @@ Owner (predecessor == owner_id):
 - `mint_item(owner, kind, template: u16, placeholder_name: Option<String>) -> TokenId`: enforces skin supply caps unless placeholder or Ember ("no supply"; Ember is uncapped, 2.6, and still counted in `skin_minted`); a placeholder skin takes its rarity from `template` and is stored with template 0; "bad template" for an unknown template or a placeholder name on a mod; emits NftMint and `item_minted`.
 - `mint_volts(to, amount)`: emits FtMint.
 - `set_team_budget(account, per_tx, per_day)`; `set_paused(bool)`; `set_base_uri(base_uri: Option<String>)` sets `nft_metadata.base_uri`.
+- `set_skin_caps(caps: [Option<u32>; 4])`: the per-template skin caps by rarity, in the order common, rare, epic, legendary; null is unlimited. Called with the owner's full-access key; it is not on the ops key's method list (4.1). Ember stays uncapped. A cap at or below a template's minted count stops further mints of it and changes nothing already minted. Fails with "not owner". Emits nothing.
 
 Player (predecessor is a registered player, else "not player"; every method takes `seq: u64` which must equal `player.seq + 1`, then stores it; panics "bad seq" otherwise; panics "paused" when paused). Every Volt debit goes through one spend path: balance check ("insufficient volts"), then the team cap check if the caller is a team (2.10, "cap exceeded"), then the burn or payment. Methods on a drone check, in order: exists ("not found"), not listed ("listed"), caller owns it ("not owner"), not locked ("locked").
 
