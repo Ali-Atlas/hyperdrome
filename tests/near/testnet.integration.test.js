@@ -245,7 +245,7 @@ describe.skipIf(!enabled)('chain adapter on testnet', () => {
       expect(
         await afterWrite(
           () => near.view('get_player', { account: accountId }),
-          (player) => player?.seq === 1
+          (player) => /** @type {{ seq?: number } | null} */ (player)?.seq === 1
         )
       ).toMatchObject({ seq: 1 });
 
