@@ -179,6 +179,16 @@ impl Contract {
         self.s_mut().paused = paused;
     }
 
+    /// Owner only, with the owner's full-access key (not on the ops key's method list). Sets the
+    /// per-template skin supply caps by rarity, in the order common, rare, epic, legendary; `None`
+    /// is unlimited. Ember stays uncapped. A cap at or below a template's minted count stops
+    /// further mints of it and changes nothing already minted. Emits nothing. Fails with
+    /// "not owner".
+    pub fn set_skin_caps(&mut self, caps: [Option<u32>; 4]) {
+        self.assert_owner();
+        self.s_mut().skin_caps = caps;
+    }
+
     /// Owner only. Sets `nft_metadata.base_uri` (the app's `/api/metadata` URL); token `media`
     /// becomes `<base_uri>/<token_id>/image`. `None` clears it. Fails with "not owner".
     pub fn set_base_uri(&mut self, base_uri: Option<String>) {
@@ -277,7 +287,7 @@ impl Contract {
         let s = self.s_mut();
         if kind == ItemKind::Skin && placeholder_name.is_none() {
             let minted = s.skin_minted.get(&template).copied().unwrap_or(0);
-            if let Some(cap) = skin_supply_cap(template, rarity) {
+            if let Some(cap) = skin_supply_cap(&s.skin_caps, template, rarity) {
                 require!(minted < cap, "no supply");
             }
             s.skin_minted.insert(template, minted + 1);
