@@ -18,13 +18,14 @@ Production is the Vercel project `hyperdrome-near` (team `collide-scopes-project
 
 Every variable is set on Production only. Preview and Development hold none. Changing one takes effect at the next deployment.
 
-| Name                                                                                                                            | Type   | Local source      |
-| ------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------- |
-| `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`                                                                                    | Secret | `.env.prod.local` |
-| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`, `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY` | Secret | `.env.local`      |
-| `NEAR_NETWORK`, `NEAR_OWNER_ID`, `NEAR_GAME_ID`, `NEXT_PUBLIC_EXPLORER_URL`                                                     | Config | `.env.local`      |
+| Name                                                                                                                            | Type   | Local source                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------- |
+| `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`                                                                                    | Secret | `.env.prod.local`                                                   |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`, `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY` | Secret | `.env.local`                                                        |
+| `NEAR_NETWORK`, `NEAR_OWNER_ID`, `NEAR_GAME_ID`, `NEXT_PUBLIC_EXPLORER_URL`                                                     | Config | `.env.local`                                                        |
+| `ADMIN_EMAILS`                                                                                                                  | Secret | set directly on Vercel (the Google email allowed on the admin page) |
 
-Unset on purpose: `NEAR_RPC_URL` and `NEAR_RPC_FAILOVER_URL` (the SPEC.md 15 defaults apply), `NEAR_RPC_API_KEY`, `DEMO_ACCOUNT_CAP` (default 100), `ADMIN_EMAILS`, the Pusher names, `NEAR_ADAPTER`, `NEAR_TESTNET_INTEGRATION`, `SMOKE_BASE_URL`.
+Unset on purpose: `NEAR_RPC_URL` and `NEAR_RPC_FAILOVER_URL` (the SPEC.md 15 defaults apply), `NEAR_RPC_API_KEY`, `DEMO_ACCOUNT_CAP` (default 100), the Pusher names, `NEAR_ADAPTER`, `NEAR_TESTNET_INTEGRATION`, `SMOKE_BASE_URL`.
 
 Set a value over stdin, so it reaches neither the shell history nor the process list:
 
@@ -60,7 +61,7 @@ The second tick of a run commits the next batch. With a scheduler running, the n
 
 ## Health
 
-`GET /api/health` is public and cached for 60 s. It answers 200 with `ok: true` when the database answers (the migrations applied) and the RPC answers a `get_constants` view, each within 8 s, and 503 otherwise with the failed check `false`. `scheduler.lastTickAgeSeconds` is the time since the last tick started: over 360 with racing on means the scheduler has missed a slot. `racingEnabled` is the kill switch below.
+`GET /api/health` is public. It answers 200 with `ok: true` when the database answers (the migrations applied), the RPC answers a `get_constants` view, each within 8 s, and the scheduler is ok; a healthy answer is cached for 60 s. It answers 503 otherwise, never cached, with the failed check `false`. `scheduler.ok` is false when racing is on and `lastTickAgeSeconds` is over 300 (or no tick has run) or `oldestCommittedAgeSeconds` is over 600. A stale tick means the cron-job.org job has stopped or the deployment is failing; a stuck batch means ticks run and settlement does not, so read the function logs (`scope: 'scheduler'`) and "When a batch cannot settle". While racing is paused the scheduler check passes. `racingEnabled` is the kill switch below.
 
 ## Scheduler
 
@@ -80,6 +81,21 @@ The race loop is one HTTP route, `POST /api/races/run` (GET works too), guarded 
 `?mode=background` claims the slot, answers 202 and runs the phases in `after()`, inside the route's 60 s `maxDuration`. cron-job.org closes a request at 30 s and counts it as failed, disables a job after more than 25 failures in a row, and a full tick has taken 38.3 s (HANDOFF.md, T12). The first call of a slot claims it; the other two answer 200 with `claimed: false`, so a lost call costs one minute at most.
 
 A background tick's phases run after the answer, so a phase that fails does not fail the request. Watch `scheduler.lastTickAgeSeconds` in `GET /api/health` and the function logs (`scope: 'scheduler'`). The next tick resumes the batch.
+
+### The health monitor job
+
+A second cron-job.org job watches the route that reports a stopped scheduler or a stuck batch:
+
+| Setting       | Value                                                  |
+| ------------- | ------------------------------------------------------ |
+| URL           | `https://hyperdrome-near.vercel.app/api/health`        |
+| Method        | GET                                                    |
+| Header        | none                                                   |
+| Schedule      | every 5 minutes                                        |
+| Timeout       | the default, 30 s                                      |
+| Notifications | on failure, and when the job is disabled automatically |
+
+With racing on, the route answers 503 until the tick job has run, so create the tick job first.
 
 ### By hand
 

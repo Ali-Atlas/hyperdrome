@@ -7,7 +7,7 @@
  * marketplace, admin, etc.) are excluded so search engines don't crawl
  * private URLs.
  */
-const BASE = 'https://hyperdrome.vercel.app';
+const BASE = 'https://hyperdrome-near.vercel.app';
 
 export default function sitemap() {
   const now = new Date();

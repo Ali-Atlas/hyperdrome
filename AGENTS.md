@@ -6,6 +6,13 @@ Instructions for any coding agent working in this repository. CLAUDE.md points h
 
 Standards are never lowered to save time. No stubs, shortcuts or silent scope cuts. SPEC.md changes in the same PR as the behavior. When something cannot be done to standard, stop and report options. Tests stay risk-based (ENGINEERING.md 3).
 
+## Debugging and verification
+
+- Reason from the code and the failure output first; state a hypothesis before re-running anything.
+- Reproduce with the smallest scope that shows the problem (one test, or the files that share state), never by looping the full suite.
+- Time-box any investigation to 15 minutes; then stop and report what you found and the options.
+- Verification is sized to the change (DECISIONS 1.14): one full suite run before pushing; CI is the gate. No repeated full runs to gain confidence; fix the cause instead.
+
 ## Read first, in this order
 
 1. SPEC.md (behavior, data, interfaces, constants; source of truth)

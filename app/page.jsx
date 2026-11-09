@@ -16,7 +16,16 @@ export const metadata = {
     title: 'Hyperdrome | Drone Racing Strategy Game',
     description:
       'Drone racing strategy game. Level your drones, grow your fleet, strategize your mods, collect your skins.',
+    url: 'https://hyperdrome-near.vercel.app',
     type: 'website',
+    images: [
+      {
+        url: '/hero-poster.webp',
+        width: 1313,
+        height: 627,
+        alt: 'Hyperdrome - drone racing strategy game',
+      },
+    ],
   },
 };
 
