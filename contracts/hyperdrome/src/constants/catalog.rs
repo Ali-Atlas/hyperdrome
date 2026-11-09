@@ -211,25 +211,22 @@ pub const SKINS: [SkinTemplate; 32] = [
 /// Ember, the starter kit skin (SPEC.md 2.2).
 pub const STARTER_SKIN_TEMPLATE: u16 = 4;
 
-/// Per-template supply caps by rarity (common, rare, epic, legendary).
-pub const SKIN_SUPPLY_CAP: [u32; 4] = [10, 6, 4, 3];
+/// Per-template supply caps by rarity (common, rare, epic, legendary) in a new or migrated contract.
+/// The live caps are in contract state; `set_skin_caps` changes them (SPEC.md 2.6, 4.4).
+pub const INITIAL_SKIN_CAPS: [Option<u32>; 4] = [Some(10), Some(6), Some(4), Some(3)];
 
 /// Non-legendary skins that have a render, as (template id, drone tier). Legendary skins equip on
 /// any tier; every other skin equips only where listed here (SPEC.md 2.6).
 pub const SKIN_TIER_RENDERS: [(u16, u8); 6] = [(4, 1), (11, 4), (17, 4), (18, 4), (19, 4), (22, 4)];
 
-/// Supply cap of a catalog skin template of `rarity`: `None` (uncapped) for Ember, the starter
-/// skin (SPEC.md 2.6); 0 for an unknown rarity, so nothing of it can be minted.
-pub fn skin_supply_cap(template: u16, rarity: u8) -> Option<u32> {
+/// Supply cap of a catalog skin template of `rarity` under the live `caps`: `None` (uncapped) for
+/// Ember, the starter skin (SPEC.md 2.6), and for a rarity whose cap is unlimited; 0 for an
+/// unknown rarity, so nothing of it can be minted.
+pub fn skin_supply_cap(caps: &[Option<u32>; 4], template: u16, rarity: u8) -> Option<u32> {
     if template == STARTER_SKIN_TEMPLATE {
         return None;
     }
-    Some(
-        SKIN_SUPPLY_CAP
-            .get(usize::from(rarity))
-            .copied()
-            .unwrap_or(0),
-    )
+    caps.get(usize::from(rarity)).copied().unwrap_or(Some(0))
 }
 
 /// Looks up a mod template by 1-based id.
