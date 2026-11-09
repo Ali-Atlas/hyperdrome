@@ -3,7 +3,7 @@
  * an RPC transaction and picking the race's entry from the batch's two calls.
  */
 import { describe, expect, it } from 'vitest';
-import { decodeCallArgs, pickRaceEntry } from '../../lib/client/race-verify.js';
+import { decodeCallArgs, isThisRace, pickRaceEntry } from '../../lib/client/race-verify.js';
 import { GAME_CONTRACT } from '../../lib/near/public-rpc.js';
 
 /** @param {object} args @param {object} [overrides] */
@@ -39,6 +39,23 @@ describe('decodeCallArgs', () => {
     const other = tx({});
     other.transaction.signer_id = 'someone.testnet';
     expect(() => decodeCallArgs(other, 'commit_batch')).toThrow('not from the game contract');
+  });
+});
+
+describe('isThisRace', () => {
+  const race = { batchSlot: 7, drone1: { tokenId: 'd:1' }, drone2: { tokenId: 'd:2' } };
+  const entry = /** @type {any} */ ({ batchId: 7, matchup: { a: 'd:1', b: 'd:2' } });
+
+  it("accepts the commit of this batch with the page's two drones", () => {
+    expect(isThisRace(race, entry)).toBe(true);
+  });
+
+  it('refuses another batch, another drone and swapped drones', () => {
+    expect(isThisRace({ ...race, batchSlot: 8 }, entry)).toBe(false);
+    expect(isThisRace({ ...race, drone2: { tokenId: 'd:9' } }, entry)).toBe(false);
+    expect(
+      isThisRace(race, /** @type {any} */ ({ batchId: 7, matchup: { a: 'd:2', b: 'd:1' } }))
+    ).toBe(false);
   });
 });
 
