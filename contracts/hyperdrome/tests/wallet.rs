@@ -12,6 +12,7 @@ use common::wallet::{
     with_yocto, withdraw_args,
 };
 use common::{Env, R, assert_fails, done, event, events_named, ok, record_gas, tgas};
+use near_api::types::transaction::result::ExecutionFinalResult;
 use near_api::{AccountId, Contract};
 use near_sdk::serde_json::{Value, json};
 
@@ -284,6 +285,7 @@ async fn max_tokens_fit_the_gas_and_log_budgets() -> R<()> {
 
     let out = ok(owner_withdraw(&env, &p.id, &refs[..max], 1).await)?;
     record_gas(&out, "withdraw (max tokens, each its own transfer, volts)");
+    assert_on_gas_line(&out, max);
     let bytes: usize = out.logs().iter().map(|l| l.len()).sum();
     // The sandbox ids are shorter than testnet's: `m:<n>` here against 7 characters there, on the
     // nep171 event and the `withdrawn` list, and a 46-character player id against this one's.
@@ -294,6 +296,46 @@ async fn max_tokens_fit_the_gas_and_log_budgets() -> R<()> {
     assert!(tgas(&out) <= 150.0, "gas {} over the budget", tgas(&out));
     assert!(projected <= 14_000, "logs {projected} over the budget");
     assert_eq!(events_named(&out, "nep171", "nft_transfer").len(), max);
+    Ok(())
+}
+
+/// The measured line `lib/wallet/withdraw-gas.js` attaches twice: 4 TGas + 1.85 TGas per moved
+/// token (SPEC.md 13).
+#[track_caller]
+fn assert_on_gas_line(out: &ExecutionFinalResult, moved: usize) {
+    let line = 4.0 + 1.85 * moved as f64;
+    assert!(tgas(out) <= line, "gas {} over the line {line}", tgas(out));
+}
+
+#[tokio::test]
+async fn small_withdrawals_stay_on_the_gas_line() -> R<()> {
+    let env = Env::start().await?;
+    let (mut p, wallet) = linked_player(&env, "pilot", 100).await?;
+
+    // The first transfer into a fresh wallet creates its token set: the costliest single token.
+    let spare = env.mint_item(&p.id, "mod", 1, None).await?;
+    let out = ok(owner_withdraw(&env, &p.id, &[&spare], 0).await)?;
+    record_gas(&out, "withdraw (1 token, fresh wallet)");
+    assert_on_gas_line(&out, 1);
+
+    let out = ok(owner_withdraw(&env, &p.id, &[], 1).await)?;
+    record_gas(&out, "withdraw (volts only)");
+    assert_on_gas_line(&out, 0);
+
+    let drone = env.mint_drone(&p.id, ONES).await?;
+    let skin = env.mint_item(&p.id, "skin", 4, None).await?;
+    let modd = env.mint_item(&p.id, "mod", 2, None).await?;
+    done(
+        env.play(&mut p, "bind", json!({ "drone": drone, "item": skin }))
+            .await,
+    );
+    done(
+        env.play(&mut p, "bind", json!({ "drone": drone, "item": modd }))
+            .await,
+    );
+    let out = ok(wallet_withdraw(&env, &wallet, &p.id, &[&drone], 1).await)?;
+    record_gas(&out, "withdraw (drone + 2 bound, volts, wallet path)");
+    assert_on_gas_line(&out, 3);
     Ok(())
 }
 

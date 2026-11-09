@@ -11,6 +11,7 @@ import { KeyPair } from 'near-api-js';
 import { afterAll, describe, expect, it } from 'vitest';
 import { schema } from '../../lib/db/index.js';
 import { NonceError } from '../../lib/near/errors.js';
+import { withdrawGas } from '../../lib/wallet/withdraw-gas.js';
 import { createChallenge, linkWallet, withdrawToWallet } from '../../services/wallet.service.js';
 import { syncWallet } from '../../services/wallet-sync.js';
 import { createMockNear, dbEnabled, newDrone, newPlayer, testDb } from '../gameplay/setup.js';
@@ -262,6 +263,34 @@ describe.skipIf(!dbEnabled)('wallet services', () => {
     const failed = await withdrawToWallet(input, { db, near });
     expect(failed.status).toBe(409);
     expect(sends).toBe(1);
+  });
+
+  it('attaches gas for the requested tokens and their cached bound items', async () => {
+    const p = await linkedPlayer();
+    const [skin] = await db
+      .insert(schema.skins)
+      .values({
+        userId: p.user.id,
+        name: 'S',
+        rarity: 'common',
+        imageUrl: '/s.webp',
+        tokenId: `s:${Date.now()}`,
+      })
+      .returning();
+    await db.insert(schema.droneSkins).values({ droneId: p.drone.id, skinId: skin.id });
+    /** @type {(bigint | undefined)[]} */
+    const attached = [];
+    /** @type {typeof p.near} */
+    const near = {
+      ...p.near,
+      callAsOps: (method, args, options) => {
+        attached.push(options?.gas);
+        return p.near.callAsOps(method, args, options);
+      },
+    };
+    const input = { userId: p.user.id, actionId: randomUUID(), tokens: [p.token], volts: 0 };
+    expect((await withdrawToWallet(input, { db, near })).status).toBe(200);
+    expect(attached).toEqual([withdrawGas(2)]);
   });
 
   it('a refused withdrawal stores the mapped panic', async () => {

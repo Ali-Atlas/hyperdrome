@@ -350,6 +350,7 @@ export default function WalletView() {
                       player: account,
                       tokens,
                       volts: voltsAmount,
+                      movedTokens: movedCount,
                     }),
                   'Withdrawn to your wallet',
                   'The withdrawal failed.'

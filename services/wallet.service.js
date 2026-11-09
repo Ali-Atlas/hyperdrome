@@ -4,15 +4,16 @@
  * and the cached assets the page lists. Sync lives in services/wallet-sync.js.
  */
 import { randomBytes } from 'node:crypto';
-import { and, eq, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
 import { mapChainError } from '@/lib/http/chain-errors.js';
 import { getNear } from '@/lib/near';
 import { ContractPanicError, RpcUnknownOutcomeError } from '@/lib/near/errors.js';
 import { reject } from './action-store.js';
-import { applyEvents } from './chain-cache.service.js';
+import { applyEvents, tokenKind } from './chain-cache.service.js';
 import { runOpsAction } from './ops-action.service.js';
 import { hitRateLimit } from './rate-limit.service.js';
+import { withdrawGas } from '@/lib/wallet/withdraw-gas.js';
 
 const { users, drones, skins, mods, droneSkins, droneMods, walletChallenges, marketplaceListings } =
   schema;
@@ -21,8 +22,6 @@ const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 /** Challenges per user per hour: each one is a link the contract pays Volts storage for. */
 const CHALLENGE_LIMIT = 10;
 const CHALLENGE_WINDOW_MS = 60 * 60 * 1000;
-/** Gas attached to `withdraw`: the SPEC.md 13 budget for the most tokens one call moves. */
-export const WITHDRAW_GAS = 150_000_000_000_000n;
 
 /**
  * @typedef {import('./action-store.js').ActionResponse} ActionResponse
@@ -242,6 +241,28 @@ function linkedAnswer(near, account, wallet, txHash) {
 }
 
 /**
+ * The token ids a withdrawal moves: the requested tokens plus their cached bound items.
+ * @param {any} db
+ * @param {string[]} tokens
+ * @returns {Promise<number>}
+ */
+async function movedTokenCount(db, tokens) {
+  const requested = tokens.filter((t) => tokenKind(t) === 'drone');
+  if (requested.length === 0) return tokens.length;
+  const boundSkins = await db
+    .select({ id: droneSkins.skinId })
+    .from(droneSkins)
+    .innerJoin(drones, eq(drones.id, droneSkins.droneId))
+    .where(inArray(drones.tokenId, requested));
+  const boundMods = await db
+    .select({ id: droneMods.modId })
+    .from(droneMods)
+    .innerJoin(drones, eq(drones.id, droneMods.droneId))
+    .where(inArray(drones.tokenId, requested));
+  return tokens.length + boundSkins.length + boundMods.length;
+}
+
+/**
  * Withdraw through the app: `withdraw` with the ops key, with the action path's guarantees
  * (services/ops-action.service.js). The destination is always the linked wallet.
  * @param {{ userId: string, actionId: string, tokens: string[], volts: number }} input
@@ -258,7 +279,7 @@ export async function withdrawToWallet({ userId, actionId, tokens, volts }, deps
       actionId,
       method: 'withdraw',
       args: { player: account, tokens, volts: String(volts) },
-      gas: WITHDRAW_GAS,
+      gas: withdrawGas(await movedTokenCount(db, tokens)),
       onApplied: async (events) => {
         const { balances } = await applyEvents(events, { db, near });
         return account in balances ? { volts: balances[account] } : {};

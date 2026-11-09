@@ -188,8 +188,15 @@ async function makeMatchups(db, near) {
  * @returns {Promise<Set<string>>}
  */
 async function freeTokens(near, db, players, bots) {
+  const ownerIds = [...new Set(players.flatMap((d) => (d.userId ? [d.userId] : [])))];
   /** @type {{ id: string, nearAccountId: string | null }[]} */
-  const owners = await db.select({ id: users.id, nearAccountId: users.nearAccountId }).from(users);
+  const owners =
+    ownerIds.length > 0
+      ? await db
+          .select({ id: users.id, nearAccountId: users.nearAccountId })
+          .from(users)
+          .where(inArray(users.id, ownerIds))
+      : [];
   const accountOf = new Map(owners.map((u) => [u.id, u.nearAccountId]));
   const expected = new Map(
     players.map((d) => [String(d.tokenId), accountOf.get(String(d.userId)) ?? null])
