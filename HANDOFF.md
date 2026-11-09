@@ -2,6 +2,19 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-08 T18 Verify button and drone on-chain panel
+
+- Changed:
+  - Verify: `app/races/[raceId]/VerifyPanel.jsx` (and its CSS module), mounted in the results view with the API body; `lib/client/race-verify.js` (decoding a call's args, picking the race's entry, the check lines); `lib/near/public-rpc.js` (a plain `fetch` read of a transaction: dRPC, FastNear, then FastNear archival); `lib/near/rpc-urls.js` (the URLs, without zod); `lib/near/explorer.js` (`PUBLIC_EXPLORER_URL`, `explorerNftUrl`); `services/race.service.js` (`commitTx` on `GET /api/races/[id]`); `tests/client/race-verify.test.js`.
+  - Drone page: `app/drones/[droneId]/OnChainPanel.jsx` (and its CSS module), at the end of the Drone card: token link, owner account link, XP bar.
+  - `SPEC.md` 8 and 11, `README.md` (try-it step 9, the security row, the "no verify button" line removed), `DECISIONS.md` 5.52.
+- Verified:
+  - `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 38 files passed, 1 skipped, 279 tests passed, 1 skipped; `npm run build` exit 0. After that run one JSX prop changed (below); the build and the walk were repeated.
+  - Walk in headless Firefox against `next start` on this branch with production data, read-only, with a local `AUTH_SECRET` used only for that server and a session for an existing demo account; no request other than GET reached the app. At 1440 and 390 px: race `eff18638` (recent, read from dRPC) and race `01dd0e0f` (slot 9966282, 2026-11-05, read from the FastNear archival node): all 7 checks pass on both (an eighth, added after the walk, is confirmed by a read of a real race through `verifyRaceOnChain`), no horizontal overflow. Drone `d:55` and bot `d:45`: token, owner (the game contract for the bot) and XP bar render. The only console error is `/_vercel/insights/script.js` 404, which exists only on Vercel.
+  - The first walk failed the log check: the page passes the log as display rows (`asRaced`), and the panel had that object. The panel now gets the API body.
+- Open:
+  - The NFT link's testnet form is unconfirmed: NearBlocks answered a headless browser with a Cloudflare 403. The path is the one NearBlocks uses on mainnet, so one manual click is worth doing.
+
 ## 2026-11-08 T17 Dashboard matchup card: edge, mod swap, lock
 
 - Changed:
