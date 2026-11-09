@@ -205,6 +205,31 @@ describe.skipIf(!dbEnabled)('scheduler ticks', () => {
     expect((await verifyRace(randomUUID(), { db })).status).toBe(404);
   });
 
+  it('a drone moved to a wallet on chain is not committed and its cache row is synced', async () => {
+    const { near, slot, tick } = await world();
+    const left = await racer(near);
+    await racer(near);
+    await racer(near);
+    const wallet = 'alice.testnet';
+    near.mock.chain.drones.set(left.token, {
+      .../** @type {NonNullable<ReturnType<typeof near.mock.chain.drones.get>>} */ (
+        near.mock.chain.drones.get(left.token)
+      ),
+      owner: wallet,
+    });
+
+    const committed = await tick();
+    expect(committed.commit).toMatchObject({ slot, races: 1 });
+    const [call] = settlementCalls(near, 'commit_batch');
+    const racing = /** @type {{ a: string, b: string }[]} */ (call.args.matchups).flatMap((m) => [
+      m.a,
+      m.b,
+    ]);
+    expect(racing).not.toContain(left.token);
+    const row = await droneRow(left.drone.id);
+    expect(row).toMatchObject({ userId: null, active: false, inBatch: null });
+  });
+
   it('settles due batches but commits nothing while racing is paused', async () => {
     const { near, slot, tick } = await world();
     const a = await racer(near);

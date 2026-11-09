@@ -26,6 +26,7 @@ import {
   TransactionFailedError,
 } from '@/lib/near/errors.js';
 import { claimLease, releaseLease } from './action-lease.js';
+import { findAction, mismatch, reject, storedResponse } from './action-store.js';
 
 const { users, actions } = schema;
 
@@ -50,13 +51,6 @@ const NOT_APPLIED = 'This action did not go through. Try again.';
  * @property {string[]} [transient] extra panics that leave the row retryable (e.g. `too early`)
  * @typedef {{ db?: any, near?: import('@/lib/near').NearAdapter }} Deps
  */
-
-/**
- * @param {number} status
- * @param {string} error
- * @returns {ActionResponse}
- */
-const reject = (status, error) => ({ status, body: { error } });
 
 /**
  * Run one player action through the chain, idempotently by `actionId`.
@@ -318,57 +312,4 @@ function finish(ctx, httpStatus, error, txHash) {
  */
 async function update(ctx, set) {
   await ctx.db.update(actions).set(set).where(eq(actions.id, ctx.action.actionId));
-}
-
-/**
- * @param {any} db
- * @param {string} actionId
- * @returns {Promise<ActionRow | undefined>}
- */
-async function findAction(db, actionId) {
-  const [row] = await db.select().from(actions).where(eq(actions.id, actionId)).limit(1);
-  return row;
-}
-
-/**
- * A replayed action id must come from the same user with the same method and args.
- * @param {ActionRow} row
- * @param {PlayerAction} action
- * @returns {ActionResponse | null}
- */
-function mismatch(row, action) {
-  const same =
-    row.userId === action.userId &&
-    row.method === action.method &&
-    canonical(row.args) === canonical(action.recordArgs ?? action.args);
-  return same ? null : reject(409, 'This action id was already used for a different action.');
-}
-
-/**
- * JSON with sorted object keys (jsonb does not keep key order).
- * @param {unknown} value
- * @returns {string}
- */
-function canonical(value) {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  if (value && typeof value === 'object') {
-    const entries = Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
-  }
-  return JSON.stringify(value ?? null);
-}
-
-/**
- * The answer a finished action gave the first time.
- * @param {ActionRow} row
- * @returns {ActionResponse}
- */
-function storedResponse(row) {
-  if (row.status === 'applied') {
-    return {
-      status: row.httpStatus ?? 200,
-      body: /** @type {Record<string, unknown>} */ (row.result ?? { actionId: row.id }),
-    };
-  }
-  return reject(row.httpStatus ?? 422, row.error ?? 'The game rejected this action.');
 }

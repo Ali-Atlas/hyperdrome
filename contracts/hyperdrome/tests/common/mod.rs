@@ -3,6 +3,7 @@
 
 pub mod batches;
 mod outcome;
+pub mod wallet;
 
 use std::sync::{Arc, OnceLock};
 

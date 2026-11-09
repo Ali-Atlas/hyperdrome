@@ -27,6 +27,12 @@ const GAS_FOR_RESOLVE_TRANSFER: Gas = Gas::from_tgas(20);
 const RESOLVE_RESULT_MAX_LEN: usize = "false".len();
 
 impl Contract {
+    /// How many token ids a transfer of `token_id` moves: 1, plus every item bound to a drone.
+    pub(crate) fn moved_count(&self, token_id: &TokenId) -> usize {
+        self.drone_cold(token_id)
+            .map_or(1, |cold| 1 + cold.bound_skins.len() + cold.bound_mods.len())
+    }
+
     /// The token plus, for a drone, every skin and mod bound to it.
     fn tokens_moving_with(&self, token_id: &TokenId) -> Vec<TokenId> {
         let mut tokens = vec![token_id.clone()];

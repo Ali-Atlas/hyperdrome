@@ -84,6 +84,23 @@ pub enum Event {
     #[event_version("1.0.0")]
     PackOpened { pack_id: u64, tokens: Vec<String> },
     #[event_version("1.0.0")]
+    WalletLinked {
+        player: AccountId,
+        wallet: AccountId,
+    },
+    #[event_version("1.0.0")]
+    WalletUnlinked {
+        player: AccountId,
+        wallet: AccountId,
+    },
+    #[event_version("1.0.0")]
+    Withdrawn {
+        player: AccountId,
+        wallet: AccountId,
+        tokens: Vec<String>,
+        volts: U128,
+    },
+    #[event_version("1.0.0")]
     BatchCommitted { batch_id: u64, count: u32 },
     #[event_version("1.0.0")]
     BatchAborted { batch_id: u64, count: u32 },

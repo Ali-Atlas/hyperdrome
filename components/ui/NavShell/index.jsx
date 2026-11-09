@@ -11,6 +11,7 @@ import {
   Map,
   Trophy,
   Store,
+  Wallet,
   BookOpen,
   HelpCircle,
   Menu,
@@ -32,6 +33,8 @@ const NAV_LINKS = [
   { href: '/tracks', label: 'Tracks', Icon: Map },
   { href: '/leaderboard', label: 'Leaderboard', Icon: Trophy },
   { href: '/marketplace', label: 'Marketplace', Icon: Store },
+  // A full document load: the page's Content-Security-Policy applies per document (SPEC.md 8).
+  { href: '/wallet', label: 'Wallet', Icon: Wallet, documentLoad: true },
   { href: '/guide', label: 'Guide', Icon: BookOpen },
   { href: '/faq', label: 'FAQ', Icon: HelpCircle },
 ];
@@ -52,8 +55,16 @@ export default function NavShell({ children }) {
   const { balance: displayBalance, loading: balanceLoading } = useVoltBalance();
 
   const renderLinks = () =>
-    NAV_LINKS.map(({ href, label, Icon }) => {
+    NAV_LINKS.map(({ href, label, Icon, documentLoad }) => {
       const active = pathname === href || pathname?.startsWith(`${href}/`);
+      if (documentLoad) {
+        return (
+          <a key={href} href={href} className={cn(styles.link, active && styles.linkActive)}>
+            <Icon size={18} aria-hidden="true" />
+            <span>{label}</span>
+          </a>
+        );
+      }
       return (
         <Link
           key={href}
