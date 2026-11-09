@@ -1430,7 +1430,7 @@ function RaceStrategyView({ race, upcomingList, onSwapToRace }) {
         </div>
         <div className={styles.raceBottomGrid}>
           <RaceTrackCard race={race} />
-          <RaceEdgeCard leftDrone={leftDrone} rightDrone={rightDrone} />
+          <RaceEdgeCard leftDrone={leftDrone} rightDrone={rightDrone} race={race} />
         </div>
       </div>
     </NavShell>
@@ -1866,7 +1866,7 @@ function RaceTrackCard({ race }) {
 /** Race-edge container: Strengths / Gaps / Win Probability for the
  *  perspective drone (the favorite, named in the header). Sits to the
  *  right of the track at >=768px and stacks beneath at <768px. */
-function RaceEdgeCard({ leftDrone, rightDrone }) {
+function RaceEdgeCard({ leftDrone, rightDrone, race }) {
   if (!leftDrone || !rightDrone) {
     return (
       <section className={styles.raceEdgeCard}>
@@ -1877,7 +1877,15 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
       </section>
     );
   }
-  const { viewer, opponent, viewerElo, oppElo, prob } = computeRaceEdge(leftDrone, rightDrone);
+  const { viewer, opponent, viewerElo, oppElo, prob } = computeRaceEdge(
+    { ...leftDrone, modTemplate: leftDrone.appliedMod?.template },
+    { ...rightDrone, modTemplate: rightDrone.appliedMod?.template },
+    {
+      track: race.track,
+      weather: race.conditions?.weather ?? race.weather,
+      timeOfDay: race.conditions?.timeOfDay ?? race.timeOfDay,
+    }
+  );
   // Every stat where the perspective drone is higher or lower, with its label.
   const { strengths, gaps: gapDeltas } = statDeltas(viewer, opponent);
   /** @param {{ stat: string, delta: number }} d */

@@ -23,6 +23,7 @@ import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
 import VoltIcon from '@/components/ui/VoltIcon';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import { lockInstantMs } from '@/lib/client/server-clock';
 import { useUpcomingRaces } from '@/lib/upcoming-races-store';
 import styles from './NavShell.module.css';
 
@@ -349,11 +350,10 @@ function CountdownBar() {
   // back a fresh future timestamp - prevents the visible MM:SS from
   // jumping at 00:00 with stale data while the server catches up.
   const batchExpired = batchAt != null && batchAt <= now;
-  // The mod-lock target: the committed batch's `lockAt` from /api/races/upcoming when the
+  // The mod-lock target: when the panel closes the swap (`lockInstantMs`, the shared lead), from the
+  // committed batch's `lockAt` from /api/races/upcoming when the
   // viewer has a race in it, else derived from the same next-race timestamp.
-  const upcomingLockAt = upcomingRaces[0]?.lockAt
-    ? new Date(upcomingRaces[0].lockAt).getTime()
-    : null;
+  const upcomingLockAt = upcomingRaces[0]?.lockAt ? lockInstantMs(upcomingRaces[0].lockAt) : null;
   const strategyLockAt =
     upcomingLockAt ?? (batchAt != null ? batchAt - STRATEGY_LOCK_LEAD_MS : null);
   const strategyLockExpired = strategyLockAt != null && strategyLockAt <= now;

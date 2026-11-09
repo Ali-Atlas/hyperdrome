@@ -158,7 +158,7 @@ function NextRaceMatchup({ race, locked }) {
     () =>
       race.track
         ? {
-            track: { straights: race.track.straights, turns: race.track.turns },
+            track: race.track,
             weather: race.conditions?.weather,
             timeOfDay: race.conditions?.timeOfDay,
           }
@@ -173,9 +173,13 @@ function NextRaceMatchup({ race, locked }) {
       edgeSide(opponent, opponent.appliedMod?.template),
       fitRace
     );
-    const own = { ...userDrone.stats, eloRating: userDrone.elo };
-    const other = { ...opponent.stats, eloRating: opponent.elo };
-    const favorite = computeRaceEdge(own, other);
+    const own = { ...userDrone.stats, eloRating: userDrone.elo, modTemplate: equipped?.template };
+    const other = {
+      ...opponent.stats,
+      eloRating: opponent.elo,
+      modTemplate: opponent.appliedMod?.template,
+    };
+    const favorite = computeRaceEdge(own, other, fitRace);
     const ownProb = favorite.viewer === own ? favorite.prob : 1 - favorite.prob;
     const ownDeltas = statDeltas(own, other);
     return {
