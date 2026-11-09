@@ -26,7 +26,7 @@ What the call does:
 
 If the transaction's outcome is unknown the call throws `RpcUnknownOutcomeError` with the sealed new key attached as `pending`. Calling it again is safe: it deletes whichever play key is on the account and adds a new one.
 
-Callers: [services/team-seed.service.js](../../services/team-seed.service.js) only, which gives each AI team a play key with a 2 NEAR allowance ([seed-teams.md](seed-teams.md)). No route, script or admin command rotates a player's key; doing it for one player takes a one-off script that calls `rotatePlayKey` through `lib/near` and writes the two columns.
+Callers: [services/team-seed.service.js](../../services/team-seed.service.js) only, which gives each new AI team a play key with a 2 NEAR allowance ([seed-teams.md](seed-teams.md)). The four teams' keys were rotated to a 7 NEAR allowance on 2026-11-09 by a one-off script through `lib/near` (HANDOFF.md, T15c), and each account holds about 7 NEAR. No route, script or admin command rotates a player's key; doing it for one player takes a one-off script that calls `rotatePlayKey` through `lib/near` and writes the two columns.
 
 Record and tests:
 
@@ -45,7 +45,7 @@ Both are function-call keys. A function-call key's method list and allowance can
 
 | Key        | Account                   | Methods                                                                                                                      | Allowance | Env name              |
 | ---------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------- | --------------------- |
-| Settlement | `game.hyperdrome.testnet` | `commit_batch,settle_batch,abort_batch`                                                                                      | 5 NEAR    | `NEAR_SETTLEMENT_KEY` |
+| Settlement | `game.hyperdrome.testnet` | `commit_batch,settle_batch,abort_batch`                                                                                      | 30 NEAR   | `NEAR_SETTLEMENT_KEY` |
 | Ops        | `hyperdrome.testnet`      | `create_player,register_player,mint_drone,mint_item,mint_volts,set_team_budget,set_paused,set_base_uri,link_wallet,withdraw` | 10 NEAR   | `NEAR_OPS_KEY`        |
 
 Both keys call `game.hyperdrome.testnet`.
@@ -62,7 +62,7 @@ Use this when a key may have leaked. With a new public key the order is add, the
 2. Add the new key (settlement shown; for ops, the account is `hyperdrome.testnet`, the allowance `10 NEAR` and the ops method list):
 
    ```sh
-   near account add-key game.hyperdrome.testnet grant-function-call-access --allowance '5 NEAR' \
+   near account add-key game.hyperdrome.testnet grant-function-call-access --allowance '30 NEAR' \
      --contract-account-id game.hyperdrome.testnet --function-names 'commit_batch,settle_batch,abort_batch' \
      use-manually-provided-public-key "$NEW_PK" network-config testnet sign-with-legacy-keychain send
    ```
