@@ -43,10 +43,10 @@ near account list-keys <account> network-config testnet now
 
 Both are function-call keys. A function-call key's method list and allowance cannot be edited in place, so a change is always one key added and one deleted. Both actions are signed by the account's full-access key from the legacy keychain; the application never loads that key.
 
-| Key        | Account                   | Methods                                                                                                 | Allowance | Env name              |
-| ---------- | ------------------------- | ------------------------------------------------------------------------------------------------------- | --------- | --------------------- |
-| Settlement | `game.hyperdrome.testnet` | `commit_batch,settle_batch,abort_batch`                                                                 | 5 NEAR    | `NEAR_SETTLEMENT_KEY` |
-| Ops        | `hyperdrome.testnet`      | `create_player,register_player,mint_drone,mint_item,mint_volts,set_team_budget,set_paused,set_base_uri` | 10 NEAR   | `NEAR_OPS_KEY`        |
+| Key        | Account                   | Methods                                                                                                                      | Allowance | Env name              |
+| ---------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------- | --------------------- |
+| Settlement | `game.hyperdrome.testnet` | `commit_batch,settle_batch,abort_batch`                                                                                      | 5 NEAR    | `NEAR_SETTLEMENT_KEY` |
+| Ops        | `hyperdrome.testnet`      | `create_player,register_player,mint_drone,mint_item,mint_volts,set_team_budget,set_paused,set_base_uri,link_wallet,withdraw` | 10 NEAR   | `NEAR_OPS_KEY`        |
 
 Both keys call `game.hyperdrome.testnet`.
 

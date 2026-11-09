@@ -26,6 +26,7 @@ pub enum StorageKey {
     Packs,
     Teams,
     SkinMinted,
+    WalletLinks,
 }
 
 /// Kind of a non-drone token.

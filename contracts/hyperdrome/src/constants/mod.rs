@@ -69,6 +69,10 @@ pub const PACK_NAME_OFFSET: usize = 24;
 /// Pack odds are in basis points.
 pub const ODDS_SCALE_BP: u64 = 10_000;
 
+// Wallet withdrawals (SPEC.md 4.4 and 13).
+/// Most token ids one `withdraw` may move, each drone's bound items included.
+pub const MAX_WITHDRAW_TOKENS: u32 = 40;
+
 // AI teams (SPEC.md 2.10).
 pub const TEAM_COUNT: u8 = 4;
 pub const TEAM_DRONE_LEVELS: [u8; 3] = [4, 5, 8];

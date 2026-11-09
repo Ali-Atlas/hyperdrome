@@ -173,6 +173,7 @@ pub struct EconomyConstants {
     pub team_per_tx_cap: U128,
     pub team_per_day_cap: U128,
     pub team_reserve: U128,
+    pub max_withdraw_tokens: u32,
 }
 
 #[near(serializers = [json])]
@@ -301,6 +302,7 @@ impl Constants {
                 team_per_tx_cap: U128(TEAM_PER_TX_CAP),
                 team_per_day_cap: U128(TEAM_PER_DAY_CAP),
                 team_reserve: U128(TEAM_RESERVE),
+                max_withdraw_tokens: MAX_WITHDRAW_TOKENS,
             },
             mods: MODS.iter().map(ModTemplateView::from).collect(),
             skins: SKINS

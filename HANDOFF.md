@@ -25,6 +25,27 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
   - `app/page.jsx` exports its own `openGraph` without `url` or `images`, so `/` has no `og:url` or `og:image`; `twitter:image` is on the production domain. `app/sitemap.js` still names `hyperdrome.vercel.app`.
   - `task/T16-wallet` previews fail until that branch merges `main` (no Preview variables).
 
+## 2026-11-08 T16 Your wallet: link a NEAR wallet and withdraw to it
+
+- Changed:
+  - Contract: `src/wallet.rs` (`link_wallet`, `unlink_wallet`, `withdraw`), `VersionedState::V2` with `wallet_links` and `migrate` from V1, `get_wallet_link`, events `wallet_linked`, `wallet_unlinked`, `withdrawn`, `MAX_WITHDRAW_TOKENS` 40 (also in `get_constants().economy`). `tests/wallet.rs`, `tests/common/wallet.rs`, fixture `tests/fixtures/hyperdrome-t6b.wasm` (read from testnet with `view_code`, sha256 equals code hash `2ctpTSVNWEnpRFYuxcNjGSMhKL1YhwhsJ9TQrCmHL93D`).
+  - `lib/near`: `wallet-signature.js` (`verifyNep413` over near-api-js `verifyMessage`), `verifyWalletSignature` on both adapters, `callAsOps` takes `onSigned` and is not rebuilt when given one, `outcome.js` split from `adapter.js`, `mock-wallet.js` split from `mock-chain.js`.
+  - Server: `drizzle/0004_wallet_challenges.sql`, `services/wallet.service.js`, `wallet-sync.js`, `ops-action.service.js`, `action-store.js` (helpers moved out of `action.service.js`), routes under `app/api/wallet/`, `lib/validators/wallet.js`, 9 new panic strings in `lib/http/chain-errors.js`. `services/batch.service.js`: a drone whose chain owner is not its cached player (and is not in escrow) is not committed and its row is synced.
+  - Page: `app/wallet/` (`page.jsx`, `WalletView.jsx`, `AssetLists.jsx`, CSS module), `lib/client/wallet-connector.js`, `wallet-requests.js`, the Wallet link in NavShell (a plain anchor, so the page's policy applies), `lib/wallet/csp.js` and `proxy.js` for the `/wallet` Content-Security-Policy. `@hot-labs/near-connect` 0.12.0 pinned.
+  - Docs: SPEC 4, 6, 7, 8, 11, 13, 14, 15; DECISIONS 2.40 to 2.44 and 3.15; BUILD_PLAN T16; README try-it step 9, nfts and security rows, method table, test counts, the "cannot export or claim" sentence removed; key-rotation runbook; contract README.
+- Verified (`DATABASE_URL=postgresql://ci@127.0.0.1:54329/t16`, `NEAR_ADAPTER=mock`, after the review fixes):
+  - `npm run lint`, `npm run format:check`, `npm run typecheck` exit 0; `npm test` 35 files passed, 1 skipped, 265 tests passed, 1 skipped (the gated testnet run); `npm run build` exit 0; `npm audit --audit-level=high` exit 0 (13 moderate, all dev tooling).
+  - `cargo test` 43 unit and 27 sandbox tests passed; `cargo clippy --target wasm32-unknown-unknown` and `--all-targets` with `-D warnings` clean; `cargo fmt --check` clean.
+  - Sandbox measurements: `link_wallet` 2.7 TGas and 162 bytes of storage, `unlink_wallet` 2.5 TGas, `withdraw` of a drone with 2 bound items and Volts 7.0 TGas, 40 separate tokens plus Volts 73.5 TGas and 12,300 log bytes at testnet id widths (50 tokens: 91 TGas, 15,260 bytes, over the log budget).
+  - Headless Firefox 132 against `next build` and `next start` with the mock adapter: reached `/wallet` through the Wallet link; the document has the script nonce and the policy; NEAR Connect fetched the live manifest and listed Meteor, Intear, Ledger, Nightly and NEAR CLI; each wallet's executor ran in its iframe with no CSP violation. No wallet signed anything: there is no wallet extension in this browser.
+  - Fresh-context review (ENGINEERING 3 DoD 6). Fixed: an ops call could be rebuilt after InvalidNonce when the hash lookup failed, which could withdraw Volts twice (a call with `onSigned` is no longer rebuilt and is resolved from its hash); the CSP was skipped on client-side navigation; SPEC 14 overclaimed for a compromised server; a claimed challenge never expired; a failed wallet-signed transaction or sync still showed success; RPC failures answered 500; four files over 400 lines.
+- Open:
+  - The testnet rollout has not run (it waits for the user's go): pause racing, wait until no batch is committed, deploy with `migrate`, change the ops key, apply migration 0004 to the hosted database, one link and one withdraw with a fresh demo player, racing back on. Until the contract is upgraded, `get_wallet_link` does not exist on testnet and `/api/wallet` answers 503. The README's code hash and ops method count are updated by that rollout (the method count already reads 10).
+  - ENGINEERING's one testnet integration run for the adapter change is part of that rollout.
+  - The browser walk with a real wallet extension is the user's. Whether every wallet returns a NEP-413 signature in base64, and rejects or resolves on a contract panic, is not established.
+  - The acceptance list went into the PR description when the PR was opened, not before coding as AGENTS.md asks.
+  - A wallet withdrawal that lands between the commit phase's read and `commit_batch` still races once (SPEC 6). A drone with more than 39 bound items cannot be withdrawn (SPEC 13). The mock's `withdraw` has no listing or token-limit rules; the sandbox tests cover those.
+
 ## 2026-11-08 T14 README and runbooks: merge of main (T9b), last document fixes
 
 - Changed:

@@ -12,10 +12,11 @@ import { botsNeeded, groupByBracket, matchDronesInBracket } from '@/lib/game-eng
 import { TIME_OF_DAY, WEATHER } from '@/lib/game-engine/race-simulator.js';
 import { tracksForLevel } from '@/lib/game-engine/tracks.js';
 import { ContractPanicError } from '@/lib/near';
+import { applyEvents } from './chain-cache.service.js';
 import { conditionIndexes, toBytes, toHex } from './race-replay.js';
 import { resolveDeps, slotStartMs } from './scheduler-deps.js';
 
-const { drones, tracks, batches, races } = schema;
+const { drones, tracks, batches, races, users } = schema;
 
 /** @typedef {import('./scheduler-deps.js').Deps} Deps */
 /** @typedef {typeof drones.$inferSelect} DroneRow */
@@ -145,10 +146,7 @@ async function makeMatchups(db, near) {
     .from(drones)
     .where(and(eq(drones.isBot, true), isNotNull(drones.tokenId)))
     .orderBy(drones.totalRaces, drones.id);
-  const free = await freeTokens(
-    near,
-    [...players, ...bots].map((d) => String(d.tokenId))
-  );
+  const free = await freeTokens(near, db, players, bots);
   /** @param {DroneRow} d */
   const isFree = (d) => free.has(String(d.tokenId));
   const buckets = groupByBracket(players.filter(isFree));
@@ -180,21 +178,65 @@ async function makeMatchups(db, near) {
 }
 
 /**
- * The tokens whose on-chain `in_batch` is null, read with `get_drones` in chunks.
+ * The tokens free to race: on-chain `in_batch` is null and, for player drones, the chain still has
+ * them with their cached player (a listed drone is in escrow and keeps racing). A drone that left
+ * for a linked wallet is not committed and its cache row is synced (SPEC.md 6).
  * @param {import('@/lib/near').NearAdapter} near
- * @param {string[]} tokens
+ * @param {any} db
+ * @param {DroneRow[]} players
+ * @param {DroneRow[]} bots
  * @returns {Promise<Set<string>>}
  */
-async function freeTokens(near, tokens) {
+async function freeTokens(near, db, players, bots) {
+  const ownerIds = [...new Set(players.flatMap((d) => (d.userId ? [d.userId] : [])))];
+  /** @type {{ id: string, nearAccountId: string | null }[]} */
+  const owners =
+    ownerIds.length > 0
+      ? await db
+          .select({ id: users.id, nearAccountId: users.nearAccountId })
+          .from(users)
+          .where(inArray(users.id, ownerIds))
+      : [];
+  const accountOf = new Map(owners.map((u) => [u.id, u.nearAccountId]));
+  const expected = new Map(
+    players.map((d) => [String(d.tokenId), accountOf.get(String(d.userId)) ?? null])
+  );
+  const tokens = [...players, ...bots].map((d) => String(d.tokenId));
   const free = new Set();
+  /** @type {{ token: string, owner: string, bound: string[] }[]} */
+  const moved = [];
   for (let i = 0; i < tokens.length; i += VIEW_CHUNK) {
     const chunk = tokens.slice(i, i + VIEW_CHUNK);
-    const views = /** @type {({ hot: { in_batch: number | null } } | null)[]} */ (
-      await near.view('get_drones', { tokens: chunk })
-    );
+    const views =
+      /** @type {({ owner: string, listed: boolean, hot: { in_batch: number | null }, cold: { bound_skins: string[], bound_mods: string[] } } | null)[]} */ (
+        await near.view('get_drones', { tokens: chunk })
+      );
     chunk.forEach((token, j) => {
-      if (views[j] && views[j].hot.in_batch === null) free.add(token);
+      const view = views[j];
+      if (!view) return;
+      const account = expected.get(token);
+      if (account && view.owner !== account && !(view.owner === near.gameId && view.listed)) {
+        moved.push({
+          token,
+          owner: view.owner,
+          bound: [...view.cold.bound_skins, ...view.cold.bound_mods],
+        });
+        return;
+      }
+      if (view.hot.in_batch === null) free.add(token);
     });
+  }
+  if (moved.length > 0) {
+    await applyEvents(
+      moved.map((m) => ({
+        standard: 'nep171',
+        version: '1.0.0',
+        event: 'nft_transfer',
+        data: [{ new_owner_id: m.owner, token_ids: [m.token, ...m.bound] }],
+        receiptId: 'commit-owner-sync',
+      })),
+      { db, near }
+    );
   }
   return free;
 }
