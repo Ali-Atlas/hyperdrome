@@ -8,7 +8,7 @@ export const metadata = {
   title: 'Hyperdrome | Drone Racing Strategy Game',
   description:
     'Level drones, equip skins and mods, race every 3 minutes via ELO matchmaking, trade on a player-driven marketplace.',
-  metadataBase: new URL('https://hyperdrome.vercel.app'),
+  metadataBase: new URL('https://hyperdrome-near.vercel.app'),
   /* Favicon: Next.js auto-generates the <link rel="icon"> tag from
      `app/icon.svg` (the file-convention path for SVG icons). The
      `favicon` filename convention is .ico only - using .svg under
@@ -17,7 +17,7 @@ export const metadata = {
     title: 'Hyperdrome | Drone Racing Strategy Game',
     description:
       'Level drones, equip skins and mods, race every 3 minutes via ELO matchmaking, trade on a player-driven marketplace.',
-    url: 'https://hyperdrome.vercel.app',
+    url: 'https://hyperdrome-near.vercel.app',
     siteName: 'Hyperdrome',
     type: 'website',
     images: [
