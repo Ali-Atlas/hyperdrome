@@ -46,6 +46,7 @@ Tests go where a bug costs money, is invisible, or cannot be fixed after the fac
 - Scheduler: cannot double-fire a tick; cannot settle a batch twice; a failed phase leaves the batch retryable.
 - Zod schemas for every mutation body, unit-tested.
 - One end-to-end smoke script on testnet (create account, allocate, equip, enter a batch, settle, verify on-chain state and the explorer link), run before every deploy and recorded in HANDOFF.md.
+- Exception to the smoke timing: Neon `dev` and `prod` share the contract, so the smoke runs against production after the merge (DECISIONS.md 5.47).
 
 ### Not required
 
@@ -71,6 +72,7 @@ Assets: player items and Volts, the treasury, the settlement authority, player k
 - Least privilege everywhere. Player keys: function-call only, scoped to the game contract and the listed methods, zero deposit. Settlement key: `commit_batch`, `settle_batch` and `abort_batch` only. AI-team keys: scoped like player keys, with on-chain spend caps. Full-access keys: deploys and account administration only, never loaded by application code, with one named exception: `lib/near` `rotatePlayKey` opens a player's admin key for a single DeleteKey + AddKey transaction that replaces that player's play key (DECISIONS.md 2.22).
 - Player secret keys are encrypted at rest with AES-256-GCM under `KEY_ENCRYPTION_KEY`; admin keys under a separate `ADMIN_KEY_ENCRYPTION_KEY`. Both are Vercel encrypted env vars. Rotation runbook in `docs/runbooks/key-rotation.md`: for a play key, one transaction deletes the old key and adds the new one (`rotatePlayKey`; tested in CI against a fake RPC in `tests/near/adapter-keys.test.js` and on testnet by the gated integration test). Neither encryption key can be replaced without re-sealing what it sealed, and no code does that.
 - Every environment (local, preview, production) has its own NEAR accounts, database, Pusher app and secrets. Nothing is shared with the MegaETH deployment or the live hyperdrome.vercel.app database.
+- Exception to separate environments: Neon `dev` and `prod` share the testnet contract and its keys (DECISIONS.md 5.47).
 
 ### Contract checklist (reviewed before every deploy)
 
