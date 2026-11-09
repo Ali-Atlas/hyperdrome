@@ -1,17 +1,17 @@
 import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 
-const { users, drones, skins, seasons, races } = schema;
+const { users, drones, skins, seasons, races, teams } = schema;
 
 /* -------------------------------------------------------------------------- */
 /* Players                                                                    */
 /* -------------------------------------------------------------------------- */
 
 const PLAYER_SORT_COLS = {
-  elo:            users.eloRating,
-  wins:           users.totalWins,
-  season_points:  users.seasonPoints,
-  total_races:    users.totalRaces,
+  elo: users.eloRating,
+  wins: users.totalWins,
+  season_points: users.seasonPoints,
+  total_races: users.totalRaces,
 };
 
 /* Lifetime "earned" volts for a player: current wallet balance plus
@@ -36,12 +36,7 @@ const PLAYER_EARNED_VOLTS_SQL = sql`(${users.points} + COALESCE((
  * @param {object} [options]
  * @param {'asc'|'desc'} [options.sortOrder='desc']
  */
-export async function getPlayerLeaderboard(
-  sortBy = 'elo',
-  limit = 50,
-  offset = 0,
-  options = {},
-) {
+export async function getPlayerLeaderboard(sortBy = 'elo', limit = 50, offset = 0, options = {}) {
   const sortOrder = options.sortOrder === 'asc' ? 'asc' : 'desc';
   const dir = sortOrder === 'asc' ? asc : desc;
 
@@ -73,7 +68,7 @@ export async function getPlayerLeaderboard(
       .where(gte(users.totalRaces, 1))
       .orderBy(
         sortOrder === 'asc' ? sql`${winRateExpr} ASC` : sql`${winRateExpr} DESC`,
-        asc(users.id),
+        asc(users.id)
       )
       .limit(limit)
       .offset(offset);
@@ -99,10 +94,10 @@ export async function getPlayerLeaderboard(
 /* -------------------------------------------------------------------------- */
 
 const DRONE_SORT_COLS = {
-  elo:         drones.eloRating,
-  wins:        drones.wins,
+  elo: drones.eloRating,
+  wins: drones.wins,
   total_races: drones.totalRaces,
-  level:       drones.level,
+  level: drones.level,
 };
 
 /* Lifetime volts earned BY this drone across completed races. Winner
@@ -196,12 +191,7 @@ const RATING_SQL = sql`ROUND(
  * @param {[number, number]} [filters.bracket]   inclusive level range, e.g. [6, 10]
  * @param {'asc'|'desc'} [filters.sortOrder='desc']
  */
-export async function getDroneLeaderboard(
-  sortBy = 'elo',
-  limit = 50,
-  offset = 0,
-  filters = {},
-) {
+export async function getDroneLeaderboard(sortBy = 'elo', limit = 50, offset = 0, filters = {}) {
   const { includeBots = false, bracket } = filters;
   const sortOrder = filters.sortOrder === 'asc' ? 'asc' : 'desc';
   const dir = sortOrder === 'asc' ? asc : desc;
@@ -230,12 +220,14 @@ export async function getDroneLeaderboard(
     rating: RATING_SQL,
     earned: DRONE_EARNED_VOLTS_SQL,
     seasonEarned: DRONE_SEASON_EARNED_VOLTS_SQL,
+    teamName: teams.name,
   };
 
   const shape = (rows) =>
-    rows.map(({ drone, appliedSkin, rating, earned, seasonEarned }) => ({
+    rows.map(({ drone, appliedSkin, rating, earned, seasonEarned, teamName }) => ({
       ...drone,
       appliedSkin,
+      teamName,
       rating: rating != null ? Number(rating) : null,
       earned: earned != null ? Number(earned) : 0,
       seasonEarned: seasonEarned != null ? Number(seasonEarned) : 0,
@@ -251,6 +243,7 @@ export async function getDroneLeaderboard(
       })
       .from(drones)
       .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
+      .leftJoin(teams, eq(teams.userId, drones.userId))
       .where(and(...conditions))
       .orderBy(sortOrder === 'asc' ? sql`${winRateExpr} ASC` : sql`${winRateExpr} DESC`)
       .limit(limit)
@@ -269,13 +262,12 @@ export async function getDroneLeaderboard(
   // sort keys map through DRONE_SORT_COLS to a literal column.
   let orderClause;
   if (sortBy === 'rating') {
-    orderClause = sortOrder === 'asc'
-      ? sql`${RATING_SQL} ASC`
-      : sql`${RATING_SQL} DESC`;
+    orderClause = sortOrder === 'asc' ? sql`${RATING_SQL} ASC` : sql`${RATING_SQL} DESC`;
   } else if (sortBy === 'earned') {
-    orderClause = sortOrder === 'asc'
-      ? sql`${DRONE_EARNED_VOLTS_SQL} ASC`
-      : sql`${DRONE_EARNED_VOLTS_SQL} DESC`;
+    orderClause =
+      sortOrder === 'asc'
+        ? sql`${DRONE_EARNED_VOLTS_SQL} ASC`
+        : sql`${DRONE_EARNED_VOLTS_SQL} DESC`;
   } else {
     orderClause = dir(DRONE_SORT_COLS[sortBy] ?? drones.eloRating);
   }
@@ -284,6 +276,7 @@ export async function getDroneLeaderboard(
     .select(baseSelect)
     .from(drones)
     .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
+    .leftJoin(teams, eq(teams.userId, drones.userId))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(orderClause)
     .limit(limit)
@@ -318,17 +311,13 @@ export async function getUserRank(userId) {
     .from(users)
     .where(
       sql`${users.eloRating} > ${row.eloRating}
-        OR (${users.eloRating} = ${row.eloRating} AND ${users.id} < ${userId})`,
+        OR (${users.eloRating} = ${row.eloRating} AND ${users.id} < ${userId})`
     );
   return (count?.count ?? 0) + 1;
 }
 
 /** Currently active season. */
 export async function getSeasonInfo() {
-  const [row] = await db
-    .select()
-    .from(seasons)
-    .where(eq(seasons.isActive, true))
-    .limit(1);
+  const [row] = await db.select().from(seasons).where(eq(seasons.isActive, true)).limit(1);
   return row ?? null;
 }

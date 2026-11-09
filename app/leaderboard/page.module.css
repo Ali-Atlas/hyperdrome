@@ -66,7 +66,7 @@
 }
 
 .seasonRemainingValue {
-  color: var(--podium-gold, #FFD700);
+  color: var(--podium-gold, #ffd700);
   font-weight: var(--font-bold);
 }
 
@@ -92,11 +92,7 @@
 
 .progressFill {
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 215, 0, 0.9),
-    rgba(255, 176, 0, 1)
-  );
+  background: linear-gradient(90deg, rgba(255, 215, 0, 0.9), rgba(255, 176, 0, 1));
   box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
   transition: width var(--duration-normal) var(--ease-out);
 }
@@ -104,7 +100,7 @@
 .progressPct {
   font-family: var(--font-mono);
   font-size: 9px;
-  color: var(--podium-gold, #FFD700);
+  color: var(--podium-gold, #ffd700);
   font-weight: var(--font-bold);
   letter-spacing: 0.05em;
   flex-shrink: 0;
@@ -169,7 +165,7 @@
   border-color: rgba(255, 215, 0, 0.3);
 }
 .rewardThumbPoints svg {
-  color: #FFD700;
+  color: #ffd700;
 }
 
 .rewardThumbTitles {
@@ -341,7 +337,7 @@
 
 .gold .podiumRankLabel,
 .gold .podiumTrophy {
-  color: #FFD700;
+  color: #ffd700;
 }
 
 .silver {
@@ -350,7 +346,7 @@
 
 .silver .podiumRankLabel,
 .silver .podiumTrophy {
-  color: #C8C8C8;
+  color: #c8c8c8;
 }
 
 .bronze {
@@ -359,7 +355,7 @@
 
 .bronze .podiumRankLabel,
 .bronze .podiumTrophy {
-  color: #D08843;
+  color: #d08843;
 }
 
 /* Legendary skin on a podium drone: constant colored border (1px ring,
@@ -417,7 +413,7 @@
       color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 8%, transparent) 0%,
       color-mix(in srgb, var(--legendary-glow-1, rgba(255, 255, 255, 0.6)) 2%, transparent) 100%
     ),
-    var(--legendary-bg, #0A0A0A);
+    var(--legendary-bg, #0a0a0a);
   border-radius: calc(var(--radius-lg) - 2px);
   z-index: -1;
   pointer-events: none;
@@ -621,6 +617,23 @@
   min-width: 0;
 }
 
+.droneCell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.teamBadge {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .levelSuffix {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -788,13 +801,7 @@
     scroll-padding-inline: 12.5vw;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    mask-image: linear-gradient(
-      to right,
-      transparent 0%,
-      black 15%,
-      black 85%,
-      transparent 100%
-    );
+    mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
     -webkit-mask-image: linear-gradient(
       to right,
       transparent 0%,
