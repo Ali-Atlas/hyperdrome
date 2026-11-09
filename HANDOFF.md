@@ -16,6 +16,7 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
   - Screenshots at 390, 430 and 1440 px, on the assets branch linked from the PR.
 - Open:
   - Minted and burned miss what the server never sees (SPEC 8): an unknown `settle_batch` or `mint_volts` outcome, a near-cli `mint_volts`, and a holder's own `storage_unregister` force burn or `ft_resolve_transfer` burn.
+  - Migration 0005 must be applied to the production database before this merges (docs/runbooks/deploy.md): nothing runs migrations on deploy, and until it is applied `/api/live` answers 503.
   - The record starts when the table does, so the first UTC day's numbers cover only the time since then.
   - Neon dev is not migrated to 0005: `/api/live` answers 503 on a server backed by dev until it is. Recording logs and carries on.
   - No ticker motion: the landing page has no CSS motion. At 768 px and below the strip shows one result.
