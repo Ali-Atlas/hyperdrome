@@ -2,6 +2,26 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-09 T21 Economy page
+
+- Changed:
+  - Data: `drizzle/0006_economy.sql` (additive: `team_decisions`, `economy_snapshots`), `lib/db/schema-gameplay.js`. `lib/teams/explain.js` (`explainPlan`, `planNumbers`, pure), `lib/teams/policy.js` (`TEAM_RULES`, `STEPS` derived from it, `fitOf` exported), `services/team-decisions.js` and `services/teams.service.js` (a decision row before each new send, its outcome after), `services/economy-snapshot.js` and `services/scheduler.service.js` (one snapshot at the end of every tick whose phases ran, 7-day prune in the same call), `lib/economy/history.js`, `services/live.service.js` (`todayNumbers` exported).
+  - Read: `GET /api/economy` (`app/api/economy/route.js`, `services/economy.service.js`), public, cached 30 s.
+  - Page: `app/economy/` (`page.jsx`, `EconomyView.jsx`, `EconomyChart.jsx`, CSS module), `lib/economy/series.js`. Inline SVG charts like the race page's gap chart; no chart library.
+  - Links in: `app/leaderboard/page.jsx` and its CSS (the drone table's team badges link to `/economy#<slug>`), `app/LiveStrip.jsx` ("Watch the economy").
+  - SPEC 6, 7, 8, 10, 11; DECISIONS 5.56; BUILD_PLAN T21. Tests: `tests/teams/explain.test.js`, `tests/economy/snapshot.test.js`.
+- Verified:
+  - `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 42 files passed, 1 skipped, 319 tests passed, 1 skipped; `npm run build` exit 0.
+  - Decision rows written by the real runner in the team test suites (local Postgres, mock adapter), read before the suites' cleanup: equip, buy, allocate and capsule rows with their reasons, statuses and hashes.
+  - Migration 0006 applied on 2026-11-09 to Neon `dev`, then to Neon `prod` (6 to 7 migrations, both tables present and empty); production health ok, racing on, before and after.
+  - Read-only walk, headless Firefox, local `next start` of this branch on the production database (GET only, no page errors): `GET /api/economy` 200 with the cache header, 4 teams, 6 rules, limits 5,000 / 5,000 / 15,000, no rows yet (nothing deployed writes them before the merge). `/economy` has no horizontal overflow at 390, 430 and 1440. A table badge click opens `/economy#vortex` on the card. The landing call to action does not move; the strip gains one line at 390 and 430 (717 to 694 and 828 to 805 at the top; production today), none at 1440.
+  - Replay with a layout sample served in place of `/api/economy` (synthetic numbers, screenshots labelled): it reaches the middle of the window at 30 s and returns to now after 60 s; with reduced motion the step-through moves one hour per click and back to now.
+- Open:
+  - History starts at the deploy; nothing is backfilled.
+  - The route sends the newest 200 decisions, about the last 2.5 hours with all four teams acting, so earlier in the replay the cards show no decisions.
+  - The podium cards are links, so their badges are not linked (a link inside a link is invalid HTML).
+  - The landing page at 1440 already overflows by 16 px on production (a drone image in the collect section); not changed here.
+
 ## 2026-11-09 T19a Landing live strip
 
 - Changed:
