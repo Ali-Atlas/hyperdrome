@@ -8,7 +8,7 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
   - `lib/game-engine/race-edge.js` (new): `computeRaceEdge` and `statDeltas` moved from the race page, `trackScore` and `trackEdges` added; `STAT_LABELS` shared. `specialFit` exported from `mod-fit.js`. `tests/engine/race-edge.test.js`.
   - `app/dashboard/NextRacePanel.jsx` (moved out of `page.jsx`, with the edge line and the lock countdown), `ModSwap.jsx` (new), CSS in `page.module.css` (the drone image frame is 5 / 3, 16 / 9 at 480 px and below, so the panel keeps its height). `lib/client/server-clock.js` (new); `lib/upcoming-races-store.js` records the `Date` header.
   - `services/race-schedule.service.js`: `GET /api/races/upcoming` adds `commitExplorerUrl`, `appliedMod.tokenId` and `.template`, and `boundMods` on the viewer's own drones.
-  - SPEC 8 and 11, DECISIONS 5.49, BUILD_PLAN T17.
+  - SPEC 8 and 11, DECISIONS 5.50, BUILD_PLAN T17.
 - Verified:
   - `npm run lint`, `npm run format:check`, `npm run typecheck` exit 0; `npm test` 38 files passed, 1 skipped, 281 tests passed, 1 skipped; `npm run build` exit 0; `npm audit --audit-level=high` exit 0.
   - Browser walk, headless Firefox 132, against a local `next start` of this branch on the production database (user's Option D; the hosted cron was the only scheduler and nothing called `/api/races/run`). Player `p-pilot2tql.game.hyperdrome.testnet`, drone `d:61`, race `656d1b23-7925-4efb-98af-76a50a223862`:
