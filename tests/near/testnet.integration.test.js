@@ -62,6 +62,38 @@ async function accessKeys(accountId) {
   return (await res.json()).result.keys;
 }
 
+/** How long a read may take to show a write: the adapter answers at `EXECUTED`, before `final`. */
+const READ_AFTER_WRITE_TIMEOUT_MS = 15_000;
+
+/**
+ * Re-reads until `ready` accepts the value, for an on-chain read that follows a write. At the time
+ * limit it returns the last value, so the assertion names what is wrong, or rethrows the last error.
+ * @template T
+ * @param {() => Promise<T>} read
+ * @param {(value: T) => boolean} ready
+ * @returns {Promise<T>}
+ */
+async function afterWrite(read, ready) {
+  const deadline = Date.now() + READ_AFTER_WRITE_TIMEOUT_MS;
+  for (;;) {
+    /** @type {any} */
+    let value;
+    /** @type {unknown} */
+    let failure = null;
+    try {
+      value = await read();
+      if (ready(value)) return value;
+    } catch (err) {
+      failure = err;
+    }
+    if (Date.now() >= deadline) {
+      if (failure) throw failure;
+      return value;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+}
+
 describe.skipIf(!enabled)('chain adapter on testnet', () => {
   it(
     'creates a player, binds an item, maps a panic, rotates the play key and fails over',
@@ -74,19 +106,30 @@ describe.skipIf(!enabled)('chain adapter on testnet', () => {
       const { accountId } = created;
       report(`create_player ${accountId} ${near.explorerTx(created.txHash)}`);
       expect(accountId).toBe(`p-${slug}.${GAME}`);
-      expect(await near.view('get_player', { account: accountId })).toMatchObject({
+      expect(
+        await afterWrite(
+          () => near.view('get_player', { account: accountId }),
+          (player) => player !== null
+        )
+      ).toMatchObject({
         seq: 0,
         is_team: false,
       });
 
       // The bootstrap resolves an unknown create_player by hash under the owner (SPEC.md 12).
-      const resolved = await near.resolveOutcome(accountId, 0, created.txHash, { senderId: OWNER });
+      const resolved = await afterWrite(
+        () => near.resolveOutcome(accountId, 0, created.txHash, { senderId: OWNER }),
+        (outcome) => outcome.applied
+      );
       report(
         `resolveOutcome(create_player) applied=${resolved.applied} result=${JSON.stringify(resolved.applied && resolved.result)}`
       );
       expect(resolved).toMatchObject({ applied: true, result: true, txHash: created.txHash });
 
-      const keys = await accessKeys(accountId);
+      const keys = await afterWrite(
+        () => accessKeys(accountId),
+        (list) => list.length === 2
+      );
       report(`keys: ${JSON.stringify(keys.map((k) => [k.public_key, k.access_key.permission]))}`);
       expect(keys).toHaveLength(2);
       expect(keys.filter((k) => k.access_key.permission === 'FullAccess')).toHaveLength(1);
@@ -143,9 +186,17 @@ describe.skipIf(!enabled)('chain adapter on testnet', () => {
         drone: drone.result,
         item: mod.result,
       });
-      expect(await near.nextSeq(accountId)).toBe(2);
+      expect(
+        await afterWrite(
+          () => near.nextSeq(accountId),
+          (seq) => seq === 2
+        )
+      ).toBe(2);
       // A finished transaction's events read back by hash; a hash the chain never saw is null.
-      const readBack = await near.transactionEvents(bind.txHash, { senderId: accountId });
+      const readBack = await afterWrite(
+        () => near.transactionEvents(bind.txHash, { senderId: accountId }),
+        (events) => events !== null
+      );
       report(`transactionEvents(bind) events=${JSON.stringify(readBack?.map((e) => e.event))}`);
       expect(readBack).toEqual(bind.events);
       expect(await near.transactionEvents(UNSEEN_HASH)).toBeNull();
@@ -173,17 +224,30 @@ describe.skipIf(!enabled)('chain adapter on testnet', () => {
       });
       report(`rotatePlayKey keyVersion=${rotated.keyVersion} ${near.explorerTx(rotated.txHash)}`);
       expect(rotated.keyVersion).toBe(2);
-      const after = await accessKeys(accountId);
+      const after = await afterWrite(
+        () => accessKeys(accountId),
+        (list) =>
+          !list.some((k) => k.public_key === oldPlay) &&
+          list.some((k) => typeof k.access_key.permission === 'object')
+      );
       report(`keys after rotation: ${JSON.stringify(after.map((k) => k.public_key))}`);
       expect(after).toHaveLength(2);
       expect(after.map((k) => k.public_key)).not.toContain(oldPlay);
       const newPlay = after.find((k) => typeof k.access_key.permission === 'object');
       expect(newPlay?.access_key.permission.FunctionCall.allowance).toBe(String(allowance));
-      const balance = await near.accountBalance(accountId);
+      const balance = await afterWrite(
+        () => near.accountBalance(accountId),
+        (yocto) => yocto > 0n
+      );
       report(`accountBalance ${balance} yoctoNEAR`);
       expect(balance).toBeGreaterThan(0n);
       expect(balance).toBeLessThan(10n ** 23n);
-      expect(await near.view('get_player', { account: accountId })).toMatchObject({ seq: 1 });
+      expect(
+        await afterWrite(
+          () => near.view('get_player', { account: accountId }),
+          (player) => player?.seq === 1
+        )
+      ).toMatchObject({ seq: 1 });
 
       report(`account ${near.explorerAccount(accountId)}`);
     }
