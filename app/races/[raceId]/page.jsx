@@ -19,6 +19,7 @@ import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import TrackPlaceholder from '@/components/tracks/TrackPlaceholder';
 import { STAT_KEYS } from '@/lib/game-engine/economy.js';
+import { STAT_LABELS, computeRaceEdge, statDeltas } from '@/lib/game-engine/race-edge.js';
 import { asRaced } from '@/lib/client/race-view.js';
 import styles from './page.module.css';
 
@@ -60,17 +61,7 @@ function trackSlugFromName(name) {
   return (name ?? '').toLowerCase().trim().replace(/\s+/g, '-');
 }
 
-const RADAR_LABELS = {
-  speed: 'SPD',
-  turning: 'TRN',
-  acceleration: 'ACC',
-  durability: 'DUR',
-  nightVision: 'NV',
-  batteryCapacity: 'BAT',
-  rainHandling: 'RAIN',
-  windResistance: 'WIND',
-  consistency: 'CST',
-};
+const RADAR_LABELS = STAT_LABELS;
 
 function formatTimestamp(iso) {
   if (!iso) return '';
@@ -1872,39 +1863,6 @@ function RaceTrackCard({ race }) {
  *  `RaceEdgeCard` names the perspective drone explicitly so a viewer
  *  always sees whose strengths/gaps they're looking at.
  */
-/**
- * Compute the race-edge perspective and win probability from ELO
- * alone. Higher-prob drone is the favorite and becomes `viewer`; the
- * other drone is `opponent`. No ownership / left-side tiebreak: pure
- * ELO math. The card always renders "RACE EDGE" + the favorite's
- * name in the header, regardless of how close the probability is to
- * 50% - the prob number speaks for itself in the body.
- *
- * @returns {{ viewer: object, opponent: object,
- *             viewerElo: number, oppElo: number, prob: number }}
- */
-function computeRaceEdge(left, right) {
-  const lElo = left?.eloRating ?? 1000;
-  const rElo = right?.eloRating ?? 1000;
-  const leftProb = 1 / (1 + Math.pow(10, (rElo - lElo) / 400));
-  if (leftProb >= 0.5) {
-    return {
-      viewer: left,
-      opponent: right,
-      viewerElo: lElo,
-      oppElo: rElo,
-      prob: leftProb,
-    };
-  }
-  return {
-    viewer: right,
-    opponent: left,
-    viewerElo: rElo,
-    oppElo: lElo,
-    prob: 1 - leftProb,
-  };
-}
-
 /** Race-edge container: Strengths / Gaps / Win Probability for the
  *  perspective drone (the favorite, named in the header). Sits to the
  *  right of the track at >=768px and stacks beneath at <768px. */
@@ -1920,17 +1878,12 @@ function RaceEdgeCard({ leftDrone, rightDrone }) {
     );
   }
   const { viewer, opponent, viewerElo, oppElo, prob } = computeRaceEdge(leftDrone, rightDrone);
-  // All 9 stat deltas (perspective minus opponent). Ties (delta === 0)
-  // get filtered out per Captain spec; everything else lands in
-  // strengths (positive) or gaps (negative), no top-N cap so the user
-  // sees the full picture even on lopsided matchups.
-  const deltas = STAT_KEYS.map((k) => ({
-    stat: k,
-    label: RADAR_LABELS[k] ?? k,
-    delta: (viewer[k] ?? 0) - (opponent[k] ?? 0),
-  }));
-  const advantages = deltas.filter((d) => d.delta > 0).sort((a, b) => b.delta - a.delta);
-  const gaps = deltas.filter((d) => d.delta < 0).sort((a, b) => a.delta - b.delta);
+  // Every stat where the perspective drone is higher or lower, with its label.
+  const { strengths, gaps: gapDeltas } = statDeltas(viewer, opponent);
+  /** @param {{ stat: string, delta: number }} d */
+  const labelled = (d) => ({ ...d, label: RADAR_LABELS[d.stat] ?? d.stat });
+  const advantages = strengths.map(labelled);
+  const gaps = gapDeltas.map(labelled);
 
   // One decimal of precision so a slim ELO edge actually reads as an
   // edge ("50.3%") instead of rounding to a dead heat ("50%"). The

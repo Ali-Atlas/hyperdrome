@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Bot, Zap, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, X } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
 import Card from '@/components/ui/Card';
 import btnStyles from '@/components/ui/Button/Button.module.css';
@@ -11,26 +11,13 @@ import { getPendingToggle, usePendingToggleVersion } from '@/lib/pending-toggle'
 import DroneImage from '@/components/ui/DroneImage';
 import EmptyState from '@/components/ui/EmptyState';
 import Spinner from '@/components/ui/Spinner';
-import StatRadar from '@/components/ui/StatRadar';
-import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import ConditionPill from '@/components/ui/ConditionPill';
 import VoltIcon from '@/components/ui/VoltIcon';
 import { useSession } from '@/hooks/useSession';
 import { useUpcomingRaces } from '@/lib/upcoming-races-store';
 import BootstrapPanel from './BootstrapPanel';
+import NextRacePanel from './NextRacePanel';
 import styles from './page.module.css';
-
-const RADAR_AXES = [
-  'speed',
-  'turning',
-  'acceleration',
-  'durability',
-  'nightVision',
-  'batteryCapacity',
-  'rainHandling',
-  'windResistance',
-  'consistency',
-];
 
 const SPOTLIGHT_STATS = [
   ['speed', 'SPEED'],
@@ -744,168 +731,6 @@ function QuickStat({ label, value }) {
         <span className={styles.quickValueInner}>{value}</span>
         <span className={styles.quickBracket}>]</span>
       </span>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* NEXT RACE PANEL - sits in the dashboard grid alongside the spotlight       */
-/* (replaces the prior standalone "Next Race" card above the grid). Tracks    */
-/* the spotlight's currently-selected drone and renders that drone's          */
-/* upcoming race; cycling the spotlight cycles which race is shown.           */
-/*                                                                             */
-/* Layout: header bar with countdown · two drones side-by-side with mini      */
-/* radar charts under each · track strip with conditions · "view full         */
-/* matchup" link. Empty state when the selected drone has no PENDING race.   */
-/* -------------------------------------------------------------------------- */
-
-function NextRacePanel({
-  spotlightDrone,
-  race,
-  totalCount,
-  currentIndex,
-  canCycle,
-  onPrev,
-  onNext,
-  loading,
-}) {
-  return (
-    <Card className={cn(styles.nextRacePanel, styles.areaNextRace)}>
-      {/* Whole-card click target. The Link is positioned absolutely
-          over the panel so clicking anywhere on the card navigates to
-          the race detail. Cycling buttons sit at a higher z-index
-          (.navCluster rule) so they escape the overlay and the
-          previous/next actions don't trigger navigation. */}
-      {race && (
-        <Link
-          href={`/races/${race.id}`}
-          className={styles.nextRaceClickOverlay}
-          aria-label={`View matchup ${(currentIndex ?? 0) + 1} of ${totalCount}`}
-        />
-      )}
-      <div className={styles.sectionHeadingRow}>
-        <h2 className={styles.sectionHeading}>Next Race</h2>
-        {canCycle && (
-          <div className={styles.navCluster}>
-            <button
-              type="button"
-              className={styles.navBtn}
-              onClick={onPrev}
-              aria-label="Previous race"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span className={styles.navCounter}>
-              {(currentIndex ?? 0) + 1}/{totalCount}
-            </span>
-            <button type="button" className={styles.navBtn} onClick={onNext} aria-label="Next race">
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {loading ? (
-        <div className={styles.loadingCenter}>
-          <Spinner size="md" />
-        </div>
-      ) : race ? (
-        <NextRaceMatchup race={race} />
-      ) : (
-        <div className={styles.nextRaceEmpty}>
-          {spotlightDrone ? 'No upcoming race' : 'Activate a drone to see its next race'}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-/** The matchup body inside NextRacePanel - shown only when there's a
- *  pending race available. The cycling arrows in the panel header
- *  surface "current of total" so the panel no longer needs to show a
- *  redundant "MORE UPCOMING" caption inside the body. */
-function NextRaceMatchup({ race }) {
-  const isUserDrone1 = race.userDroneId === race.drone1?.id;
-  const userDrone = isUserDrone1 ? race.drone1 : race.drone2;
-  const opponent = isUserDrone1 ? race.drone2 : race.drone1;
-
-  // Radar axes plot against the absolute stat ceiling (100), NOT the
-  // per-level cap. A LV3 drone reads visibly small and a LV20 drone
-  // reads visibly large on the same chart - the level difference is
-  // the entire point of comparing them. Plotting against the per-level
-  // cap would make every drone's radar look similarly full regardless
-  // of level, flattening the very strength gap the chart should show.
-  const radarMax = 100;
-
-  return (
-    <div className={styles.nextRaceBody}>
-      <div className={styles.matchupRow}>
-        <NextRaceDroneSide drone={userDrone} opponent={opponent} isOwn radarMax={radarMax} />
-        <div className={styles.vsDivider}>VS</div>
-        <NextRaceDroneSide drone={opponent} opponent={userDrone} radarMax={radarMax} />
-      </div>
-
-      <div className={styles.trackStrip}>
-        <span className={styles.trackName}>{race.track?.name ?? 'Unknown track'}</span>
-        <span className={styles.conditionPills}>
-          <ConditionPill kind="weather" value={race.conditions?.weather} />
-          <ConditionPill kind="time" value={race.conditions?.timeOfDay} />
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/** One side of the dashboard NEXT RACE matchup - drone image, name +
- *  level badge, and a compact stat-shape radar. Radar color is driven
- *  by ownership: own (teal) for the viewer's drone, bot (orange) for
- *  matchmaker bots, other (purple) for any other human player. The
- *  `isOwn` flag pre-resolves the viewer-vs-this-side question; the
- *  bot check is on the drone itself. `radarMax` is shared between
- *  the two sides so polygon size = absolute strength. */
-function NextRaceDroneSide({ drone, opponent, isOwn = false, radarMax }) {
-  if (!drone) return <div className={styles.matchupSide} aria-hidden="true" />;
-  const tone = drone.isBot ? 'bot' : isOwn ? 'own' : 'other';
-  return (
-    <div className={styles.matchupSide}>
-      {isOwn && <span className={styles.youBadge}>YOU</span>}
-      {!isOwn && drone.isBot && (
-        <span className={styles.botBadge} title="Bot drone">
-          <Bot size={10} aria-hidden="true" /> BOT
-        </span>
-      )}
-      {!isOwn && !drone.isBot && drone.ownerName && (
-        <span className={styles.opponentBadge} title={drone.ownerName}>
-          {drone.ownerName}
-        </span>
-      )}
-      <div className={styles.matchupImageFrame}>
-        <DroneImage drone={drone} alt={drone.name} />
-      </div>
-      <div className={styles.matchupName}>
-        {drone.name}
-        <span className={styles.matchupLevel} style={{ color: getLevelColor(drone.level) }}>
-          {' '}
-          LV {drone.level}
-        </span>
-      </div>
-      <div className={styles.matchupRadar}>
-        <StatRadar
-          axes={RADAR_AXES}
-          stats={drone.stats ?? {}}
-          compareStats={opponent?.stats}
-          tone={tone}
-          maxValue={radarMax}
-        />
-      </div>
-      {drone.appliedMod ? (
-        <div className={styles.matchupModLine}>
-          <ModPlaceholder rarity={drone.appliedMod.rarity} size={14} />
-          <span className={styles.matchupModLineName}>{drone.appliedMod.name}</span>
-        </div>
-      ) : (
-        <div className={styles.matchupModLineEmpty}>No mod</div>
-      )}
     </div>
   );
 }

@@ -5,12 +5,13 @@
  */
 import { and, eq, inArray, or } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
+import { getNear } from '@/lib/near';
 import { replayRace } from './race-replay.js';
 import { STRATEGY_WINDOW_MS, slotFor, slotStartMs } from './scheduler-deps.js';
 
-const { adminConfig, batches, drones, races, skins, mods, tracks, users } = schema;
+const { adminConfig, batches, droneMods, drones, races, skins, mods, tracks, users } = schema;
 
-/** @typedef {{ db?: any }} Deps */
+/** @typedef {{ db?: any, near?: import('@/lib/near').NearAdapter }} Deps */
 
 /**
  * Whether the scheduler commits new batches (`admin_config.racing_enabled`).
@@ -59,9 +60,14 @@ export async function getUpcomingRacesForUser(userId, deps = {}) {
   const activeDroneCount = owned.filter((d) => d.active).length;
   if (owned.length === 0) return { races: [], activeDroneCount };
   const ids = owned.map((d) => d.id);
-  /** @type {{ race: typeof races.$inferSelect, track: typeof tracks.$inferSelect, committedAt: Date | null }[]} */
+  /** @type {{ race: typeof races.$inferSelect, track: typeof tracks.$inferSelect, committedAt: Date | null, commitTx: string | null }[]} */
   const rows = await db
-    .select({ race: races, track: tracks, committedAt: batches.committedAt })
+    .select({
+      race: races,
+      track: tracks,
+      committedAt: batches.committedAt,
+      commitTx: batches.commitTx,
+    })
     .from(races)
     .innerJoin(batches, eq(races.batchSlot, batches.slot))
     .leftJoin(tracks, eq(races.trackId, tracks.id))
@@ -77,8 +83,18 @@ export async function getUpcomingRacesForUser(userId, deps = {}) {
   const droneMap = await loadDronesWithJoins(db, [
     ...new Set(rows.flatMap(({ race }) => [race.drone1Id, race.drone2Id])),
   ]);
-  const shaped = rows.map(({ race, track, committedAt }) => ({
-    ...shapePendingRace(race, track, droneMap[race.drone1Id], droneMap[race.drone2Id], userId),
+  const near = rows.some((r) => r.commitTx) ? (deps.near ?? getNear()) : null;
+  const boundMods = await loadBoundMods(db, ids);
+  const shaped = rows.map(({ race, track, committedAt, commitTx }) => ({
+    ...shapePendingRace(
+      race,
+      track,
+      droneMap[race.drone1Id],
+      droneMap[race.drone2Id],
+      userId,
+      boundMods
+    ),
+    commitExplorerUrl: commitTx && near ? near.explorerTx(commitTx) : null,
     batchSlot: race.batchSlot,
     raceIndex: race.raceIndex,
     lockAt: committedAt ? new Date(committedAt.getTime() + STRATEGY_WINDOW_MS).toISOString() : null,
@@ -133,8 +149,9 @@ export async function verifyRace(raceId, deps = {}) {
  * @param {any} drone1
  * @param {any} drone2
  * @param {string} viewerUserId
+ * @param {Record<string, object[]>} boundMods the viewer's drones' bound mods, by drone id
  */
-function shapePendingRace(race, track, drone1, drone2, viewerUserId) {
+function shapePendingRace(race, track, drone1, drone2, viewerUserId, boundMods) {
   /** @param {any} d */
   const buildDrone = (d) =>
     d
@@ -172,9 +189,13 @@ function shapePendingRace(race, track, drone1, drone2, viewerUserId) {
                 name: d.appliedMod.name,
                 rarity: d.appliedMod.rarity,
                 description: d.appliedMod.description,
+                tokenId: d.appliedMod.tokenId,
+                template: d.appliedMod.template,
               }
             : null,
           imageUrl: d.imageUrl,
+          // Only the viewer's own drones carry their bound mods (the swap control).
+          boundMods: d.userId === viewerUserId ? (boundMods[d.id] ?? []) : undefined,
         }
       : null;
   let userDroneId = null;
@@ -201,6 +222,32 @@ function shapePendingRace(race, track, drone1, drone2, viewerUserId) {
     drone2: buildDrone(drone2),
     userDroneId,
   };
+}
+
+/**
+ * The mods bound to each of these drones, by drone id.
+ * @param {any} db
+ * @param {string[]} droneIds
+ * @returns {Promise<Record<string, object[]>>}
+ */
+async function loadBoundMods(db, droneIds) {
+  /** @type {{ droneId: string, id: string, tokenId: string | null, name: string, rarity: string, template: number | null }[]} */
+  const rows = await db
+    .select({
+      droneId: droneMods.droneId,
+      id: mods.id,
+      tokenId: mods.tokenId,
+      name: mods.name,
+      rarity: mods.rarity,
+      template: mods.template,
+    })
+    .from(droneMods)
+    .innerJoin(mods, eq(droneMods.modId, mods.id))
+    .where(inArray(droneMods.droneId, droneIds));
+  /** @type {Record<string, object[]>} */
+  const byDrone = {};
+  for (const { droneId, ...mod } of rows) (byDrone[droneId] ??= []).push(mod);
+  return byDrone;
 }
 
 /**
