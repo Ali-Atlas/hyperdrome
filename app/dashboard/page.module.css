@@ -1160,7 +1160,8 @@
   position: relative;
   width: 100%;
   max-width: 170px;
-  aspect-ratio: 4 / 3;
+  /* 4 / 3 before the edge line: wider, so the Next Race panel keeps its height. */
+  aspect-ratio: 5 / 3;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1238,7 +1239,7 @@
   font-size: 9px;
   font-weight: var(--font-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
 }
 
 .matchupLocked {
@@ -1470,6 +1471,11 @@
      state left LV looking heavier than the name). */
   .matchupImageFrame {
     max-width: 140px;
+    aspect-ratio: 16 / 9;
+  }
+  /* A long stat label would wrap and make the panel taller. */
+  .matchupEdgeStat {
+    display: none;
   }
   .matchupName {
     font-size: 12px;

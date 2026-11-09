@@ -110,6 +110,7 @@ export default function ModSwap({ race, drone, equipped, fitRace, locked, onSwap
     <select
       className={styles.matchupModSelect}
       aria-label={`Mod for ${drone.name} in this race`}
+      title="Fit for this race. ★ marks the best fit."
       value={equipped?.tokenId ?? ''}
       disabled={busy}
       onChange={(e) => choose(e.target.value)}
@@ -117,9 +118,9 @@ export default function ModSwap({ race, drone, equipped, fitRace, locked, onSwap
       <option value="">No mod</option>
       {options.map(({ mod, fit }) => (
         <option key={mod.tokenId} value={mod.tokenId}>
+          {mod.tokenId === bestToken ? '★ ' : ''}
           {mod.name}
           {fit === null ? '' : ` ${fit >= 0 ? '+' : ''}${fit.toFixed(2)}`}
-          {mod.tokenId === bestToken ? ' · best fit' : ''}
         </option>
       ))}
     </select>
