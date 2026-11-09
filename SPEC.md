@@ -162,8 +162,8 @@ StateV2 {
   teams: LookupMap<AccountId, TeamBudget>,
   skin_minted: LookupMap<u16, u32>,          // template id -> minted count
   next_drone: u64, next_skin: u64, next_mod: u64, next_pack: u64,
-  skin_caps: [Option<u32>; 4],                  // per-template cap by rarity (common, rare, epic, legendary); null is unlimited; V3, T20
   wallet_links: LookupMap<AccountId, AccountId>,   // player account -> linked wallet
+  skin_caps: [Option<u32>; 4],                  // per-template cap by rarity (common, rare, epic, legendary); null is unlimited; V3, T20
 }
 Player { seq: u64, created_at_ms: u64, is_team: bool }
 DroneHot { level: u8, xp: u32, elo: i32, wins: u32, losses: u32, equipped_mod: Option<TokenId>, equipped_skin: Option<TokenId>, in_batch: Option<u64> }
