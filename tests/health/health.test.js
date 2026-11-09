@@ -8,7 +8,14 @@ import { eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { schema } from '../../lib/db/index.js';
 import { createMockNear } from '../../lib/near/mock.js';
-import { MAX_COMMITTED_AGE_S, MAX_TICK_AGE_S, getHealth } from '../../services/health.service.js';
+import {
+  MAX_COMMITTED_AGE_S,
+  MAX_TICK_AGE_S,
+  MIN_GAME_AVAILABLE,
+  MIN_OPS_ALLOWANCE,
+  MIN_SETTLEMENT_ALLOWANCE,
+  getHealth,
+} from '../../services/health.service.js';
 import { dbEnabled, testDb } from '../gameplay/setup.js';
 
 const { adminConfig, batches, cronTicks } = schema;
@@ -69,6 +76,7 @@ describe.skipIf(!dbEnabled)('GET /api/health', () => {
     ]);
     expect(body.data).toMatchObject({ ok: true, database: { ok: true }, rpc: { ok: true } });
     expect(Object.keys(body.data.scheduler).sort()).toEqual([
+      'funding',
       'lastTickAgeSeconds',
       'lastTickSlot',
       'ok',
@@ -103,7 +111,7 @@ describe('scheduler check', () => {
       committedAgeS: MAX_COMMITTED_AGE_S,
     });
     expect(report.ok).toBe(true);
-    expect(report.scheduler).toEqual({
+    expect(report.scheduler).toMatchObject({
       ok: true,
       lastTickSlot: 7,
       lastTickAgeSeconds: 300,
@@ -128,6 +136,28 @@ describe('scheduler check', () => {
       ok: false,
       scheduler: { ok: false, lastTickAgeSeconds: 30, oldestCommittedAgeSeconds: 601 },
     });
+  });
+
+  it('fails when the settlement key, the ops key or the game account is under its floor', async () => {
+    const ample = await createMockNear().fundingStatus();
+    for (const low of [
+      { settlementAllowance: MIN_SETTLEMENT_ALLOWANCE - 1n },
+      { opsAllowance: MIN_OPS_ALLOWANCE - 1n },
+      { gameAvailable: MIN_GAME_AVAILABLE - 1n },
+    ]) {
+      const adapter = { ...createMockNear(), fundingStatus: async () => ({ ...ample, ...low }) };
+      const report = await getHealth({
+        db: schedulerDb({ now, racing: true, tickAgeS: 30 }),
+        near: () => /** @type {any} */ (adapter),
+        now,
+      });
+      expect(report).toMatchObject({
+        ok: false,
+        database: { ok: true },
+        rpc: { ok: true },
+        scheduler: { ok: false },
+      });
+    }
   });
 
   it('is ok while racing is paused, however old the tick and the batch', async () => {
@@ -172,6 +202,7 @@ describe('health report when a dependency is down', () => {
         lastTickSlot: null,
         lastTickAgeSeconds: null,
         oldestCommittedAgeSeconds: null,
+        funding: null,
       },
       racingEnabled: null,
       checkedAt: '1970-01-01T00:00:00.000Z',
