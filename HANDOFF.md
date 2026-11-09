@@ -22,7 +22,38 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
   - The edge did not change across the swap on the walk, and that is correct for that drone: a common mod is +2% and -1%, and on stats of 1 both round away (SPEC 2.4). So the walk proves the swap and the re-render path, and the number moving is covered only by `tests/engine/race-edge.test.js`.
   - The walk needed a second Play Demo: my script's wait failed on the "VS" divider, which is hidden at phone width, and the session was lost with it. The first player, `p-pilotsj8x`, has drone `d:60` parked with a one-row update of `drones.active` on production. `p-pilot2tql`'s `d:61` is parked through the toggle route.
   - At 480 px and below the side's largest strength is hidden, since a long stat label would wrap.
-  - NavShell's footer Strategy Lock still counts to `lockAt`, so it reads 3 s behind the panel. `app/dashboard/page.jsx` (736 lines) and the race page (1,956) stay over 400 (DECISIONS 5.49).
+  - NavShell's footer Strategy Lock still counts to `lockAt`, so it reads 3 s behind the panel. `app/dashboard/page.jsx` (736 lines) and the race page (1,956) stay over 400 (DECISIONS 5.50).
+
+## 2026-11-08 T15c NEAR runway: funding floors in the health check, and the funding
+
+- Changed: `lib/near/funding.js` (new, `readFunding`), `lib/near/adapter.js` and `lib/near/mock.js` (`fundingStatus`), `lib/near/index.js`, `services/health.service.js` (floors, `scheduler.funding`, including the lowest team balance and play-key allowance), `tests/health/health.test.js`, `tests/near/testnet.integration.test.js` (`afterWrite`, a bounded 15 s wait for every on-chain read that follows a write), `SPEC.md` 6 and 8, `docs/runbooks/deploy.md`, `DECISIONS.md` 5.49.
+- Funding, on the owner's go, in this order:
+  - Faucet: helpers `hd-fund-7.testnet` and `hd-fund-8.testnet` through `sponsor-by-faucet-service`, 10 NEAR delivered to each, each deleted into `hyperdrome.testnet` (11.17 to 31.17 NEAR).
+  - Settlement key: same keypair, 30 NEAR allowance, DeleteKey and AddKey in one transaction signed by the full-access key: https://testnet.nearblocks.io/txns/4eLWJTh2MpnKC5XNtuu7w4jgfm4wLRk8CbV7kFF6TxzM , sent 112 s into slot 9967751. The next tick committed https://testnet.nearblocks.io/txns/6K3LFzfQZmM6DTGKRQgZf1SjntyW5UXqoqsFGkp1QjGk and settled https://testnet.nearblocks.io/txns/4sWoFrWC5JnjYWMVNtZwAqgQAhRAo6HX2obkpv9YDEs2 , both signed by that key. A first send failed on a wrong CLI argument before broadcasting; nothing changed.
+  - Teams: 4.97 NEAR each from `hyperdrome.testnet`, then `rotatePlayKey` through `lib/near` with a 7 NEAR allowance against the production database (key version 3): static https://testnet.nearblocks.io/txns/BntcLE2QDhautBNR8Sb6Fx6MG1AjGY3yVwMEhM9pjnX8 , nimbus https://testnet.nearblocks.io/txns/GgSQczS8TsHJ4gRkWbgraywf13vzq3xVJKB8grUpwWdd , hairpin https://testnet.nearblocks.io/txns/8TehMPkgATPU4p6Jti5tLErE7UcbzSmYHjcAEw4BoipY , vortex https://testnet.nearblocks.io/txns/8Vx54ZyFNTTGiNcPm5KtLbgQy2xJUhF3wE5AbbvT3Ws2 . Each team's next action, an `equip`, landed on production signed by its new key. The Neon dev rows are stale; nothing uses dev.
+  - `game.hyperdrome.testnet`: 5 NEAR from `hyperdrome.testnet`: https://testnet.nearblocks.io/txns/A62mUgPkKEEPfPbUoyWXZQkRbTaXWgJN3PBTboDB5JgD .
+- Measured from transactions, 9 races per batch, after T16: `commit_batch` 6.48 TGas, 0.000625 NEAR; `settle_batch` 15.8 TGas, 0.001559 NEAR; both attach 200 TGas and unused gas is refunded, so lowering it saves nothing but the allowance a key must hold at send (about 0.02 NEAR). Team actions over 22 ticks: equip 0.000285, bind 0.000310, list 0.000494, `open_pack` 0.000311, `reveal_pack` 0.002029 NEAR, one action per team per tick, 0.2215 NEAR per team per day. `create_player` 13.95 TGas, 0.007608 NEAR. A signup is 0.010033 NEAR on the ops key, and 0.05 NEAR plus 1,715 bytes on the game account. Game account storage: 160 bytes per slot without capsules, each capsule about 1,350 more; capsules end when the teams' spare Volts do. Raw balance deltas of the settlement and ops keys are not used: the T16 rollout paused racing about 02:15 to 02:25 UTC, re-added the ops key and used it for test mints.
+- Final table, read 2026-11-09 03:57 UTC. Run-out is at the measured rate, then with a 25% margin:
+
+  | Item                          | Balance (NEAR)                                        | Allowance (NEAR) | Burn a day                      | Run-out      | With +25%                        |
+  | ----------------------------- | ----------------------------------------------------- | ---------------- | ------------------------------- | ------------ | -------------------------------- |
+  | Settlement key                | paid by the game account                              | 29.98            | 1.048                           | Dec 7        | Dec 2                            |
+  | Ops key, `hyperdrome.testnet` | 6.24                                                  | 9.92             | none per tick; 0.010 per signup | not by ticks | not by ticks                     |
+  | `vortex`                      | 7.00                                                  | 7.00             | 0.2215                          | Dec 10       | Dec 4                            |
+  | `nimbus`                      | 7.00                                                  | 7.00             | 0.2215                          | Dec 10       | Dec 4                            |
+  | `hairpin`                     | 7.00                                                  | 7.00             | 0.2215                          | Dec 10       | Dec 4                            |
+  | `static`                      | 7.00                                                  | 7.00             | 0.2215                          | Dec 10       | Dec 4                            |
+  | `game.hyperdrome.testnet`     | 53.17, of which 46.96 is above its 6.21 storage stake | n/a              | 1.048 gas plus 0.768 storage    | Dec 5        | Nov 26, with all 89 demo signups |
+
+  The game account needs 46.52 NEAR through Nov 25 with the margin (gas, storage, 89 signups) and holds 46.96 above its stake: 0.45 to spare.
+
+- Verified:
+  - `npm run lint`, `format:check`, `typecheck`, `npm run build` exit 0; `npm test` one full run on a private local Postgres, results in the PR.
+  - Adapter integration run on testnet (ENGINEERING 3), `NEAR_TESTNET_INTEGRATION=1`: passed after the `afterWrite` fix. Player https://testnet.nearblocks.io/address/p-t7695965.game.hyperdrome.testnet; `create_player` https://testnet.nearblocks.io/txns/2vvwQ6fNp7piB9o41tC9atqtkukjDctwahRPtFbiNLus ; bind https://testnet.nearblocks.io/txns/57GZ3Hrjnyx2q9DTzV1xuARPgNozV663cgtcdgafATFH ; `bound item` panic https://testnet.nearblocks.io/txns/FafUQfMrqMvaXJv7J7Kda2Hx3X3QQvvxQF97VkKw3GMF ; rotation https://testnet.nearblocks.io/txns/GSbTjUh93d843eDnHyF37xFFmQ84vzCPd3ZezvLjNCpb . Two earlier runs failed: the test read the chain straight after a write, before the RPC showed it (the old key still listed after the rotation, then `get_player` null after `create_player`, which the chain showed moments later). Each left a throwaway player whose keys were not kept.
+- Open:
+  - `docs/runbooks/key-rotation.md` and SPEC 2.10 and 4.1 still name the old allowances (settlement 5 NEAR, teams 2 NEAR).
+  - The faucet publishes no limit; each `sponsor-by-faucet-service` helper delivered 10 NEAR on 2026-11-09.
+  - The local cluster on port 54329 went down during T15b, cause unknown.
 
 ## 2026-11-08 T16 rollout on testnet and merge of #42
 
