@@ -57,6 +57,8 @@ function literalGlob(path) {
  * other rule still applies. Remove an entry when a page is rebuilt.
  */
 const PENDING_T11_REBUILD = [
+  // Minimal edit only: T19b adds the team badge (DECISIONS.md 5.54).
+  'app/leaderboard/page.jsx',
   'app/page.jsx',
   'app/dashboard/page.jsx',
   'app/drones/page.jsx',

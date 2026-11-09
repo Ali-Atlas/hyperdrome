@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Trophy, Sparkles, Coins, Award, ChevronRight } from 'lucide-react';
 import NavShell from '@/components/ui/NavShell';
+import Badge from '@/components/ui/Badge';
 import DataTable from '@/components/ui/DataTable';
 import Toggle from '@/components/ui/Toggle';
 import Skeleton from '@/components/ui/Skeleton';
@@ -23,9 +24,9 @@ const FIRST_PAGE_SIZE = 47;
 const PAGE_SIZE = 50;
 
 const BRACKETS = [
-  { value: 'all',   label: 'All Levels' },
-  { value: '1-5',   label: 'LV 1-5' },
-  { value: '6-10',  label: 'LV 6-10' },
+  { value: 'all', label: 'All Levels' },
+  { value: '1-5', label: 'LV 1-5' },
+  { value: '6-10', label: 'LV 6-10' },
   { value: '11-15', label: 'LV 11-15' },
   { value: '16-20', label: 'LV 16-20' },
 ];
@@ -99,13 +100,13 @@ export default function LeaderboardPage() {
      server sort_by values (snake_case, the service's switch keys).
      Anything missing falls back to 'elo'. */
   const SORT_KEY_TO_SERVER = {
-    eloRating:    'elo',
-    totalRaces:   'total_races',
-    totalWins:    'wins',
-    wins:         'wins',
-    winRate:      'win_rate',
-    rating:       'rating',
-    earned:       'earned',
+    eloRating: 'elo',
+    totalRaces: 'total_races',
+    totalWins: 'wins',
+    wins: 'wins',
+    winRate: 'win_rate',
+    rating: 'rating',
+    earned: 'earned',
     seasonPoints: 'season_points',
   };
 
@@ -113,32 +114,35 @@ export default function LeaderboardPage() {
      race-round-end auto-refresh below so the table doesn't blink to
      skeleton on every cycle. Filter changes default to silent: false
      so the user sees the skeleton when they actively change views. */
-  const fetchData = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        type: tab,
-        sort_by: SORT_KEY_TO_SERVER[sort.key] ?? 'elo',
-        sort_order: sort.order,
-        limit: '100',
-      });
-      if (tab === 'drones' && bracket !== 'all') params.set('bracket', bracket);
-      if (tab === 'drones' && includeBots) params.set('include_bots', 'true');
-      const res = await fetch(`/api/leaderboard?${params.toString()}`);
-      const body = await res.json();
-      if (body?.data) {
-        setItems(body.data.items ?? []);
-        setSeason(body.data.season ?? null);
+  const fetchData = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          type: tab,
+          sort_by: SORT_KEY_TO_SERVER[sort.key] ?? 'elo',
+          sort_order: sort.order,
+          limit: '100',
+        });
+        if (tab === 'drones' && bracket !== 'all') params.set('bracket', bracket);
+        if (tab === 'drones' && includeBots) params.set('include_bots', 'true');
+        const res = await fetch(`/api/leaderboard?${params.toString()}`);
+        const body = await res.json();
+        if (body?.data) {
+          setItems(body.data.items ?? []);
+          setSeason(body.data.season ?? null);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (!silent) setLoading(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-    // SORT_KEY_TO_SERVER is module-stable; sort.key/sort.order are the
-    // axes that matter for refetching.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, bracket, includeBots, sort.key, sort.order]);
+      // SORT_KEY_TO_SERVER is module-stable; sort.key/sort.order are the
+      // axes that matter for refetching.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [tab, bracket, includeBots, sort.key, sort.order]
+  );
 
   const fetchMyStats = useCallback(async () => {
     if (!user?.id) return;
@@ -164,9 +168,15 @@ export default function LeaderboardPage() {
     }
   }, [user?.id]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { fetchMyStats(); }, [fetchMyStats]);
-  useEffect(() => { fetchMyDrones(); }, [fetchMyDrones]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+  useEffect(() => {
+    fetchMyStats();
+  }, [fetchMyStats]);
+  useEffect(() => {
+    fetchMyDrones();
+  }, [fetchMyDrones]);
 
   /* Round-start auto-refresh. Subscribed to the global race-round
      clock - tick bumps the moment racing transitions from
@@ -181,18 +191,13 @@ export default function LeaderboardPage() {
   }, [roundStartTick, fetchData, fetchMyStats]);
 
   const top3 = items.slice(0, 3);
-  const rest = useMemo(
-    () => items.slice(3).map((row, i) => ({ ...row, __rank: i + 4 })),
-    [items],
-  );
+  const rest = useMemo(() => items.slice(3).map((row, i) => ({ ...row, __rank: i + 4 })), [items]);
   // Two-size pagination: page 1 = FIRST_PAGE_SIZE rows, every page after
   // = PAGE_SIZE rows. totalPages: 1 if everything fits on page 1; else
   // 1 + ceil(remaining / PAGE_SIZE). pageStart skips page 1's slot
   // (FIRST_PAGE_SIZE) and then advances by PAGE_SIZE per subsequent page.
   const totalPages =
-    rest.length <= FIRST_PAGE_SIZE
-      ? 1
-      : 1 + Math.ceil((rest.length - FIRST_PAGE_SIZE) / PAGE_SIZE);
+    rest.length <= FIRST_PAGE_SIZE ? 1 : 1 + Math.ceil((rest.length - FIRST_PAGE_SIZE) / PAGE_SIZE);
   const pageStart = page === 1 ? 0 : FIRST_PAGE_SIZE + (page - 2) * PAGE_SIZE;
   const pageEnd = page === 1 ? FIRST_PAGE_SIZE : pageStart + PAGE_SIZE;
   const pageRows = rest.slice(pageStart, pageEnd);
@@ -223,9 +228,7 @@ export default function LeaderboardPage() {
         label: 'Player Name',
         shortLabel: 'Player',
         width: '22%',
-        render: (r) => (
-          <span className={styles.nameCell}>{r.username || '-'}</span>
-        ),
+        render: (r) => <span className={styles.nameCell}>{r.username || '-'}</span>,
       },
       {
         key: 'totalRaces',
@@ -270,12 +273,10 @@ export default function LeaderboardPage() {
         ),
         sortable: true,
         align: 'right',
-        render: (r) => (
-          <span className={styles.mono}>{r.seasonPoints ?? 0}</span>
-        ),
+        render: (r) => <span className={styles.mono}>{r.seasonPoints ?? 0}</span>,
       },
     ],
-    [],
+    []
   );
 
   const droneColumns = useMemo(
@@ -293,14 +294,17 @@ export default function LeaderboardPage() {
         label: 'Drone',
         width: '22%',
         render: (r) => (
-          <span className={styles.nameCell}>
-            <span className={styles.nameText}>{r.name}</span>
-            <span
-              className={styles.levelSuffix}
-              style={{ color: getLevelColor(r.level) }}
-            >
-              {' '}LV {r.level}
+          <span className={styles.droneCell}>
+            <span className={styles.nameCell}>
+              <span className={styles.nameText}>{r.name}</span>
+              <span className={styles.levelSuffix} style={{ color: getLevelColor(r.level) }}>
+                {' '}
+                LV {r.level}
+              </span>
             </span>
+            {r.teamName && (
+              <Badge variant="status" value={r.teamName} className={styles.teamBadge} />
+            )}
           </span>
         ),
       },
@@ -339,11 +343,7 @@ export default function LeaderboardPage() {
         label: 'Rating',
         sortable: true,
         align: 'right',
-        render: (r) => (
-          <span className={styles.mono}>
-            {r.rating != null ? r.rating : '-'}
-          </span>
-        ),
+        render: (r) => <span className={styles.mono}>{r.rating != null ? r.rating : '-'}</span>,
       },
       {
         key: 'earned',
@@ -354,12 +354,10 @@ export default function LeaderboardPage() {
         ),
         sortable: true,
         align: 'right',
-        render: (r) => (
-          <span className={styles.mono}>{r.earned ?? 0}</span>
-        ),
+        render: (r) => <span className={styles.mono}>{r.earned ?? 0}</span>,
       },
     ],
-    [],
+    []
   );
 
   const columns = tab === 'players' ? playerColumns : droneColumns;
@@ -375,28 +373,18 @@ export default function LeaderboardPage() {
           <section className={styles.seasonBlock}>
             <div className={styles.seasonTopRow}>
               <div className={styles.seasonTopLine}>
-                <span className={styles.seasonLabel}>
-                  Season {season.seasonNumber ?? 1}
-                </span>
+                <span className={styles.seasonLabel}>Season {season.seasonNumber ?? 1}</span>
                 <span className={styles.seasonSep} aria-hidden="true">
                   ·
                 </span>
                 <span className={styles.seasonRemaining}>
-                  <span className={styles.seasonRemainingValue}>
-                    {daysLeft}
-                  </span>{' '}
-                  days remaining
+                  <span className={styles.seasonRemainingValue}>{daysLeft}</span> days remaining
                 </span>
                 <div className={styles.progressInline}>
                   <div className={styles.progressTrack}>
-                    <div
-                      className={styles.progressFill}
-                      style={{ width: `${progress}%` }}
-                    />
+                    <div className={styles.progressFill} style={{ width: `${progress}%` }} />
                   </div>
-                  <span className={styles.progressPct}>
-                    {Math.round(progress)}%
-                  </span>
+                  <span className={styles.progressPct}>{Math.round(progress)}%</span>
                 </div>
               </div>
 
@@ -422,48 +410,46 @@ export default function LeaderboardPage() {
               </div>
             </div>
 
-            <div className={styles.rewardsRow}>
-              <span className={styles.rewardsLabel}>Season Rewards</span>
-              <span
-                className={styles.rewardInline}
-                title="Exclusive Skins"
-                aria-label="Exclusive Skins"
-              >
+            {season.hasRewards && (
+              <div className={styles.rewardsRow}>
+                <span className={styles.rewardsLabel}>Season Rewards</span>
                 <span
-                  className={cn(styles.rewardThumb, styles.rewardThumbSkins)}
-                  aria-hidden="true"
+                  className={styles.rewardInline}
+                  title="Exclusive Skins"
+                  aria-label="Exclusive Skins"
                 >
-                  <Sparkles size={12} />
+                  <span
+                    className={cn(styles.rewardThumb, styles.rewardThumbSkins)}
+                    aria-hidden="true"
+                  >
+                    <Sparkles size={12} />
+                  </span>
+                  <span className={styles.rewardText}>Exclusive Skins</span>
                 </span>
-                <span className={styles.rewardText}>Exclusive Skins</span>
-              </span>
-              <span
-                className={styles.rewardInline}
-                title="Volt Prizes"
-                aria-label="Volt Prizes"
-              >
+                <span className={styles.rewardInline} title="Volt Prizes" aria-label="Volt Prizes">
+                  <span
+                    className={cn(styles.rewardThumb, styles.rewardThumbPoints)}
+                    aria-hidden="true"
+                  >
+                    <Coins size={12} />
+                  </span>
+                  <span className={styles.rewardText}>Volt Prizes</span>
+                </span>
                 <span
-                  className={cn(styles.rewardThumb, styles.rewardThumbPoints)}
-                  aria-hidden="true"
+                  className={styles.rewardInline}
+                  title="Titles / Badges"
+                  aria-label="Titles / Badges"
                 >
-                  <Coins size={12} />
+                  <span
+                    className={cn(styles.rewardThumb, styles.rewardThumbTitles)}
+                    aria-hidden="true"
+                  >
+                    <Award size={12} />
+                  </span>
+                  <span className={styles.rewardText}>Titles / Badges</span>
                 </span>
-                <span className={styles.rewardText}>Volt Prizes</span>
-              </span>
-              <span
-                className={styles.rewardInline}
-                title="Titles / Badges"
-                aria-label="Titles / Badges"
-              >
-                <span
-                  className={cn(styles.rewardThumb, styles.rewardThumbTitles)}
-                  aria-hidden="true"
-                >
-                  <Award size={12} />
-                </span>
-                <span className={styles.rewardText}>Titles / Badges</span>
-              </span>
-            </div>
+              </div>
+            )}
           </section>
         )}
 
@@ -477,10 +463,7 @@ export default function LeaderboardPage() {
                   type="button"
                   role="tab"
                   aria-selected={bracket === b.value}
-                  className={cn(
-                    styles.bracketTab,
-                    bracket === b.value && styles.bracketTabActive,
-                  )}
+                  className={cn(styles.bracketTab, bracket === b.value && styles.bracketTabActive)}
                   onClick={() => setBracket(b.value)}
                 >
                   {b.label}
@@ -528,11 +511,7 @@ export default function LeaderboardPage() {
         />
 
         {totalPages > 1 && (
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         )}
       </div>
 
@@ -541,16 +520,12 @@ export default function LeaderboardPage() {
         <div className={styles.yourRankBar}>
           <span className={styles.yourRankSegment}>
             <span className={styles.yourRankLabel}>Your Rank</span>
-            <span className={styles.yourRankValue}>
-              #{myStats.rank ?? '-'}
-            </span>
+            <span className={styles.yourRankValue}>#{myStats.rank ?? '-'}</span>
           </span>
           <span className={styles.yourRankDivider} aria-hidden="true" />
           <span className={styles.yourRankSegment}>
             <span className={styles.yourRankLabel}>ELO</span>
-            <span className={styles.yourRankValue}>
-              {myStats.eloRating ?? 0}
-            </span>
+            <span className={styles.yourRankValue}>{myStats.eloRating ?? 0}</span>
           </span>
           <span className={styles.yourRankDivider} aria-hidden="true" />
           <span className={styles.yourRankSegment}>
@@ -588,9 +563,7 @@ function Podium({ items, tab }) {
     if (!el) return;
     const middleCard = el.children[1];
     if (!middleCard) return;
-    const offset =
-      middleCard.offsetLeft -
-      (el.clientWidth - middleCard.clientWidth) / 2;
+    const offset = middleCard.offsetLeft - (el.clientWidth - middleCard.clientWidth) / 2;
     el.scrollLeft = offset;
   }, [items]);
 
@@ -612,19 +585,17 @@ function PodiumCard({ rank, entry, tab }) {
   // Season volts: players use the per-user `seasonPoints` column;
   // drones use `seasonEarned` (sum of race payouts since the active
   // season's start date - drone analogue, computed by the service).
-  const seasonPts =
-    tab === 'players' ? entry?.seasonPoints : entry?.seasonEarned;
+  const seasonPts = tab === 'players' ? entry?.seasonPoints : entry?.seasonEarned;
 
-  const rankClass =
-    rank === 1 ? styles.gold : rank === 2 ? styles.silver : styles.bronze;
+  const rankClass = rank === 1 ? styles.gold : rank === 2 ? styles.silver : styles.bronze;
   const rankLabel = rank === 1 ? '1ST' : rank === 2 ? '2ND' : '3RD';
 
   const linkHref =
     !empty && tab === 'players' && entry?.id
       ? `/profile/${entry.id}`
       : !empty && tab === 'drones' && entry?.id
-      ? `/drones/${entry.id}`
-      : null;
+        ? `/drones/${entry.id}`
+        : null;
 
   const trophySize = rank === 1 ? 22 : 18;
   const droneLevel = !empty && tab === 'drones' ? entry.level : null;
@@ -638,10 +609,7 @@ function PodiumCard({ rank, entry, tab }) {
             {droneLevel != null && (
               <>
                 {' '}
-                <span
-                  className={styles.podiumLevel}
-                  style={{ color: getLevelColor(droneLevel) }}
-                >
+                <span className={styles.podiumLevel} style={{ color: getLevelColor(droneLevel) }}>
                   LV {droneLevel}
                 </span>
               </>
@@ -663,13 +631,13 @@ function PodiumCard({ rank, entry, tab }) {
         ) : (
           <DroneImage drone={entry} alt={name ?? 'Unclaimed'} />
         )}
+        {tab === 'drones' && entry?.teamName && (
+          <Badge variant="status" value={entry.teamName} className={styles.podiumTeamBadge} />
+        )}
       </div>
 
       <dl className={styles.podiumStats}>
-        <PodiumStat
-          label="Win Rate"
-          value={empty ? '-' : winRate != null ? `${winRate}%` : '-'}
-        />
+        <PodiumStat label="Win Rate" value={empty ? '-' : winRate != null ? `${winRate}%` : '-'} />
         <PodiumStat label="Wins" value={empty ? '-' : wins} />
         <PodiumStat label="ELO" value={empty ? '-' : entry.eloRating} />
         <PodiumStat
@@ -689,13 +657,8 @@ function PodiumCard({ rank, entry, tab }) {
     </>
   );
 
-  const isLegendaryEntry =
-    !empty &&
-    tab === 'drones' &&
-    entry?.appliedSkin?.rarity === 'legendary';
-  const legendaryTheme = isLegendaryEntry
-    ? getLegendaryTheme(entry.appliedSkin?.name)
-    : null;
+  const isLegendaryEntry = !empty && tab === 'drones' && entry?.appliedSkin?.rarity === 'legendary';
+  const legendaryTheme = isLegendaryEntry ? getLegendaryTheme(entry.appliedSkin?.name) : null;
   const legendaryStyle = legendaryTheme
     ? {
         '--legendary-bg': legendaryTheme.bg,
@@ -708,16 +671,12 @@ function PodiumCard({ rank, entry, tab }) {
     rankClass,
     rank === 1 && styles.podiumFirst,
     empty && styles.podiumEmpty,
-    legendaryTheme && styles.skinRarity_legendary,
+    legendaryTheme && styles.skinRarity_legendary
   );
 
   if (linkHref) {
     return (
-      <Link
-        href={linkHref}
-        className={cn(classes, styles.podiumCardLink)}
-        style={legendaryStyle}
-      >
+      <Link href={linkHref} className={cn(classes, styles.podiumCardLink)} style={legendaryStyle}>
         {body}
       </Link>
     );
@@ -748,7 +707,9 @@ function Pagination({ page, totalPages, onPageChange }) {
     <nav className={styles.pagination} aria-label="Pagination">
       {pages.map((p, i) =>
         p === '...' ? (
-          <span key={`ell-${i}`} className={styles.pageEllipsis}>…</span>
+          <span key={`ell-${i}`} className={styles.pageEllipsis}>
+            …
+          </span>
         ) : (
           <button
             key={p}
@@ -759,7 +720,7 @@ function Pagination({ page, totalPages, onPageChange }) {
           >
             {p}
           </button>
-        ),
+        )
       )}
       <button
         type="button"
