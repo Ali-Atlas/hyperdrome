@@ -2,6 +2,15 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-09 T19b Guide and FAQ copy, leaderboard team badge
+
+- Changed: `app/guide/page.jsx` and `app/faq/page.jsx` (text only; every changed sentence is listed in the PR), `app/leaderboard/page.jsx` and its CSS module (the team badge under the drone name), `services/leaderboard.service.js` (`teamName`), `eslint.config.mjs` (the leaderboard page joins the minimal-edit list), `AGENTS.md` (the copy rule), `SPEC.md` 8 and 11, `DECISIONS.md` 5.54.
+- Verified: `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 39 files passed, 1 skipped, 295 tests passed, 1 skipped; `npm run build` exit 0. Walk in headless Firefox, `next start` on this branch with production data, read-only (no request other than GET, a local `AUTH_SECRET`): Guide, FAQ and leaderboard at 1440 and 390 px, no horizontal overflow, no em or en dash in the Guide text. All four team names render as badges, names intact.
+- Open:
+  - Production has no `seasons` row, so the leaderboard's Players and Drones tabs (inside the season header) do not render and the drone table is unreachable there. The walk stubbed a season in the browser's copy of the API response only. Options are in the PR.
+  - The Guide and FAQ quote the T20 caps (2,200, 1,300, 1,100, 3). Testnet still has 10, 6, 4, 3 until the T20 rollout, so merge this after that rollout.
+  - The acceptance list was written after the code, against AGENTS.md.
+
 ## 2026-11-08 T18 Verify button and drone on-chain panel
 
 - Changed:

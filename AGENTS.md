@@ -13,6 +13,15 @@ Standards are never lowered to save time. No stubs, shortcuts or silent scope cu
 - Time-box any investigation to 15 minutes; then stop and report what you found and the options.
 - Verification is sized to the change (DECISIONS 1.14): one full suite run before pushing; CI is the gate. No repeated full runs to gain confidence; fix the cause instead.
 
+## Player-facing copy
+
+Applies to all text a player reads.
+
+- Match the voice, tone and sentence style of the existing copy; change facts, not personality.
+- No em dashes anywhere; use commas, periods or a plain hyphen.
+- No AI phrasing: no "not X but Y" or "it's not just X" constructions, no "seamless", "dive in", "unlock", "elevate", "game-changer" and the like, no three-item filler lists, no hype.
+- Short, plain, direct sentences like the ones already on the pages.
+
 ## Read first, in this order
 
 1. SPEC.md (behavior, data, interfaces, constants; source of truth)
