@@ -166,7 +166,7 @@ Not in this build:
 ## 7. Contract
 
 - Account: [game.hyperdrome.testnet](https://testnet.nearblocks.io/address/game.hyperdrome.testnet). Owner and treasury: [hyperdrome.testnet](https://testnet.nearblocks.io/address/hyperdrome.testnet).
-- Deployed code hash: `2ctpTSVNWEnpRFYuxcNjGSMhKL1YhwhsJ9TQrCmHL93D` ([deploy with `migrate`](https://testnet.nearblocks.io/txns/GnMVuZynZc9pivwguu1Zux4Y8T5KjcHinGk25exQ5as8), 2026-11-04, [HANDOFF.md](HANDOFF.md) T6b). It is the `code_hash` of the RPC `view_account` query for the account.
+- Deployed code hash: `9Dz987fhyJ881jh7QoMpwevfaqvYxxdTYQT6pB3niQbX` ([deploy with `migrate`](https://testnet.nearblocks.io/txns/CbCZ8U7VHffeGrBHU7moiHMVBRCkk9xT3LDVqXJFrj4T), 2026-11-08, [HANDOFF.md](HANDOFF.md) T16). It is the `code_hash` of the RPC `view_account` query for the account.
 - Source: one crate, [contracts/hyperdrome/](contracts/hyperdrome), Rust 1.93.0, near-sdk 5.29.1. File map: [contracts/hyperdrome/README.md](contracts/hyperdrome/README.md). Behavior: [SPEC.md](SPEC.md) section 4.
 
 Build and test, from `contracts/hyperdrome/`:

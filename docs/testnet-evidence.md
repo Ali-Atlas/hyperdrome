@@ -61,14 +61,28 @@ Short names: owner = `hyperdrome.testnet`, game = `game.hyperdrome.testnet`, and
 | `open_pack`   | `nimbus` | Committed a starter mod capsule (pack 6)                             | Success | [D9vaQ4kM...](https://testnet.nearblocks.io/txns/D9vaQ4kMcWZ2yCFbeqmaAFENeLfSGu2QLSyYs5jT8LdS) |
 | `reveal_pack` | `nimbus` | Revealed pack 6: minted `m:48`, `m:49`, `m:50`                       | Success | [91UxgmYR...](https://testnet.nearblocks.io/txns/91UxgmYRtK6XPEgE6ayKfT3jSkaExKzLFa6EMzEmfjyC) |
 
+## Linked wallets (T16)
+
+Checked with the RPC `tx` query on 2026-11-08. `wallet` = `t16w828691eca0.hyperdrome.testnet`, player = `p-piloto3ti.game.hyperdrome.testnet`.
+
+| Method          | Signer | What it did                                                     | Status  | Transaction                                                                                    |
+| --------------- | ------ | --------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------- |
+| `link_wallet`   | owner  | Linked `wallet` to the player after a NEP-413 proof             | Success | [8WFcKLGn...](https://testnet.nearblocks.io/txns/8WFcKLGnN9DtEkHUBYA9QaZpc6smLEaqCCmbbGFLe8JQ) |
+| `withdraw`      | owner  | Moved `d:57` with `s:32` and `m:81`, and 100 Volts, to `wallet` | Success | [CPbbrxbi...](https://testnet.nearblocks.io/txns/CPbbrxbiCmAsd8HbgFoKWM5fh2GimhnqC8NygvKaUB8k) |
+| `withdraw`      | wallet | Moved `m:82` and 25 Volts, signed by the wallet with 1 yocto    | Success | [286b3Gbm...](https://testnet.nearblocks.io/txns/286b3Gbm3emkAs2tSCARv4MfhWwQyitqPcdF42FpATc3) |
+| `unlink_wallet` | wallet | Removed the link, signed by the wallet with 1 yocto             | Success | [HKHf4P6e...](https://testnet.nearblocks.io/txns/HKHf4P6eHTQqH16r8RjwrSvDshkmApUSDqNxh9zeye5N) |
+
 ## Deploy and keys
 
-| Action            | Signer   | What it did                                                                      | Status  | Transaction                                                                                    |
-| ----------------- | -------- | -------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| DeployContract    | game     | Deployed code hash `2ctpTSVNWEnpRFYuxcNjGSMhKL1YhwhsJ9TQrCmHL93D` with `migrate` | Success | [GnMVuZyn...](https://testnet.nearblocks.io/txns/GnMVuZynZc9pivwguu1Zux4Y8T5KjcHinGk25exQ5as8) |
-| DeleteKey, AddKey | `vortex` | Play key rotation in one transaction (`rotatePlayKey`)                           | Success | [asbxnwFq...](https://testnet.nearblocks.io/txns/asbxnwFq5ow79gSmfSYNdR5tg7M4a648uCGVFYsywyU)  |
-| DeleteKey         | game     | Settlement key removed, to change its method list                                | Success | [C8aArL2D...](https://testnet.nearblocks.io/txns/C8aArL2DpG4N31SdV4CQ8W2rDkmYrLj6ZnYejpJccAnX) |
-| AddKey            | game     | Settlement key added back with `commit_batch`, `settle_batch`, `abort_batch`     | Success | [7VVUxQDt...](https://testnet.nearblocks.io/txns/7VVUxQDtUrsfM2Pyo65i55C2WuSQHhF2CGFSfmxt75Sb) |
+| Action            | Signer   | What it did                                                                                        | Status  | Transaction                                                                                    |
+| ----------------- | -------- | -------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------- |
+| DeployContract    | game     | Deployed code hash `2ctpTSVNWEnpRFYuxcNjGSMhKL1YhwhsJ9TQrCmHL93D` with `migrate`                   | Success | [GnMVuZyn...](https://testnet.nearblocks.io/txns/GnMVuZynZc9pivwguu1Zux4Y8T5KjcHinGk25exQ5as8) |
+| DeleteKey, AddKey | `vortex` | Play key rotation in one transaction (`rotatePlayKey`)                                             | Success | [asbxnwFq...](https://testnet.nearblocks.io/txns/asbxnwFq5ow79gSmfSYNdR5tg7M4a648uCGVFYsywyU)  |
+| DeleteKey         | game     | Settlement key removed, to change its method list                                                  | Success | [C8aArL2D...](https://testnet.nearblocks.io/txns/C8aArL2DpG4N31SdV4CQ8W2rDkmYrLj6ZnYejpJccAnX) |
+| AddKey            | game     | Settlement key added back with `commit_batch`, `settle_batch`, `abort_batch`                       | Success | [7VVUxQDt...](https://testnet.nearblocks.io/txns/7VVUxQDtUrsfM2Pyo65i55C2WuSQHhF2CGFSfmxt75Sb) |
+| DeployContract    | game     | Deployed code hash `9Dz987fhyJ881jh7QoMpwevfaqvYxxdTYQT6pB3niQbX` with `migrate` (T16, 2026-11-08) | Success | [CbCZ8U7V...](https://testnet.nearblocks.io/txns/CbCZ8U7VHffeGrBHU7moiHMVBRCkk9xT3LDVqXJFrj4T) |
+| DeleteKey         | owner    | Ops key removed to change its method list (T16)                                                    | Success | [78u6npYk...](https://testnet.nearblocks.io/txns/78u6npYkxGWDsd5cug7NxkBaXcreRBRasxpX9ABWRE7H) |
+| AddKey            | owner    | Ops key added back with `link_wallet` and `withdraw` (T16)                                         | Success | [F2gZTR7s...](https://testnet.nearblocks.io/txns/F2gZTR7sqh9hs5zuRAoS4iDrVvq7ExC3xqm1BZ7PMh62) |
 
 ## Refusals
 
