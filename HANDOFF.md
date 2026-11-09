@@ -8,18 +8,31 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
   - `GET /api/live` (`app/api/live/route.js`, `services/live.service.js`, arithmetic in `lib/live/summary.js`), public, cached 30 s. `tests/live/volt-daily.test.js`.
   - `app/LiveStrip.jsx` and its CSS module, placed inside the hero in `app/page.jsx`.
   - Review fix: `volt_daily` (`drizzle/0005_volt_daily.sql`, `lib/db/schema-gameplay.js`), `services/volt-daily.js` `recordVoltFlows`, called first in `applyEvents` and from the ops `mint_volts` of `services/bootstrap-kit.js` and `services/team-seed-kit.js`, which do not go through `applyEvents`. `get_constants()` is no longer read. The strip's label is "Burned today", without fees.
-  - SPEC 7, 8 (the route and exactly what counts) and 11, DECISIONS 5.52, BUILD_PLAN T19a.
+  - SPEC 7, 8 (the route and exactly what counts) and 11, DECISIONS 5.53, BUILD_PLAN T19a.
 - Verified:
-  - `npm run lint`, `npm run format:check`, `npm run typecheck` exit 0; `npm test` 39 files passed, 1 skipped, 297 tests passed, 1 skipped; `npm run build` exit 0; `npm audit --audit-level=high` exit 0.
+  - `npm run lint`, `npm run format:check`, `npm run typecheck` exit 0; `npm test` 39 files passed, 1 skipped, 300 tests passed, 1 skipped; `npm run build` exit 0; `npm audit --audit-level=high` exit 0.
   - Read-only walk, headless Firefox 132, anonymous landing page, local `next start` of this branch and of `main` on the production database. `GET /api/live` answered 200 with `Cache-Control: public, max-age=30, s-maxage=30`.
   - The call to action, before and after, has the same position at every width (390: 451 to 501 of 844; 430: 495 to 545 of 932; 1440: 526 to 576 of 900). It stays above the fold and does not overlap the strip. The strip sits at 694 to 828 (390), 805 to 916 (430), 820 to 884 (1440). No page errors.
   - Screenshots at 390, 430 and 1440 px, on the assets branch linked from the PR.
 - Open:
   - Minted and burned miss what the server never sees (SPEC 8): an unknown `settle_batch` or `mint_volts` outcome, a near-cli `mint_volts`, and a holder's own `storage_unregister` force burn or `ft_resolve_transfer` burn.
-  - Migration 0005 must be applied to the production database before this merges (docs/runbooks/deploy.md): nothing runs migrations on deploy, and until it is applied `/api/live` answers 503.
-  - The record starts when the table does, so the first UTC day's numbers cover only the time since then.
+  - Migration 0005 was applied to the production database on 2026-11-09, before the merge (docs/runbooks/deploy.md; user approved): 6 migrations applied, `volt_daily` present and empty.
+  - Today's (2026-11-09) minted and burned figures count from the deploy time onward; nothing before it was recorded or backfilled. From the next UTC day they cover the whole day.
   - Neon dev is not migrated to 0005: `/api/live` answers 503 on a server backed by dev until it is. Recording logs and carries on.
   - No ticker motion: the landing page has no CSS motion. At 768 px and below the strip shows one result.
+
+## 2026-11-08 T18 Verify button and drone on-chain panel
+
+- Changed:
+  - Verify: `app/races/[raceId]/VerifyPanel.jsx` (and its CSS module), mounted in the results view with the API body; `lib/client/race-verify.js` (decoding a call's args, picking the race's entry, the check lines); `lib/near/public-rpc.js` (a plain `fetch` read of a transaction: dRPC, FastNear, then FastNear archival); `lib/near/rpc-urls.js` (the URLs, without zod); `lib/near/explorer.js` (`PUBLIC_EXPLORER_URL`, `explorerNftUrl`); `services/race.service.js` (`commitTx` on `GET /api/races/[id]`); `tests/client/race-verify.test.js`.
+  - Drone page: `app/drones/[droneId]/OnChainPanel.jsx` (and its CSS module), at the end of the Drone card: token link, owner account link, XP bar.
+  - `SPEC.md` 8 and 11, `README.md` (try-it step 9, the security row, the "no verify button" line removed), `DECISIONS.md` 5.52.
+- Verified:
+  - `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 38 files passed, 1 skipped, 279 tests passed, 1 skipped; `npm run build` exit 0. After that run one JSX prop changed (below); the build and the walk were repeated.
+  - Walk in headless Firefox against `next start` on this branch with production data, read-only, with a local `AUTH_SECRET` used only for that server and a session for an existing demo account; no request other than GET reached the app. At 1440 and 390 px: race `eff18638` (recent, read from dRPC) and race `01dd0e0f` (slot 9966282, 2026-11-05, read from the FastNear archival node): all 7 checks pass on both (an eighth, added after the walk, is confirmed by a read of a real race through `verifyRaceOnChain`), no horizontal overflow. Drone `d:55` and bot `d:45`: token, owner (the game contract for the bot) and XP bar render. The only console error is `/_vercel/insights/script.js` 404, which exists only on Vercel.
+  - The first walk failed the log check: the page passes the log as display rows (`asRaced`), and the panel had that object. The panel now gets the API body.
+- Open:
+  - The NFT link's testnet form is unconfirmed: NearBlocks answered a headless browser with a Cloudflare 403. The path is the one NearBlocks uses on mainnet, so one manual click is worth doing.
 
 ## 2026-11-08 T17 Dashboard matchup card: edge, mod swap, lock
 

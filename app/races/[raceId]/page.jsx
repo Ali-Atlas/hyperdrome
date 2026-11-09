@@ -26,6 +26,7 @@ import {
   statDeltas,
 } from '@/lib/game-engine/race-edge.js';
 import { asRaced } from '@/lib/client/race-view.js';
+import VerifyPanel from './VerifyPanel.jsx';
 import styles from './page.module.css';
 
 /** Tracks with a transparent-optimized image at /tracks/<slug>.webp.
@@ -712,6 +713,11 @@ export default function RaceDetailPage({ params }) {
             </div>
           </Card>
         </div>
+
+        {/* The API body, since `race` carries the log as display rows. */}
+        {race.commitTx && race.settleTx && race.seed && (
+          <VerifyPanel key={race.id} race={fetched} />
+        )}
       </div>
     </NavShell>
   );

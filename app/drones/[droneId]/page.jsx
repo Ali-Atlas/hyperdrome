@@ -56,6 +56,7 @@ import {
   calculateTSB,
   analyzeDronePerformance,
 } from '@/lib/game-engine/economy.js';
+import OnChainPanel from './OnChainPanel.jsx';
 import styles from './page.module.css';
 
 const STAT_LABELS = {
@@ -966,6 +967,7 @@ function DroneDetailView({ drone, isOwner, listing, onReload }) {
                   </div>
                 </div>
               </div>
+              <OnChainPanel drone={drone} />
             </div>
           </Card>
 

@@ -9,7 +9,7 @@ import { db as maybeDb, schema } from '@/lib/db';
 import { ApiError } from '@/lib/api/response.js';
 import { getNear } from '@/lib/near';
 
-const { drones, users, races, tracks, skins, mods } = schema;
+const { drones, users, races, tracks, skins, mods, batches } = schema;
 
 /** @typedef {{ status?: string, trackId?: string, weather?: string, timeOfDay?: string, droneId?: string, userId?: string }} RaceFilters */
 
@@ -245,8 +245,18 @@ export async function getRaceById(raceId) {
 
   // Seed, snapshots and the client-safe log are public once the race is settled (SPEC.md 8).
   const settled = race.status === 'completed';
+  const [batch] =
+    settled && race.batchSlot !== null
+      ? await db
+          .select({ commitTx: batches.commitTx })
+          .from(batches)
+          .where(eq(batches.slot, race.batchSlot))
+          .limit(1)
+      : [];
   return {
     ...race,
+    // The batch's commit transaction, for the browser verification (SPEC.md 11).
+    commitTx: batch?.commitTx ?? null,
     seed: settled ? race.seed : null,
     snapshotA: settled ? race.snapshotA : null,
     snapshotB: settled ? race.snapshotB : null,
