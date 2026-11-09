@@ -172,7 +172,7 @@ impl Contract {
                 file: t.file.to_string(),
                 rarity: t.rarity,
                 rarity_name: RARITY_NAMES[usize::from(t.rarity)].to_string(),
-                cap: skin_supply_cap(t.id, t.rarity),
+                cap: skin_supply_cap(&self.s().skin_caps, t.id, t.rarity),
                 minted: self.s().skin_minted.get(&t.id).copied().unwrap_or(0),
             })
             .collect();
