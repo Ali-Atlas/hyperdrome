@@ -6,16 +6,21 @@
 import { asc, desc, eq, sql } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
 import { getNear } from '@/lib/near';
+import { TEAMS } from '@/lib/teams/roster.js';
 import { isRacingEnabled } from './race-schedule.service.js';
 
 const { batches, cronTicks } = schema;
+
+/**
+ * @typedef {{ settlementAllowanceNear: number | null, opsAllowanceNear: number | null, gameBalanceNear: number, gameAvailableNear: number, lowestTeamBalanceNear: number | null, lowestTeamAllowanceNear: number | null }} FundingReport
+ */
 
 /**
  * @typedef {object} HealthReport
  * @property {boolean} ok the database, the RPC and the scheduler are all ok
  * @property {{ ok: boolean }} database
  * @property {{ ok: boolean }} rpc `get_constants` on the game contract
- * @property {{ ok: boolean, lastTickSlot: number | null, lastTickAgeSeconds: number | null, oldestCommittedAgeSeconds: number | null }} scheduler the newest `cron_ticks` row and the oldest batch still `committed`; null when there is none or no database, and `ok` false without a database
+ * @property {{ ok: boolean, lastTickSlot: number | null, lastTickAgeSeconds: number | null, oldestCommittedAgeSeconds: number | null, funding: FundingReport | null }} scheduler the newest `cron_ticks` row and the oldest batch still `committed`, null when there is none or no database; what is left to pay for chain work, null when the RPC could not say; `ok` false without a database or under a funding floor
  * @property {boolean | null} racingEnabled `admin_config.racing_enabled`; null without a database
  * @property {string} checkedAt ISO time of this report
  */
@@ -28,6 +33,48 @@ export const MAX_TICK_AGE_S = 300;
 
 /** With racing on, a batch still `committed` after this has missed its settlement. */
 export const MAX_COMMITTED_AGE_S = 600;
+
+const ONE_NEAR = 1_000_000_000_000_000_000_000_000n;
+
+/**
+ * Funding floors in yoctoNEAR (SPEC.md 8): two days of measured burn. Settlement is 480 slots a day
+ * at 0.002184 NEAR. The game account's figure adds 160 bytes of new storage per slot. The ops key
+ * spends nothing per tick, so its floor is the gas of the demo signups still possible.
+ */
+export const MIN_SETTLEMENT_ALLOWANCE = (ONE_NEAR * 21n) / 10n;
+export const MIN_OPS_ALLOWANCE = ONE_NEAR;
+export const MIN_GAME_AVAILABLE = (ONE_NEAR * 37n) / 10n;
+
+/** Two days of a team's measured burn, 0.26 NEAR a day: each team's balance and allowance. */
+export const MIN_TEAM_FUNDS = (ONE_NEAR * 55n) / 100n;
+
+/**
+ * yoctoNEAR as NEAR with 4 decimals, for the report.
+ * @param {bigint} yocto
+ */
+function toNear(yocto) {
+  return Number(yocto / 100_000_000_000_000_000_000n) / 10_000;
+}
+
+/**
+ * True when every funding figure is at or above its floor; an unlimited key has no floor.
+ * @param {import('@/lib/near/funding.js').FundingStatus} funding
+ */
+function funded({
+  settlementAllowance,
+  opsAllowance,
+  gameAvailable,
+  lowestTeamBalance,
+  lowestTeamAllowance,
+}) {
+  return (
+    (settlementAllowance === null || settlementAllowance >= MIN_SETTLEMENT_ALLOWANCE) &&
+    (opsAllowance === null || opsAllowance >= MIN_OPS_ALLOWANCE) &&
+    gameAvailable >= MIN_GAME_AVAILABLE &&
+    (lowestTeamBalance === null || lowestTeamBalance >= MIN_TEAM_FUNDS) &&
+    (lowestTeamAllowance === null || lowestTeamAllowance >= MIN_TEAM_FUNDS)
+  );
+}
 
 /**
  * Reject when `work` has not settled within `ms`.
@@ -86,6 +133,7 @@ export async function getHealth(deps = {}) {
       lastTickSlot: null,
       lastTickAgeSeconds: null,
       oldestCommittedAgeSeconds: null,
+      funding: null,
     },
     racingEnabled: null,
     checkedAt: new Date(now).toISOString(),
@@ -118,6 +166,7 @@ export async function getHealth(deps = {}) {
         lastTickSlot: tick ? Number(tick.slot) : null,
         lastTickAgeSeconds,
         oldestCommittedAgeSeconds,
+        funding: null,
       };
       report.racingEnabled = racingEnabled;
       report.database.ok = true;
@@ -126,13 +175,38 @@ export async function getHealth(deps = {}) {
   ).catch((err) => logFailure('database', err));
 
   // The view goes to the RPC every time; `getConstants()` would answer from the process cache.
-  const rpc = within((async () => (await near().view('get_constants', {})) !== null)(), timeoutMs)
+  /** @type {import('@/lib/near/funding.js').FundingStatus | null} */
+  let funding = null;
+  const rpc = within(
+    (async () => {
+      const adapter = near();
+      const constants = await adapter.view('get_constants', {});
+      funding = await adapter.fundingStatus(TEAMS.map((t) => `${t.slug}.${adapter.gameId}`));
+      return constants !== null;
+    })(),
+    timeoutMs
+  )
     .then((ok) => {
       report.rpc.ok = ok;
     })
     .catch((err) => logFailure('rpc', err));
 
   await Promise.all([database, rpc]);
+  if (funding) {
+    const status = /** @type {import('@/lib/near/funding.js').FundingStatus} */ (funding);
+    report.scheduler.funding = {
+      settlementAllowanceNear:
+        status.settlementAllowance === null ? null : toNear(status.settlementAllowance),
+      opsAllowanceNear: status.opsAllowance === null ? null : toNear(status.opsAllowance),
+      gameBalanceNear: toNear(status.gameBalance),
+      gameAvailableNear: toNear(status.gameAvailable),
+      lowestTeamBalanceNear:
+        status.lowestTeamBalance === null ? null : toNear(status.lowestTeamBalance),
+      lowestTeamAllowanceNear:
+        status.lowestTeamAllowance === null ? null : toNear(status.lowestTeamAllowance),
+    };
+    report.scheduler.ok = report.scheduler.ok && funded(status);
+  }
   report.ok = report.database.ok && report.rpc.ok && report.scheduler.ok;
   return report;
 }
