@@ -296,6 +296,33 @@ describe('real adapter over a fake RPC', () => {
     ]);
   });
 
+  it('an ops call with onSigned is not rebuilt after InvalidNonce', async () => {
+    const nonce = invalidTx({ InvalidNonce: { tx_nonce: 6, ak_nonce: 9 } });
+    const unknownTx = {
+      error: {
+        name: 'HANDLER_ERROR',
+        cause: { name: 'UNKNOWN_TRANSACTION', info: {} },
+        code: -32000,
+        message: 'Server error',
+        data: 'Transaction unknown',
+      },
+    };
+    const handler = chain({ send: () => nonce, tx: () => unknownTx });
+    const { near, primary, failover } = await adapterOver(handler, handler);
+    /** @type {string[]} */
+    const hashes = [];
+    await expect(
+      near.callAsOps(
+        'withdraw',
+        { player: PLAYER, tokens: [], volts: '1' },
+        { onSigned: async (hash) => void hashes.push(hash) }
+      )
+    ).rejects.toBeInstanceOf(NonceError);
+    expect(hashes).toHaveLength(1);
+    const sent = [...primary.requests, ...failover.requests].filter((r) => r.method === 'send_tx');
+    expect(new Set(sent.map((r) => r.params.signed_tx_base64)).size).toBe(1);
+  });
+
   it('nextSeq panics `not player` for an unregistered account', async () => {
     const { near } = await adapterOver(chain({ seq: null }));
     await expect(near.nextSeq(PLAYER)).rejects.toMatchObject({ panic: 'not player' });
