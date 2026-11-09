@@ -2,6 +2,15 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-08 T15c NEAR runway: funding floors in the health check
+
+- Changed: `lib/near/funding.js` (new, `readFunding`), `lib/near/adapter.js` and `lib/near/mock.js` (`fundingStatus`), `lib/near/index.js`, `services/health.service.js` (floors, `scheduler.funding`), `tests/health/health.test.js`, `SPEC.md` 6 and 8, `docs/runbooks/deploy.md`, `DECISIONS.md` 5.49. No NEAR moved and no key changed.
+- Measured from transactions on testnet, 9 races per batch, after T16: `commit_batch` 6.48 TGas, 0.000625 NEAR; `settle_batch` 15.8 TGas, 0.001559 NEAR; both attach 200 TGas. Team actions over 22 ticks (95 rows): equip 0.000285, bind 0.000310, list 0.000494, `open_pack` 0.000311, `reveal_pack` 0.002029 NEAR, one action per team per tick, 0.0018455 NEAR per tick for the 4 teams. `create_player` 13.95 TGas, 0.007608 NEAR. A signup is 0.010033 NEAR on the ops key, and 0.05 NEAR plus 1,715 bytes on the game account. Storage on the game account: 100 to 124 bytes on a plain slot, about 1,500 on a capsule slot, 160 per slot without the capsules. Raw balance deltas of the settlement and ops keys are not used: the T16 rollout paused racing about 02:15 to 02:25 UTC, re-added the ops key and used it for test mints.
+- Readings 2026-11-09 03:10 UTC: settlement allowance 4.93, ops allowance 9.97, `game.hyperdrome.testnet` 48.45 NEAR (6.08 is storage stake, 42.37 available), `hyperdrome.testnet` 11.17, teams about 2.03 NEAR with about 1.98 allowance each. Each team has about 12,000 spare Volts, so capsule mints end by themselves.
+- Projection through Nov 25 (16.87 days, 8,097 slots, 25% margin): settlement 22.11 NEAR, runs out about Nov 13 at the measured rate. Each team 4.67 NEAR, runs out about Nov 18. Ops 1.12 NEAR for the 89 demo signups left. Game account needs 46.60 NEAR (gas 22.11, storage 17.02, signups 7.47) against 42.37 available: short by 4.24 with the margin, 5.07 to spare without it.
+- Verified: `npm run lint`, `format:check`, `typecheck`, `npm run build` exit 0; `npm test` one full run, results in the PR, on a private local Postgres. Read-only check of `fundingStatus` against testnet through the real adapter: settlement 4.9219, ops 9.9670, game 48.4489, available 42.3615. The gated adapter integration test (ENGINEERING 3) was not run: it creates a testnet account, and no NEAR may move until the owner says go.
+- Open: the proposal awaits the owner's go (top-ups, the settlement key re-add, a play key rotation to a 5 NEAR allowance for the 4 teams, which needs a one-off script around `rotatePlayKey`). The faucet's current limit is unconfirmed: near-faucet.io publishes none, and its old source says 10 NEAR per request and a 1-minute gap. The local cluster on port 54329 went down during T15b, cause unknown.
+
 ## 2026-11-08 T15 Deploy to Vercel, and the scheduler health check
 
 - Changed:
