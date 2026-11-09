@@ -18,11 +18,11 @@ Production is the Vercel project `hyperdrome-near` (team `collide-scopes-project
 
 Every variable is set on Production only. Preview and Development hold none. Changing one takes effect at the next deployment.
 
-| Name                                                                                                                            | Type   | Local source            |
-| ------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------- |
-| `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`                                                                                    | Secret | `.env.production.local` |
-| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`, `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY` | Secret | `.env.local`            |
-| `NEAR_NETWORK`, `NEAR_OWNER_ID`, `NEAR_GAME_ID`, `NEXT_PUBLIC_EXPLORER_URL`                                                     | Config | `.env.local`            |
+| Name                                                                                                                            | Type   | Local source      |
+| ------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------- |
+| `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`                                                                                    | Secret | `.env.prod.local` |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`, `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY` | Secret | `.env.local`      |
+| `NEAR_NETWORK`, `NEAR_OWNER_ID`, `NEAR_GAME_ID`, `NEXT_PUBLIC_EXPLORER_URL`                                                     | Config | `.env.local`      |
 
 Unset on purpose: `NEAR_RPC_URL` and `NEAR_RPC_FAILOVER_URL` (the SPEC.md 15 defaults apply), `NEAR_RPC_API_KEY`, `DEMO_ACCOUNT_CAP` (default 100), `ADMIN_EMAILS`, the Pusher names, `NEAR_ADAPTER`, `NEAR_TESTNET_INTEGRATION`, `SMOKE_BASE_URL`.
 
@@ -32,7 +32,7 @@ Set a value over stdin, so it reaches neither the shell history nor the process 
 vercel env add <NAME> --environment production --sensitive   # value on stdin; --no-sensitive for Config
 ```
 
-`.env.local` in the main checkout is the one local source for every session. `.env.production.local` sits beside it. Next.js reads `.env.production.local` first in `next build` and `next start`, so a local `next start` in that checkout uses the production database.
+`.env.local` in the main checkout is the one local source for every session. `.env.prod.local` sits beside it; load it explicitly with `node --env-file`. Next.js auto-loads a file named `.env.production.local` in any local build or start, which would point a local session at the production database, and it never auto-loads `.env.prod.local`.
 
 ## World seed
 
@@ -47,16 +47,16 @@ The script reads `.env.local` and prints one line per step with what it created,
 
 ## The smoke test
 
-`scripts/smoke-testnet.mjs` plays one new demo account through the whole loop on testnet and fails loudly if any link is broken (SPEC.md 13). Run it against production after a merge, with racing on. `.env.production.local` comes second so its `CRON_SECRET` wins (with several `--env-file` flags, a later file overrides an earlier one):
+`scripts/smoke-testnet.mjs` plays one new demo account through the whole loop on testnet and fails loudly if any link is broken (SPEC.md 13). Run it against production after a merge, with racing on. `.env.prod.local` comes second so its `CRON_SECRET` wins (with several `--env-file` flags, a later file overrides an earlier one):
 
 ```sh
-SMOKE_BASE_URL=https://hyperdrome-near.vercel.app node --env-file=.env.local --env-file=.env.production.local \
+SMOKE_BASE_URL=https://hyperdrome-near.vercel.app node --env-file=.env.local --env-file=.env.prod.local \
   --import ./scripts/register-alias.mjs scripts/smoke-testnet.mjs
 ```
 
 `npm run smoke` on its own targets http://localhost:3000; use it only against a server on its own database and contract (see "Only the hosted scheduler ticks"). The script needs `CRON_SECRET` for the target and the chain adapter's variables (it reads the drone's ELO from the contract). It ticks, waits for the next 3-minute slot and ticks again; the four recorded runs took 1 min 39 s, 3 min 32 s (HANDOFF.md, T13), 2 min 43 s (T11 part 2) and 1 min 38 s (T9b), and a run beside another scheduler waits up to 3 slots for the matchup and 3 for the settlement. Exit 0 prints the report (player, drone, race, ELO before and after, the settle transaction link, the health line); exit 1 names the assertion that failed. Record the report in HANDOFF.md. Each run leaves one demo account with its drone inactive, counted against `DEMO_ACCOUNT_CAP` and the 5 per IP per hour limit. It works with a scheduler running on the target: a slot the scheduler already ticked is read instead.
 
-The second tick of a run commits the next batch. With a scheduler running, the next tick settles it. On an environment nobody ticks, settle it by hand so no drone stays locked: set `racing_enabled` to `false`, send one tick in the next slot (`node --env-file=.env.production.local scripts/tick.mjs <url>`; variables already set win over the `.env.local` the script loads), then set it back.
+The second tick of a run commits the next batch. With a scheduler running, the next tick settles it. On an environment nobody ticks, settle it by hand so no drone stays locked: set `racing_enabled` to `false`, send one tick in the next slot (`node --env-file=.env.prod.local scripts/tick.mjs <url>`; variables already set win over the `.env.local` the script loads), then set it back.
 
 ## Health
 
@@ -68,14 +68,14 @@ The race loop is one HTTP route, `POST /api/races/run` (GET works too), guarded 
 
 ### The cron-job.org job
 
-| Setting       | Value                                                                 |
-| ------------- | --------------------------------------------------------------------- |
-| URL           | `https://hyperdrome-near.vercel.app/api/races/run?mode=background`    |
-| Method        | POST                                                                  |
-| Header        | `x-cron-secret: <CRON_SECRET>` (the value in `.env.production.local`) |
-| Schedule      | every minute                                                          |
-| Timeout       | the default, 30 s                                                     |
-| Notifications | on failure, and when the job is disabled automatically                |
+| Setting       | Value                                                              |
+| ------------- | ------------------------------------------------------------------ |
+| URL           | `https://hyperdrome-near.vercel.app/api/races/run?mode=background` |
+| Method        | POST                                                               |
+| Header        | `x-cron-secret: <CRON_SECRET>` (the value in `.env.prod.local`)    |
+| Schedule      | every minute                                                       |
+| Timeout       | the default, 30 s                                                  |
+| Notifications | on failure, and when the job is disabled automatically             |
 
 `?mode=background` claims the slot, answers 202 and runs the phases in `after()`, inside the route's 60 s `maxDuration`. cron-job.org closes a request at 30 s and counts it as failed, disables a job after more than 25 failures in a row, and a full tick has taken 38.3 s (HANDOFF.md, T12). The first call of a slot claims it; the other two answer 200 with `claimed: false`, so a lost call costs one minute at most.
 
@@ -86,7 +86,7 @@ A background tick's phases run after the answer, so a phase that fails does not 
 `scripts/tick.mjs` sends one synchronous tick. It reads the secret from the environment, then `.env.local`:
 
 ```sh
-node --env-file=.env.production.local scripts/tick.mjs https://hyperdrome-near.vercel.app
+node --env-file=.env.prod.local scripts/tick.mjs https://hyperdrome-near.vercel.app
 ```
 
 With no URL it targets a local server on http://localhost:3000; the rule in "Only the hosted scheduler ticks" applies.
