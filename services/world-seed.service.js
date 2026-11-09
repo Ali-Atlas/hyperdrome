@@ -1,6 +1,6 @@
 /**
- * The world seed (SPEC.md 2.3, 13): the tracks, the `racing_enabled` switch, the contract-owned
- * bots and the catalog cache. Every step reads what exists first and writes only what is missing,
+ * The world seed (SPEC.md 2.3, 6, 13): the tracks, Season 1, the `racing_enabled` switch, the
+ * contract-owned bots and the catalog cache. Every step reads what exists first and writes only what is missing,
  * so the seed can run any number of times; a run that stopped part way resumes on the next one.
  * The chain is the source of truth for bots: a bot is a drone the contract account owns that is not
  * a listing in escrow.
@@ -18,7 +18,7 @@ import { getNear } from '@/lib/near';
 import { BOTS_PER_BRACKET, botRoster, walkStats } from '@/lib/world/bot-roster.js';
 import { syncCatalog } from './catalog.service.js';
 
-const { adminConfig, drones, tracks } = schema;
+const { adminConfig, drones, seasons, tracks } = schema;
 
 /**
  * @typedef {{ db?: any, near?: import('@/lib/near').NearAdapter, randomInt?: (max: number) => number, onMint?: (tx: SeedTx) => void }} Deps
@@ -34,6 +34,14 @@ const PAGE = 50;
 /** The switch the scheduler reads before it commits a batch (SPEC.md 6). */
 const RACING_KEY = 'racing_enabled';
 
+/** The season the leaderboard shows (SPEC.md 6): November 1 to 25, 2026, whole days in UTC. */
+export const SEASON_1 = {
+  seasonNumber: 1,
+  startDate: new Date('2026-11-01T00:00:00Z'),
+  endDate: new Date('2026-11-25T23:59:59Z'),
+  isActive: true,
+};
+
 /**
  * Run every step of the world seed.
  * @param {{ racingOn?: boolean }} [options] `racingOn` sets `racing_enabled` to true
@@ -45,6 +53,7 @@ export async function seedWorld({ racingOn = false } = {}, deps = {}) {
   const near = deps.near ?? getNear();
   const randomInt = deps.randomInt ?? cryptoRandomInt;
   const trackStep = await seedTracks(db);
+  const seasonStep = await seedSeason(db);
   const bots = await seedBots({ db, near, randomInt, onMint: deps.onMint });
   const catalog = await syncCatalog({ db, near });
   // Last, so racing is never switched on over a roster a stopped run left incomplete.
@@ -52,6 +61,7 @@ export async function seedWorld({ racingOn = false } = {}, deps = {}) {
   return {
     steps: [
       trackStep,
+      seasonStep,
       switchStep,
       ...bots.steps,
       { step: 'catalog skins', ...catalog.skins, note: 'from get_catalog, Ember cap null' },
@@ -96,6 +106,37 @@ async function seedTracks(db) {
     }
   }
   report.note = `${TRACKS.length} in lib/game-engine/tracks.js`;
+  return report;
+}
+
+/**
+ * Season 1, matched by number. A row whose dates or active flag differ is corrected in place.
+ * @param {any} db
+ * @returns {Promise<StepReport>}
+ */
+async function seedSeason(db) {
+  const report = {
+    step: 'seasons',
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    note: 'Season 1, Nov 1 to Nov 25, 2026',
+  };
+  const { seasonNumber, startDate, endDate, isActive } = SEASON_1;
+  const [row] = await db.select().from(seasons).where(eq(seasons.seasonNumber, seasonNumber));
+  if (!row) {
+    await db.insert(seasons).values(SEASON_1).onConflictDoNothing();
+    report.created = 1;
+  } else if (
+    row.startDate.getTime() !== startDate.getTime() ||
+    row.endDate.getTime() !== endDate.getTime() ||
+    row.isActive !== isActive
+  ) {
+    await db.update(seasons).set({ startDate, endDate, isActive }).where(eq(seasons.id, row.id));
+    report.updated = 1;
+  } else {
+    report.skipped = 1;
+  }
   return report;
 }
 

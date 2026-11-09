@@ -541,7 +541,7 @@ const SECTIONS = [
     blocks: [
       {
         type: 'paragraph',
-        text: "Cosmetic items that change a drone's appearance. Zero effect on race math. 32 designs exist today: 8 commons, 8 rares, 8 epics, 8 legendaries. Each design has a supply cap: 2,200 common, 1,300 rare, 1,100 epic, 3 legendary. Ember, the starter skin, has no cap.",
+        text: "Cosmetic items that change a drone's appearance. Zero effect on race math. 32 designs exist today: 8 commons, 8 rares, 8 epics, 8 legendaries. Each design has a supply cap: 2,200 common, 1,300 rare, 1,100 epic, 50 legendary. Ember, the starter skin, has no cap.",
       },
 
       { type: 'subheading', text: 'Rarities' },
@@ -697,7 +697,7 @@ const SECTIONS = [
       { type: 'subheading', text: 'Length' },
       {
         type: 'paragraph',
-        text: 'Hyperdrome runs one season today, with no end date.',
+        text: 'Season 1 runs from November 1 to November 25, 2026. It is the only season so far.',
       },
 
       { type: 'subheading', text: 'What resets' },
@@ -884,20 +884,8 @@ const PRE_SECTIONS = [
   },
 ];
 
-/* -------------------------------------------------------------------------- */
-/* Season 2 Preview - upcoming changes. Rendered at the end of the guide      */
-/* (after the conceptual primers and deep-dives) with a distinct              */
-/* "Season 2 Preview" pill so users read it as a forward look rather than     */
-/* current mechanics.                                                          */
-/* -------------------------------------------------------------------------- */
-const SEASON_2_PREVIEW = {
-  id: 'season-2-preview',
-  title: 'Season 2 Preview',
-  Icon: Sparkles,
-};
-
-/** TOC entries: conceptual primers, then deep-dives, then Season 2 preview last. */
-const TOC_ENTRIES = [...PRE_SECTIONS, ...SECTIONS, SEASON_2_PREVIEW];
+/** TOC entries: conceptual primers, then deep-dives. */
+const TOC_ENTRIES = [...PRE_SECTIONS, ...SECTIONS];
 
 export default function GuidePage() {
   const [activeId, setActiveId] = useState(TOC_ENTRIES[0].id);
@@ -986,11 +974,7 @@ export default function GuidePage() {
                   <a
                     href={`#${id}`}
                     onClick={(e) => handleTocClick(e, id)}
-                    className={cn(
-                      styles.tocLink,
-                      activeId === id && styles.tocLinkActive,
-                      id === SEASON_2_PREVIEW.id && styles.tocLinkS2
-                    )}
+                    className={cn(styles.tocLink, activeId === id && styles.tocLinkActive)}
                   >
                     <Icon size={14} aria-hidden="true" />
                     <span>{title}</span>
@@ -1010,11 +994,7 @@ export default function GuidePage() {
                   <a
                     href={`#${id}`}
                     onClick={(e) => handleTocClick(e, id)}
-                    className={cn(
-                      styles.tocLink,
-                      activeId === id && styles.tocLinkActive,
-                      id === SEASON_2_PREVIEW.id && styles.tocLinkS2
-                    )}
+                    className={cn(styles.tocLink, activeId === id && styles.tocLinkActive)}
                   >
                     <Icon size={14} aria-hidden="true" />
                     <span>{title}</span>
@@ -1047,66 +1027,6 @@ export default function GuidePage() {
                 </Card>
               </section>
             ))}
-
-            <section
-              id={SEASON_2_PREVIEW.id}
-              ref={(el) => {
-                sectionRefs.current[SEASON_2_PREVIEW.id] = el;
-              }}
-              className={styles.s2Section}
-            >
-              <span className={styles.s2Pill}>Season 2 Preview</span>
-              <Card className={styles.sectionCard}>
-                <div className={styles.sectionHeading}>
-                  <Sparkles size={14} aria-hidden="true" />
-                  <span>What&apos;s Coming in Season 2</span>
-                </div>
-                <div className={styles.sectionBody}>
-                  <p className={styles.paragraph}>
-                    There is no Season 2 date. Part of what this section once promised is already
-                    live, and the rest is not built.
-                  </p>
-
-                  <h3 className={styles.subheading}>Fixed Supply</h3>
-                  <p className={styles.paragraph}>
-                    Each skin design has an on-chain supply cap. Mods have no cap.{' '}
-                    <span style={{ color: 'var(--rarity-legendary)', fontWeight: 600 }}>
-                      Each legendary design is limited to 3 copies.
-                    </span>
-                  </p>
-                  <p className={styles.paragraph}>
-                    The caps per design are 2,200 common, 1,300 rare, 1,100 epic, and 3 legendary.
-                    Ember has no cap.
-                  </p>
-
-                  <h3 className={styles.subheading}>Pricing Reflects Scarcity</h3>
-                  <p className={styles.paragraph}>
-                    Pack prices are the ones in the Packs section. No price change is scheduled.
-                  </p>
-
-                  <h3 className={styles.subheading}>On-Chain Assets</h3>
-                  <p className={styles.paragraph}>
-                    Drones, skins, and mods are already on-chain tokens on NEAR testnet. Marketplace
-                    sales settle on-chain with the 10% platform rake.
-                  </p>
-
-                  <h3 className={styles.subheading}>Season 1 Carryover</h3>
-                  <p className={styles.paragraph}>
-                    There is no season rollover in this build, so nothing needs to carry over.
-                  </p>
-
-                  <h3 className={styles.subheading}>Volts and $TOKEN</h3>
-                  <p className={styles.paragraph}>
-                    There is no $TOKEN and no exchange rate for volts in this build.
-                  </p>
-
-                  <h3 className={styles.subheading}>Competitive Reset</h3>
-                  <p className={styles.paragraph}>
-                    ELO ratings and leaderboard positions do not reset in this build.
-                  </p>
-                </div>
-              </Card>
-            </section>
           </div>
         </div>
       </div>

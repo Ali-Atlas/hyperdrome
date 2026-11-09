@@ -45,7 +45,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'How is the season timer counted?',
-        a: 'There is no season timer in this build. One season runs with no end date.',
+        a: 'Season 1 runs from November 1 to November 25, 2026. The leaderboard shows the days left, in UTC.',
       },
     ],
   },
@@ -357,11 +357,11 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Are legendary skins unique?',
-        a: "Yes. Each legendary design is unique - the skin replaces the drone's appearance entirely (it IS the drone, visually). Each design is limited to 3 copies.",
+        a: "Each legendary design is limited to 50 copies. The skin replaces the drone's appearance entirely (it IS the drone, visually).",
       },
       {
         q: 'How many skins exist?',
-        a: '32 designs: 8 commons, 8 rares, 8 epics, 8 legendaries. Supply per design is 2,200 common, 1,300 rare, 1,100 epic, 3 legendary. Ember, the starter skin, has no cap.',
+        a: '32 designs: 8 commons, 8 rares, 8 epics, 8 legendaries. Supply per design is 2,200 common, 1,300 rare, 1,100 epic, 50 legendary. Ember, the starter skin, has no cap.',
       },
       {
         q: 'Can two players own the same skin?',
@@ -407,7 +407,7 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How long is a season?',
-        a: 'There is one season today, with no end date.',
+        a: 'Season 1 runs from November 1 to November 25, 2026. It is the only season so far.',
       },
       {
         q: 'What resets at season-end?',

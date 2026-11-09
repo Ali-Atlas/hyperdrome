@@ -410,44 +410,46 @@ export default function LeaderboardPage() {
               </div>
             </div>
 
-            <div className={styles.rewardsRow}>
-              <span className={styles.rewardsLabel}>Season Rewards</span>
-              <span
-                className={styles.rewardInline}
-                title="Exclusive Skins"
-                aria-label="Exclusive Skins"
-              >
+            {season.hasRewards && (
+              <div className={styles.rewardsRow}>
+                <span className={styles.rewardsLabel}>Season Rewards</span>
                 <span
-                  className={cn(styles.rewardThumb, styles.rewardThumbSkins)}
-                  aria-hidden="true"
+                  className={styles.rewardInline}
+                  title="Exclusive Skins"
+                  aria-label="Exclusive Skins"
                 >
-                  <Sparkles size={12} />
+                  <span
+                    className={cn(styles.rewardThumb, styles.rewardThumbSkins)}
+                    aria-hidden="true"
+                  >
+                    <Sparkles size={12} />
+                  </span>
+                  <span className={styles.rewardText}>Exclusive Skins</span>
                 </span>
-                <span className={styles.rewardText}>Exclusive Skins</span>
-              </span>
-              <span className={styles.rewardInline} title="Volt Prizes" aria-label="Volt Prizes">
+                <span className={styles.rewardInline} title="Volt Prizes" aria-label="Volt Prizes">
+                  <span
+                    className={cn(styles.rewardThumb, styles.rewardThumbPoints)}
+                    aria-hidden="true"
+                  >
+                    <Coins size={12} />
+                  </span>
+                  <span className={styles.rewardText}>Volt Prizes</span>
+                </span>
                 <span
-                  className={cn(styles.rewardThumb, styles.rewardThumbPoints)}
-                  aria-hidden="true"
+                  className={styles.rewardInline}
+                  title="Titles / Badges"
+                  aria-label="Titles / Badges"
                 >
-                  <Coins size={12} />
+                  <span
+                    className={cn(styles.rewardThumb, styles.rewardThumbTitles)}
+                    aria-hidden="true"
+                  >
+                    <Award size={12} />
+                  </span>
+                  <span className={styles.rewardText}>Titles / Badges</span>
                 </span>
-                <span className={styles.rewardText}>Volt Prizes</span>
-              </span>
-              <span
-                className={styles.rewardInline}
-                title="Titles / Badges"
-                aria-label="Titles / Badges"
-              >
-                <span
-                  className={cn(styles.rewardThumb, styles.rewardThumbTitles)}
-                  aria-hidden="true"
-                >
-                  <Award size={12} />
-                </span>
-                <span className={styles.rewardText}>Titles / Badges</span>
-              </span>
-            </div>
+              </div>
+            )}
           </section>
         )}
 

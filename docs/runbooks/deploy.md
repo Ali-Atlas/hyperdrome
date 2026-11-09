@@ -40,9 +40,11 @@ vercel env add <NAME> --environment production --sensitive   # value on stdin; -
 A new environment (a database and the contract it points at) is seeded once, after `npm run db:migrate`:
 
 ```sh
-npm run seed:world                  # tracks, racing_enabled (created false), 20 bots, catalog cache
+npm run seed:world                  # tracks, Season 1, racing_enabled (created false), 20 bots, catalog cache
 npm run seed:world -- --racing-on   # the same, and racing_enabled = true
 ```
+
+To seed production, load both env files, `.env.prod.local` second so its `DATABASE_URL` wins: `node --env-file=.env.local --env-file=.env.prod.local --import ./scripts/register-alias.mjs scripts/seed-world.mjs`. Run it after `set_skin_caps` so the catalog cache holds the live caps.
 
 The script reads `.env.local` and prints one line per step with what it created, updated and skipped, then the explorer link of every bot it minted. Every step checks before it acts: a second run prints `Nothing to do: every step skipped.`, and a run that stopped part way resumes. Bots earn XP and level up: when one has left its bracket (weeks of racing), a later run mints its replacement, so run the seed again if a bracket runs short of bots. The seed needs the real adapter (`NEAR_ADAPTER` unset). Bots are minted with the ops key to the game account, so keep other users of the ops key (a second seed, a command-line owner call) off while it runs. If it stops with "outcome is unknown", wait a minute before running it again: it counts the bots on chain first, and a transaction that has not landed yet would be minted a second time (one spare bot, harmless).
 

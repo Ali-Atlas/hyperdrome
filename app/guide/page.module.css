@@ -152,10 +152,6 @@
   color: var(--accent-primary);
 }
 
-.tocLinkS2 {
-  color: var(--accent-primary);
-}
-
 /* ---- Content column ---- */
 
 .content {
@@ -309,31 +305,6 @@
   font-family: var(--font-mono);
 }
 
-/* ==========================================================================
- * Season 2 preview - appended after the regular guide content. The pill
- * is the only differentiator. NEVER add a left-border (or any border)
- * accent to this block or any other section in the Guide / FAQ.
- * ========================================================================== */
-
-.s2Section {
-  margin-bottom: var(--space-8);
-  scroll-margin-top: 130px;
-}
-
-.s2Pill {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 3px 9px;
-  border-radius: var(--radius-sm);
-  background: rgba(3, 218, 198, 0.15);
-  color: var(--accent-primary);
-  margin-bottom: var(--space-2);
-}
-
 .modTable .costHeader,
 .modTable .costRow {
   grid-template-columns: 1.2fr 0.7fr 1.4fr 1.2fr;
@@ -422,10 +393,18 @@
   letter-spacing: 0.04em;
 }
 
-.tier_steel  { color: var(--level-steel); }
-.tier_orange { color: var(--level-orange); }
-.tier_purple { color: var(--level-purple); }
-.tier_gold   { color: var(--level-gold); }
+.tier_steel {
+  color: var(--level-steel);
+}
+.tier_orange {
+  color: var(--level-orange);
+}
+.tier_purple {
+  color: var(--level-purple);
+}
+.tier_gold {
+  color: var(--level-gold);
+}
 
 @media (max-width: 600px) {
   .tierShowcase {

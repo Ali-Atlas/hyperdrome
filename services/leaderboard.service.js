@@ -316,8 +316,11 @@ export async function getUserRank(userId) {
   return (count?.count ?? 0) + 1;
 }
 
-/** Currently active season. */
+/**
+ * Currently active season. No season carries rewards in this build (SPEC.md 8, 11), so
+ * `hasRewards` is false and the leaderboard hides its Season Rewards line.
+ */
 export async function getSeasonInfo() {
   const [row] = await db.select().from(seasons).where(eq(seasons.isActive, true)).limit(1);
-  return row ?? null;
+  return row ? { ...row, hasRewards: false } : null;
 }

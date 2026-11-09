@@ -4,11 +4,13 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
 
 ## 2026-11-09 T19b Guide and FAQ copy, leaderboard team badge
 
-- Changed: `app/guide/page.jsx` and `app/faq/page.jsx` (text only; every changed sentence is listed in the PR), `app/leaderboard/page.jsx` and its CSS module (the team badge under the drone name), `services/leaderboard.service.js` (`teamName`), `eslint.config.mjs` (the leaderboard page joins the minimal-edit list), `AGENTS.md` (the copy rule), `SPEC.md` 8 and 11, `DECISIONS.md` 5.54.
-- Verified: `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 39 files passed, 1 skipped, 295 tests passed, 1 skipped; `npm run build` exit 0. Walk in headless Firefox, `next start` on this branch with production data, read-only (no request other than GET, a local `AUTH_SECRET`): Guide, FAQ and leaderboard at 1440 and 390 px, no horizontal overflow, no em or en dash in the Guide text. All four team names render as badges, names intact.
+- Changed: `app/guide/page.jsx` and `app/faq/page.jsx` (text; every changed sentence is listed in the PR; the Season 2 Preview section and its CSS are removed; legendary is quoted at 50 per design; Season 1 is quoted with its dates), `app/leaderboard/page.jsx` and its CSS module (the team badge under the drone name; the Season Rewards line shows only when `season.hasRewards` is true), `services/leaderboard.service.js` (`teamName`, `hasRewards`), `services/world-seed.service.js` and `scripts/seed-world.mjs` (Season 1, November 1 to 25, 2026, whole days in UTC), `tests/world/world-seed.test.js`, `docs/runbooks/deploy.md` and `dev-setup.md`, `eslint.config.mjs` (the leaderboard page joins the minimal-edit list), `AGENTS.md` (the copy rule), `SPEC.md` 6, 8 and 11, `DECISIONS.md` 5.54.
+- Production, 2026-11-09, after the T20 rollout: the world seed ran against Neon `prod`. `seasons` 1 created, `catalog skins` 31 updated to the live caps, every other step skipped, no bot minted.
+- Verified: `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 296 tests passed, 1 skipped; `npm run build` exit 0. Walk in headless Firefox, `next start` on this branch with production data, read-only (no request other than GET, a local `AUTH_SECRET`), with no stub: leaderboard drone tab at 1440 and 390 px shows Season 1 with 17 days remaining, no Season Rewards line, team badges, no horizontal overflow; Guide and FAQ have no em or en dash, no Season 2 text, and quote 50 legendary.
 - Open:
-  - Production has no `seasons` row, so the leaderboard's Players and Drones tabs (inside the season header) do not render and the drone table is unreachable there. The walk stubbed a season in the browser's copy of the API response only. Options are in the PR.
-  - The Guide and FAQ quote the T20 caps (2,200, 1,300, 1,100, 3). Testnet still has 10, 6, 4, 3 until the T20 rollout, so merge this after that rollout.
+  - Podium cards carry no team badge, so a team whose drones fill the podium shows none in the table below it (Hairpin Collective on 2026-11-09).
+  - After November 25 the season stays active with 0 days remaining: nothing ends it in this build.
+  - Neon `dev` has no Season 1 row until `npm run seed:world` runs there.
   - The acceptance list was written after the code, against AGENTS.md.
 
 ## 2026-11-08 T18 Verify button and drone on-chain panel

@@ -19,11 +19,11 @@ import {
   walkStats,
 } from '../../lib/world/bot-roster.js';
 import { getSkinCatalog } from '../../services/catalog.service.js';
-import { seedWorld } from '../../services/world-seed.service.js';
+import { SEASON_1, seedWorld } from '../../services/world-seed.service.js';
 import { dbEnabled, newPlayer, testDb } from '../gameplay/setup.js';
 import { catalogView, createFakeWorld } from './fake-world.js';
 
-const { adminConfig, catalogTemplates, drones, tracks } = schema;
+const { adminConfig, catalogTemplates, drones, seasons, tracks } = schema;
 
 /** @param {{ step: string }[]} steps @param {string} name */
 const stepOf = (steps, name) => steps.find((s) => s.step === name);
@@ -82,6 +82,7 @@ describe.skipIf(!dbEnabled)('world seed', () => {
 
     expect(first.steps.map((s) => s.step)).toEqual([
       'tracks',
+      'seasons',
       'admin_config',
       'bots minted',
       'bots cached',
@@ -177,6 +178,7 @@ describe.skipIf(!dbEnabled)('world seed', () => {
       second.steps.map(({ step, created, updated, skipped }) => [step, created, updated, skipped])
     ).toEqual([
       ['tracks', 0, 0, 16],
+      ['seasons', 0, 0, 1],
       ['admin_config', 0, 0, 1],
       ['bots minted', 0, 0, 20],
       ['bots cached', 0, 0, 20],
@@ -253,6 +255,28 @@ describe.skipIf(!dbEnabled)('world seed', () => {
     const restored = await seedWorld({}, { db, near: w.near });
     expect(stepOf(restored.steps, 'catalog skins')).toMatchObject({ updated: 1, skipped: 31 });
     expect((await getSkinCatalog({ db })).find((s) => s.template === 1)?.cap).toBe(10);
+  });
+
+  it('creates Season 1, repairs a row that drifted, then skips', async () => {
+    const w = world();
+    const deps = { db, near: w.near };
+    await db.delete(seasons).where(eq(seasons.seasonNumber, 1));
+    const created = await seedWorld({}, deps);
+    expect(stepOf(created.steps, 'seasons')).toMatchObject({ created: 1, updated: 0, skipped: 0 });
+    const [row] = await db.select().from(seasons).where(eq(seasons.seasonNumber, 1));
+    expect(row).toMatchObject(SEASON_1);
+
+    await db
+      .update(seasons)
+      .set({ endDate: new Date('2026-12-01T00:00:00Z') })
+      .where(eq(seasons.seasonNumber, 1));
+    const repaired = await seedWorld({}, deps);
+    expect(stepOf(repaired.steps, 'seasons')).toMatchObject({ created: 0, updated: 1, skipped: 0 });
+    const [fixed] = await db.select().from(seasons).where(eq(seasons.id, row.id));
+    expect(fixed.endDate).toEqual(SEASON_1.endDate);
+
+    const again = await seedWorld({}, deps);
+    expect(stepOf(again.steps, 'seasons')).toMatchObject({ created: 0, updated: 0, skipped: 1 });
   });
 
   it('creates racing_enabled false, turns it on only with racingOn and never turns it off', async () => {
