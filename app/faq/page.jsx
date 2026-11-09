@@ -17,11 +17,19 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Is it free to play?',
-        a: 'Yes. Connect a wallet and you get a free Level 1 starter drone (active by default, minted to your wallet as an NFT), 1000 VOLT minted on-chain, and 1 active drone slot at ELO 1000. All further progression is earned by racing. Or pick Play Demo for a pre-seeded off-chain account if you want to look around first.',
+        a: 'Yes. Sign in with Google or pick Play Demo and the game creates a NEAR testnet account for you with a free Level 1 starter drone (active by default), an Ember skin, one common mod, 1,000 volts, and 1 active drone slot at ELO 1000. All further progression is earned by racing.',
       },
       {
         q: 'Do I need to be online for races?',
-        a: 'No. The race cycle runs every 3 minutes whether you\'re logged in or not. Results land in your race log.',
+        a: "No. The race cycle runs every 3 minutes whether you're logged in or not. Results land in your race log.",
+      },
+      {
+        q: 'Do I need a wallet?',
+        a: 'No. The game holds your NEAR testnet account for you. If you want your assets in your own wallet, open Wallet and select Connect a wallet. NEAR Connect by HOT lists the testnet wallets that can sign a message.',
+      },
+      {
+        q: 'Can I withdraw my assets?',
+        a: 'Yes. Link one wallet, then withdraw your drones with their bound items, your unbound skins and mods, and your volts to it, up to 40 tokens at a time. After that, only the linked wallet can change the link.',
       },
       {
         q: 'How often do races happen?',
@@ -29,15 +37,15 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'How do I sign up?',
-        a: 'Click Connect Wallet on the landing page and pick a wallet (MetaMask or any injected browser wallet). The first time you connect from a new address, the server provisions your starter drone NFT and 1000 VOLT and signs you in. Returning visitors connect once and land back in the dashboard.',
+        a: 'Sign in with Google or select Play Demo on the landing page. The first time, the server creates your NEAR testnet account and mints your starter kit to it. Returning Google players land back in the dashboard.',
       },
       {
-        q: 'What\'s the max level?',
-        a: '20. Past Level 20 the XP bar pins to full and stops counting toward level. ELO, season volts, and skin progression keep going.',
+        q: "What's the max level?",
+        a: '20. Past Level 20 the XP bar pins to full and stops counting toward level. ELO and volts keep going.',
       },
       {
         q: 'How is the season timer counted?',
-        a: 'Seasons run 30 days from the start date set on the active season row. End time is the same time of day, 30 days later.',
+        a: 'There is no season timer in this build. One season runs with no end date.',
       },
     ],
   },
@@ -47,27 +55,27 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I get more drones?',
-        a: 'Three ways. (1) Race milestones: at 1,000 total races (across all your drones) you auto-receive a free Level 1 drone, plus a slot 2 unlock. At 3,000 races, the same again with slot 3. Each milestone spawn includes one unbound common skin and one unbound common mod. (2) NPC vendor: 3,500 volts per Level 1 drone. Random mid-range stats, one bound common skin, one bound common mod. Available anytime, no marketplace dependency. (3) Marketplace: buy a drone listed by another player at any level with whatever skins, mods, and race history the seller built into it.',
+        a: 'Two ways. (1) NPC vendor: 3,500 volts per Level 1 drone. Each stat rolled 1-5, one bound common skin, one bound common mod. Available anytime, no marketplace dependency. (2) Marketplace: buy a drone listed by another player at any level with whatever skins, mods, and race history the seller built into it.',
       },
       {
         q: 'Can I buy XP or buy levels?',
-        a: 'No. Leveling is gated behind racing. 10 XP per win, 4 per loss. Buying volts speeds up stat allocation on a drone you already own, but it doesn\'t skip progression.',
+        a: "No. Leveling is gated behind racing. 10 XP per win, 4 per loss. Spending volts speeds up stat allocation on a drone you already own, but it doesn't skip progression.",
       },
       {
         q: 'Can I have multiple active drones?',
-        a: 'Yes, up to 3 once you unlock the slots. Slot 2 unlocks at 1,000 total races. Slot 3 unlocks at 3,000 total races. Total races counts every race any of your drones runs. Each unlock also auto-spawns a free Level 1 drone (with an unbound common skin and mod) so the new slot has a drone to fill it.',
+        a: 'Yes, up to 3. Slot 2 opens at 500 total races. Slot 3 opens at 2,000 total races. Total races counts every race any of your drones runs.',
       },
       {
         q: 'What happens when my drone levels up?',
-        a: '+20 to its Total Stat Budget. Per-stat cap rises by 4 or 5. +20 volts pay into your wallet. At levels 6, 11, and 16 the drone crosses a tier boundary and its appearance changes.',
+        a: '+20 to its Total Stat Budget. Per-stat cap rises by 4 or 5. +20 volts pay into your balance. At levels 6, 11, and 16 the drone crosses a tier boundary and its appearance changes.',
       },
       {
-        q: 'Can I reset my drone\'s stats?',
+        q: "Can I reset my drone's stats?",
         a: 'No. Stat allocations are permanent. Plan before you spend.',
       },
       {
         q: 'What does Total Volts Invested mean?',
-        a: 'The lifetime sum of volts spent upgrading that drone\'s stats. It\'s a value indicator on the marketplace. It doesn\'t affect race math.',
+        a: "The lifetime sum of volts spent upgrading that drone's stats. It's a value indicator on the marketplace. It doesn't affect race math.",
       },
       {
         q: 'Do all my drones share XP?',
@@ -75,11 +83,11 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Can I deactivate a drone?',
-        a: 'Yes. Toggle it off from its detail page. An inactive drone doesn\'t race and doesn\'t earn XP or volts.',
+        a: "Yes. Toggle it off from its detail page. An inactive drone doesn't race and doesn't earn XP or volts.",
       },
       {
         q: 'How does activating and deactivating drones work?',
-        a: 'Toggle the active flag from a drone\'s detail page. The change goes through a one-cycle pending state. Switching on shows the drone as Activating and starts racing it at the next 3-minute cycle. Switching off shows it as Deactivating: the drone races out the current matchup, then drops out of matchmaking starting next cycle. Click the toggle a second time while it\'s still pending to cancel and return to the original state. The strategy lock window does not block these toggles. Only mod and skin swaps lock during that period.',
+        a: "Toggle the active flag from a drone's detail page. The change goes through a one-cycle pending state. Switching on shows the drone as Activating and starts racing it at the next 3-minute cycle. Switching off shows it as Deactivating: the drone races out the current matchup, then drops out of matchmaking starting next cycle. Click the toggle a second time while it's still pending to cancel and return to the original state. The strategy lock window does not block these toggles. Only mod and skin swaps lock during that period.",
       },
       {
         q: 'What if I have more drones than active slots?',
@@ -91,7 +99,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What do I start with?',
-        a: 'A Level 1 drone (active, ELO 1000, all 9 stats randomized in a low range and trimmed to fit the Level 1 stat budget), 500 volts in your wallet, one unbound common skin, one unbound common mod, and 1 active drone slot.',
+        a: 'A Level 1 drone (active, ELO 1000, all 9 stats at 1, with 20 points to allocate), 1,000 volts, an Ember skin, one common mod, and 1 active drone slot.',
       },
     ],
   },
@@ -100,7 +108,7 @@ const FAQ_SECTIONS = [
     category: 'Stats',
     items: [
       {
-        q: 'What\'s the difference between Speed and Acceleration?',
+        q: "What's the difference between Speed and Acceleration?",
         a: 'Speed is dominant on straights, especially long ones. Acceleration helps on every segment type - the universal contributor.',
       },
       {
@@ -108,16 +116,16 @@ const FAQ_SECTIONS = [
         a: 'No. Consistency is a pure variance dampener. It does not contribute to segment scoring. At consistency 0 there is a meaningful per-segment time variance. As consistency rises, variance shrinks toward zero. Higher consistency means more predictable race results.',
       },
       {
-        q: 'Does Wind Resistance only matter when it\'s windy?',
+        q: "Does Wind Resistance only matter when it's windy?",
         a: 'No. Wind Resistance contributes on every straight regardless of weather. In wind conditions, it becomes a major factor on all segments.',
       },
       {
-        q: 'Why isn\'t my Night Vision helping?',
-        a: 'It only applies when the race rolls "night" time of day. Dawn, day, and dusk leave it inactive.',
+        q: "Why isn't my Night Vision helping?",
+        a: 'It applies when the race rolls "night" time of day, and in fog and haze. Dawn, day, and dusk leave it inactive unless one of those weathers rolls.',
       },
       {
         q: 'How do the weather multipliers scale?',
-        a: 'Rain Handling, Wind Resistance (in wind), and Night Vision (at night) all scale the same way. At stat 0 the multiplier is 0.5x. At 50 it\'s 1.0x (neutral). At 75+ it caps at 1.5x. The multiplier hits every segment score for the whole race.',
+        a: "Rain Handling, Wind Resistance (in wind), and Night Vision (at night) all scale the same way. At stat 0 the multiplier is 0.5x. At 50 it's 1.0x (neutral). At 75+ it caps at 1.5x. The multiplier hits every segment score for the whole race.",
       },
       {
         q: 'Should I focus one stat or spread evenly?',
@@ -128,16 +136,16 @@ const FAQ_SECTIONS = [
         a: 'Less. Short tracks barely touch battery. Long tracks punish battery more. Across 3 laps on a long track, 0 battery loses heavy performance by lap 3. On a short track, the same drone loses moderate performance.',
       },
       {
-        q: 'What\'s the per-stat cap at each level?',
-        a: 'Per-stat caps rise with each level. Low-level drones can\'t dump everything into one stat. By level 20, any stat can reach 100.',
+        q: "What's the per-stat cap at each level?",
+        a: "Per-stat caps rise with each level. Low-level drones can't dump everything into one stat. By level 20, any stat can reach 100.",
       },
       {
         q: 'How much does it cost to fully max a stat?',
         a: 'Fully maxing a stat costs hundreds of volts. Early upgrades are cheap. Late ones add up.',
       },
       {
-        q: 'What\'s TSB?',
-        a: 'Total Stat Budget. The maximum sum of your 9 stats. Your total stat budget grows by 20 points per level. Check your drone\'s detail page for your current budget and cap.',
+        q: "What's TSB?",
+        a: "Total Stat Budget. The maximum sum of your 9 stats. Your total stat budget grows by 20 points per level. Check your drone's detail page for your current budget and cap.",
       },
     ],
   },
@@ -163,7 +171,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Why did my drone race a bot?',
-        a: 'When a bracket has fewer than 4 active drones (or an odd count), the system backfills with bots up to an even number at minimum 4. This guarantees every active drone races every cycle.',
+        a: 'Bots bring each active bracket up to at least 5 drones, rounded up to even, so active drones have someone to race.',
       },
       {
         q: 'How many laps per race?',
@@ -183,7 +191,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Where do I see how my drone performed?',
-        a: 'Race detail view. Every segment shows both drones\' scores and times. The full segment log makes it visible where you gained or lost time.',
+        a: 'Race detail view. Every segment shows what each drone gained on the other. The full segment log makes it visible where you gained or lost time.',
       },
       {
         q: 'Why did I lose to a lower-stat drone?',
@@ -195,11 +203,23 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What is the strategy window?',
-        a: 'After matchmaking, races enter a two-minute pending state. You see your opponent, the track, and the rolled conditions. This is the window where you swap the equipped mod on your drone to adapt to the matchup before the race executes.',
+        a: 'After matchmaking, the batch is committed on NEAR testnet and a 120-second window opens. You see your opponent, the track, and the rolled conditions. This is the window where you swap the equipped mod on your drone to adapt to the matchup. The page closes it 3 seconds before the on-chain lock.',
       },
       {
         q: 'What happens if I deactivate a drone between races?',
         a: 'The change takes effect after the current race batch resolves. You cannot pull a drone out of a pending race.',
+      },
+      {
+        q: 'Are races on-chain?',
+        a: 'Yes. Matchups are committed on NEAR testnet before a race and results settle there after it. Drones, skins, mods, and volts are on-chain tokens.',
+      },
+      {
+        q: 'How do I check a race result myself?',
+        a: "Open a settled race and press Verify. Your browser reads the race's two transactions from a public NEAR RPC, checks the seed against the committed hash and each drone's stats against the hash the contract accepted, then runs the race again. Each check shows Pass or Fail with a link to its transaction.",
+      },
+      {
+        q: 'Who are the AI teams?',
+        a: 'Four AI teams race alongside players: Vortex Dynamics, Nimbus Racing, Hairpin Collective, and Static Union. Each team owns 3 drones and its own volts, and takes at most one action per cycle. Their spending is capped on-chain at 5,000 volts per transaction and 15,000 per day.',
       },
     ],
   },
@@ -209,7 +229,7 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How do I earn volts?',
-        a: 'Race. Winners earn volts based on their level, track difficulty, whether it was an upset, and how dominant the win was. Losers always earn volts; the payout scales with level so high-level losses still feel worthwhile. Also: marketplace sales (90% of sale price), and a +20 wallet bonus on every level-up.',
+        a: 'Race. Winners earn volts based on their level, track difficulty, whether it was an upset, and how dominant the win was. Losers always earn volts; the payout scales with level so high-level losses still feel worthwhile. Also: marketplace sales (90% of sale price), and +20 volts on every level-up.',
       },
       {
         q: 'Do losers earn volts?',
@@ -225,7 +245,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Are volts shared between my drones?',
-        a: 'Yes. One wallet per player. Spend it where you want, on any drone.',
+        a: 'Yes. One balance per player. Spend it where you want, on any drone.',
       },
       {
         q: 'What can I spend volts on?',
@@ -233,7 +253,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Can I buy XP?',
-        a: 'No. Volts buy stat allocation; XP only comes from racing. There\'s no shortcut to leveling up.',
+        a: "No. Volts buy stat allocation; XP only comes from racing. There's no shortcut to leveling up.",
       },
     ],
   },
@@ -242,7 +262,7 @@ const FAQ_SECTIONS = [
     category: 'ELO',
     items: [
       {
-        q: 'What\'s my starting ELO?',
+        q: "What's my starting ELO?",
         a: '1000 for both drones and players.',
       },
       {
@@ -255,7 +275,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Does selling a drone reset its ELO?',
-        a: 'No. ELO is tied to the drone, so it carries over to the new owner. Player ELO is separate and tracks the player\'s race history.',
+        a: "No. ELO is tied to the drone, so it carries over to the new owner. Player ELO is separate and tracks the player's race history.",
       },
     ],
   },
@@ -269,14 +289,14 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Can I sell an active drone?',
-        a: 'Yes. Listing doesn\'t deactivate the drone. It keeps racing until someone buys it.',
+        a: "Yes. Listing doesn't deactivate the drone. It keeps racing until someone buys it.",
       },
       {
-        q: 'What\'s the marketplace fee?',
+        q: "What's the marketplace fee?",
         a: '10% of the sale price goes to the platform. Seller gets 90%.',
       },
       {
-        q: 'What\'s the minimum listing price?',
+        q: "What's the minimum listing price?",
         a: '10 volts.',
       },
       {
@@ -285,15 +305,15 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'What transfers when I buy a drone?',
-        a: 'Level, XP, the full stat sheet, ELO, race history, and any applied skins. The drone keeps its identity. You become the new owner.',
+        a: 'Level, XP, the full stat sheet, ELO, race history, and every bound skin and mod. The drone keeps its identity. You become the new owner.',
       },
       {
         q: 'Can I sell a skin separately?',
-        a: 'Only unbound skins (ones you own but haven\'t bound to a drone). Once a skin is bound to a drone, it can only be sold as part of the drone itself.',
+        a: "Only unbound skins (ones you own but haven't bound to a drone). Once a skin is bound to a drone, it can only be sold as part of the drone itself.",
       },
       {
         q: 'Can I sell a mod separately?',
-        a: 'Same rule as skins. Unbound mods can be listed standalone. Bound mods transfer with the drone they\'re bound to.',
+        a: "Same rule as skins. Unbound mods can be listed standalone. Bound mods transfer with the drone they're bound to.",
       },
       {
         q: 'Can I list multiple items at once?',
@@ -311,11 +331,11 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Is this pay-to-win?',
-        a: 'No. Buying volts speeds up stat allocation on a drone you already own, but it doesn\'t buy XP, levels, or wins. Levels come only from racing. A well-built cheap drone beats a badly-built expensive one.',
+        a: "No. Spending volts speeds up stat allocation on a drone you already own, but it doesn't buy XP, levels, or wins. Levels come only from racing. A well-built cheap drone beats a badly-built expensive one.",
       },
       {
         q: 'What is the marketplace rake?',
-        a: 'Every sale on the Marketplace has a 10% fee deducted from the sale price. This is the platform\'s only fee and helps control volt supply in the economy.',
+        a: "Every sale on the Marketplace has a 10% fee deducted from the sale price. This is the platform's only fee and helps control volt supply in the economy.",
       },
     ],
   },
@@ -329,34 +349,34 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Can I swap which skin my drone is wearing?',
-        a: 'Yes. Binding adds a skin to a drone\'s collection permanently, but you can swap which bound skin is actively displayed at any time at no cost. A drone can hold any number of bound skins.',
+        a: "Yes. Binding adds a skin to a drone's collection permanently, but you can swap which bound skin is actively displayed outside the race lock at no cost. A drone can hold any number of bound skins.",
       },
       {
         q: 'Can I unbind a skin or move it to another drone?',
-        a: 'No. Bind is permanent. The skin can never leave that drone\'s collection. If the drone is sold on the marketplace, the entire skin collection transfers with it to the buyer.',
+        a: "No. Bind is permanent. The skin can never leave that drone's collection. If the drone is sold on the marketplace, the entire skin collection transfers with it to the buyer.",
       },
       {
         q: 'Are legendary skins unique?',
-        a: 'Yes. Legendary skins are one-of-a-kind drone designs - the skin replaces the drone\'s appearance entirely (it IS the drone, visually) and only one player can own a given legendary skin at a time.',
+        a: "Yes. Each legendary design is unique - the skin replaces the drone's appearance entirely (it IS the drone, visually). Each design is limited to 3 copies.",
       },
       {
         q: 'How many skins exist?',
-        a: '61 in the vault: 30 commons, 15 rares, 8 epics, 8 legendaries. Legendaries are unique one-of-ones.',
+        a: '32 designs: 8 commons, 8 rares, 8 epics, 8 legendaries. Supply per design is 2,200 common, 1,300 rare, 1,100 epic, 3 legendary. Ember, the starter skin, has no cap.',
       },
       {
         q: 'Can two players own the same skin?',
-        a: 'No. Each skin is a single instance. When a player owns it, no one else can. Sell or apply changes ownership.',
+        a: "Yes, up to the design's supply cap. Each copy is its own token with one owner.",
       },
       {
-        q: 'What\'s in the Starter Pack (2,000 volts)?',
+        q: "What's in the Starter Pack (2,000 volts)?",
         a: '3 skins. Mostly commons, with a small chance at rares or better.',
       },
       {
-        q: 'What\'s in the Premium Pack (12,000 volts)?',
+        q: "What's in the Premium Pack (12,000 volts)?",
         a: '3 skins. Guaranteed at least one rare. Real chances at epics.',
       },
       {
-        q: 'What\'s in the Legendary Pack (60,000 volts)?',
+        q: "What's in the Legendary Pack (60,000 volts)?",
         a: '3 skins. Strong odds at legendaries and epics. The best chance at top-tier items.',
       },
       {
@@ -365,18 +385,18 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'Do skins drop in races?',
-        a: 'Yes. Skins drop randomly after races. Commons drop most often. Legendaries are extremely rare. Drops land unbound in your inventory.',
+        a: 'Not in this build. Skins come from skin packs and vendor drones.',
       },
       {
-        q: 'What if a pack rolls a rarity that\'s sold out?',
-        a: 'The open is rejected before your wallet is charged. Try again later when more items return to the vault.',
+        q: "What if a pack rolls a rarity that's sold out?",
+        a: 'That slot mints a placeholder skin of the same rarity, and the pack still opens.',
       },
       {
         q: 'How do tier-aware skins handle a level-up?',
-        a: 'Common, Rare, and Epic skins re-apply on the new tier silhouette when the drone hits a new tier. The color scheme follows you up. Legendary skins replace the silhouette outright and don\'t change with tier.',
+        a: "Legendary skins equip on any tier and don't change with it. Other skins equip only where a render exists for the drone's tier.",
       },
       {
-        q: 'What\'s in a mod capsule?',
+        q: "What's in a mod capsule?",
         a: 'Same slot structure as skin packs - 3 mods per capsule, same rarity tables. Mod capsules are priced separately (1,000 / 6,000 / 30,000) and run cheaper than skin packs (2,000 / 12,000 / 60,000). Capsules roll mods instead of skins. Mods are functional (bonus + tradeoff per equip).',
       },
     ],
@@ -387,19 +407,19 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: 'How long is a season?',
-        a: '30 days.',
+        a: 'There is one season today, with no end date.',
       },
       {
         q: 'What resets at season-end?',
-        a: 'Season volts and the leaderboard. New season starts at 0 for everyone.',
+        a: 'Nothing in this build.',
       },
       {
         q: 'What carries over?',
-        a: 'Drone level, XP, stats, ELO, your wallet, owned drones, owned skins, and active drone slots. All permanent.',
+        a: 'Drone level, XP, stats, ELO, your volts, owned drones, owned skins, and active drone slots. All permanent.',
       },
       {
         q: 'What are season rewards?',
-        a: 'Top finishers earn rewards distributed at the season cutover.',
+        a: 'There are no season rewards in this build.',
       },
     ],
   },
@@ -417,7 +437,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'How does Mod binding work?',
-        a: 'Same as skins. Binding adds a mod to a drone\'s collection permanently. A drone can hold any number of bound mods. You can swap which mod is actively equipped between races at no cost. The bind itself is permanent: a bound mod can\'t be moved to another drone or sold standalone.',
+        a: "Same as skins. Binding adds a mod to a drone's collection permanently. A drone can hold any number of bound mods. You can swap which mod is actively equipped between races at no cost. The bind itself is permanent: a bound mod can't be moved to another drone or sold standalone.",
       },
       {
         q: 'Can I sell Mods on the Marketplace?',
@@ -429,7 +449,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: 'When do I swap the equipped mod?',
-        a: 'During the two-minute strategy window after matchmaking. You see the opponent, the track, and the rolled conditions, then swap the equipped mod on your drone before the race executes.',
+        a: 'During the 120-second strategy window after matchmaking. You see the opponent, the track, and the rolled conditions, then swap the equipped mod on your drone before the race executes.',
       },
     ],
   },
@@ -479,10 +499,7 @@ export default function FaqPage() {
                         <span className={styles.questionText}>{item.q}</span>
                         <ChevronDown
                           size={14}
-                          className={cn(
-                            styles.chevron,
-                            open && styles.chevronOpen,
-                          )}
+                          className={cn(styles.chevron, open && styles.chevronOpen)}
                           aria-hidden="true"
                         />
                       </button>
