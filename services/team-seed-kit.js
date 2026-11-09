@@ -17,6 +17,7 @@ import {
 import { allocateAlongPersona } from '@/lib/teams/allocation.js';
 import { TEAM_DRONE_LEVELS, teamDroneName } from '@/lib/teams/roster.js';
 import { applyEvents } from './chain-cache.service.js';
+import { recordVoltFlows } from './volt-daily.js';
 
 const { drones } = schema;
 
@@ -174,6 +175,7 @@ export async function mintKit(ctx, startVolts) {
 async function mint(ctx, piece) {
   try {
     const minted = await ctx.near.callAsOps(piece.method, piece.args);
+    await recordVoltFlows(minted.events, ctx.db);
     const token = String(minted.result ?? '');
     ctx.record(token ? `${piece.label} -> ${token}` : piece.label, minted.txHash);
     return token;

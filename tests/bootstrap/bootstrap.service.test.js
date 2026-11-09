@@ -6,6 +6,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createDb, isNeonUrl, schema } from '../../lib/db/index.js';
+import { utcDayKey } from '../../lib/live/summary.js';
 import { ContractPanicError } from '../../lib/near/errors.js';
 import { BootstrapPendingError, runBootstrap } from '../../services/bootstrap.service.js';
 import { createFakeGame } from './fake-game.js';
@@ -13,7 +14,7 @@ import { createFakeGame } from './fake-game.js';
 const url = process.env.DATABASE_URL ?? '';
 // CI always has the test database; elsewhere the suite needs one and never touches Neon.
 const enabled = Boolean(process.env.CI) || (url !== '' && !isNeonUrl(url));
-const { users, drones, skins, mods, droneSkins, droneMods } = schema;
+const { users, drones, skins, mods, droneSkins, droneMods, voltDaily } = schema;
 const MOD_TEMPLATE = 3;
 
 describe.skipIf(!enabled)('bootstrap service', () => {
@@ -67,9 +68,19 @@ describe.skipIf(!enabled)('bootstrap service', () => {
     expect(chainCalls()).toEqual({ create: 1, mints: 0, binds: 0 });
     expect((await rows(id)).user.bootstrapClaimedAt).toBeNull();
 
-    // Call 2: the four mints only.
+    // Call 2: the four mints only. The starter grant reaches the day's Volts record; other test
+    // files may add to the same row, so this is a lower bound.
+    const mintedToday = async () =>
+      (
+        await db
+          .select()
+          .from(voltDaily)
+          .where(eq(voltDaily.day, utcDayKey(Date.now())))
+      )[0]?.minted ?? 0;
+    const before = await mintedToday();
     expect((await run(id, game)).state).toBe('minted');
     expect(chainCalls()).toEqual({ create: 1, mints: 4, binds: 0 });
+    expect((await mintedToday()) - before).toBeGreaterThanOrEqual(1000);
 
     // Call 3: the two binds, then done.
     const status = await run(id, game);

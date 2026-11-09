@@ -2,6 +2,25 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-09 T19a Landing live strip
+
+- Changed:
+  - `GET /api/live` (`app/api/live/route.js`, `services/live.service.js`, arithmetic in `lib/live/summary.js`), public, cached 30 s. `tests/live/volt-daily.test.js`.
+  - `app/LiveStrip.jsx` and its CSS module, placed inside the hero in `app/page.jsx`.
+  - Review fix: `volt_daily` (`drizzle/0005_volt_daily.sql`, `lib/db/schema-gameplay.js`), `services/volt-daily.js` `recordVoltFlows`, called first in `applyEvents` and from the ops `mint_volts` of `services/bootstrap-kit.js` and `services/team-seed-kit.js`, which do not go through `applyEvents`. `get_constants()` is no longer read. The strip's label is "Burned today", without fees.
+  - SPEC 7, 8 (the route and exactly what counts) and 11, DECISIONS 5.55, BUILD_PLAN T19a.
+- Verified:
+  - `npm run lint`, `npm run format:check`, `npm run typecheck` exit 0; `npm test` 39 files passed, 1 skipped, 300 tests passed, 1 skipped; `npm run build` exit 0; `npm audit --audit-level=high` exit 0.
+  - Read-only walk, headless Firefox 132, anonymous landing page, local `next start` of this branch and of `main` on the production database. `GET /api/live` answered 200 with `Cache-Control: public, max-age=30, s-maxage=30`.
+  - The call to action, before and after, has the same position at every width (390: 451 to 501 of 844; 430: 495 to 545 of 932; 1440: 526 to 576 of 900). It stays above the fold and does not overlap the strip. The strip sits at 694 to 828 (390), 805 to 916 (430), 820 to 884 (1440). No page errors.
+  - Screenshots at 390, 430 and 1440 px, on the assets branch linked from the PR.
+- Open:
+  - Minted and burned miss what the server never sees (SPEC 8): an unknown `settle_batch` or `mint_volts` outcome, a near-cli `mint_volts`, and a holder's own `storage_unregister` force burn or `ft_resolve_transfer` burn.
+  - Migration 0005 was applied to the production database on 2026-11-09, before the merge (docs/runbooks/deploy.md; user approved): 6 migrations applied, `volt_daily` present and empty.
+  - Today's (2026-11-09) minted and burned figures count from the deploy time onward; nothing before it was recorded or backfilled. From the next UTC day they cover the whole day.
+  - Neon dev is not migrated to 0005: `/api/live` answers 503 on a server backed by dev until it is. Recording logs and carries on.
+  - No ticker motion: the landing page has no CSS motion. At 768 px and below the strip shows one result.
+
 ## 2026-11-09 T19b Guide and FAQ copy, leaderboard team badge
 
 - Changed: `app/guide/page.jsx` and `app/faq/page.jsx` (text; every changed sentence is listed in the PR; the Season 2 Preview section and its CSS are removed; legendary is quoted at 50 per design; Season 1 is quoted with its dates), `app/leaderboard/page.jsx` and its CSS module (the team badge under the drone name and on the podium cards; the Season Rewards line shows only when `season.hasRewards` is true), `services/leaderboard.service.js` (`teamName`, `hasRewards`), `services/world-seed.service.js` and `scripts/seed-world.mjs` (Season 1, November 1 to 25, 2026, whole days in UTC), `tests/world/world-seed.test.js`, `docs/runbooks/deploy.md` and `dev-setup.md`, `eslint.config.mjs` (the leaderboard page joins the minimal-edit list), `AGENTS.md` (the copy rule; the write-hours rule suspended until submission on 2026-11-14), `SPEC.md` 6, 8 and 11, `DECISIONS.md` 1.13 and 5.54.

@@ -1,7 +1,8 @@
 /**
  * Database caches of on-chain state, updated from a transaction's events (SPEC.md 3, 4.7, 7).
  * `applyEvents` reads the hyperdrome, nep171 and nep141 events of one outcome and writes the
- * drones, skins, mods, bound and equipped rows, the listings cache and `users.points`. It reads
+ * drones, skins, mods, bound and equipped rows, the listings cache, `users.points` and the day's
+ * `volt_daily` row. It reads
  * the chain only where an event lacks a field the cache needs (a new drone's stats, a placeholder
  * skin's name, a Volt balance after any Volt movement). `batch_settled` writes each drone's
  * post-race level, xp, elo, record and lock and each race row's rewards; `batch_aborted` clears
@@ -20,6 +21,7 @@ import { modTemplate, statsFromArray } from '@/lib/game-engine/templates.js';
 import { getNear } from '@/lib/near';
 import { rowFor, userIdFor } from './chain-cache-rows.js';
 import { raceSettled } from './chain-cache-settle.js';
+import { recordVoltFlows } from './volt-daily.js';
 
 export { tokenKind } from './chain-cache-rows.js';
 
@@ -35,7 +37,7 @@ const { users, drones, skins, mods, droneSkins, droneMods, marketplaceListings }
 /**
  * Apply one outcome's events to the caches.
  * @param {NearEvent[]} events in receipt order
- * @param {{ db?: any, near?: import('@/lib/near').NearAdapter }} [deps]
+ * @param {{ db?: any, near?: import('@/lib/near').NearAdapter, nowMs?: number }} [deps]
  * @returns {Promise<{ balances: Record<string, number> }>} Volt balances read after the events
  */
 export async function applyEvents(events, deps = {}) {
@@ -46,6 +48,8 @@ export async function applyEvents(events, deps = {}) {
     userIds: new Map(),
     voltAccounts: new Set(),
   };
+  // First, so a later cache or RPC failure cannot lose a mint or burn that already happened.
+  await recordVoltFlows(events, ctx.db, deps.nowMs);
   // Mints first, so binds, equips and listings in the same outcome find their rows.
   const minted = events.filter((e) => e.event === 'drone_minted' || e.event === 'item_minted');
   for (const e of minted) await applyOne(ctx, e);
