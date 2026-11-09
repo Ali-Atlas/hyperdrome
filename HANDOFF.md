@@ -24,6 +24,12 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
   - At 480 px and below the side's largest strength is hidden, since a long stat label would wrap.
   - NavShell's footer Strategy Lock still counts to `lockAt`, so it reads 3 s behind the panel. `app/dashboard/page.jsx` (736 lines) and the race page (1,956) stay over 400 (DECISIONS 5.50).
 
+## 2026-11-08 T15d Allowances in the documents
+
+- Changed: `SPEC.md` 2.10 and 4.1 and `docs/runbooks/key-rotation.md` name the current figures: settlement key 30 NEAR, team play keys 7 NEAR, team accounts about 7 NEAR. This closes the T15c open item. The seed still starts a new team at 2 NEAR.
+- Verified: `npm run format:check` exit 0; CI on the PR. Documents only.
+- Open: nothing.
+
 ## 2026-11-08 T15c NEAR runway: funding floors in the health check, and the funding
 
 - Changed: `lib/near/funding.js` (new, `readFunding`), `lib/near/adapter.js` and `lib/near/mock.js` (`fundingStatus`), `lib/near/index.js`, `services/health.service.js` (floors, `scheduler.funding`, including the lowest team balance and play-key allowance), `tests/health/health.test.js`, `tests/near/testnet.integration.test.js` (`afterWrite`, a bounded 15 s wait for every on-chain read that follows a write), `SPEC.md` 6 and 8, `docs/runbooks/deploy.md`, `DECISIONS.md` 5.49.
