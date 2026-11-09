@@ -5,8 +5,7 @@ use near_sdk::json_types::U128;
 use near_sdk::near;
 
 use crate::constants::catalog::{
-    MODS, ModTemplate, RARITY_NAMES, SKIN_SUPPLY_CAP, SKIN_TIER_RENDERS, SKINS,
-    STARTER_SKIN_TEMPLATE, STAT_NAMES,
+    MODS, ModTemplate, RARITY_NAMES, SKIN_TIER_RENDERS, SKINS, STARTER_SKIN_TEMPLATE, STAT_NAMES,
 };
 use crate::constants::tables::{
     BRACKETS, CONDITIONS, ENGINE_BATTERY_FADE_MILLI, ENGINE_JITTER_MILLI, ENGINE_LAPS,
@@ -160,7 +159,6 @@ pub struct EconomyConstants {
     pub starter_skin_template: u16,
     pub active_slots: Vec<(u8, u32)>,
     pub skin_drop_bp: Vec<u16>,
-    pub skin_supply_cap: Vec<u32>,
     pub skin_tier_renders: Vec<(u16, u8)>,
     pub market_rake_bp: U128,
     pub market_min_price: U128,
@@ -279,7 +277,6 @@ impl Constants {
                 starter_skin_template: STARTER_SKIN_TEMPLATE,
                 active_slots: ACTIVE_SLOTS.to_vec(),
                 skin_drop_bp: SKIN_DROP_BP.to_vec(),
-                skin_supply_cap: SKIN_SUPPLY_CAP.to_vec(),
                 skin_tier_renders: SKIN_TIER_RENDERS.to_vec(),
                 market_rake_bp: U128(MARKET_RAKE_BP),
                 market_min_price: U128(MARKET_MIN_PRICE),

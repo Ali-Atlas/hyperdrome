@@ -32,6 +32,7 @@ use near_sdk::collections::LazyOption;
 use near_sdk::store::{IterableSet, LookupMap};
 use near_sdk::{AccountId, PanicOnDefault, env, near, require};
 
+use crate::constants::catalog::INITIAL_SKIN_CAPS;
 use crate::constants::{NFT_NAME, NFT_SYMBOL, VOLTS_DECIMALS, VOLTS_NAME, VOLTS_SYMBOL};
 use crate::hashing::stats_hash_bytes;
 use crate::math::is_locked_at;
@@ -125,10 +126,72 @@ impl From<StateV1> for StateV2 {
     }
 }
 
+/// Contract state, version 3 (SPEC.md 4.2): `StateV2` plus the live skin supply caps (T20).
+#[near(serializers = [borsh])]
+pub struct StateV3 {
+    pub owner_id: AccountId,
+    pub treasury_id: AccountId,
+    pub paused: bool,
+    pub volts: FungibleToken,
+    pub volts_meta: LazyOption<FungibleTokenMetadata>,
+    pub nft: NonFungibleToken,
+    pub nft_meta: LazyOption<NFTContractMetadata>,
+    pub players: LookupMap<AccountId, VersionedPlayer>,
+    pub drones_hot: LookupMap<TokenId, VersionedDroneHot>,
+    pub drones_cold: LookupMap<TokenId, VersionedDroneCold>,
+    pub items: LookupMap<TokenId, VersionedItem>,
+    pub listings: LookupMap<TokenId, Listing>,
+    /// Ids of active listings, for `get_listings` paging (SPEC.md 4.5).
+    pub active_listings: IterableSet<TokenId>,
+    pub batches: LookupMap<u64, VersionedBatch>,
+    pub packs: LookupMap<u64, PackCommit>,
+    pub teams: LookupMap<AccountId, TeamBudget>,
+    pub skin_minted: LookupMap<u16, u32>,
+    pub next_drone: u64,
+    pub next_skin: u64,
+    pub next_mod: u64,
+    pub next_pack: u64,
+    /// Player account -> its linked wallet (SPEC.md 4.4 `link_wallet`).
+    pub wallet_links: LookupMap<AccountId, AccountId>,
+    /// Per-template skin supply cap by rarity (common, rare, epic, legendary); `None` is unlimited.
+    pub skin_caps: [Option<u32>; 4],
+}
+
+impl From<StateV2> for StateV3 {
+    fn from(s: StateV2) -> Self {
+        Self {
+            owner_id: s.owner_id,
+            treasury_id: s.treasury_id,
+            paused: s.paused,
+            volts: s.volts,
+            volts_meta: s.volts_meta,
+            nft: s.nft,
+            nft_meta: s.nft_meta,
+            players: s.players,
+            drones_hot: s.drones_hot,
+            drones_cold: s.drones_cold,
+            items: s.items,
+            listings: s.listings,
+            active_listings: s.active_listings,
+            batches: s.batches,
+            packs: s.packs,
+            teams: s.teams,
+            skin_minted: s.skin_minted,
+            next_drone: s.next_drone,
+            next_skin: s.next_skin,
+            next_mod: s.next_mod,
+            next_pack: s.next_pack,
+            wallet_links: s.wallet_links,
+            skin_caps: INITIAL_SKIN_CAPS,
+        }
+    }
+}
+
 #[near(serializers = [borsh])]
 pub enum VersionedState {
     V1(StateV1),
     V2(StateV2),
+    V3(StateV3),
 }
 
 #[near(contract_state)]
@@ -164,7 +227,7 @@ impl Contract {
             reference: None,
             reference_hash: None,
         };
-        let state = StateV2 {
+        let state = StateV3 {
             owner_id,
             treasury_id,
             paused: false,
@@ -193,41 +256,44 @@ impl Contract {
             next_mod: 1,
             next_pack: 1,
             wallet_links: LookupMap::new(StorageKey::WalletLinks),
+            skin_caps: INITIAL_SKIN_CAPS,
         };
         Self {
-            state: VersionedState::V2(state),
+            state: VersionedState::V3(state),
         }
     }
 
     /// Re-reads stored state after a code upgrade and converts it to the current version.
     /// Callable only by the contract account itself (deploy + call in one transaction). A V1 state
-    /// becomes V2 with no wallet links; V2 is written back unchanged. Fails if there is no state.
+    /// gains empty wallet links, a V1 or V2 state gains `INITIAL_SKIN_CAPS`, and V3 is written back
+    /// unchanged. Fails if there is no state.
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
         let old: Contract = env::state_read().unwrap_or_else(|| env::panic_str("no state"));
-        let state = match old.state {
-            VersionedState::V1(state) => state.into(),
-            VersionedState::V2(state) => state,
+        let state: StateV3 = match old.state {
+            VersionedState::V1(state) => StateV2::from(state).into(),
+            VersionedState::V2(state) => state.into(),
+            VersionedState::V3(state) => state,
         };
         Self {
-            state: VersionedState::V2(state),
+            state: VersionedState::V3(state),
         }
     }
 }
 
 impl Contract {
-    pub(crate) fn s(&self) -> &StateV2 {
+    pub(crate) fn s(&self) -> &StateV3 {
         match &self.state {
-            VersionedState::V2(s) => s,
-            VersionedState::V1(_) => env::panic_str("not migrated"),
+            VersionedState::V3(s) => s,
+            VersionedState::V1(_) | VersionedState::V2(_) => env::panic_str("not migrated"),
         }
     }
 
-    pub(crate) fn s_mut(&mut self) -> &mut StateV2 {
+    pub(crate) fn s_mut(&mut self) -> &mut StateV3 {
         match &mut self.state {
-            VersionedState::V2(s) => s,
-            VersionedState::V1(_) => env::panic_str("not migrated"),
+            VersionedState::V3(s) => s,
+            VersionedState::V1(_) | VersionedState::V2(_) => env::panic_str("not migrated"),
         }
     }
 

@@ -6,7 +6,7 @@
 use near_contract_standards::non_fungible_token::TokenId;
 use near_sdk::{AccountId, env, near, require};
 
-use crate::constants::catalog::{MODS, SKIN_SUPPLY_CAP, SKINS, STARTER_SKIN_TEMPLATE};
+use crate::constants::catalog::{MODS, SKINS, STARTER_SKIN_TEMPLATE};
 use crate::constants::names::{DRONE_NAME_WORDS, PLACEHOLDER_SKIN_NAMES};
 use crate::constants::tables::PACK_TIERS;
 use crate::constants::{COMMON, DRONE_PREFIX, LEVEL_MIN, PACK_SLOTS, VENDOR_DRONE_PRICE};
@@ -151,15 +151,19 @@ impl Contract {
         pick: u32,
         name_pick: u32,
     ) -> TokenId {
-        let cap = SKIN_SUPPLY_CAP
+        let cap = self
+            .s()
+            .skin_caps
             .get(usize::from(rarity))
             .copied()
-            .unwrap_or(0);
+            .unwrap_or(Some(0));
         let candidates: Vec<u16> = match kind {
             ItemKind::Skin => SKINS
                 .iter()
                 .filter(|t| t.rarity == rarity && t.id != STARTER_SKIN_TEMPLATE)
-                .filter(|t| self.s().skin_minted.get(&t.id).copied().unwrap_or(0) < cap)
+                .filter(|t| {
+                    cap.is_none_or(|c| self.s().skin_minted.get(&t.id).copied().unwrap_or(0) < c)
+                })
                 .map(|t| t.id)
                 .collect(),
             ItemKind::Mod => MODS

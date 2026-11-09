@@ -1,6 +1,6 @@
 use crate::constants::catalog::{
-    BATTERY, MODS, SKIN_SUPPLY_CAP, SKINS, SPEED, STARTER_SKIN_TEMPLATE, TURNING, WIND_RESISTANCE,
-    mod_template, skin_template,
+    BATTERY, INITIAL_SKIN_CAPS, MODS, SKINS, SPEED, STARTER_SKIN_TEMPLATE, TURNING,
+    WIND_RESISTANCE, mod_template, skin_template,
 };
 use crate::constants::tables::{PACK_TIERS, POW10, SUBTYPES, TRACKS};
 use crate::constants::{COMMON, EPIC, LEGENDARY, PLAY_KEY_METHODS, RARE};
@@ -74,7 +74,7 @@ fn skin_templates_are_one_based_eight_per_rarity() {
         ("diamond_hands", "diamond_hand")
     );
     assert!(skin_template(0).is_none() && skin_template(33).is_none());
-    assert_eq!(SKIN_SUPPLY_CAP, [10, 6, 4, 3]);
+    assert_eq!(INITIAL_SKIN_CAPS, [Some(10), Some(6), Some(4), Some(3)]);
 }
 
 #[test]

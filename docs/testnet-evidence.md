@@ -83,6 +83,8 @@ Checked with the RPC `tx` query on 2026-11-08. `wallet` = `t16w828691eca0.hyperd
 | DeployContract    | game     | Deployed code hash `9Dz987fhyJ881jh7QoMpwevfaqvYxxdTYQT6pB3niQbX` with `migrate` (T16, 2026-11-08) | Success | [CbCZ8U7V...](https://testnet.nearblocks.io/txns/CbCZ8U7VHffeGrBHU7moiHMVBRCkk9xT3LDVqXJFrj4T) |
 | DeleteKey         | owner    | Ops key removed to change its method list (T16)                                                    | Success | [78u6npYk...](https://testnet.nearblocks.io/txns/78u6npYkxGWDsd5cug7NxkBaXcreRBRasxpX9ABWRE7H) |
 | AddKey            | owner    | Ops key added back with `link_wallet` and `withdraw` (T16)                                         | Success | [F2gZTR7s...](https://testnet.nearblocks.io/txns/F2gZTR7sqh9hs5zuRAoS4iDrVvq7ExC3xqm1BZ7PMh62) |
+| DeployContract    | game     | Deployed code hash `FFnSTQaFQJaR3xBu8ZCeZhT5k6Lr1xeSDtmPEtRgty4E` with `migrate` (T20, 2026-11-09) | Success | [2YqW63d7...](https://testnet.nearblocks.io/txns/2YqW63d7dzJRrjJbUcLsCVVp1te94FRppb41VPCEP7hk) |
+| FunctionCall      | owner    | `set_skin_caps` with 2,200, 1,300, 1,100, 50 (T20)                                                 | Success | [482XR2K7...](https://testnet.nearblocks.io/txns/482XR2K7Df2je6zNZ73yKE7FdyPvyj1VRx2uN2oPb3qQ) |
 
 ## Refusals
 
