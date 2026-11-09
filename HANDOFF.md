@@ -2,6 +2,29 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-08 T16 rollout on testnet and merge of #42
+
+- Done, in order, each step checked before the next:
+  - (a) Merged main (T15) into the branch; CI green on `c859b09` (app, contract, security).
+  - (b) `game.hyperdrome.testnet` code hash `2ctpTSVNWEnpRFYuxcNjGSMhKL1YhwhsJ9TQrCmHL93D` on dRPC and FastNear; `tests/fixtures/hyperdrome-t6b.wasm` hashes to it.
+  - (c) `admin_config.racing_enabled` set to false in production at 02:15:50 UTC (21:15 ET). Batch 9967725 settled at 02:18:08; no batch committed; the batch reads settled on chain.
+  - (d) Deploy and `migrate` in one transaction, [CbCZ8U7V...](https://testnet.nearblocks.io/txns/CbCZ8U7VHffeGrBHU7moiHMVBRCkk9xT3LDVqXJFrj4T), 38.7 TGas. New code hash `9Dz987fhyJ881jh7QoMpwevfaqvYxxdTYQT6pB3niQbX`. `get_constants().economy.max_withdraw_tokens` 40; `get_drones` answers for `d:1` and `d:50`; `get_wallet_link` answers.
+  - (e) Ops key `ed25519:8VtfNxuG...` deleted and added back with the 10 methods and a 10 NEAR allowance: [delete](https://testnet.nearblocks.io/txns/78u6npYkxGWDsd5cug7NxkBaXcreRBRasxpX9ABWRE7H), [add](https://testnet.nearblocks.io/txns/F2gZTR7sqh9hs5zuRAoS4iDrVvq7ExC3xqm1BZ7PMh62). `list-keys` shows the new list. A Play Demo sign-in on production reached `done`: `p-pilotzjck.game.hyperdrome.testnet`.
+  - (f) Against a local server on Neon dev (migration 0004 applied there, no tick sent), fresh player `p-piloto3ti.game.hyperdrome.testnet`, test wallet `t16w828691eca0.hyperdrome.testnet` ([created](https://testnet.nearblocks.io/txns/67ZvA56cpTox5YnZqs5eEv8C89bJ4z7nH4koSZwhbhPx) from the owner with near-cli, 0.5 NEAR; NEP-413 message signed from a script):
+    - [link_wallet](https://testnet.nearblocks.io/txns/8WFcKLGnN9DtEkHUBYA9QaZpc6smLEaqCCmbbGFLe8JQ), 2.8 TGas; `get_wallet_link` equals the wallet; the same request again answers 200 with no second send.
+    - [withdraw through the app](https://testnet.nearblocks.io/txns/CPbbrxbiCmAsd8HbgFoKWM5fh2GimhnqC8NygvKaUB8k), `d:57` with `s:32` and `m:81` plus 100 Volts, 7.9 TGas burned of 19.1 attached; all three tokens owned by the wallet on chain, Volts 900 and 100; the same action id replays the same hash; the drone left the page.
+    - [withdraw from the wallet](https://testnet.nearblocks.io/txns/286b3Gbm3emkAs2tSCARv4MfhWwQyitqPcdF42FpATc3), `m:82` (minted for this with the ops key) plus 25 Volts, 1 yocto, 5.0 TGas burned of 11.7 attached; `POST /api/wallet/sync` answers 875 Volts.
+    - [unlink_wallet](https://testnet.nearblocks.io/txns/HKHf4P6eHTQqH16r8RjwrSvDshkmApUSDqNxh9zeye5N) from the wallet, 2.5 TGas; `get_wallet_link` is null.
+    - An extra check of mine, a withdrawal after the unlink, answered 202 and not the expected 409. Cause, from the server log and the action row: the script's near-cli `mint_item` used the ops key behind the server, so its next transaction met `Invalid nonce`; the row kept `nonce rejected` and its hash, the RPC does not know that hash, and nothing was sent twice. The check on a player with no link, without that outside key use, answered 409 "Link a wallet first."
+  - (g) `racing_enabled` true at 02:24:15 UTC. Batch 9967729 committed at 02:27:06 and settled at 02:30:17; the next batch committed at 02:30:20.
+  - (h) Migration 0004 applied to the production database (nothing runs migrations on deploy), then #42 merged, `c158a4b`; Vercel deployment succeeded. Headless Firefox on `https://hyperdrome-near.vercel.app`, signed in as the (e) player: the Wallet link loads `/wallet` as a document, 200, with the policy (no wildcards) and the nonce; no CSP violation on load or with the modal open; the modal lists Meteor, Intear, Ledger, Nightly and NEAR CLI. The console's one entry is Firefox's note that `'self'` is ignored next to `'strict-dynamic'`.
+  - Every transaction above read with the RPC `tx` query: final status success.
+- Racing was off from 02:15:50 to 02:24:15 UTC (8 min 25 s).
+- Open:
+  - The browser walk with a real wallet extension is the user's. Whether every wallet returns a NEP-413 signature in base64 is established only for the script.
+  - An ops transaction that meets `Invalid nonce` (another process used the key, such as a command-line call or a concurrent serverless instance) leaves a withdrawal pending for 60 s, then "This action did not go through. Try again." It is never resent; the click after that works.
+  - The test wallet holds `d:57`, `s:32`, `m:81`, `m:82` and 125 Volts on testnet.
+
 ## 2026-11-08 T16 Your wallet: link a NEAR wallet and withdraw to it
 
 - Changed:
