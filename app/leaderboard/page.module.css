@@ -480,6 +480,7 @@
 }
 
 .podiumImageFrame {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
   max-height: 110px;
@@ -498,6 +499,21 @@
   max-width: 100%;
   object-fit: contain;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5));
+}
+
+/* Over the bottom of the art, out of flow, so a team drone's card keeps its size. */
+.podiumTeamBadge {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-inline: var(--space-1);
+  background: var(--bg-card);
 }
 
 .podiumName {

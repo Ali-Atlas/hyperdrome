@@ -631,6 +631,9 @@ function PodiumCard({ rank, entry, tab }) {
         ) : (
           <DroneImage drone={entry} alt={name ?? 'Unclaimed'} />
         )}
+        {tab === 'drones' && entry?.teamName && (
+          <Badge variant="status" value={entry.teamName} className={styles.podiumTeamBadge} />
+        )}
       </div>
 
       <dl className={styles.podiumStats}>

@@ -339,7 +339,7 @@ Dashboard matchup card (`app/dashboard/NextRacePanel.jsx`, `ModSwap.jsx`), in th
 
 Deferred to polish (the original T11 scope): landing live strip (next race countdown, last batch results ticker, volts minted and burned today, trades today, explorer link); marketplace split into `ListingGrid`, `ListingCard`, `SellModal`, `BuyModal`, `PackShop`, `CapsuleShop`; race detail gap chart and settle tx link; profile (fleet, record, recent races).
 
-Leaderboard (T19b): an AI team's drone shows the team's name as a `Badge` beside the drone's name, from `teamName` on the drone leaderboard rows (null for other drones). The season header shows the Season Rewards line only when `season.hasRewards` is true (`getSeasonInfo`; false in this build, 11). The Guide and FAQ copy matches this file (T19b).
+Leaderboard (T19b): an AI team's drone shows the team's name as a `Badge` under the drone's name and over the art of its podium card, from `teamName` on the drone leaderboard rows (null for other drones). The season header shows the Season Rewards line only when `season.hasRewards` is true (`getSeasonInfo`; false in this build, 11). The Guide and FAQ copy matches this file (T19b).
 
 `/privacy` (T15): a static public page in `NavShell` and `Card` (outside the proxy matcher): what the game stores, testnet status, the hosting providers, deletion on request and the contact address.
 

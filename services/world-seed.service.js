@@ -114,7 +114,7 @@ async function seedTracks(db) {
  * @param {any} db
  * @returns {Promise<StepReport>}
  */
-async function seedSeason(db) {
+export async function seedSeason(db) {
   const report = {
     step: 'seasons',
     created: 0,
