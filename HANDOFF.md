@@ -18,7 +18,7 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
   - Minted and burned miss what the server never sees (SPEC 8): an unknown `settle_batch` or `mint_volts` outcome, a near-cli `mint_volts`, and a holder's own `storage_unregister` force burn or `ft_resolve_transfer` burn.
   - Migration 0005 was applied to the production database on 2026-11-09, before the merge (docs/runbooks/deploy.md; user approved): 6 migrations applied, `volt_daily` present and empty.
   - Today's (2026-11-09) minted and burned figures count from the deploy time onward; nothing before it was recorded or backfilled. From the next UTC day they cover the whole day.
-  - Neon dev is not migrated to 0005: `/api/live` answers 503 on a server backed by dev until it is. Recording logs and carries on.
+  - Neon dev brought in line with production on 2026-11-09: migration 0005 applied (6 migrations), and `syncCatalog` alone, called with a view-only adapter (`seed-world` has no single-step option and its bots step can mint), updated 31 skin rows to the chain's caps (2200, 1300, 1100, 50; Ember null). No chain writes, no ticks, no other seed steps.
   - No ticker motion: the landing page has no CSS motion. At 768 px and below the strip shows one result.
 
 ## 2026-11-09 T19b Guide and FAQ copy, leaderboard team badge
