@@ -2,6 +2,10 @@
 
 Instructions for any coding agent working in this repository. CLAUDE.md points here, so Claude Code and Codex read the same rules.
 
+## Standing rule
+
+Standards are never lowered to save time. No stubs, shortcuts or silent scope cuts. SPEC.md changes in the same PR as the behavior. When something cannot be done to standard, stop and report options. Tests stay risk-based (ENGINEERING.md 3).
+
 ## Read first, in this order
 
 1. SPEC.md (behavior, data, interfaces, constants; source of truth)
