@@ -2,6 +2,32 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-08 T17 Dashboard matchup card: edge, mod swap, lock
+
+- Changed:
+  - `lib/game-engine/race-edge.js` (new): `computeRaceEdge` and `statDeltas` moved from the race page, `trackScore`, `trackEdges` and `winProbability` added; `STAT_LABELS` shared. `computeRaceEdge` now names the favorite from `winProbability`, a Monte Carlo of the real race simulator (200 races on fixed seeds, mirrored pairs, cached per matchup), for both the panel and the race page's matchup view. `specialFit` exported from `mod-fit.js`. `tests/engine/race-edge.test.js`.
+  - `components/ui/NavShell/index.jsx`: the footer's Strategy Lock uses `lockInstantMs`, the panel's one 3 s lead.
+  - `app/dashboard/NextRacePanel.jsx` (moved out of `page.jsx`, with the edge line and the lock countdown), `ModSwap.jsx` (new), CSS in `page.module.css`. `lib/client/server-clock.js` (new); `lib/upcoming-races-store.js` records the `Date` header.
+  - `services/race-schedule.service.js`: `GET /api/races/upcoming` adds `commitExplorerUrl`, `appliedMod.tokenId` and `.template`, and `boundMods` on the viewer's own drones.
+  - SPEC 8 and 11, DECISIONS 5.50, BUILD_PLAN T17.
+- Verified:
+  - `npm run lint`, `npm run format:check`, `npm run typecheck` exit 0; `npm test` 38 files passed, 1 skipped, 288 tests passed, 1 skipped; `npm run build` exit 0; `npm audit --audit-level=high` exit 0.
+  - Browser walk, headless Firefox 132, against a local `next start` of this branch on the production database (user's Option D; the hosted cron was the only scheduler and nothing called `/api/races/run`). Player `p-pilot2tql.game.hyperdrome.testnet`, drone `d:61`, race `656d1b23-7925-4efb-98af-76a50a223862`:
+    - The select listed "No mod" and the starter mod with its fit and the best-fit mark.
+    - Swap to No mod, then back to `m:101`: each answered 200, the toast appeared, and `get_drone` showed `equipped_mod` null, then `m:101`.
+    - The panel closed 2.97 s before `lockAt`; "Locked" and the commit link appeared.
+    - Equip through the route after the lock: 409 "This drone is locked until its race finishes."; action row `failed`; transaction [8pPhsVNS...](https://testnet.nearblocks.io/txns/8pPhsVNS5gT1ZRiSpXL6jwv2GNTgLprieYdUCxR3noZq) `Failure` "Smart contract panicked: locked"; `equipped_mod` unchanged.
+    - No page errors.
+  - Win probability on one race (`1a140511-cd62-46c4-855e-94aa9c6fc76a`, a starter drone against a stronger one): the panel showed 0.0% and 100.0%, the race page's matchup view 100%. The footer and the panel's lock both read 01:55.
+  - Cost: 30 to 38 us per race in Node on a 36-segment race, so 200 races take about 7 ms here and about 38 ms at an estimated 5x for a mid-range phone. No phone was measured.
+  - Final screenshots at 390, 430 and 1440 px, before (a build of `main`) and after, on one race (`c373c492-8c86-4fa4-aa25-497ecb0acd40`), on the assets branch linked from the PR. Measured in the browser on both builds: the drone frame (140 x 105 at 390 and 430, 170 x 128 at 1440) and the art (140 x 76, 170 x 93) are the same before and after, no element leaves the panel and no text is clipped.
+  - Panel height, before and after: 1440 px 433 and 459; 430 px 398 and 424; 390 px 398 and 438 (the third edge item wraps to its own line there on this race). Desktop grid: the neighbor (Active Drone Spotlight) shares the row and stretches with it, 433 to 459, and the two stay equal; the page is 26 px taller at that row. On phones the cards stack.
+- Open:
+  - The edge did not change across the swap on the walk, and that is correct for that drone: a common mod is +2% and -1%, and on stats of 1 both round away (SPEC 2.4). So the walk proves the swap and the re-render path, and the number moving is covered only by `tests/engine/race-edge.test.js`.
+  - Direct production write: `update drones set active = false where token_id = 'd:60'`, one row, by hand against the production database (the first test player's drone, `p-pilotsj8x`), after my walk script failed on the "VS" divider, which is hidden at phone width, and lost the session that could have used the toggle route.
+  - Test accounts left on production by this task, all with their drone parked through the toggle route except `d:60` above: `p-pilotsj8x` (`d:60`), `p-pilot2tql` (`d:61`), `p-pilotu00q` (`d:63`), `p-pilotpp2h` (`d:64`).
+  - `app/dashboard/page.jsx` (736 lines) and the race page (1,956) stay over 400 (DECISIONS 5.50).
+
 ## 2026-11-08 T15d Allowances in the documents
 
 - Changed: `SPEC.md` 2.10 and 4.1 and `docs/runbooks/key-rotation.md` name the current figures: settlement key 30 NEAR, team play keys 7 NEAR, team accounts about 7 NEAR. This closes the T15c open item. The seed still starts a new team at 2 NEAR.
