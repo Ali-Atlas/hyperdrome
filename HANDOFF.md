@@ -2,6 +2,15 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-09 T19b Guide and FAQ copy, leaderboard team badge
+
+- Changed: `app/guide/page.jsx` and `app/faq/page.jsx` (text; every changed sentence is listed in the PR; the Season 2 Preview section and its CSS are removed; legendary is quoted at 50 per design; Season 1 is quoted with its dates), `app/leaderboard/page.jsx` and its CSS module (the team badge under the drone name and on the podium cards; the Season Rewards line shows only when `season.hasRewards` is true), `services/leaderboard.service.js` (`teamName`, `hasRewards`), `services/world-seed.service.js` and `scripts/seed-world.mjs` (Season 1, November 1 to 25, 2026, whole days in UTC), `tests/world/world-seed.test.js`, `docs/runbooks/deploy.md` and `dev-setup.md`, `eslint.config.mjs` (the leaderboard page joins the minimal-edit list), `AGENTS.md` (the copy rule; the write-hours rule suspended until submission on 2026-11-14), `SPEC.md` 6, 8 and 11, `DECISIONS.md` 1.13 and 5.54.
+- Production, 2026-11-09, after the T20 rollout: the world seed ran against Neon `prod`. `seasons` 1 created, `catalog skins` 31 updated to the live caps, every other step skipped, no bot minted. On Neon `dev` only the Season 1 step ran (`seedSeason`), with no chain call and no tick, so its catalog cache still holds the old caps until a full seed runs there.
+- Verified: `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 296 tests passed, 1 skipped; `npm run build` exit 0. Walk in headless Firefox, `next start` on this branch with production data, read-only (no request other than GET, a local `AUTH_SECRET`), with no stub: leaderboard drone tab at 1440 and 390 px shows Season 1 with 17 days remaining, no Season Rewards line, team badges, no horizontal overflow; Guide and FAQ have no em or en dash, no Season 2 text, and quote 50 legendary.
+- Open:
+  - After November 25 the season stays active with 0 days remaining: nothing ends it in this build.
+  - The acceptance list was written after the code, against AGENTS.md.
+
 ## 2026-11-09 T20 Adjustable skin supply caps
 
 - Changed: `contracts/hyperdrome/src/lib.rs` (`StateV3` with `skin_caps`, `migrate` from V1 and V2), `src/owner.rs` (`set_skin_caps`, owner only), `src/constants/catalog.rs` (`INITIAL_SKIN_CAPS`, `skin_supply_cap` reads the live caps), `src/packs.rs`, `src/views.rs` (`get_catalog` reports the live caps), `src/constants_view.rs` (`get_constants` no longer reports a cap), unit tests, `tests/skin_caps.rs`, `tests/fixtures/hyperdrome-t16.wasm`. `SPEC.md` 2.6, 4.2, 4.4. `DECISIONS.md` 5.53.

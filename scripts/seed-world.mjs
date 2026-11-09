@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Seed the world (SPEC.md 2.3, 13) on the chain and in the database of `.env.local`: the 16 tracks,
- * the `racing_enabled` switch, the 20 contract-owned bots and the catalog cache. Idempotent: every
+ * Season 1, the `racing_enabled` switch, the 20 contract-owned bots and the catalog cache. Idempotent: every
  * step checks before it acts, so a second run changes nothing and a stopped run resumes.
  *
  *   npm run seed:world                  # racing_enabled is created false and otherwise left alone
