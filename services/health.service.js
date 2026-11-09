@@ -6,12 +6,13 @@
 import { asc, desc, eq, sql } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
 import { getNear } from '@/lib/near';
+import { TEAMS } from '@/lib/teams/roster.js';
 import { isRacingEnabled } from './race-schedule.service.js';
 
 const { batches, cronTicks } = schema;
 
 /**
- * @typedef {{ settlementAllowanceNear: number | null, opsAllowanceNear: number | null, gameBalanceNear: number, gameAvailableNear: number }} FundingReport
+ * @typedef {{ settlementAllowanceNear: number | null, opsAllowanceNear: number | null, gameBalanceNear: number, gameAvailableNear: number, lowestTeamBalanceNear: number | null, lowestTeamAllowanceNear: number | null }} FundingReport
  */
 
 /**
@@ -44,6 +45,9 @@ export const MIN_SETTLEMENT_ALLOWANCE = (ONE_NEAR * 21n) / 10n;
 export const MIN_OPS_ALLOWANCE = ONE_NEAR;
 export const MIN_GAME_AVAILABLE = (ONE_NEAR * 37n) / 10n;
 
+/** Two days of a team's measured burn, 0.26 NEAR a day: each team's balance and allowance. */
+export const MIN_TEAM_FUNDS = (ONE_NEAR * 55n) / 100n;
+
 /**
  * yoctoNEAR as NEAR with 4 decimals, for the report.
  * @param {bigint} yocto
@@ -56,11 +60,19 @@ function toNear(yocto) {
  * True when every funding figure is at or above its floor; an unlimited key has no floor.
  * @param {import('@/lib/near/funding.js').FundingStatus} funding
  */
-function funded({ settlementAllowance, opsAllowance, gameAvailable }) {
+function funded({
+  settlementAllowance,
+  opsAllowance,
+  gameAvailable,
+  lowestTeamBalance,
+  lowestTeamAllowance,
+}) {
   return (
     (settlementAllowance === null || settlementAllowance >= MIN_SETTLEMENT_ALLOWANCE) &&
     (opsAllowance === null || opsAllowance >= MIN_OPS_ALLOWANCE) &&
-    gameAvailable >= MIN_GAME_AVAILABLE
+    gameAvailable >= MIN_GAME_AVAILABLE &&
+    (lowestTeamBalance === null || lowestTeamBalance >= MIN_TEAM_FUNDS) &&
+    (lowestTeamAllowance === null || lowestTeamAllowance >= MIN_TEAM_FUNDS)
   );
 }
 
@@ -169,7 +181,7 @@ export async function getHealth(deps = {}) {
     (async () => {
       const adapter = near();
       const constants = await adapter.view('get_constants', {});
-      funding = await adapter.fundingStatus();
+      funding = await adapter.fundingStatus(TEAMS.map((t) => `${t.slug}.${adapter.gameId}`));
       return constants !== null;
     })(),
     timeoutMs
@@ -188,6 +200,10 @@ export async function getHealth(deps = {}) {
       opsAllowanceNear: status.opsAllowance === null ? null : toNear(status.opsAllowance),
       gameBalanceNear: toNear(status.gameBalance),
       gameAvailableNear: toNear(status.gameAvailable),
+      lowestTeamBalanceNear:
+        status.lowestTeamBalance === null ? null : toNear(status.lowestTeamBalance),
+      lowestTeamAllowanceNear:
+        status.lowestTeamAllowance === null ? null : toNear(status.lowestTeamAllowance),
     };
     report.scheduler.ok = report.scheduler.ok && funded(status);
   }

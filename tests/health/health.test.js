@@ -14,6 +14,7 @@ import {
   MIN_GAME_AVAILABLE,
   MIN_OPS_ALLOWANCE,
   MIN_SETTLEMENT_ALLOWANCE,
+  MIN_TEAM_FUNDS,
   getHealth,
 } from '../../services/health.service.js';
 import { dbEnabled, testDb } from '../gameplay/setup.js';
@@ -138,12 +139,14 @@ describe('scheduler check', () => {
     });
   });
 
-  it('fails when the settlement key, the ops key or the game account is under its floor', async () => {
+  it('fails when the settlement key, the ops key, the game account or a team is under its floor', async () => {
     const ample = await createMockNear().fundingStatus();
     for (const low of [
       { settlementAllowance: MIN_SETTLEMENT_ALLOWANCE - 1n },
       { opsAllowance: MIN_OPS_ALLOWANCE - 1n },
       { gameAvailable: MIN_GAME_AVAILABLE - 1n },
+      { lowestTeamBalance: MIN_TEAM_FUNDS - 1n },
+      { lowestTeamAllowance: MIN_TEAM_FUNDS - 1n },
     ]) {
       const adapter = { ...createMockNear(), fundingStatus: async () => ({ ...ample, ...low }) };
       const report = await getHealth({
