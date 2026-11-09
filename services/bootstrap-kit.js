@@ -9,6 +9,7 @@ import { generateUniqueDroneName } from '@/lib/game-engine/drone-names.js';
 import { STARTER_VOLTS, calculateXPToNextLevel } from '@/lib/game-engine/economy.js';
 import { modTemplate } from '@/lib/game-engine/templates.js';
 import { RpcUnknownOutcomeError } from '@/lib/near/errors.js';
+import { recordVoltFlows } from './volt-daily.js';
 
 const { drones, skins, mods, droneSkins, droneMods, droneOwnershipHistory } = schema;
 
@@ -72,10 +73,11 @@ export async function ensureStarterKit(ctx, owner) {
     /** @type {string} */ ((await ctx.near.view('ft_balance_of', { account_id: owner })) ?? '0')
   );
   if (balance < BigInt(STARTER_VOLTS)) {
-    await ctx.near.callAsOps('mint_volts', {
+    const minted = await ctx.near.callAsOps('mint_volts', {
       to: owner,
       amount: String(BigInt(STARTER_VOLTS) - balance),
     });
+    await recordVoltFlows(minted.events, ctx.db);
   }
 }
 

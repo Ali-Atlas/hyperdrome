@@ -58,7 +58,18 @@ export function createFakeGame(options = {}) {
   on('mint_volts', (args) => {
     maybeFail('mint_volts', args);
     balances.set(args.to, (balances.get(args.to) ?? 0n) + BigInt(args.amount));
-    return { result: null, events: [] };
+    return {
+      result: null,
+      events: [
+        {
+          standard: 'nep141',
+          version: '1.0.0',
+          receiptId: 'r',
+          event: 'ft_mint',
+          data: [{ owner_id: args.to, amount: args.amount }],
+        },
+      ],
+    };
   });
   on('bind', (args, { accountId }) => {
     maybeFail('bind', args);

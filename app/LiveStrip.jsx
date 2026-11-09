@@ -13,7 +13,7 @@ const REFRESH_MS = 30_000;
  * @typedef {object} LiveData
  * @property {{ paused: boolean, nextRaceAt: string }} nextRace
  * @property {{ results: { winner: string, loser: string, marginMs: number | null }[] } | null} lastBatch
- * @property {{ voltsMinted: number, voltsBurned: number, voltsFees: number, trades: number }} today
+ * @property {{ voltsMinted: number, voltsBurned: number, trades: number }} today
  * @property {string} contractUrl
  */
 
@@ -64,7 +64,7 @@ export default function LiveStrip() {
           />
         )}
         <Stat label="Minted today" value={today.voltsMinted} volts />
-        <Stat label="Burned + fees" value={today.voltsBurned + today.voltsFees} volts />
+        <Stat label="Burned today" value={today.voltsBurned} volts />
         <Stat label="Trades today" value={today.trades} />
         <a href={contractUrl} target="_blank" rel="noopener noreferrer" className={styles.contract}>
           Contract <ExternalLink size={12} aria-hidden="true" />

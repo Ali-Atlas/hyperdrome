@@ -60,6 +60,7 @@
     "lib/client/**/*.js",
     "lib/live/**/*.js",
     "services/live.service.js",
+    "services/volt-daily.js",
     "app/api/live/**/*.js",
     "lib/wallet/**/*.js",
     "services/batch.service.js",
