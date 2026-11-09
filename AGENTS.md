@@ -54,7 +54,7 @@ Do not explore the codebase to find configuration or parameters. If SPEC.md does
 - Edit art assets under `public/`, or baseline game constants, without a SPEC.md change that says so.
 - Add a dependency without a line in the PR description saying why.
 - Mark a task done with failing checks, skipped tests, or `TODO` without an issue reference.
-- Write to GitHub on weekdays (Monday to Friday) between 9:00 and 18:00 America/New_York: no git push, no tag push, no PR create, edit, comment or merge, no gh API writes. Commit locally during those hours; push and merge after 18:00 or on weekends.
+- Write to GitHub on weekdays (Monday to Friday) between 9:00 and 18:00 America/New_York: no git push, no tag push, no PR create, edit, comment or merge, no gh API writes. Commit locally during those hours; push and merge after 18:00 or on weekends. Suspended by the user until submission on 2026-11-14 (DECISIONS.md 1.13): until then, push and merge during the day as soon as CI is green. The other rules here still apply.
 
 ## Commits and PRs
 
