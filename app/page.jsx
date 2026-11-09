@@ -6,6 +6,7 @@ import VoltIcon from '@/components/ui/VoltIcon';
 import HeroActions from './HeroActions';
 import HeroAudio from './HeroAudio';
 import HeroSignIn from './HeroSignIn';
+import LiveStrip from './LiveStrip';
 import styles from './page.module.css';
 
 export const metadata = {
@@ -78,6 +79,7 @@ export default async function LandingPage() {
           <p className={styles.heroTagline}>Build. Race. Trade. Collect.</p>
           <HeroActions />
         </div>
+        <LiveStrip />
       </section>
 
       <section className={styles.gameSection} aria-labelledby="gameplay-heading">

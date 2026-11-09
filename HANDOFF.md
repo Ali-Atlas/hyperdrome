@@ -2,6 +2,23 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-09 T19a Landing live strip
+
+- Changed:
+  - `GET /api/live` (`app/api/live/route.js`, `services/live.service.js`, arithmetic in `lib/live/summary.js`), public, cached 30 s. `tests/live/summary.test.js`.
+  - `app/LiveStrip.jsx` and its CSS module, placed inside the hero in `app/page.jsx`.
+  - SPEC 8 (the route and exactly which rows count) and 11, DECISIONS 5.52, BUILD_PLAN T19a.
+- Verified:
+  - `npm run lint`, `npm run format:check`, `npm run typecheck` exit 0; `npm test` 39 files passed, 1 skipped, 297 tests passed, 1 skipped; `npm run build` exit 0; `npm audit --audit-level=high` exit 0.
+  - Read-only walk, headless Firefox 132, anonymous landing page, local `next start` of this branch and of `main` on the production database. `GET /api/live` answered 200 with `Cache-Control: public, max-age=30, s-maxage=30`.
+  - The call to action, before and after, has the same position at every width (390: 451 to 501 of 844; 430: 495 to 545 of 932; 1440: 526 to 576 of 900). It stays above the fold and does not overlap the strip. The strip sits at 694 to 828 (390), 805 to 916 (430), 820 to 884 (1440). No page errors.
+  - Screenshots at 390, 430 and 1440 px, on the assets branch linked from the PR.
+- Open:
+  - Fees: the brief counts them as burns, but the rake is a transfer to the treasury (SPEC 2.8), so the API reports `voltsFees` apart and the strip's label is "Burned + fees".
+  - Stat upgrades burn Volts on chain and are not counted: no cached row holds their cost per day.
+  - No ticker motion: the landing page has no CSS motion. At 768 px and below the strip shows one result.
+  - Today's numbers can undercount races completed from snapshots with the default reward columns (SPEC 7).
+
 ## 2026-11-08 T17 Dashboard matchup card: edge, mod swap, lock
 
 - Changed:
