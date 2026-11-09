@@ -19,7 +19,12 @@ import VoltIcon from '@/components/ui/VoltIcon';
 import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import TrackPlaceholder from '@/components/tracks/TrackPlaceholder';
 import { STAT_KEYS } from '@/lib/game-engine/economy.js';
-import { STAT_LABELS, computeRaceEdge, statDeltas } from '@/lib/game-engine/race-edge.js';
+import {
+  STAT_LABELS,
+  computeRaceEdge,
+  formatWinProbability,
+  statDeltas,
+} from '@/lib/game-engine/race-edge.js';
 import { asRaced } from '@/lib/client/race-view.js';
 import styles from './page.module.css';
 
@@ -1945,7 +1950,7 @@ function RaceEdgeCard({ leftDrone, rightDrone, race }) {
         <div className={styles.raceEdgeSection}>
           <div className={styles.raceEdgeWinHead}>
             <span className={styles.raceEdgeSectionLabel}>Win Probability</span>
-            <span className={styles.raceEdgeWinValue}>{`${pct}%`}</span>
+            <span className={styles.raceEdgeWinValue}>{formatWinProbability(prob)}</span>
           </div>
           <div className={styles.raceEdgeWinBar}>
             <div

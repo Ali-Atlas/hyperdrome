@@ -11,7 +11,13 @@ import ModPlaceholder from '@/components/ui/ModPlaceholder';
 import Spinner from '@/components/ui/Spinner';
 import StatRadar from '@/components/ui/StatRadar';
 import { lockInstantMs } from '@/lib/client/server-clock';
-import { STAT_LABELS, computeRaceEdge, statDeltas, trackEdges } from '@/lib/game-engine/race-edge';
+import {
+  STAT_LABELS,
+  computeRaceEdge,
+  formatWinProbability,
+  statDeltas,
+  trackEdges,
+} from '@/lib/game-engine/race-edge';
 import { cn, getLevelColor } from '@/lib/utils';
 import ModSwap from './ModSwap';
 import styles from './page.module.css';
@@ -302,7 +308,7 @@ function NextRaceDroneSide({ drone, opponent, isOwn = false, radarMax, edge, mod
             Edge {edge.edge > 0 ? '+' : ''}
             {edge.edge.toFixed(1)}
           </span>
-          <span>Win {(edge.prob * 100).toFixed(1)}%</span>
+          <span>Win {formatWinProbability(edge.prob)}</span>
           {edge.top && (
             <span className={styles.matchupEdgeStat}>
               {STAT_LABELS[edge.top.stat]} +{edge.top.delta}

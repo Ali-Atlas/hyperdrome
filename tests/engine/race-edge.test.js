@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   WIN_SIM_RACES,
   computeRaceEdge,
+  formatWinProbability,
   statDeltas,
   trackEdges,
   trackScore,
@@ -69,6 +70,15 @@ describe('winProbability', () => {
 
   it('uses a fixed number of mirrored races', () => {
     expect(WIN_SIM_RACES % 2).toBe(0);
+  });
+});
+
+describe('formatWinProbability', () => {
+  it('never shows 0 or 100, and shows 1 decimal between', () => {
+    expect(formatWinProbability(0)).toBe('<1%');
+    expect(formatWinProbability(1)).toBe('>99%');
+    expect(formatWinProbability(0.602)).toBe('60.2%');
+    expect(formatWinProbability(0.005)).toBe('0.5%');
   });
 });
 
