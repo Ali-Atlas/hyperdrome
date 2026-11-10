@@ -72,8 +72,8 @@ export async function seedTeam(def, deps = {}) {
     user = await advance(ctx, 'done', { bootstrapState: 'account', bootstrapPending: ledger });
   }
 
-  const economy = teamEconomy(await near.getConstants());
-  if (economy.droneLevels.join() !== TEAM_DRONE_LEVELS.join()) {
+  const economy = seedEconomy(def, await near.getConstants());
+  if (!def.fixture && economy.droneLevels.join() !== TEAM_DRONE_LEVELS.join()) {
     throw new Error(`contract team drone levels ${economy.droneLevels} differ from the roster`);
   }
   if (user.bootstrapState === 'none') user = await createAccount(ctx, user);
@@ -95,18 +95,21 @@ export async function seedTeam(def, deps = {}) {
   }
   await bindKit(kit, /** @type {string} */ (user.playKeyEnc));
   await cacheKit(kit);
-  await ctx.db
-    .insert(teams)
-    .values({
-      userId: user.id,
-      name: def.name,
-      persona: def.weights,
-      reserve: String(economy.reserve),
-    })
-    .onConflictDoUpdate({
-      target: teams.userId,
-      set: { name: def.name, persona: def.weights, reserve: String(economy.reserve) },
-    });
+  // A fixture gets no `teams` row, so the team phase never runs it (SPEC.md 10).
+  if (!def.fixture) {
+    await ctx.db
+      .insert(teams)
+      .values({
+        userId: user.id,
+        name: def.name,
+        persona: def.weights,
+        reserve: String(economy.reserve),
+      })
+      .onConflictDoUpdate({
+        target: teams.userId,
+        set: { name: def.name, persona: def.weights, reserve: String(economy.reserve) },
+      });
+  }
   user = await fundAndRotate(ctx, user);
   const points = Number((await near.view('ft_balance_of', { account_id: owner })) ?? 0);
   user = await advance(ctx, 'minted', { bootstrapState: 'done', points, bootstrapPending: null });
@@ -125,6 +128,19 @@ const report = (ctx, user, skipped) => ({
   skipped,
   txs: ctx.txs,
 });
+
+/**
+ * The contract's team economy, with a fixture's own caps and start Volts in place of the team ones.
+ * @param {TeamDef} def
+ * @param {unknown} constants the `get_constants()` result
+ * @returns {import('@/lib/teams/constants.js').TeamEconomy}
+ */
+function seedEconomy(def, constants) {
+  const economy = teamEconomy(constants);
+  if (!def.fixture) return economy;
+  const { perTxCap, perDayCap, startVolts } = def.fixture;
+  return { ...economy, perTxCap, perDayCap, startVolts };
+}
 
 /** @param {TeamDef} def the team's users.email (teams never sign in; `.invalid` never resolves) */
 export const teamEmail = (def) => `${def.slug}@teams.hyperdrome.invalid`;
@@ -270,7 +286,8 @@ async function ensureBudget(ctx, owner, economy) {
 /**
  * Gas: the team account gets its 2 NEAR float from the owner account (the operator sends it from
  * the command line; this code never holds that key), then its play key is rotated to a 2 NEAR
- * allowance. A rotated key (`key_version` above 1) means both are done.
+ * allowance; a fixture uses its own `gasYocto` for both. A rotated key (`key_version` above 1)
+ * means both are done.
  * @param {Ctx} ctx
  * @param {UserRow} user
  * @returns {Promise<UserRow>}
@@ -279,23 +296,25 @@ async function fundAndRotate(ctx, user) {
   const { near, def } = ctx;
   const owner = /** @type {string} */ (user.nearAccountId);
   if ((user.keyVersion ?? 1) > 1) return user;
-  if ((await near.accountBalance(owner)) < TEAM_GAS_YOCTO) {
+  const gas = def.fixture?.gasYocto ?? TEAM_GAS_YOCTO;
+  const gasNear = nearText(gas);
+  if ((await near.accountBalance(owner)) < gas) {
     if ((await near.accountBalance(near.ownerId)) < MIN_OWNER_YOCTO) {
       throw new SeedBlockedError(
         `${near.ownerId} holds under 10 NEAR; fund it before sending ${def.slug} its gas. Run the script again after.`
       );
     }
-    if (!ctx.fund) throw new SeedBlockedError(`${owner} needs its 2 NEAR gas float.`);
-    await ctx.fund({ accountId: owner, from: near.ownerId, yocto: TEAM_GAS_YOCTO });
-    if ((await near.accountBalance(owner)) < TEAM_GAS_YOCTO) {
-      throw new SeedBlockedError(`${owner} still holds under 2 NEAR. Run the script again.`);
+    if (!ctx.fund) throw new SeedBlockedError(`${owner} needs its ${gasNear} gas float.`);
+    await ctx.fund({ accountId: owner, from: near.ownerId, yocto: gas });
+    if ((await near.accountBalance(owner)) < gas) {
+      throw new SeedBlockedError(`${owner} still holds under ${gasNear}. Run the script again.`);
     }
   }
   let rotated;
   try {
     rotated = await near.rotatePlayKey(owner, /** @type {string} */ (user.adminKeyEnc), {
       keyVersion: user.keyVersion ?? 1,
-      allowance: TEAM_GAS_YOCTO,
+      allowance: gas,
     });
   } catch (err) {
     if (!(err instanceof RpcUnknownOutcomeError)) throw err;
@@ -305,11 +324,21 @@ async function fundAndRotate(ctx, user) {
     );
   }
   ctx.record(
-    `rotatePlayKey to a 2 NEAR allowance (key version ${rotated.keyVersion})`,
+    `rotatePlayKey to a ${gasNear} allowance (key version ${rotated.keyVersion})`,
     rotated.txHash
   );
   return advance(ctx, 'minted', {
     playKeyEnc: rotated.playKeyEnc,
     keyVersion: rotated.keyVersion,
   });
+}
+
+/**
+ * yoctoNEAR as text, for messages: `2 NEAR`, `0.5 NEAR`.
+ * @param {bigint} yocto
+ */
+export function nearText(yocto) {
+  const unit = 10n ** 24n;
+  const fraction = (yocto % unit).toString().padStart(24, '0').replace(/0+$/, '');
+  return `${yocto / unit}${fraction ? `.${fraction}` : ''} NEAR`;
 }

@@ -7,34 +7,37 @@
  *   npm run seed:teams              # every team in lib/teams/roster.js
  *   npm run seed:teams -- vortex    # only the named teams
  *   npm run seed:teams -- --reconcile   # after a roster change: mint and bind what seeded teams lack
+ *   npm run seed:teams -- testrogueagent   # a test fixture (lib/teams/fixtures.js), only by name
  *
- * Gas: each team account gets 2 NEAR from the owner account. That transfer needs the owner's
+ * Gas: each team account gets 2 NEAR from the owner account (a fixture its own amount). That transfer needs the owner's
  * full-access key, which application code never loads, so the script prints the near-cli-rs
  * command and waits until the NEAR has arrived. Run the command in another terminal.
  */
 import { getNear } from '../lib/near/index.js';
+import { FIXTURES } from '../lib/teams/fixtures.js';
 import { TEAMS } from '../lib/teams/roster.js';
 
-const { SeedBlockedError, seedTeam } = await import('../services/team-seed.service.js');
+const { SeedBlockedError, nearText, seedTeam } = await import('../services/team-seed.service.js');
 
 /** How often and how long the script looks for the gas transfer. */
 const POLL_MS = 5_000;
 const WAIT_MS = 30 * 60_000;
-const YOCTO_PER_NEAR = 10n ** 24n;
 
 /** @param {string} line */
 const say = (line) => void process.stdout.write(`${line}\n`);
 
 const reconcile = process.argv.includes('--reconcile');
 const wanted = process.argv.slice(2).filter((arg) => !arg.startsWith('--'));
-const unknown = wanted.filter((slug) => !TEAMS.some((t) => t.slug === slug));
+const known = [...TEAMS, ...FIXTURES];
+const unknown = wanted.filter((slug) => !known.some((t) => t.slug === slug));
 if (unknown.length > 0) {
   console.error(
-    `unknown team: ${unknown.join(', ')} (known: ${TEAMS.map((t) => t.slug).join(', ')})`
+    `unknown team: ${unknown.join(', ')} (known: ${known.map((t) => t.slug).join(', ')})`
   );
   process.exit(1);
 }
-const defs = wanted.length > 0 ? TEAMS.filter((t) => wanted.includes(t.slug)) : TEAMS;
+// Fixtures are seeded only when named; a bare run seeds the roster.
+const defs = wanted.length > 0 ? known.filter((t) => wanted.includes(t.slug)) : TEAMS;
 const near = getNear();
 const network = process.env.NEAR_NETWORK ?? 'testnet';
 
@@ -43,7 +46,7 @@ const network = process.env.NEAR_NETWORK ?? 'testnet';
  * @type {import('../services/team-seed.service.js').Fund}
  */
 async function fund({ accountId, from, yocto }) {
-  const amount = `${yocto / YOCTO_PER_NEAR} NEAR`;
+  const amount = nearText(yocto);
   say(`\n${accountId} needs ${amount} for gas. Run this in another terminal:\n`);
   say(
     `  near tokens ${from} send-near ${accountId} '${amount}' network-config ${network} sign-with-legacy-keychain send\n`

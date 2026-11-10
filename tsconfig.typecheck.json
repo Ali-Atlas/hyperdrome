@@ -94,6 +94,9 @@
     "scripts/smoke-testnet.mjs",
     "scripts/smoke-client.mjs",
     "services/race-rewards-backfill.js",
-    "scripts/backfill-race-rewards.mjs"
+    "scripts/backfill-race-rewards.mjs",
+    "lib/security/**/*.js",
+    "services/attack-demo.service.js",
+    "scripts/attack-demo.mjs"
   ]
 }

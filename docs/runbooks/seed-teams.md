@@ -47,6 +47,17 @@ npm run seed:teams -- --reconcile
 
 For each seeded team this mints and binds the roster's items the team does not have yet, through the same steps as the seed, and rebuilds the cache. It never mints Volts, sends gas or rotates the key. Binds are permanent: an item the roster no longer lists stays on its drone.
 
+## Test fixtures
+
+`lib/teams/fixtures.js` holds accounts seeded through the same path for tests on testnet; today one, the rogue agent of the security demo. A fixture is seeded only when named, into the database of `.env.local` (Neon dev):
+
+```sh
+npm run seed:teams -- testrogueagent
+npm run attack:demo                    # SPEC.md 14; writes docs/security-demo.md
+```
+
+It gets its own caps (500 Volts per transaction, 1,000 per day), two level 20 drones with every stat at 1, one bound mod, 5,000 Volts and a 1 NEAR gas float and allowance. It has no `teams` row and its drones stay inactive, so the team phase never runs it and no batch commits it; it is not in `TEAMS`, so the health check does not count it. Each demo run spends the day's 1,000 Volts on stat points: about four runs of Volts and headroom, and a second run on the same UTC day finds the cap already spent.
+
 ## Check
 
 ```sh

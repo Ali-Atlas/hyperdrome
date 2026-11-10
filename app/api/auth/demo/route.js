@@ -15,7 +15,8 @@ function clientIp(request) {
 
 /**
  * POST /api/auth/demo: sign in a fresh `PILOT_` demo user (SPEC.md 12). Limits are in the database:
- * 5 per IP per hour and `DEMO_ACCOUNT_CAP` in total. The dashboard then runs
+ * 5 per IP per hour and `DEMO_ACCOUNT_CAP` in total; both answer 429 with copy that points to
+ * Google sign-in, which has neither limit. The dashboard then runs
  * POST /api/auth/bootstrap, which creates the NEAR account and starter kit on chain.
  * @param {Request} request
  */
@@ -28,10 +29,19 @@ export async function POST(request) {
 
   try {
     if (!(await recordDemoSignup(clientIp(request)))) {
-      return Response.json({ error: 'Demo limit reached. Try again later.' }, { status: 429 });
+      return Response.json(
+        {
+          error:
+            'Demo limit reached for your network. Sign in with Google to play, or try again later.',
+        },
+        { status: 429 }
+      );
     }
     if ((await countDemoUsers()) >= demoAccountCap()) {
-      return Response.json({ error: 'Demo is full. Check back later.' }, { status: 429 });
+      return Response.json(
+        { error: 'Demo is full. Sign in with Google to play.' },
+        { status: 429 }
+      );
     }
     const user = await createDemoUser();
     await signIn('credentials', {
