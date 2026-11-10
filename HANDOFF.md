@@ -2,6 +2,29 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-09 T22b Test fixture out of public views, and funding for Google sign-ups
+
+- #53 (T22, T23) merged as `370fc79` after CI green on `e1f0d9d`; production health after the deploy: 200, `ok: true`, ops allowance 9.88 NEAR against the new 3.2 floor.
+- Changed: `lib/teams/fixtures.js` (`FIXTURE_EMAILS`, `fixtureAccounts`), `lib/teams/roster.js` (`teamEmail` moved here from `services/team-seed.service.js`, which re-exports it), `services/fixture-filter.js` (new: `notFixtureUser`, `notFixtureOwned`), applied in `services/leaderboard.service.js` (player leaderboard, every sort; drone leaderboard, every sort; `getUserRank`), `services/marketplace.service.js` (`getListings`: a fixture's listings and purchases), `services/live.service.js` (today's trades, which the T21 economy snapshot also reads), `services/economy-snapshot.js` (T21, merged during this task: open listings, and the supply less the fixture's balance), `services/batch.service.js` (commit candidates), `lib/live/summary.js` and `services/volt-daily.js` (a fixture account's `ft_mint` and `ft_burn` entries are not counted). Tests: `tests/live/fixture-exclusion.test.js` (new), `tests/live/volt-daily.test.js`. SPEC 8, 10, 12, 13; DECISIONS 5.60.
+- Where the fixture is today: only in Neon dev (seeded there by T22); production's database has no row for it, so no public view on the hosted build ever showed it. This change keeps that true if a fixture is ever seeded into a database that serves pages. Neon dev's `volt_daily` row for 2026-11-09 still includes the fixture's 5,000 Volt seed grant, recorded before this change; dev serves no public page.
+- Funding: faucet helper `hd-fund-12.testnet` (10 NEAR), deleted straight into `game.hyperdrome.testnet` ([3FnBhLNt...](https://testnet.nearblocks.io/txns/3FnBhLNtjm1nZgYUNTky5yog4nLz2GvWhvUrnJgfYh5L)). 100 Google sign-ups at 0.0677 NEAR plus 25% is 8.5 NEAR.
+- Run-out, read 2026-11-10 01:27 UTC (balances and allowances from the RPC; production has 15 demo users and no Google user). Rates: the T15c measurements (settlement 1.048 NEAR a day, game storage 0.768, a team 0.2215) and the T23 sign-up cost (game account 0.0677, owner gas 0.0104). "All sign-ups" is the 285 demo sign-ups left under the cap plus 100 Google ones, taken at once:
+
+  | Item                          | Now (NEAR)                                 | Burn a day                       | Run-out                                 | With +25%       |
+  | ----------------------------- | ------------------------------------------ | -------------------------------- | --------------------------------------- | --------------- |
+  | Settlement key                | allowance 29.04, paid by the game account  | 1.048                            | Dec 7                                   | Dec 2           |
+  | Ops key, `hyperdrome.testnet` | allowance 9.88, balance 18.19              | none per tick; 0.0104 per signup | not by ticks; 385 sign-ups use 4.0      | 5.0             |
+  | Teams (lowest, `static`)      | 6.84 available, allowance 6.85             | 0.2215                           | Dec 10                                  | Dec 4           |
+  | `game.hyperdrome.testnet`     | 79.02, of which 72.13 above its 6.89 stake | 1.816 (gas 1.048, storage 0.768) | Dec 19 with no sign-ups; Dec 5 with all | Nov 27 with all |
+
+  Through Nov 25 (16 days) the game account needs, with 25%, 36.3 for racing, 24.1 for the demo sign-ups and 8.5 for 100 Google ones: 68.9 of 72.13, 3.2 to spare (about 47 more sign-ups). Its health floor (3.7 NEAR above the stake) is reached on Nov 25 around 21:00 UTC in the +25% case with every sign-up taken, and on Dec 3 at the measured rate.
+
+- Verified: `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 44 files passed, 1 skipped, 333 tests passed, 1 skipped (after merging T21); `npm run build` exit 0. `tests/live/fixture-exclusion.test.js` fails on all 3 cases with the three service changes stashed, and passes with them.
+- Open:
+  - The test loads the leaderboard and marketplace services by a computed path: both are baseline files outside `tsconfig.typecheck.json` with 45 type errors between them, which the ratchet does not ask this task to fix.
+  - A fixture's sale to a real player, or purchase from one, is hidden from the sales feed and the strip's trade count, so that player's trade does not show there; the demo never lists or buys.
+  - The economy page's Volt supply is now `ft_total_supply` less the fixture's balance (3,000 of 121,924 on 2026-11-10, 2.5%), so it no longer equals the contract's view; SPEC 8 says so.
+
 ## 2026-11-09 T21 Economy page
 
 - Changed:

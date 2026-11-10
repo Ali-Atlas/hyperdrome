@@ -16,10 +16,10 @@ import {
   TransactionFailedError,
 } from '@/lib/near/errors.js';
 import { teamEconomy } from '@/lib/teams/constants.js';
-import { TEAM_DRONE_LEVELS, TEAM_GAS_YOCTO } from '@/lib/teams/roster.js';
+import { TEAM_DRONE_LEVELS, TEAM_GAS_YOCTO, teamEmail } from '@/lib/teams/roster.js';
 import { SeedBlockedError, bindKit, cacheKit, ledgerOf, mintKit } from './team-seed-kit.js';
 
-export { SeedBlockedError };
+export { SeedBlockedError, teamEmail };
 
 const { users, teams } = schema;
 
@@ -141,9 +141,6 @@ function seedEconomy(def, constants) {
   const { perTxCap, perDayCap, startVolts } = def.fixture;
   return { ...economy, perTxCap, perDayCap, startVolts };
 }
-
-/** @param {TeamDef} def the team's users.email (teams never sign in; `.invalid` never resolves) */
-export const teamEmail = (def) => `${def.slug}@teams.hyperdrome.invalid`;
 
 /**
  * The team's users row, created on the first run.

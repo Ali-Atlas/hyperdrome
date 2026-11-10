@@ -8,6 +8,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import { schema } from '../../lib/db/index.js';
 import { raceMarginMs, utcDayKey, utcDayStart, voltFlows } from '../../lib/live/summary.js';
 import { applyEvents } from '../../services/chain-cache.service.js';
+import { fixtureAccounts } from '../../lib/teams/fixtures.js';
 import { recordVoltFlows } from '../../services/volt-daily.js';
 import { dbEnabled, ev, testDb } from '../gameplay/setup.js';
 
@@ -35,6 +36,20 @@ describe('voltFlows', () => {
 
   it('counts a stat upgrade and a starter grant, which no cached row prices', () => {
     expect(voltFlows([burn('75'), mint(['p', '1000'])])).toEqual({ minted: 1000, burned: 75 });
+  });
+
+  it('leaves out the entries of excluded accounts (test fixtures)', () => {
+    const fixture = 'testrogueagent.game.test';
+    const excluded = new Set([fixture]);
+    expect(voltFlows([mint(['a', '4'], [fixture, '5000']), burn('10')], excluded)).toEqual({
+      minted: 4,
+      burned: 10,
+    });
+    expect(
+      voltFlows([ev('ft_burn', [{ owner_id: fixture, amount: '499' }], 'nep141')], excluded)
+    ).toEqual({ minted: 0, burned: 0 });
+    expect(fixtureAccounts('game.test')).toEqual(new Set([fixture]));
+    expect(fixtureAccounts(undefined).size).toBe(0);
   });
 
   it('ignores transfers (the marketplace rake goes to the treasury) and other standards', () => {

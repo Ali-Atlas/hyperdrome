@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
+import { notFixtureOwned, notFixtureUser } from './fixture-filter.js';
 
 const { users, drones, skins, seasons, races, teams } = schema;
 
@@ -65,7 +66,7 @@ export async function getPlayerLeaderboard(sortBy = 'elo', limit = 50, offset = 
         winRate: winRateExpr,
       })
       .from(users)
-      .where(gte(users.totalRaces, 1))
+      .where(and(gte(users.totalRaces, 1), notFixtureUser()))
       .orderBy(
         sortOrder === 'asc' ? sql`${winRateExpr} ASC` : sql`${winRateExpr} DESC`,
         asc(users.id)
@@ -84,6 +85,7 @@ export async function getPlayerLeaderboard(sortBy = 'elo', limit = 50, offset = 
   return db
     .select(baseSelect)
     .from(users)
+    .where(notFixtureUser())
     .orderBy(orderClause, asc(users.id))
     .limit(limit)
     .offset(offset);
@@ -196,7 +198,8 @@ export async function getDroneLeaderboard(sortBy = 'elo', limit = 50, offset = 0
   const sortOrder = filters.sortOrder === 'asc' ? 'asc' : 'desc';
   const dir = sortOrder === 'asc' ? asc : desc;
 
-  const conditions = [];
+  // Test fixtures are never listed, bots only on request.
+  const conditions = [notFixtureOwned(db, drones.userId)];
   if (!includeBots) conditions.push(eq(drones.isBot, false));
   if (Array.isArray(bracket) && bracket.length === 2) {
     const [lo, hi] = bracket;
@@ -277,7 +280,7 @@ export async function getDroneLeaderboard(sortBy = 'elo', limit = 50, offset = 0
     .from(drones)
     .leftJoin(skins, eq(drones.appliedSkinId, skins.id))
     .leftJoin(teams, eq(teams.userId, drones.userId))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(orderClause)
     .limit(limit)
     .offset(offset);
@@ -310,8 +313,11 @@ export async function getUserRank(userId) {
     .select({ count: sql`count(*)::int` })
     .from(users)
     .where(
-      sql`${users.eloRating} > ${row.eloRating}
-        OR (${users.eloRating} = ${row.eloRating} AND ${users.id} < ${userId})`
+      and(
+        sql`(${users.eloRating} > ${row.eloRating}
+          OR (${users.eloRating} = ${row.eloRating} AND ${users.id} < ${userId}))`,
+        notFixtureUser()
+      )
     );
   return (count?.count ?? 0) + 1;
 }
