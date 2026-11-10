@@ -7,9 +7,10 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schema } from '../../lib/db/index.js';
 import { calculatePerStatCap, calculateTSB } from '../../lib/game-engine/economy.js';
 import { STAT_KEYS } from '../../lib/game-engine/templates.js';
+import { ROGUE_FIXTURE } from '../../lib/teams/fixtures.js';
 import { TEAMS, teamDroneName } from '../../lib/teams/roster.js';
 import { UNKNOWN_MINT_WAIT_MS } from '../../services/team-seed-kit.js';
-import { SeedBlockedError, seedTeam } from '../../services/team-seed.service.js';
+import { SeedBlockedError, nearText, seedTeam } from '../../services/team-seed.service.js';
 import { dbEnabled, testDb } from '../gameplay/setup.js';
 import { createTeamChain } from './fake-chain.js';
 import { NEAR, testTeam, wipeTeams } from './setup.js';
@@ -116,6 +117,69 @@ describe.skipIf(!dbEnabled)('team seeding', () => {
     // The rotated key is the one stored: the team can act with it.
     const flagship = { drone: fleet[2].tokenId, item: null, kind: 'mod' };
     await near.callAsPlayer(account, user.playKeyEnc, 'equip', flagship);
+  });
+
+  it('seeds a fixture with its own caps, kit, Volts and gas, and leaves it out of the team phase', async () => {
+    const chain = createTeamChain();
+    const { near } = chain;
+    const def = testTeam({ skins: [], mods: ROGUE_FIXTURE.mods, fixture: ROGUE_FIXTURE.fixture });
+    near.mock.setBalance(near.ownerId, 50n * NEAR);
+    /** @type {bigint[]} */
+    const funding = [];
+    /** @type {import('../../services/team-seed.service.js').Fund} */
+    const fund = async ({ accountId, yocto }) => {
+      funding.push(yocto);
+      near.mock.setBalance(accountId, yocto);
+    };
+
+    const seeded = await seedTeam(def, { db, near, fund });
+    const account = `${def.slug}.${near.gameId}`;
+    expect(seeded).toMatchObject({ accountId: account, skipped: false });
+    expect(chain.calls('create_player')[0].args).toEqual({ slug: def.slug, is_team: true });
+    expect(chain.calls('set_team_budget').map((c) => c.args)).toEqual([
+      { account, per_tx: '500', per_day: '1000' },
+    ]);
+    expect(chain.calls('mint_drone').map((c) => [c.args.level, c.args.stats])).toEqual([
+      [20, STAT_KEYS.map(() => 1)],
+      [20, STAT_KEYS.map(() => 1)],
+    ]);
+    expect(chain.calls('mint_volts').map((c) => c.args)).toEqual([{ to: account, amount: '5000' }]);
+    expect(funding).toEqual([NEAR]);
+    expect(chain.calls('rotate_play_key').map((c) => c.args)).toEqual([
+      { key_version: 1, allowance: String(NEAR) },
+    ]);
+    expect(seeded.txs.map((t) => t.step)).toContain(
+      'rotatePlayKey to a 1 NEAR allowance (key version 2)'
+    );
+
+    const [user] = await db.select().from(users).where(eq(users.nearAccountId, account));
+    expect(user).toMatchObject({ isTeam: true, bootstrapState: 'done', points: 5_000 });
+    expect(await db.select().from(teams).where(eq(teams.userId, user.id))).toEqual([]);
+    const fleet = await db.select().from(drones).where(eq(drones.userId, user.id));
+    expect(fleet.map((/** @type {any} */ d) => [d.level, d.active])).toEqual([
+      [20, false],
+      [20, false],
+    ]);
+    const bound = await db
+      .select({ droneId: droneMods.droneId, on: droneMods.isEquipped })
+      .from(droneMods)
+      .innerJoin(drones, eq(drones.id, droneMods.droneId))
+      .where(eq(drones.userId, user.id));
+    expect(bound).toHaveLength(1);
+    expect(bound[0].on).toBe(true);
+
+    const sends = near.mock.calls.filter((c) => c.kind !== 'view').length;
+    expect(await seedTeam(def, { db, near, fund })).toMatchObject({ skipped: true });
+    expect(near.mock.calls.filter((c) => c.kind !== 'view')).toHaveLength(sends);
+  });
+
+  it('formats NEAR amounts for the gas messages', () => {
+    expect([2n * NEAR, NEAR, NEAR / 2n, NEAR / 20n].map(nearText)).toEqual([
+      '2 NEAR',
+      '1 NEAR',
+      '0.5 NEAR',
+      '0.05 NEAR',
+    ]);
   });
 
   it('stops before the gas transfer when the owner holds under 10 NEAR, and resumes without minting twice', async () => {
