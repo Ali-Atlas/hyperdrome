@@ -18,14 +18,15 @@ Production is the Vercel project `hyperdrome-near` (team `collide-scopes-project
 
 Every variable is set on Production only. Preview and Development hold none. Changing one takes effect at the next deployment.
 
-| Name                                                                                                                            | Type   | Local source                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------- |
-| `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`                                                                                    | Secret | `.env.prod.local`                                                   |
-| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`, `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY` | Secret | `.env.local`                                                        |
-| `NEAR_NETWORK`, `NEAR_OWNER_ID`, `NEAR_GAME_ID`, `NEXT_PUBLIC_EXPLORER_URL`                                                     | Config | `.env.local`                                                        |
-| `ADMIN_EMAILS`                                                                                                                  | Secret | set directly on Vercel (the Google email allowed on the admin page) |
+| Name                                                                                                                            | Type   | Local source                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`                                                                                    | Secret | `.env.prod.local`                                                                                                    |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`, `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY` | Secret | `.env.local`                                                                                                         |
+| `NEAR_NETWORK`, `NEAR_OWNER_ID`, `NEAR_GAME_ID`, `NEXT_PUBLIC_EXPLORER_URL`                                                     | Config | `.env.local`                                                                                                         |
+| `ADMIN_EMAILS`                                                                                                                  | Secret | set directly on Vercel (the Google email allowed on the admin page)                                                  |
+| `DEMO_ACCOUNT_CAP`                                                                                                              | Config | set directly on Vercel: 300 since 2026-11-09 (T23; the code default is 100), sized by the sign-up cost in SPEC.md 15 |
 
-Unset on purpose: `NEAR_RPC_URL` and `NEAR_RPC_FAILOVER_URL` (the SPEC.md 15 defaults apply), `NEAR_RPC_API_KEY`, `DEMO_ACCOUNT_CAP` (default 100), the Pusher names, `NEAR_ADAPTER`, `NEAR_TESTNET_INTEGRATION`, `SMOKE_BASE_URL`.
+Unset on purpose: `NEAR_RPC_URL` and `NEAR_RPC_FAILOVER_URL` (the SPEC.md 15 defaults apply), `NEAR_RPC_API_KEY`, the Pusher names, `NEAR_ADAPTER`, `NEAR_TESTNET_INTEGRATION`, `SMOKE_BASE_URL`.
 
 Set a value over stdin, so it reaches neither the shell history nor the process list:
 

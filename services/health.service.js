@@ -39,10 +39,11 @@ const ONE_NEAR = 1_000_000_000_000_000_000_000_000n;
 /**
  * Funding floors in yoctoNEAR (SPEC.md 8): two days of measured burn. Settlement is 480 slots a day
  * at 0.002184 NEAR. The game account's figure adds 160 bytes of new storage per slot. The ops key
- * spends nothing per tick, so its floor is the gas of the demo signups still possible.
+ * spends nothing per tick, so its floor is the gas of a full `DEMO_ACCOUNT_CAP` of 300 sign-ups at
+ * the measured 0.0104 NEAR each (3.12 NEAR, rounded up).
  */
 export const MIN_SETTLEMENT_ALLOWANCE = (ONE_NEAR * 21n) / 10n;
-export const MIN_OPS_ALLOWANCE = ONE_NEAR;
+export const MIN_OPS_ALLOWANCE = (ONE_NEAR * 32n) / 10n;
 export const MIN_GAME_AVAILABLE = (ONE_NEAR * 37n) / 10n;
 
 /** Two days of a team's measured burn, 0.26 NEAR a day: each team's balance and allowance. */
