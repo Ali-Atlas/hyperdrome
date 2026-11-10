@@ -1,7 +1,8 @@
 /**
- * Test fixtures (`lib/teams/fixtures.js`, SPEC.md 10) are left out of every public view, as bots
- * are: the leaderboards and rank, the landing strip's trades, the marketplace feed, and batch
- * candidates. A fixture is known by its `users.email`, which the seed sets and nothing changes.
+ * Test fixtures (`lib/teams/fixtures.js`, SPEC.md 10) are left out of the public lists, as bots
+ * are: the leaderboards and rank, the marketplace feed, and batch candidates. Totals a reader can
+ * query from the contract (supply, minted, burned, open listings, trades) are never filtered
+ * (SPEC.md 8). A fixture is known by its `users.email`, which the seed sets and nothing changes.
  */
 import { inArray, isNull, notInArray, or } from 'drizzle-orm';
 import { schema } from '@/lib/db';

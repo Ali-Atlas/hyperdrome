@@ -2,6 +2,17 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-10 T26 Public totals match the chain; Free Drones bar removed
+
+- Fix 1, totals match the chain (SPEC 8 rule, DECISIONS 5.62):
+  - `services/economy-snapshot.js`: the supply is `ft_total_supply` as returned, no longer less the fixture's balance; open listings count every seller.
+  - `services/live.service.js`: today's trades count every sale.
+  - `services/volt-daily.js` and `lib/live/summary.js`: every `ft_mint` and `ft_burn` entry is counted, as before T22b.
+  - `lib/teams/fixtures.js`: `fixtureAccounts` removed, now unused. `services/fixture-filter.js`: comment.
+  - Unchanged: the fixture stays out of the player and drone leaderboards, the rank, the marketplace feed (a list with no count) and batch candidates.
+  - Tests: `tests/live/fixture-exclusion.test.js` now asserts the strip's trades and the snapshot's supply and open listings include the fixture, and the lists still leave it out. `tests/live/volt-daily.test.js` loses the exclusion case. SPEC 8 (the rule; the supply includes the security-demo test account's Volts), 10, 13.
+  - Production rows: economy snapshots written between the #55 deploy and this one stored the supply 3,000 Volts under the chain (the fixture's balance). They are not corrected: a read of the production database was not allowed from this session. They age out after 7 days, the snapshot retention.
+
 ## 2026-11-10 T25 Site address as one setting
 
 - Grep: `hyperdrome-near.vercel.app` and `hyperdrome.vercel.app` in code (`app`, `lib`, `services`, `components`, `hooks`, `scripts`, `proxy.js`) before this change: `app/layout.jsx` (`metadataBase`, `openGraph.url`), `app/page.jsx` (`openGraph.url`), `app/sitemap.js` (`BASE`), `app/api/skins/[skinId]/route.js` and `app/api/mods/[modId]/route.js` (`SITE_ORIGIN`, still the MegaETH-era `hyperdrome.vercel.app`). Built from the request host: `GET /api/metadata/[token]` `media`. `public/robots.txt` had a relative `Sitemap: /sitemap.xml`. After: the only hit is the default in `lib/site-url.js`. Synthetic emails (`@demo.hyperdrome.gg`, `@teams.hyperdrome.invalid`) are not links and stay.
