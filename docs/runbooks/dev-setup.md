@@ -112,10 +112,10 @@ Never commit a `.env*` file; `.env.example` is the template. Copy it to `.env.lo
 
 ### Test database
 
-The bootstrap service tests (`tests/bootstrap/`) run against any migrated Postgres that is not Neon. A throwaway local cluster, if Postgres 16+ binaries are installed:
+The database tests run against any migrated Postgres that is not Neon. A throwaway local cluster, if Postgres 16+ binaries are on `PATH` (the server listens on TCP only: a Unix socket under a long checkout path would pass the 107-byte socket path limit):
 
 ```sh
-initdb -D tmp/pg -U ci --auth=trust && pg_ctl -D tmp/pg -o "-p 54329 -k $PWD/tmp" -l tmp/pg.log start
+initdb -D tmp/pg -U ci --auth=trust && pg_ctl -D tmp/pg -o "-p 54329 -c unix_socket_directories=''" -l tmp/pg.log -w start
 createdb -h 127.0.0.1 -p 54329 -U ci ci
 DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm run db:migrate
 DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm test
