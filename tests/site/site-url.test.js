@@ -28,7 +28,14 @@ describe('siteUrlFrom', () => {
 describe('sitemap and robots', () => {
   it('put every URL on the site address', () => {
     const urls = sitemap().map((/** @type {{ url: string }} */ e) => e.url);
-    expect(urls).toEqual([SITE_URL, `${SITE_URL}/guide`, `${SITE_URL}/faq`]);
+    expect(urls).toEqual([
+      SITE_URL,
+      `${SITE_URL}/economy`,
+      `${SITE_URL}/tracks`,
+      `${SITE_URL}/guide`,
+      `${SITE_URL}/faq`,
+      `${SITE_URL}/privacy`,
+    ]);
     expect(robots()).toEqual({
       rules: { userAgent: '*', allow: '/', disallow: ['/api/', '/admin/'] },
       sitemap: `${SITE_URL}/sitemap.xml`,
