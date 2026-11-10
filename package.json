@@ -22,6 +22,7 @@
     "seed:teams": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/seed-teams.mjs",
     "seed:world": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/seed-world.mjs",
     "smoke": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/smoke-testnet.mjs",
+    "verify:race": "node --import ./scripts/register-alias.mjs scripts/verify-race.mjs",
     "attack:demo": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/attack-demo.mjs",
     "backfill:rewards": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/backfill-race-rewards.mjs",
     "prepare": "husky",
