@@ -25,6 +25,7 @@ Both must end with "no leaks found". Run the tree scan from inside the copy: the
 - No pull request is waiting to merge, and CI is green on the head of `main` (`gh run list --branch main --limit 1`).
 - `GET https://hyperdrome-near.vercel.app/api/health` answers 200 with `ok: true` and `racingEnabled: true`.
 - Note the head commit: `git rev-parse origin/main`. This is the commit the tag will name.
+- After the freeze, run the app suite once on a fresh database at that commit (the commands in README.md section 2) and check that its counts match the ones README.md section 2 quotes. If they differ, fix the README before tagging.
 
 ## 4. Make the repository public
 

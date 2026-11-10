@@ -2,6 +2,11 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-10 T28 README test count
+
+- Changed: `README.md` section 2, the app suite count from 337 to 336 tests passed (the change came with #58); `docs/runbooks/submission.md` step 3, a fresh-database run after the freeze, checked against README section 2 before tagging.
+- Verified: `npm test` once on a fresh database (`createdb`, then `npm run db:migrate`) at `174b700`, the head of `main`: 45 files passed, 1 skipped; 336 tests passed, 1 skipped. The contract counts are unchanged since T24 (no contract change); cargo was not re-run.
+
 ## 2026-11-10 T27 Milestone toast removed from the drones page
 
 - What triggered it: on each visit to `/drones` the page stored the player's race total (`users.total_races`, in the session) and drone count in `localStorage`. On a later visit, when the race total had crossed 1,000 or 3,000 and the drone count had gone up, it showed "Milestone reached! New drone added to your fleet." Settlement adds to the race total every race, and a vendor purchase, a marketplace buy or a wallet sync adds a drone. So it could fire, and it claimed a milestone drone this build does not grant (DECISIONS 2.39, 5.34).
