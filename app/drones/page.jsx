@@ -20,15 +20,12 @@ import { clearAllPendingToggles, usePendingToggle } from '@/lib/pending-toggle';
 import { useRoundStartTick } from '@/lib/race-round-clock';
 import styles from './page.module.css';
 
-/** NPC vendor price + free-drone milestones. Mirrors the contract's
- *  vendor price (SPEC.md 2.1, 3,500 Volts). The milestones are
- *  display-only here; whatever system grants the free drones lives
- *  elsewhere and the toast effect just reacts to the drone count + race
- *  total crossing a threshold between page loads. */
+/** NPC vendor price, the contract's (SPEC.md 2.1, 3,500 Volts). The
+ *  milestone thresholds only drive the toast effect below; no code in
+ *  this build grants milestone drones (DECISIONS.md 2.39, 5.34). */
 const DRONE_PRICE = 3500;
 const MILESTONE_FIRST = 1000;
 const MILESTONE_SECOND = 3000;
-const FREE_DRONE_CAP = 3;
 
 const TIERS = ['steel', 'orange', 'purple', 'gold'];
 const TIER_LABELS = {
@@ -246,7 +243,6 @@ export default function DronesPage() {
           pending={vendorPending}
           error={vendorError}
           userPoints={userVolts}
-          totalRaces={session.user?.totalRaces ?? 0}
         />
       </div>
     </NavShell>
@@ -275,17 +271,8 @@ function VendorCard({ onClick }) {
   );
 }
 
-function VendorModal({ isOpen, onClose, onPurchase, pending, error, userPoints, totalRaces }) {
+function VendorModal({ isOpen, onClose, onPurchase, pending, error, userPoints }) {
   const canAfford = userPoints >= DRONE_PRICE;
-  // Starter drone counts as #1; milestones at 1k and 3k races add #2 and
-  // #3. The bar always spans 0 -> 3,000 (the full free-drone journey) so
-  // a single visual carries both milestones.
-  const freeEarned =
-    totalRaces >= MILESTONE_SECOND ? FREE_DRONE_CAP : totalRaces >= MILESTONE_FIRST ? 2 : 1;
-  const allEarned = freeEarned >= FREE_DRONE_CAP;
-  const fillPct = Math.min(100, (totalRaces / MILESTONE_SECOND) * 100);
-  const milestone1Pct = (MILESTONE_FIRST / MILESTONE_SECOND) * 100;
-  const nextThreshold = freeEarned === 1 ? MILESTONE_FIRST : MILESTONE_SECOND;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="md" chromeless>
@@ -302,68 +289,8 @@ function VendorModal({ isOpen, onClose, onPurchase, pending, error, userPoints, 
         </button>
       </div>
       <div className={styles.vendorModalBody}>
-        <p className={styles.vendorModalIntro}>
-          You earn up to 3 free drones from racing. You can also buy one any time.
-        </p>
-
-        <section className={styles.milestoneSection}>
-          <div className={styles.milestoneHeader}>
-            <span className={styles.milestoneTitle}>Free Drones</span>
-            <span className={styles.milestoneCount}>
-              <span className={styles.milestoneCountNum}>{freeEarned}</span>
-              <span className={styles.milestoneCountSep}>/</span>
-              <span className={styles.milestoneCountNum}>{FREE_DRONE_CAP}</span>
-            </span>
-          </div>
-          <div
-            className={styles.milestoneBar}
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={MILESTONE_SECOND}
-            aria-valuenow={Math.min(totalRaces, MILESTONE_SECOND)}
-            aria-label="Race progress toward free drone milestones"
-          >
-            <div className={styles.milestoneFill} style={{ width: `${fillPct}%` }} />
-            {[
-              { pct: 0, value: 0 },
-              { pct: milestone1Pct, value: MILESTONE_FIRST },
-              { pct: 100, value: MILESTONE_SECOND },
-            ].map(({ pct, value }) => (
-              <span
-                key={value}
-                className={cn(
-                  styles.milestoneTick,
-                  fillPct >= pct ? styles.milestoneTickPast : styles.milestoneTickFuture
-                )}
-                style={{ left: `${pct}%` }}
-                aria-hidden="true"
-              />
-            ))}
-          </div>
-          <div className={styles.milestoneLabels} aria-hidden="true">
-            <span className={styles.milestoneLabel} style={{ left: '0%' }}>
-              0
-            </span>
-            <span className={styles.milestoneLabel} style={{ left: `${milestone1Pct}%` }}>
-              {MILESTONE_FIRST.toLocaleString()}
-            </span>
-            <span className={styles.milestoneLabel} style={{ left: '100%' }}>
-              {MILESTONE_SECOND.toLocaleString()}
-            </span>
-          </div>
-          <div className={styles.milestoneStatus}>
-            {allEarned ? (
-              <>All 3 free drones earned · {totalRaces.toLocaleString()} races</>
-            ) : (
-              <>
-                {totalRaces.toLocaleString()} of {nextThreshold.toLocaleString()} races
-              </>
-            )}
-          </div>
-        </section>
-
         <section className={styles.buySection}>
-          <h3 className={styles.buyHeader}>Or buy one now</h3>
+          <h3 className={styles.buyHeader}>Buy one now</h3>
           <div className={styles.buyContent}>
             <img src="/drones/tier-1.webp" alt="LV 1 starter drone" className={styles.buyImage} />
             <div className={styles.buyDetails}>

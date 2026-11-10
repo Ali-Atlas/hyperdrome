@@ -197,10 +197,18 @@
   height: 100%;
   min-width: 6px;
 }
-.tierSeg_steel  { background: rgba(138, 155, 168, 0.5); }
-.tierSeg_orange { background: rgba(255, 140, 66, 0.55); }
-.tierSeg_purple { background: rgba(187, 134, 252, 0.55); }
-.tierSeg_gold   { background: rgba(255, 215, 0, 0.55); }
+.tierSeg_steel {
+  background: rgba(138, 155, 168, 0.5);
+}
+.tierSeg_orange {
+  background: rgba(255, 140, 66, 0.55);
+}
+.tierSeg_purple {
+  background: rgba(187, 134, 252, 0.55);
+}
+.tierSeg_gold {
+  background: rgba(255, 215, 0, 0.55);
+}
 
 .tierLegend {
   display: flex;
@@ -222,10 +230,18 @@
   border-radius: 2px;
   flex-shrink: 0;
 }
-.tierSwatch_steel  { background: rgba(138, 155, 168, 0.5); }
-.tierSwatch_orange { background: rgba(255, 140, 66, 0.55); }
-.tierSwatch_purple { background: rgba(187, 134, 252, 0.55); }
-.tierSwatch_gold   { background: rgba(255, 215, 0, 0.55); }
+.tierSwatch_steel {
+  background: rgba(138, 155, 168, 0.5);
+}
+.tierSwatch_orange {
+  background: rgba(255, 140, 66, 0.55);
+}
+.tierSwatch_purple {
+  background: rgba(187, 134, 252, 0.55);
+}
+.tierSwatch_gold {
+  background: rgba(255, 215, 0, 0.55);
+}
 
 .tierLegendLabel {
   color: var(--text-secondary);
@@ -358,7 +374,7 @@
   background: rgba(34, 197, 94, 0.18);
   border: 1px solid rgba(34, 197, 94, 0.55);
   border-radius: var(--radius-sm);
-  color: #22C55E;
+  color: #22c55e;
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: var(--font-bold);
@@ -391,11 +407,8 @@
 /* ---- Level-tier tinted backgrounds + level-colored hover ---- */
 
 .level_steel {
-  background: linear-gradient(
-      180deg,
-      rgba(138, 155, 168, 0.18) 0%,
-      rgba(138, 155, 168, 0.04) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(138, 155, 168, 0.18) 0%, rgba(138, 155, 168, 0.04) 100%),
     var(--bg-card);
   border-width: 2px;
   border-color: rgba(138, 155, 168, 0.5);
@@ -405,11 +418,8 @@
 }
 
 .level_orange {
-  background: linear-gradient(
-      180deg,
-      rgba(255, 140, 66, 0.18) 0%,
-      rgba(255, 140, 66, 0.04) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(255, 140, 66, 0.18) 0%, rgba(255, 140, 66, 0.04) 100%),
     var(--bg-card);
   border-width: 2px;
   border-color: rgba(255, 140, 66, 0.55);
@@ -419,11 +429,8 @@
 }
 
 .level_purple {
-  background: linear-gradient(
-      180deg,
-      rgba(187, 134, 252, 0.18) 0%,
-      rgba(187, 134, 252, 0.04) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(187, 134, 252, 0.18) 0%, rgba(187, 134, 252, 0.04) 100%),
     var(--bg-card);
   border-width: 2px;
   border-color: rgba(187, 134, 252, 0.55);
@@ -433,11 +440,8 @@
 }
 
 .level_gold {
-  background: linear-gradient(
-      180deg,
-      rgba(255, 215, 0, 0.18) 0%,
-      rgba(255, 215, 0, 0.04) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(255, 215, 0, 0.18) 0%, rgba(255, 215, 0, 0.04) 100%),
     var(--bg-card);
   border-width: 2px;
   border-color: rgba(255, 215, 0, 0.55);
@@ -505,10 +509,20 @@
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 12%, transparent) 0%,
-      color-mix(in srgb, var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 4%, transparent) 100%
+      color-mix(
+          in srgb,
+          var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 12%,
+          transparent
+        )
+        0%,
+      color-mix(
+          in srgb,
+          var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 4%,
+          transparent
+        )
+        100%
     ),
-    var(--legendary-bg, #0A0A0A);
+    var(--legendary-bg, #0a0a0a);
   border-radius: calc(var(--radius-lg) - 2px);
   z-index: -1;
   pointer-events: none;
@@ -618,7 +632,6 @@
   padding: 12px 16px 14px;
 }
 
-
 /* KPI row - 3 evenly-spaced stats under the bars. */
 
 .kpiRow {
@@ -696,14 +709,28 @@
   opacity: 0.85;
 }
 
-.skinRarityColor_common    { color: var(--rarity-common); }
-.skinRarityColor_rare      { color: var(--rarity-rare); }
-.skinRarityColor_epic      { color: var(--rarity-epic); }
-.skinRarityColor_legendary { color: var(--rarity-legendary); }
+.skinRarityColor_common {
+  color: var(--rarity-common);
+}
+.skinRarityColor_rare {
+  color: var(--rarity-rare);
+}
+.skinRarityColor_epic {
+  color: var(--rarity-epic);
+}
+.skinRarityColor_legendary {
+  color: var(--rarity-legendary);
+}
 
-.skinRarityColor_rare      .skinDiamond { color: var(--rarity-rare); }
-.skinRarityColor_epic      .skinDiamond { color: var(--rarity-epic); }
-.skinRarityColor_legendary .skinDiamond { color: var(--rarity-legendary); }
+.skinRarityColor_rare .skinDiamond {
+  color: var(--rarity-rare);
+}
+.skinRarityColor_epic .skinDiamond {
+  color: var(--rarity-epic);
+}
+.skinRarityColor_legendary .skinDiamond {
+  color: var(--rarity-legendary);
+}
 
 .skinChipEmpty {
   display: flex;
@@ -966,140 +993,12 @@
   padding: var(--space-4);
 }
 
-.vendorModalIntro {
-  margin: 0;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-/* ---- Free-drone milestone bar (0 -> 3,000 -> 10,000) ---- */
-
-.milestoneSection {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: var(--space-3) var(--space-4) var(--space-4);
-  background: var(--bg-card-alt);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-}
-
-.milestoneHeader {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.milestoneTitle {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: var(--font-bold);
-}
-
-.milestoneCount {
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.milestoneCountNum {
-  font-size: var(--text-base);
-  font-weight: var(--font-bold);
-  color: var(--accent-primary);
-}
-
-.milestoneCountSep {
-  font-size: var(--text-base);
-  font-weight: var(--font-medium);
-  color: var(--text-tertiary);
-  margin: 0 2px;
-}
-
-.milestoneBar {
-  position: relative;
-  height: 8px;
-  margin-top: 4px;
-  background: var(--bg-input);
-  border-radius: 999px;
-  overflow: visible;
-}
-
-.milestoneFill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: var(--accent-primary);
-  border-radius: 999px;
-  transition: width var(--duration-normal) var(--ease-out);
-  box-shadow: 0 0 8px rgba(3, 218, 198, 0.45);
-}
-
-.milestoneTick {
-  position: absolute;
-  top: 50%;
-  width: 2px;
-  height: 14px;
-  transform: translate(-50%, -50%);
-  border-radius: 1px;
-  pointer-events: none;
-}
-
-.milestoneTickPast {
-  background: var(--accent-primary);
-  box-shadow: 0 0 6px rgba(3, 218, 198, 0.55);
-}
-
-.milestoneTickFuture {
-  background: var(--text-tertiary);
-  opacity: 0.6;
-}
-
-.milestoneLabels {
-  position: relative;
-  height: 14px;
-  margin-top: 4px;
-}
-
-.milestoneLabel {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-tertiary);
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.milestoneLabel:first-child {
-  transform: translateX(0);
-}
-
-.milestoneLabel:last-child {
-  transform: translateX(-100%);
-}
-
-.milestoneStatus {
-  margin-top: 6px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  letter-spacing: 0.04em;
-}
-
-/* ---- Buy section (separated below milestones) ---- */
+/* ---- Buy section ---- */
 
 .buySection {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-default);
 }
 
 .buyHeader {
@@ -1188,7 +1087,8 @@
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-color: var(--border-default);
-  transition: color var(--duration-fast) var(--ease-out),
+  transition:
+    color var(--duration-fast) var(--ease-out),
     text-decoration-color var(--duration-fast) var(--ease-out);
 }
 
