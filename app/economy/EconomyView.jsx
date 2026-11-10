@@ -7,6 +7,7 @@ import Card from '@/components/ui/Card';
 import Skeleton from '@/components/ui/Skeleton';
 import VoltIcon from '@/components/ui/VoltIcon';
 import { flowSeries, stepHour, teamVoltSeries } from '@/lib/economy/series.js';
+import { PUBLIC_EXPLORER_URL, explorerTxUrl } from '@/lib/near/explorer.js';
 import EconomyChart from './EconomyChart.jsx';
 import styles from './page.module.css';
 
@@ -54,6 +55,32 @@ function subscribeMotion(onChange) {
 }
 const prefersReducedMotion = () => window.matchMedia(MOTION_QUERY).matches;
 
+/**
+ * Every decision of the window for the replay (`GET /api/economy/decisions`), in the feed's shape.
+ * Null when the read fails: the replay then uses the decisions the page already has.
+ * @returns {Promise<Decision[] | null>}
+ */
+async function loadReplayDecisions() {
+  try {
+    const res = await fetch('/api/economy/decisions');
+    if (!res.ok) return null;
+    const body = await res.json();
+    /** @type {{ team: string | null, at: number, reason: string, status: string, txHash: string | null }[]} */
+    const rows = body.data.decisions;
+    return rows.map((d, i) => ({
+      actionId: `replay-${i}`,
+      team: d.team,
+      step: '',
+      status: d.status,
+      reason: d.reason,
+      explorerUrl: d.txHash ? explorerTxUrl(PUBLIC_EXPLORER_URL, d.txHash) : null,
+      at: new Date(d.at).toISOString(),
+    }));
+  } catch {
+    return null;
+  }
+}
+
 /** What a decision's status reads as; an applied one shows none. */
 const STATUS_LABEL = /** @type {Record<string, string>} */ ({
   pending: 'Confirming',
@@ -70,7 +97,11 @@ export default function EconomyView() {
   const [failed, setFailed] = useState(false);
   /** null: now; a number: the snapshot the replay or the step-through is on */
   const [cursor, setCursor] = useState(/** @type {number | null} */ (null));
-  const [mode, setMode] = useState(/** @type {'live' | 'playing' | 'stepping'} */ ('live'));
+  const [mode, setMode] = useState(
+    /** @type {'live' | 'loading' | 'playing' | 'stepping'} */ ('live')
+  );
+  /** the full 24 hours of decisions while a replay or step-through runs */
+  const [replayDecisions, setReplayDecisions] = useState(/** @type {Decision[] | null} */ (null));
   const reducedMotion = useSyncExternalStore(subscribeMotion, prefersReducedMotion, () => false);
   const modeRef = useRef(mode);
   useEffect(() => {
@@ -124,6 +155,7 @@ export default function EconomyView() {
       else {
         setMode('live');
         setCursor(null);
+        setReplayDecisions(null);
       }
     };
     frame = requestAnimationFrame(tick);
@@ -146,14 +178,23 @@ export default function EconomyView() {
   const { snapshots, decisions, teams, rules, limits, since, contractUrl } = data;
   const visible = cursor === null ? count : cursor + 1;
   const current = count > 0 ? snapshots[visible - 1] : null;
+  const feed = mode !== 'live' && replayDecisions ? replayDecisions : decisions;
   const shownDecisions = current
-    ? decisions.filter((d) => cursor === null || Date.parse(d.at) <= Date.parse(current.at))
-    : decisions;
+    ? feed.filter((d) => cursor === null || Date.parse(d.at) <= Date.parse(current.at))
+    : feed;
   const times = snapshots.map((s) => s.at);
   const flows = flowSeries(snapshots);
   const stopReplay = () => {
     setMode('live');
     setCursor(null);
+    setReplayDecisions(null);
+  };
+  /** @param {'playing' | 'stepping'} next */
+  const startReplay = async (next) => {
+    setMode('loading');
+    setReplayDecisions(await loadReplayDecisions());
+    setCursor(0);
+    setMode(next);
   };
 
   return (
@@ -178,10 +219,7 @@ export default function EconomyView() {
                 variant="secondary"
                 size="sm"
                 disabled={count < 2}
-                onClick={() => {
-                  setCursor(0);
-                  setMode('stepping');
-                }}
+                onClick={() => startReplay('stepping')}
               >
                 Step through the last 24 hours
               </Button>
@@ -190,14 +228,14 @@ export default function EconomyView() {
                 variant="secondary"
                 size="sm"
                 disabled={count < 2}
-                onClick={() => {
-                  setCursor(0);
-                  setMode('playing');
-                }}
+                onClick={() => startReplay('playing')}
               >
                 Replay the last 24 hours in 60 seconds
               </Button>
             ))}
+          {mode === 'loading' && (
+            <span className={styles.replayTime}>Loading the last 24 hours...</span>
+          )}
           {mode === 'playing' && (
             <>
               <span className={styles.replayTime}>

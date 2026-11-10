@@ -5,7 +5,7 @@
  */
 import { asc, desc, eq, gte, isNotNull, and, sql } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
-import { DECISION_LIMIT, ECONOMY_WINDOW_MS } from '@/lib/economy/history.js';
+import { DECISION_LIMIT, ECONOMY_WINDOW_MS, REPLAY_DECISION_LIMIT } from '@/lib/economy/history.js';
 import { getNear } from '@/lib/near';
 import { teamEconomy } from '@/lib/teams/constants.js';
 import { TEAM_RULES } from '@/lib/teams/policy.js';
@@ -139,4 +139,35 @@ export async function getEconomy(nowMs = Date.now(), deps = {}) {
     since,
     contractUrl: near.explorerAccount(near.gameId),
   };
+}
+
+/**
+ * Every decision of the window for the replay, newest first, with only what the feed shows: the
+ * team, the time (ms), the reason, the status and the transaction hash.
+ * @param {number} [nowMs]
+ * @param {{ db?: any }} [deps]
+ */
+export async function getReplayDecisions(nowMs = Date.now(), deps = {}) {
+  const db = deps.db ?? defaultDb;
+  /** @type {{ account: string | null, at: Date, reason: string, status: string, txHash: string | null }[]} */
+  const rows = await db
+    .select({
+      account: users.nearAccountId,
+      at: teamDecisions.createdAt,
+      reason: teamDecisions.reason,
+      status: teamDecisions.status,
+      txHash: teamDecisions.txHash,
+    })
+    .from(teamDecisions)
+    .innerJoin(users, eq(users.id, teamDecisions.teamUserId))
+    .where(gte(teamDecisions.createdAt, new Date(nowMs - ECONOMY_WINDOW_MS)))
+    .orderBy(desc(teamDecisions.createdAt))
+    .limit(REPLAY_DECISION_LIMIT);
+  return rows.map((r) => ({
+    team: r.account ? teamSlugOf(r.account) : null,
+    at: r.at.getTime(),
+    reason: r.reason,
+    status: r.status,
+    txHash: r.txHash,
+  }));
 }
