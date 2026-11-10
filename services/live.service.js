@@ -7,6 +7,7 @@ import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { db as defaultDb, schema } from '@/lib/db';
 import { raceMarginMs, utcDayKey, utcDayStart } from '@/lib/live/summary.js';
 import { getNear } from '@/lib/near';
+import { notFixtureOwned } from './fixture-filter.js';
 import { getNextRace } from './race-schedule.service.js';
 
 const { batches, drones, marketplaceListings, races, voltDaily } = schema;
@@ -83,7 +84,9 @@ export async function todayNumbers(db, nowMs) {
       .where(
         and(
           eq(marketplaceListings.status, 'sold'),
-          gte(marketplaceListings.soldAt, utcDayStart(nowMs))
+          gte(marketplaceListings.soldAt, utcDayStart(nowMs)),
+          notFixtureOwned(db, marketplaceListings.sellerId),
+          notFixtureOwned(db, marketplaceListings.buyerId)
         )
       ),
   ]);

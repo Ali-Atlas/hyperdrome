@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
+import { notFixtureOwned } from './fixture-filter.js';
 
 const { marketplaceListings, drones, skins, mods, droneMods, droneSkins, users } = schema;
 
@@ -59,7 +60,12 @@ export async function getListings(filters = {}, pagination = { page: 1, limit: 2
   const sort = filters.sort ?? 'curated';
   const status = filters.status === 'sold' ? 'sold' : 'active';
 
-  const conditions = [eq(marketplaceListings.status, status)];
+  // A test fixture's listings and purchases are not shown (SPEC.md 10).
+  const conditions = [
+    eq(marketplaceListings.status, status),
+    notFixtureOwned(db, marketplaceListings.sellerId),
+    notFixtureOwned(db, marketplaceListings.buyerId),
+  ];
   if (filters.itemType) conditions.push(eq(marketplaceListings.itemType, filters.itemType));
   if (filters.minPrice != null) conditions.push(gte(marketplaceListings.price, filters.minPrice));
   if (filters.maxPrice != null) conditions.push(lte(marketplaceListings.price, filters.maxPrice));

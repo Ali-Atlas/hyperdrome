@@ -13,6 +13,7 @@ import { TIME_OF_DAY, WEATHER } from '@/lib/game-engine/race-simulator.js';
 import { tracksForLevel } from '@/lib/game-engine/tracks.js';
 import { ContractPanicError } from '@/lib/near';
 import { applyEvents } from './chain-cache.service.js';
+import { notFixtureOwned } from './fixture-filter.js';
 import { conditionIndexes, toBytes, toHex } from './race-replay.js';
 import { resolveDeps, slotStartMs } from './scheduler-deps.js';
 
@@ -139,7 +140,14 @@ async function makeMatchups(db, near) {
   const players = await db
     .select()
     .from(drones)
-    .where(and(eq(drones.active, true), eq(drones.isBot, false), isNotNull(drones.tokenId)));
+    .where(
+      and(
+        eq(drones.active, true),
+        eq(drones.isBot, false),
+        isNotNull(drones.tokenId),
+        notFixtureOwned(db, drones.userId)
+      )
+    );
   /** @type {DroneRow[]} */
   const bots = await db
     .select()
