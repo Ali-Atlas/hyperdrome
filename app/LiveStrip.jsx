@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import CountdownTimer from '@/components/ui/CountdownTimer';
 import VoltIcon from '@/components/ui/VoltIcon';
@@ -69,6 +70,9 @@ export default function LiveStrip() {
         <a href={contractUrl} target="_blank" rel="noopener noreferrer" className={styles.contract}>
           Contract <ExternalLink size={12} aria-hidden="true" />
         </a>
+        <Link href="/economy" className={`${styles.contract} ${styles.economy}`}>
+          Watch the economy
+        </Link>
       </div>
       {lastBatch && lastBatch.results.length > 0 && (
         <ul className={styles.results} aria-label="Last race results">

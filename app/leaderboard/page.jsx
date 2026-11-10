@@ -15,7 +15,17 @@ import { cn, getLevelColor, getLegendaryTheme } from '@/lib/utils';
 import DroneImage from '@/components/ui/DroneImage';
 import PlayerAvatar from '@/components/ui/PlayerAvatar';
 import VoltIcon from '@/components/ui/VoltIcon';
+import { TEAMS } from '@/lib/teams/roster.js';
 import styles from './page.module.css';
+
+/**
+ * The economy page's card for an AI team, by the team name the drone rows carry.
+ * @param {string} teamName
+ */
+const economyHref = (teamName) => {
+  const slug = TEAMS.find((t) => t.name === teamName)?.slug;
+  return slug ? `/economy#${slug}` : '/economy';
+};
 
 // Page 1 holds 47 rows so the table's first page covers ranks #4-#50
 // (top 3 already render in the podium cards above the table → "top 50"
@@ -303,7 +313,13 @@ export default function LeaderboardPage() {
               </span>
             </span>
             {r.teamName && (
-              <Badge variant="status" value={r.teamName} className={styles.teamBadge} />
+              <Link
+                href={economyHref(r.teamName)}
+                className={styles.teamBadgeLink}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Badge variant="status" value={r.teamName} className={styles.teamBadge} />
+              </Link>
             )}
           </span>
         ),

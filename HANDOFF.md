@@ -5,7 +5,7 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
 ## 2026-11-09 T22b Test fixture out of public views, and funding for Google sign-ups
 
 - #53 (T22, T23) merged as `370fc79` after CI green on `e1f0d9d`; production health after the deploy: 200, `ok: true`, ops allowance 9.88 NEAR against the new 3.2 floor.
-- Changed: `lib/teams/fixtures.js` (`FIXTURE_EMAILS`, `fixtureAccounts`), `lib/teams/roster.js` (`teamEmail` moved here from `services/team-seed.service.js`, which re-exports it), `services/fixture-filter.js` (new: `notFixtureUser`, `notFixtureOwned`), applied in `services/leaderboard.service.js` (player leaderboard, every sort; drone leaderboard, every sort; `getUserRank`), `services/marketplace.service.js` (`getListings`: a fixture's listings and purchases), `services/live.service.js` (today's trades), `services/batch.service.js` (commit candidates), `lib/live/summary.js` and `services/volt-daily.js` (a fixture account's `ft_mint` and `ft_burn` entries are not counted). Tests: `tests/live/fixture-exclusion.test.js` (new), `tests/live/volt-daily.test.js`. SPEC 8, 10, 12, 13; DECISIONS 5.58.
+- Changed: `lib/teams/fixtures.js` (`FIXTURE_EMAILS`, `fixtureAccounts`), `lib/teams/roster.js` (`teamEmail` moved here from `services/team-seed.service.js`, which re-exports it), `services/fixture-filter.js` (new: `notFixtureUser`, `notFixtureOwned`), applied in `services/leaderboard.service.js` (player leaderboard, every sort; drone leaderboard, every sort; `getUserRank`), `services/marketplace.service.js` (`getListings`: a fixture's listings and purchases), `services/live.service.js` (today's trades, which the T21 economy snapshot also reads), `services/economy-snapshot.js` (T21, merged during this task: open listings, and the supply less the fixture's balance), `services/batch.service.js` (commit candidates), `lib/live/summary.js` and `services/volt-daily.js` (a fixture account's `ft_mint` and `ft_burn` entries are not counted). Tests: `tests/live/fixture-exclusion.test.js` (new), `tests/live/volt-daily.test.js`. SPEC 8, 10, 12, 13; DECISIONS 5.60.
 - Where the fixture is today: only in Neon dev (seeded there by T22); production's database has no row for it, so no public view on the hosted build ever showed it. This change keeps that true if a fixture is ever seeded into a database that serves pages. Neon dev's `volt_daily` row for 2026-11-09 still includes the fixture's 5,000 Volt seed grant, recorded before this change; dev serves no public page.
 - Funding: faucet helper `hd-fund-12.testnet` (10 NEAR), deleted straight into `game.hyperdrome.testnet` ([3FnBhLNt...](https://testnet.nearblocks.io/txns/3FnBhLNtjm1nZgYUNTky5yog4nLz2GvWhvUrnJgfYh5L)). 100 Google sign-ups at 0.0677 NEAR plus 25% is 8.5 NEAR.
 - Run-out, read 2026-11-10 01:27 UTC (balances and allowances from the RPC; production has 15 demo users and no Google user). Rates: the T15c measurements (settlement 1.048 NEAR a day, game storage 0.768, a team 0.2215) and the T23 sign-up cost (game account 0.0677, owner gas 0.0104). "All sign-ups" is the 285 demo sign-ups left under the cap plus 100 Google ones, taken at once:
@@ -19,10 +19,33 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
 
   Through Nov 25 (16 days) the game account needs, with 25%, 36.3 for racing, 24.1 for the demo sign-ups and 8.5 for 100 Google ones: 68.9 of 72.13, 3.2 to spare (about 47 more sign-ups). Its health floor (3.7 NEAR above the stake) is reached on Nov 25 around 21:00 UTC in the +25% case with every sign-up taken, and on Dec 3 at the measured rate.
 
-- Verified: `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 42 files passed, 1 skipped, 320 tests passed, 1 skipped; `npm run build` exit 0. `tests/live/fixture-exclusion.test.js` fails on all 3 cases with the three service changes stashed, and passes with them.
+- Verified: `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 44 files passed, 1 skipped, 333 tests passed, 1 skipped (after merging T21); `npm run build` exit 0. `tests/live/fixture-exclusion.test.js` fails on all 3 cases with the three service changes stashed, and passes with them.
 - Open:
   - The test loads the leaderboard and marketplace services by a computed path: both are baseline files outside `tsconfig.typecheck.json` with 45 type errors between them, which the ratchet does not ask this task to fix.
   - A fixture's sale to a real player, or purchase from one, is hidden from the sales feed and the strip's trade count, so that player's trade does not show there; the demo never lists or buys.
+  - The economy page's Volt supply is now `ft_total_supply` less the fixture's balance (3,000 of 121,924 on 2026-11-10, 2.5%), so it no longer equals the contract's view; SPEC 8 says so.
+
+## 2026-11-09 T21 Economy page
+
+- Changed:
+  - Data: `drizzle/0006_economy.sql` (additive: `team_decisions`, `economy_snapshots`), `lib/db/schema-gameplay.js`. `lib/teams/explain.js` (`explainPlan`, `planNumbers`, pure), `lib/teams/policy.js` (`TEAM_RULES`, `STEPS` derived from it, `fitOf` exported), `services/team-decisions.js` and `services/teams.service.js` (a decision row before each new send, its outcome after), `services/economy-snapshot.js` and `services/scheduler.service.js` (one snapshot at the end of every tick whose phases ran, 7-day prune in the same call), `lib/economy/history.js`, `services/live.service.js` (`todayNumbers` exported).
+  - Read: `GET /api/economy` (`app/api/economy/route.js`, `services/economy.service.js`), public, cached 30 s.
+  - Page: `app/economy/` (`page.jsx`, `EconomyView.jsx`, `EconomyChart.jsx`, CSS module), `lib/economy/series.js`. Inline SVG charts like the race page's gap chart; no chart library.
+  - Replay: `GET /api/economy/decisions` (`app/api/economy/decisions/route.js`, `getReplayDecisions`), every decision of the 24 hours in compact form, read only when a replay starts.
+  - Links in: `app/leaderboard/page.jsx` and its CSS (the drone table's team badges link to `/economy#<slug>`; podium badges unchanged), `app/LiveStrip.jsx` and its CSS ("Watch the economy", hidden at 768 px and below).
+  - Landing overflow: `app/page.module.css` `.collectSection` `overflow-x: clip`.
+  - SPEC 6, 7, 8, 10, 11; DECISIONS 5.58, 5.59; BUILD_PLAN T21. Tests: `tests/teams/explain.test.js`, `tests/economy/snapshot.test.js`.
+- Verified:
+  - `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 42 files passed, 1 skipped, 319 tests passed, 1 skipped; `npm run build` exit 0.
+  - Decision rows written by the real runner in the team test suites (local Postgres, mock adapter), read before the suites' cleanup: equip, buy, allocate and capsule rows with their reasons, statuses and hashes.
+  - Migration 0006 applied on 2026-11-09 to Neon `dev`, then to Neon `prod` (6 to 7 migrations, both tables present and empty); production health ok, racing on, before and after.
+  - Read-only walk, headless Firefox, local `next start` of this branch on the production database (GET only, no page errors): `GET /api/economy` and `/api/economy/decisions` 200 with the cache header, 4 teams, 6 rules, limits 5,000 / 5,000 / 15,000, no rows yet (nothing deployed writes them before the merge). `/economy` has no horizontal overflow at 390, 430 and 1440. A table badge click opens `/economy#vortex` on the card.
+  - Replay with a layout sample served in place of `/api/economy` (synthetic numbers, screenshots labelled): it reaches the middle of the window at 30 s and returns to now after 60 s; with reduced motion the step-through moves one hour per click and back to now. With a 1,900-row sample in place of `/api/economy/decisions`: not read on load, read once on Replay, the feed shows decisions from the start of the window at 3 s, Stop returns it to the newest 200.
+  - Strip after the review: 717 to 828 at 390 and 828 to 916 at 430, the same as production; the link shows at 769 and 1440.
+  - Landing overflow: full-page screenshots of the same build with and without the clip (video paused at frame 0, the strip's countdown masked) have 0 differing pixels over 1440 x 2982 and 390 x 4344; the page width at 1440 goes from 1456 to 1440.
+- Open:
+  - History starts at the deploy; nothing is backfilled.
+  - The podium cards are links, so their badges are not linked (owner's call).
 
 ## 2026-11-09 T22 Security attack demo, and T23 load-proofing for judging
 

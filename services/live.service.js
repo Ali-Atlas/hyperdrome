@@ -72,7 +72,7 @@ async function lastBatch(db) {
  * @param {number} nowMs
  * @returns {Promise<{ voltsMinted: number, voltsBurned: number, trades: number }>}
  */
-async function todayNumbers(db, nowMs) {
+export async function todayNumbers(db, nowMs) {
   const [[volts], [sold]] = await Promise.all([
     db
       .select({ minted: voltDaily.minted, burned: voltDaily.burned })

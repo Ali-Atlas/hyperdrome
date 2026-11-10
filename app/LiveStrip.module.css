@@ -90,4 +90,9 @@
   .result:nth-child(n + 2) {
     display: none;
   }
+
+  /* Phones reach /economy through the leaderboard's team badges; the strip keeps its lines. */
+  .economy {
+    display: none;
+  }
 }
