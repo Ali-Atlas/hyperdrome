@@ -97,6 +97,7 @@
     "scripts/backfill-race-rewards.mjs",
     "lib/security/**/*.js",
     "services/attack-demo.service.js",
+    "services/fixture-filter.js",
     "scripts/attack-demo.mjs"
   ]
 }

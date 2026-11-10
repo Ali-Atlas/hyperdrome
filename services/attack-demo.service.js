@@ -17,7 +17,7 @@ import {
 import { n, planBeyond, planWithin, points } from '@/lib/security/attack-demo.js';
 import { teamEconomy } from '@/lib/teams/constants.js';
 import { ROGUE_FIXTURE } from '@/lib/teams/fixtures.js';
-import { teamEmail } from './team-seed.service.js';
+import { teamEmail } from '@/lib/teams/roster.js';
 
 const { users } = schema;
 

@@ -7,7 +7,9 @@
 import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import { schema } from '@/lib/db';
 import { snapshotCutoff } from '@/lib/economy/history.js';
+import { fixtureAccounts } from '@/lib/teams/fixtures.js';
 import { teamSlugOf } from '@/lib/teams/roster.js';
+import { notFixtureOwned } from './fixture-filter.js';
 import { todayNumbers } from './live.service.js';
 
 const { drones, economySnapshots, marketplaceListings, teams, users } = schema;
@@ -61,8 +63,8 @@ async function teamFigures(db) {
 }
 
 /**
- * The Volt supply from one `ft_total_supply` view; null when the RPC does not answer, so a slow
- * node costs one figure and not the snapshot.
+ * The Volt supply from one `ft_total_supply` view, less what test fixtures hold (SPEC.md 10); null
+ * when the RPC does not answer, so a slow node costs one figure and not the snapshot.
  * @param {import('@/lib/near').NearAdapter} near
  * @param {number} slot
  * @returns {Promise<number | null>}
@@ -70,7 +72,16 @@ async function teamFigures(db) {
 async function totalSupply(near, slot) {
   try {
     const supply = await near.view('ft_total_supply', {});
-    return supply === null || supply === undefined ? null : Number(supply);
+    if (supply === null || supply === undefined) return null;
+    const held = await Promise.all(
+      [...fixtureAccounts(near.gameId)].map((account_id) =>
+        near.view('ft_balance_of', { account_id })
+      )
+    );
+    return held.reduce(
+      (/** @type {number} */ left, volts) => left - Number(volts ?? 0),
+      Number(supply)
+    );
   } catch (err) {
     console.error({ scope: 'scheduler', msg: 'volt supply read failed', slot, err: String(err) });
     return null;
@@ -78,7 +89,7 @@ async function totalSupply(near, slot) {
 }
 
 /**
- * Active listings of every seller.
+ * Active listings of every seller but a test fixture (SPEC.md 10).
  * @param {any} db
  * @returns {Promise<number>}
  */
@@ -86,7 +97,12 @@ async function openListingCount(db) {
   const [open] = await db
     .select({ n: sql`count(*)::int` })
     .from(marketplaceListings)
-    .where(eq(marketplaceListings.status, 'active'));
+    .where(
+      and(
+        eq(marketplaceListings.status, 'active'),
+        notFixtureOwned(db, marketplaceListings.sellerId)
+      )
+    );
   return Number(open.n);
 }
 
