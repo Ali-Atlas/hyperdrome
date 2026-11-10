@@ -1,7 +1,8 @@
 /**
- * Test fixtures (lib/teams/fixtures.js) stay out of the public views, as bots do: the player and
- * drone leaderboards, the rank, the marketplace feed, the landing strip's trades and the economy
- * snapshot's open listings (services/fixture-filter.js). Against the test database.
+ * Test fixtures (lib/teams/fixtures.js) stay out of the public lists, as bots do: the player and
+ * drone leaderboards, the rank and the marketplace feed (services/fixture-filter.js). Totals a
+ * reader can query from the contract (the strip's trades, the economy snapshot's supply and open
+ * listings) count them, as the chain does (SPEC.md 8). Against the test database.
  */
 import { randomUUID } from 'node:crypto';
 import { eq, inArray, or } from 'drizzle-orm';
@@ -105,7 +106,7 @@ describe.skipIf(!dbEnabled)('test fixtures in public views', () => {
     }
   });
 
-  it('leaves its listings and purchases out of the marketplace feed and the strip trades', async () => {
+  it('leaves its listings and purchases out of the feed, and counts its trades as the chain does', async () => {
     const near = createMockNear();
     const nowMs = Date.now();
     const before = (await getLiveStrip(nowMs, { db, near })).today.trades;
@@ -128,7 +129,7 @@ describe.skipIf(!dbEnabled)('test fixtures in public views', () => {
         { itemType: 'drone', price: 100, sellerId: rows.fixture.id, droneId: rows.fixtureDrone.id },
       ])
       .returning();
-    expect((await getLiveStrip(nowMs, { db, near })).today.trades).toBe(before);
+    expect((await getLiveStrip(nowMs, { db, near })).today.trades).toBe(before + 2);
     const shown = [
       ...(await getListings({ status: 'sold' }, { page: 1, limit: 100 })),
       ...(await getListings({ sort: 'priceLow' }, { page: 1, limit: 100 })),
@@ -136,15 +137,16 @@ describe.skipIf(!dbEnabled)('test fixtures in public views', () => {
     for (const l of listed) expect(shown).not.toContain(l.id);
   });
 
-  it('leaves its open listings and its Volts out of the economy snapshot', async () => {
+  it('gives the economy snapshot the supply and open listings exactly as the chain has them', async () => {
     const slot = 900_000_100;
-    const gameId = 'game.test';
-    /** @type {Record<string, string>} */
-    const balances = { [`testrogueagent.${gameId}`]: '3000', [`other.${gameId}`]: '50' };
+    /** @type {string[]} */
+    const views = [];
     const near = /** @type {any} */ ({
-      gameId,
-      view: async (/** @type {string} */ method, /** @type {any} */ args) =>
-        method === 'ft_total_supply' ? '121924' : balances[args.account_id],
+      gameId: 'game.test',
+      view: async (/** @type {string} */ method) => {
+        views.push(method);
+        return method === 'ft_total_supply' ? '121924' : '3000';
+      },
     });
     const openListings = async () => {
       const nowMs = Date.now();
@@ -158,14 +160,15 @@ describe.skipIf(!dbEnabled)('test fixtures in public views', () => {
     };
     const before = await openListings();
     const [snap] = await db.select().from(economySnapshots).where(eq(economySnapshots.slot, slot));
-    expect(snap.supply).toBe(121924 - 3000);
+    expect(snap.supply).toBe(121924);
+    expect(views).toEqual(['ft_total_supply']);
     await db.insert(marketplaceListings).values({
       itemType: 'drone',
       price: 100,
       sellerId: rows.fixture.id,
       droneId: rows.fixtureDrone.id,
     });
-    expect(await openListings()).toBe(before);
+    expect(await openListings()).toBe(before + 1);
     await db.delete(economySnapshots).where(eq(economySnapshots.slot, slot));
   });
 });

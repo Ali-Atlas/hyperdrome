@@ -244,7 +244,7 @@ Tools: Rust 1.93.0, cargo-near 0.22.0, near-cli-rs 0.30.1 (deploys and owner cal
 
 Not in this build:
 
-- Most page copy is the baseline's. The Guide and FAQ were updated to this build's facts (Season 1 dates, skin supply, the wallet). The "Recruit New Drone" dialog still shows a "Free Drones" milestone bar that no code in this build grants. [SPEC.md](SPEC.md) section 11 lists the page work that was deferred.
+- Most page copy is the baseline's. The Guide and FAQ were updated to this build's facts (Season 1 dates, skin supply, the wallet). [SPEC.md](SPEC.md) section 11 lists the page work that was deferred.
 - No Pusher event is sent; pages poll ([SPEC.md](SPEC.md) section 9). No email sign-in. No post-race skin drop and no milestone drones ([DECISIONS.md](DECISIONS.md) 2.39, 5.34).
 
 ## 6. What is on chain and what is not
