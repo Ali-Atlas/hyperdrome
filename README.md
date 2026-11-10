@@ -53,7 +53,7 @@ DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm test   # 45 files passed, 1 
 pg_ctl -D tmp/pg stop
 ```
 
-The tests use the in-memory chain adapter and the real Postgres. The skipped file is the testnet integration test, which runs only with `NEAR_TESTNET_INTEGRATION` set and keys.
+Port 54329 is only an example: if another server holds it, `pg_ctl` stops with "could not create any TCP/IP sockets", and any free port works in all four commands. The tests use the in-memory chain adapter and the real Postgres. The skipped file is the testnet integration test, which runs only with `NEAR_TESTNET_INTEGRATION` set and keys.
 
 The contract's unit and sandbox tests. They need rustup and cargo-near 0.22.0 on `PATH`: the sandbox tests build the wasm through it. CI installs it with the release installer in [.github/workflows/ci.yml](.github/workflows/ci.yml) ("Install cargo-near 0.22.0"); on the machine that ran the clean-clone check it was already installed, so that step was not re-run there.
 
