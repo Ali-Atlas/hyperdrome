@@ -366,6 +366,11 @@
 .collectSection {
   background: var(--bg-primary);
   padding: var(--space-10) var(--space-8);
+  /* The four renders in one row are wider than a 1440 px window. They are centered, so the excess
+     falls past both edges of the screen; clip cuts it at the section's edges (the screen's), so
+     nothing visible changes and the page gets no horizontal scroll. Unlike hidden, clip makes no
+     scroll container and leaves the vertical drop shadows alone. */
+  overflow-x: clip;
 }
 
 /* Three stacked body lines, ascending in prominence so the eye lands on
@@ -440,7 +445,7 @@
   font-size: 10px;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.1em;
   text-align: center;
 }
 
@@ -473,7 +478,7 @@
   font-family: var(--font-display);
   font-weight: var(--font-bold);
   text-transform: uppercase;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.1em;
   color: var(--text-secondary);
 }
 
@@ -497,7 +502,7 @@
   color: var(--text-tertiary);
   text-decoration: none;
   text-transform: uppercase;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.1em;
   transition: color var(--duration-fast) var(--ease-out);
 }
 
