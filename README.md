@@ -69,7 +69,7 @@ Running the whole app (sign-in, races, the scheduler) needs a contract and its k
 
 Environment variable names ([SPEC.md](SPEC.md) section 15, [.env.example](.env.example); values are never committed):
 
-`DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `CRON_SECRET`, `NEAR_NETWORK`, `NEAR_RPC_URL`, `NEAR_RPC_API_KEY`, `NEAR_RPC_FAILOVER_URL`, `NEAR_OWNER_ID`, `NEAR_GAME_ID`, `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`, `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY`, `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER`, `NEXT_PUBLIC_PUSHER_KEY`, `NEXT_PUBLIC_PUSHER_CLUSTER`, `NEXT_PUBLIC_EXPLORER_URL`, `ADMIN_EMAILS`, `DEMO_ACCOUNT_CAP`, `NEAR_ADAPTER`, `NEAR_TESTNET_INTEGRATION`, `SMOKE_BASE_URL`. No code in this build reads the six Pusher names.
+`DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `CRON_SECRET`, `NEAR_NETWORK`, `NEAR_RPC_URL`, `NEAR_RPC_API_KEY`, `NEAR_RPC_FAILOVER_URL`, `NEAR_OWNER_ID`, `NEAR_GAME_ID`, `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`, `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY`, `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER`, `NEXT_PUBLIC_PUSHER_KEY`, `NEXT_PUBLIC_PUSHER_CLUSTER`, `NEXT_PUBLIC_EXPLORER_URL`, `NEXT_PUBLIC_SITE_URL`, `ADMIN_EMAILS`, `DEMO_ACCOUNT_CAP`, `NEAR_ADAPTER`, `NEAR_TESTNET_INTEGRATION`, `SMOKE_BASE_URL`. No code in this build reads the six Pusher names.
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs three jobs. App: `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run db:migrate`, `npm test`, `npm run build`. Security: gitleaks and `npm audit --audit-level=high`. Contract: `cargo fmt --check`, the two `cargo clippy` commands of section 9, `cargo test`, `cargo audit`.
 
@@ -182,7 +182,7 @@ Before the hackathon:
 
 Carried over from the baseline:
 
-- All art. `git diff pre-hackathon main -- public` is empty.
+- All art. The one change under `public/` since the tag is the removal of its static robots.txt, which `app/robots.js` now generates with the same rules ([SPEC.md](SPEC.md) section 15).
 - The page layouts, styles and UI components. Pages were edited to remove the wallet flow, call the new routes and show the new data; the new pages are `/login`, `/wallet`, `/economy` and `/privacy` ([SPEC.md](SPEC.md) section 11).
 - The race engine's rules and draw order. [tests/engine/race-simulator.test.js](tests/engine/race-simulator.test.js) ("baseline parity") runs the tagged simulator and the current one on the same random stream and compares 200 races.
 - Game numbers: stat budget, costs, XP curve, payout formula, pack odds, the 16 tracks, the skin and mod catalogs ([SPEC.md](SPEC.md) section 2 marks the new ones).

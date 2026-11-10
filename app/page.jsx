@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Crosshair, Hexagon, TrendingUp } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import VoltIcon from '@/components/ui/VoltIcon';
+import { SITE_URL } from '@/lib/site-url';
 import HeroActions from './HeroActions';
 import HeroAudio from './HeroAudio';
 import HeroSignIn from './HeroSignIn';
@@ -17,7 +18,7 @@ export const metadata = {
     title: 'Hyperdrome | Drone Racing Strategy Game',
     description:
       'Drone racing strategy game. Level your drones, grow your fleet, strategize your mods, collect your skins.',
-    url: 'https://hyperdrome-near.vercel.app',
+    url: SITE_URL,
     type: 'website',
     images: [
       {

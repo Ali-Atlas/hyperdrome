@@ -25,8 +25,11 @@ Every variable is set on Production only. Preview and Development hold none. Cha
 | `NEAR_NETWORK`, `NEAR_OWNER_ID`, `NEAR_GAME_ID`, `NEXT_PUBLIC_EXPLORER_URL`                                                     | Config | `.env.local`                                                                                                         |
 | `ADMIN_EMAILS`                                                                                                                  | Secret | set directly on Vercel (the Google email allowed on the admin page)                                                  |
 | `DEMO_ACCOUNT_CAP`                                                                                                              | Config | set directly on Vercel: 300 since 2026-11-09 (T23; the code default is 100), sized by the sign-up cost in SPEC.md 15 |
+| `NEXT_PUBLIC_SITE_URL`                                                                                                          | Config | set directly on Vercel: `https://hyperdrome-near.vercel.app` since 2026-11-10 (T25); read at build time              |
 
 Unset on purpose: `NEAR_RPC_URL` and `NEAR_RPC_FAILOVER_URL` (the SPEC.md 15 defaults apply), `NEAR_RPC_API_KEY`, the Pusher names, `NEAR_ADAPTER`, `NEAR_TESTNET_INTEGRATION`, `SMOKE_BASE_URL`.
+
+Moving the site to another domain (for example `hyperdrome.com`): add the domain to the Vercel project, set `NEXT_PUBLIC_SITE_URL` to it on Production, and redeploy; the value is inlined at build time, so nothing changes until the rebuild. `metadataBase`, `og:url`, `og:image`, the sitemap, robots and token metadata follow it ([lib/site-url.js](../../lib/site-url.js)). Outside the app: add `https://<domain>/api/auth/callback/google` to the Google OAuth client's redirect URIs before the switch; Auth.js takes its URLs from the request host (`trustHost: true` in `lib/auth/index.js`). The Origin check and the NEP-413 wallet challenge use the host each request came to, so they need nothing. The contract's `nft_metadata.base_uri` is null today; if it is ever set (`set_base_uri`, SPEC.md 4.4), it is on chain and has to be set again.
 
 Set a value over stdin, so it reaches neither the shell history nor the process list:
 

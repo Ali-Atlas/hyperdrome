@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { withApiHandler, fail } from '@/lib/api/response.js';
+import { SITE_URL } from '@/lib/site-url';
 
 // Long-cache the placeholder so Blockscout / explorer indexers don't
 // retry-storm on every page render. Mirrors the skin metadata route.
@@ -16,7 +17,7 @@ const { mods, droneMods, drones } = schema;
  * GET /api/mods/[modId]
  *
  * Public ERC-721 metadata endpoint for HyperdromeMod tokens. The contract's
- * `baseURI` is `https://hyperdrome.vercel.app/api/mods/`, so on-chain
+ * `baseURI` was `<site>/api/mods/`, so on-chain
  * `tokenURI(uint256)` resolves to `/api/mods/<integer-token-id>`. Mirrors
  * the drone / skin metadata routes.
  *
@@ -30,7 +31,7 @@ const { mods, droneMods, drones } = schema;
 
 const uuidSchema = z.uuid();
 const PG_INT_MAX = 2_147_483_647;
-const SITE_ORIGIN = 'https://hyperdrome.vercel.app';
+const SITE_ORIGIN = SITE_URL;
 
 function resolveImageUrl(mod) {
   const raw = mod.imageUrl;
@@ -44,19 +45,11 @@ async function lookupMod(idOrToken) {
     if (!Number.isInteger(tokenId) || tokenId < 1 || tokenId > PG_INT_MAX) {
       return null;
     }
-    const [row] = await db
-      .select()
-      .from(mods)
-      .where(eq(mods.tokenId, tokenId))
-      .limit(1);
+    const [row] = await db.select().from(mods).where(eq(mods.tokenId, tokenId)).limit(1);
     return row ?? null;
   }
   if (!uuidSchema.safeParse(idOrToken).success) return null;
-  const [row] = await db
-    .select()
-    .from(mods)
-    .where(eq(mods.id, idOrToken))
-    .limit(1);
+  const [row] = await db.select().from(mods).where(eq(mods.id, idOrToken)).limit(1);
   return row ?? null;
 }
 
@@ -72,9 +65,7 @@ async function lookupBoundDrone(modId) {
 
 function buildMetadata(mod, bound) {
   const displayId = mod.tokenId ?? mod.id;
-  const attributes = [
-    { trait_type: 'Rarity', value: mod.rarity },
-  ];
+  const attributes = [{ trait_type: 'Rarity', value: mod.rarity }];
   // Bonus / penalty values are stored as decimal strings (e.g. "2.00").
   // Surfacing them as numeric where possible keeps explorer rendering
   // sensible; fall back to the raw string when the cast fails.
@@ -106,8 +97,7 @@ function buildMetadata(mod, bound) {
   }
   return {
     name: mod.name ?? `Hyperdrome Mod #${displayId}`,
-    description:
-      mod.description ?? 'An equippable mod for a Hyperdrome racing drone.',
+    description: mod.description ?? 'An equippable mod for a Hyperdrome racing drone.',
     image: resolveImageUrl(mod),
     external_url: `${SITE_ORIGIN}/marketplace`,
     attributes,
@@ -133,10 +123,9 @@ export const GET = withApiHandler(
     const mod = await lookupMod(params.modId);
     if (!mod) {
       if (/^\d+$/.test(params.modId)) {
-        return Response.json(
-          placeholderMetadata(params.modId),
-          { headers: PLACEHOLDER_CACHE_HEADERS },
-        );
+        return Response.json(placeholderMetadata(params.modId), {
+          headers: PLACEHOLDER_CACHE_HEADERS,
+        });
       }
       return fail('Mod not found', 404);
     }
@@ -145,5 +134,5 @@ export const GET = withApiHandler(
       headers: { 'Content-Type': 'application/json' },
     });
   },
-  { requireAuth: false },
+  { requireAuth: false }
 );
