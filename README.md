@@ -49,7 +49,7 @@ initdb -D tmp/pg -U ci --auth=trust
 pg_ctl -D tmp/pg -o "-p 54329 -c unix_socket_directories=''" -l tmp/pg.log -w start
 createdb -h 127.0.0.1 -p 54329 -U ci ci
 DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm run db:migrate
-DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm test   # 45 files passed, 1 skipped; 337 tests passed, 1 skipped
+DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm test   # 45 files passed, 1 skipped; 336 tests passed, 1 skipped
 pg_ctl -D tmp/pg stop
 ```
 
