@@ -49,7 +49,7 @@ initdb -D tmp/pg -U ci --auth=trust
 pg_ctl -D tmp/pg -o "-p 54329 -c unix_socket_directories=''" -l tmp/pg.log -w start
 createdb -h 127.0.0.1 -p 54329 -U ci ci
 DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm run db:migrate
-DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm test   # 43 files passed, 1 skipped; 328 tests passed, 1 skipped
+DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm test   # 45 files passed, 1 skipped; 337 tests passed, 1 skipped
 pg_ctl -D tmp/pg stop
 ```
 
@@ -190,7 +190,7 @@ Carried over from the baseline:
 
 Built during the hackathon: the contract and everything on chain ([contracts/hyperdrome/](contracts/hyperdrome)); the chain adapter ([lib/near/](lib/near)); Google sign-in and the on-chain account bootstrap; seeded, replayable racing; the scheduler, commit and settlement; the gameplay routes and the idempotent action path; the Verify button and `npm run verify:race`; the wallet link and withdrawals; the AI teams and the economy page; the world seed, health route, smoke test and attack demo; the tests, CI and the documents at the repository root. The baseline's Solidity project, wagmi, RainbowKit, viem and ethers were removed.
 
-AI-generated code: the hackathon code, tests and documents were written with Claude Code (Anthropic), working under the rules in [AGENTS.md](AGENTS.md). Every change was reviewed by the author before it was merged; [HANDOFF.md](HANDOFF.md) records what was changed and verified in each task.
+AI-generated code: the hackathon code, tests and documents were written with Claude Code (Anthropic), working under the rules in [AGENTS.md](AGENTS.md). The task briefs and the reviews of each pull request were also done with Claude (claude.ai). Every change was reviewed by the author before it was merged; [HANDOFF.md](HANDOFF.md) records what was changed and verified in each task.
 
 Templates and vendored material:
 
@@ -240,7 +240,7 @@ Crates, as declared in [contracts/hyperdrome/Cargo.toml](contracts/hyperdrome/Ca
 | tokio                   | 1 (1.54.1)    | Async runtime for the sandbox tests (dev)       |
 | testresult              | 0.4.1 (0.4.2) | Test error type (dev)                           |
 
-Tools: Rust 1.93.0, cargo-near 0.22.0, near-cli-rs 0.30.1 (deploys and owner calls from the command line), Node 24, gitleaks 8.30.1. Services: Vercel (hosting), Neon (Postgres), dRPC and FastNear (RPC), NearBlocks (explorer links), Google (OAuth), cron-job.org (the 3-minute scheduler call).
+Tools: Rust 1.93.0, cargo-near 0.22.0, near-cli-rs 0.30.1 (deploys and owner calls from the command line), Node 24, gitleaks 8.30.1. Services: Vercel (hosting), Neon (Postgres), dRPC and FastNear (RPC), NearBlocks (explorer links), Google (OAuth), cron-job.org (one job calls the scheduler route every minute, and each 3-minute slot is raced once; a second job checks the health route every 5 minutes).
 
 Not in this build:
 
@@ -317,7 +317,7 @@ Methods by the key that can call them ([SPEC.md](SPEC.md) 4.1 and 4.4):
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Owner (`hyperdrome.testnet`, ops function-call key)                   | `create_player`, `register_player`, `mint_drone`, `mint_item`, `mint_volts`, `set_team_budget`, `set_paused`, `set_base_uri`, `link_wallet`, `withdraw`                                            | [owner.rs](contracts/hyperdrome/src/owner.rs)                                                                                                   |
 | Player or team (its play function-call key; every call carries `seq`) | `allocate_stats`, `equip`, `bind`, `list`, `buy`, `cancel`, `open_pack`, `reveal_pack`, `vendor_buy_drone`                                                                                         | [player.rs](contracts/hyperdrome/src/player.rs), [market.rs](contracts/hyperdrome/src/market.rs), [packs.rs](contracts/hyperdrome/src/packs.rs) |
-| The player's linked wallet (1 yocto deposit, no server involved)      | `withdraw`, `unlink_wallet`                                                                                                                                                                        |
+| The player's linked wallet (1 yocto deposit, no server involved)      | `withdraw`, `unlink_wallet`                                                                                                                                                                        | [wallet.rs](contracts/hyperdrome/src/wallet.rs)                                                                                                 |
 | Settlement (the contract account's own function-call key)             | `commit_batch`, `settle_batch`, `abort_batch`                                                                                                                                                      | [settlement.rs](contracts/hyperdrome/src/settlement.rs)                                                                                         |
 | Anyone (views)                                                        | `get_constants`, `get_player`, `get_drone(s)`, `get_item(s)`, `get_listing(s)`, `get_batch`, `get_team`, `get_catalog`, `get_wallet_link`, `stats_hash`, and the standard `ft_*` and `nft_*` views | [views.rs](contracts/hyperdrome/src/views.rs), [ft.rs](contracts/hyperdrome/src/ft.rs), [nft.rs](contracts/hyperdrome/src/nft.rs)               |
 

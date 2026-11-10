@@ -13,6 +13,7 @@ gitleaks 8.30.1 (the CI pin), over the full history of every ref and over the wo
 ```sh
 gh repo clone Ali-Atlas/hyperdrome /tmp/hd-scan.git -- --mirror
 gitleaks git /tmp/hd-scan.git --log-opts="--all -m" --config .gitleaks.toml --redact
+mkdir -p /tmp/hd-tree
 git ls-files -co --exclude-standard -z | xargs -0 -I{} cp --parents {} /tmp/hd-tree
 (cd /tmp/hd-tree && gitleaks dir . --config .gitleaks.toml --redact)
 ```
