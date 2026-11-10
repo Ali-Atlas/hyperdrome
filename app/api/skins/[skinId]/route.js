@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { withApiHandler, fail } from '@/lib/api/response.js';
+import { SITE_URL } from '@/lib/site-url';
 
 // Long-cache the placeholder so Blockscout / explorer indexers don't
 // retry-storm on every page render. 24h is comfortably longer than the
@@ -19,7 +20,7 @@ const { skins, droneSkins, drones } = schema;
  * GET /api/skins/[skinId]
  *
  * Public ERC-721 metadata endpoint for HyperdromeSkin tokens. The contract's
- * `baseURI` is `https://hyperdrome.vercel.app/api/skins/`, so on-chain
+ * `baseURI` was `<site>/api/skins/`, so on-chain
  * `tokenURI(uint256)` resolves to `/api/skins/<integer-token-id>`.
  *
  * Path-segment dispatch matches the drone metadata route:
@@ -34,7 +35,7 @@ const { skins, droneSkins, drones } = schema;
 
 const uuidSchema = z.uuid();
 const PG_INT_MAX = 2_147_483_647;
-const SITE_ORIGIN = 'https://hyperdrome.vercel.app';
+const SITE_ORIGIN = SITE_URL;
 
 function resolveImageUrl(skin) {
   const raw = skin.imageUrl;
@@ -48,19 +49,11 @@ async function lookupSkin(idOrToken) {
     if (!Number.isInteger(tokenId) || tokenId < 1 || tokenId > PG_INT_MAX) {
       return null;
     }
-    const [row] = await db
-      .select()
-      .from(skins)
-      .where(eq(skins.tokenId, tokenId))
-      .limit(1);
+    const [row] = await db.select().from(skins).where(eq(skins.tokenId, tokenId)).limit(1);
     return row ?? null;
   }
   if (!uuidSchema.safeParse(idOrToken).success) return null;
-  const [row] = await db
-    .select()
-    .from(skins)
-    .where(eq(skins.id, idOrToken))
-    .limit(1);
+  const [row] = await db.select().from(skins).where(eq(skins.id, idOrToken)).limit(1);
   return row ?? null;
 }
 
@@ -82,9 +75,7 @@ async function lookupBoundDrone(skinId) {
 
 function buildMetadata(skin, bound) {
   const displayId = skin.tokenId ?? skin.id;
-  const attributes = [
-    { trait_type: 'Rarity', value: skin.rarity },
-  ];
+  const attributes = [{ trait_type: 'Rarity', value: skin.rarity }];
   if (bound?.droneTokenId != null) {
     attributes.push({
       trait_type: 'Bound Drone Token ID',
@@ -98,8 +89,7 @@ function buildMetadata(skin, bound) {
   }
   return {
     name: skin.name ?? `Hyperdrome Skin #${displayId}`,
-    description:
-      skin.description ?? 'A cosmetic skin for a Hyperdrome racing drone.',
+    description: skin.description ?? 'A cosmetic skin for a Hyperdrome racing drone.',
     image: resolveImageUrl(skin),
     external_url: `${SITE_ORIGIN}/marketplace`,
     attributes,
@@ -127,10 +117,9 @@ export const GET = withApiHandler(
       // Numeric tokenId that misses = unminted slot the indexer is
       // probing. Return placeholder + cache so it doesn't retry.
       if (/^\d+$/.test(params.skinId)) {
-        return Response.json(
-          placeholderMetadata(params.skinId),
-          { headers: PLACEHOLDER_CACHE_HEADERS },
-        );
+        return Response.json(placeholderMetadata(params.skinId), {
+          headers: PLACEHOLDER_CACHE_HEADERS,
+        });
       }
       // UUID miss = real not-found from app-internal callers.
       return fail('Skin not found', 404);
@@ -140,5 +129,5 @@ export const GET = withApiHandler(
       headers: { 'Content-Type': 'application/json' },
     });
   },
-  { requireAuth: false },
+  { requireAuth: false }
 );
