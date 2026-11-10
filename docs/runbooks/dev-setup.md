@@ -123,17 +123,18 @@ DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm test
 
 ### Chain adapter (`lib/near`, SPEC.md 6 and 15)
 
-| Variable                                         | Purpose                                                                                          |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `NEAR_ADAPTER`                                   | `real` (default) or `mock` (in-memory adapter for tests and local work without RPC).             |
-| `NEAR_NETWORK`                                   | `testnet`.                                                                                       |
-| `NEAR_RPC_URL`                                   | Primary RPC; default `https://near-testnet.drpc.org` (dRPC public, keyless).                     |
-| `NEAR_RPC_FAILOVER_URL`                          | Failover RPC; default `https://test.rpc.fastnear.com` (keyless).                                 |
-| `NEAR_RPC_API_KEY`                               | Optional FastNear key, sent as `Authorization: Bearer` to whichever URL is FastNear.             |
-| `NEAR_OWNER_ID`, `NEAR_GAME_ID`                  | `hyperdrome.testnet`, `game.hyperdrome.testnet`.                                                 |
-| `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`            | Private keys of the ops and settlement function-call keys (see Export a key for the app's env).  |
-| `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY` | 64 hex chars each (`openssl rand -hex 32`), different from each other; seal play and admin keys. |
-| `NEXT_PUBLIC_EXPLORER_URL`                       | `https://testnet.nearblocks.io`.                                                                 |
+| Variable                                         | Purpose                                                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `NEAR_ADAPTER`                                   | `real` (default) or `mock` (in-memory adapter for tests and local work without RPC).              |
+| `NEAR_NETWORK`                                   | `testnet`.                                                                                        |
+| `NEAR_RPC_URL`                                   | Primary RPC; default `https://near-testnet.drpc.org` (dRPC public, keyless).                      |
+| `NEAR_RPC_FAILOVER_URL`                          | Failover RPC; default `https://test.rpc.fastnear.com` (keyless).                                  |
+| `NEAR_RPC_API_KEY`                               | Optional FastNear key, sent as `Authorization: Bearer` to whichever URL is FastNear.              |
+| `NEAR_OWNER_ID`, `NEAR_GAME_ID`                  | `hyperdrome.testnet`, `game.hyperdrome.testnet`.                                                  |
+| `NEAR_OPS_KEY`, `NEAR_SETTLEMENT_KEY`            | Private keys of the ops and settlement function-call keys (see Export a key for the app's env).   |
+| `KEY_ENCRYPTION_KEY`, `ADMIN_KEY_ENCRYPTION_KEY` | 64 hex chars each (`openssl rand -hex 32`), different from each other; seal play and admin keys.  |
+| `NEXT_PUBLIC_EXPLORER_URL`                       | `https://testnet.nearblocks.io`.                                                                  |
+| `NEXT_PUBLIC_SITE_URL`                           | Optional; leave unset locally (default `https://hyperdrome-near.vercel.app`). Read at build time. |
 
 Testnet integration run of the adapter (creates a throwaway `p-t7<hex>` player; reads the ops and settlement keys from `~/.near-credentials/testnet`):
 
