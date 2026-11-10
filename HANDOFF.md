@@ -15,8 +15,11 @@ One entry per task run, newest first. Each entry: date, task id, what changed (f
 - Fix 2, Free Drones bar removed from the Recruit New Drone dialog (`app/drones/page.jsx`, `page.module.css`):
   - Removed: the intro line "You earn up to 3 free drones from racing. You can also buy one any time.", the Free Drones section (count, bar, ticks, labels, status), the constants, the `totalRaces` prop and the CSS used only by them. The buy section's top border, which only separated it from the bar, is removed too, since it left a second rule under the header. "Or buy one now" now reads "Buy one now", because nothing comes before it.
   - The milestone toast on the drones page is outside the dialog and stays. It fires only when a drone is added while the race total crosses 1,000 or 3,000, which no code in this build causes on its own; a vendor purchase at that exact moment would show it.
+  - README section 5 "Not in this build": the sentence about the Free Drones bar is removed; the line that milestone drones are not built stays. SPEC 11: the dialog offers only the vendor purchase.
   - Guide and FAQ: no line promises milestone or free drones (their only "free" is the real starter drone), so nothing changed there.
   - Screenshots, local `next start` on the local Postgres with the mock adapter, headless Firefox, a fresh demo account: before and after at 390 and 1440 px. Before, the dialog was 351 x 502 at 390 and 600 x 446 at 1440. After, 351 x 280 and 600 x 246. No horizontal page overflow, no clipped element and no inner scroll in either.
+
+- Verified, after merging main (T24): `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 45 files passed, 1 skipped, 336 tests passed, 1 skipped; `npm run build` exit 0. Production smoke after the merge: see the PR.
 
 ## 2026-11-09 T24 Submission prep
 
