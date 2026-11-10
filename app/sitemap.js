@@ -1,5 +1,7 @@
+import { SITE_URL } from '@/lib/site-url';
+
 /**
- * Next.js sitemap. Public routes only.
+ * Next.js sitemap. Public routes only, on the site's address (`lib/site-url.js`).
  *
  * Auth entry points (CONNECT WALLET / PLAY DEMO) live on the landing page;
  * legacy `/login`, `/register`, `/signup` paths still bounce to `/` via
@@ -7,7 +9,7 @@
  * marketplace, admin, etc.) are excluded so search engines don't crawl
  * private URLs.
  */
-const BASE = 'https://hyperdrome-near.vercel.app';
+const BASE = SITE_URL;
 
 export default function sitemap() {
   const now = new Date();

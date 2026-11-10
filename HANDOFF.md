@@ -2,6 +2,16 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-10 T25 Site address as one setting
+
+- Grep: `hyperdrome-near.vercel.app` and `hyperdrome.vercel.app` in code (`app`, `lib`, `services`, `components`, `hooks`, `scripts`, `proxy.js`) before this change: `app/layout.jsx` (`metadataBase`, `openGraph.url`), `app/page.jsx` (`openGraph.url`), `app/sitemap.js` (`BASE`), `app/api/skins/[skinId]/route.js` and `app/api/mods/[modId]/route.js` (`SITE_ORIGIN`, still the MegaETH-era `hyperdrome.vercel.app`). Built from the request host: `GET /api/metadata/[token]` `media`. `public/robots.txt` had a relative `Sitemap: /sitemap.xml`. After: the only hit is the default in `lib/site-url.js`. Synthetic emails (`@demo.hyperdrome.gg`, `@teams.hyperdrome.invalid`) are not links and stay.
+- Changed: `lib/site-url.js` (new), the six files above, `app/robots.js` (new; `public/robots.txt` removed, same rules), `tests/site/site-url.test.js` (new), `.env.example`, `docs/runbooks/deploy.md` (the variable, and how to move domains), `docs/runbooks/dev-setup.md`, SPEC 15, DECISIONS 5.61, BUILD_PLAN T25. README.md not touched (another session is rewriting it).
+- Left on the request host on purpose: the Origin check (`lib/http/origin.js`) and the NEP-413 wallet challenge's recipient (`services/wallet.service.js`). Outside the app, a domain move also needs the Google OAuth redirect URI for the new domain. The contract's `nft_metadata.base_uri` is null, so the chain holds no domain today.
+- Vercel: `NEXT_PUBLIC_SITE_URL` = `https://hyperdrome-near.vercel.app` (Config, Production), set 2026-11-10; it takes effect with the deploy of the merge.
+- Verified:
+  - Two local builds with `next start`. With the variable unset, `/robots.txt` names `https://hyperdrome-near.vercel.app/sitemap.xml`, the sitemap's three `<loc>` and the landing page's `og:url`, `og:image` and `twitter:image` are on that domain. With `NEXT_PUBLIC_SITE_URL=https://hyperdrome.com` and nothing else changed, all of them and the `media` of `/api/metadata/d:66` (Neon dev's cache) are on `https://hyperdrome.com`.
+  - `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 44 files passed, 1 skipped, 332 tests passed, 1 skipped; `npm run build` exit 0.
+
 ## 2026-11-09 T22b Test fixture out of public views, and funding for Google sign-ups
 
 - #53 (T22, T23) merged as `370fc79` after CI green on `e1f0d9d`; production health after the deploy: 200, `ok: true`, ops allowance 9.88 NEAR against the new 3.2 floor.

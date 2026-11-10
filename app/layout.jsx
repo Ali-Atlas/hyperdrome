@@ -3,12 +3,13 @@ import './globals.css';
 import { SessionProvider } from '@/hooks/useSession';
 import { ToastProvider } from '@/components/ui/Toast';
 import Onboarding from '@/components/ui/Onboarding';
+import { SITE_URL } from '@/lib/site-url';
 
 export const metadata = {
   title: 'Hyperdrome | Drone Racing Strategy Game',
   description:
     'Level drones, equip skins and mods, race every 3 minutes via ELO matchmaking, trade on a player-driven marketplace.',
-  metadataBase: new URL('https://hyperdrome-near.vercel.app'),
+  metadataBase: new URL(SITE_URL),
   /* Favicon: Next.js auto-generates the <link rel="icon"> tag from
      `app/icon.svg` (the file-convention path for SVG icons). The
      `favicon` filename convention is .ico only - using .svg under
@@ -17,7 +18,7 @@ export const metadata = {
     title: 'Hyperdrome | Drone Racing Strategy Game',
     description:
       'Level drones, equip skins and mods, race every 3 minutes via ELO matchmaking, trade on a player-driven marketplace.',
-    url: 'https://hyperdrome-near.vercel.app',
+    url: SITE_URL,
     siteName: 'Hyperdrome',
     type: 'website',
     images: [
