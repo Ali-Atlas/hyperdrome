@@ -43,7 +43,7 @@ export class SeedBlockedError extends Error {
 /**
  * @typedef {import('@/lib/teams/roster.js').TeamDef} TeamDef
  * @typedef {{ minted: Record<string, string>, unknown: { key: string, txHash: string, at: number }[] }} Ledger
- *   `minted`: piece key (`d0`-`d2` drones, `s0`-`s1` skins, `m0`-`m2` mods by roster index,
+ *   `minted`: piece key (`d0`, `d1`, ... drones, `s0`-`s1` skins, `m0`-`m2` mods by roster index,
  *   `volts`) to its token id; `unknown`: mints sent whose outcome is not known yet
  * @typedef {{ db: any, near: import('@/lib/near').NearAdapter, def: TeamDef, owner: string, ledger: Ledger, saveLedger: () => Promise<void>, record: (step: string, txHash: string) => void }} KitCtx
  * @typedef {{ token_id: string, hot: { level: number, equipped_skin: string | null, equipped_mod: string | null }, cold: { name: string, bound_skins: string[], bound_mods: string[] } }} ChainDrone
@@ -93,20 +93,29 @@ async function readKit(ctx) {
 }
 
 /**
- * The tokens of the roster, in mint order: the three drones (stats along the persona weights, at
- * TSB(L)), then the skins and the mods.
+ * Level and stats of each drone of `def`, by drone index: a team's three at TSB(L) along its
+ * persona weights; a fixture's at its levels with every stat at 1.
+ * @param {TeamDef} def
+ * @returns {{ level: number, stats: number[] }[]}
+ */
+export function droneSpecs(def) {
+  const base = () => STAT_KEYS.map(() => 1);
+  if (def.fixture) return def.fixture.droneLevels.map((level) => ({ level, stats: base() }));
+  return TEAM_DRONE_LEVELS.map((level) => ({
+    level,
+    stats: allocateAlongPersona({ stats: base(), level, weights: def.weights }).stats,
+  }));
+}
+
+/**
+ * The tokens of the roster, in mint order: the drones (`droneSpecs`), then the skins and the mods.
  * @param {KitCtx} ctx
  * @returns {Piece[]}
  */
 function pieces({ def, owner }) {
   /** @type {Piece[]} */
-  const list = TEAM_DRONE_LEVELS.map((level, i) => {
+  const list = droneSpecs(def).map(({ level, stats }, i) => {
     const name = teamDroneName(def, i);
-    const { stats } = allocateAlongPersona({
-      stats: STAT_KEYS.map(() => 1),
-      level,
-      weights: def.weights,
-    });
     return {
       key: `d${i}`,
       label: `mint_drone ${name} (level ${level})`,
@@ -283,14 +292,15 @@ async function bindOnce(ctx, playKeyEnc, args) {
 
 /**
  * Rebuild the team's cache rows from chain views: drones, items, bound and equipped state go
- * through the same event path the game uses (`applyEvents`), and the three drones are set active.
- * The views must show the whole kit bound first, so a lagging view never becomes the cache.
+ * through the same event path the game uses (`applyEvents`), and a team's three drones are set
+ * active (a fixture's stay inactive, so no batch ever commits them). The views must show the
+ * whole kit bound first, so a lagging view never becomes the cache.
  * @param {KitCtx} ctx
  */
 export async function cacheKit(ctx) {
-  const { owner, ledger } = ctx;
+  const { owner, ledger, def } = ctx;
   const kit = await readKit(ctx);
-  const droneTokens = TEAM_DRONE_LEVELS.map((_, i) => ledger.minted[`d${i}`]);
+  const droneTokens = droneSpecs(def).map((_, i) => ledger.minted[`d${i}`]);
   for (const token of droneTokens) {
     if (!kit.drones.some((d) => d.token_id === token)) throw lagging(token);
   }
@@ -334,5 +344,8 @@ export async function cacheKit(ctx) {
     ),
   ];
   await applyEvents(events, ctx);
-  await ctx.db.update(drones).set({ active: true }).where(inArray(drones.tokenId, droneTokens));
+  await ctx.db
+    .update(drones)
+    .set({ active: !def.fixture })
+    .where(inArray(drones.tokenId, droneTokens));
 }
