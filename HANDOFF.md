@@ -2,6 +2,15 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-10 T27 Milestone toast removed from the drones page
+
+- What triggered it: on each visit to `/drones` the page stored the player's race total (`users.total_races`, in the session) and drone count in `localStorage`. On a later visit, when the race total had crossed 1,000 or 3,000 and the drone count had gone up, it showed "Milestone reached! New drone added to your fleet." Settlement adds to the race total every race, and a vendor purchase, a marketplace buy or a wallet sync adds a drone. So it could fire, and it claimed a milestone drone this build does not grant (DECISIONS 2.39, 5.34).
+- Changed: `app/drones/page.jsx`: the toast effect, `MILESTONE_FIRST`, `MILESTONE_SECOND` and the `useSession` call, which only it used. A browser keeps its old `hyperdrome:drones:milestone:<user id>` key, which nothing reads any more. No README or SPEC line mentioned the toast; `docs/archive` is not current.
+- The background CI wait for #55 from the T22b session (a shell loop that never exited) was found still running and stopped.
+- Verified:
+  - Drones page, local `next start` on the local Postgres with the mock adapter, headless Firefox, a fresh demo account, a build of `main` against this branch at 390 and 1440 px. The position and size of the first 40 page blocks are identical. The page height is the same (904 and 900). No horizontal overflow and no page error in either build.
+  - `npm run lint`, `format:check`, `typecheck` exit 0; `npm test` 45 files passed, 1 skipped, 336 tests passed, 1 skipped; `npm run build` exit 0.
+
 ## 2026-11-10 T26 Public totals match the chain; Free Drones bar removed
 
 - Fix 1, totals match the chain (SPEC 8 rule, DECISIONS 5.63):
