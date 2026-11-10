@@ -21,6 +21,7 @@ import { PACK_TIERS } from '@/lib/validators/gameplay.js';
 import { runPlayerAction } from './action.service.js';
 import { applyEvents } from './chain-cache.service.js';
 import { openPack, revealActionId } from './pack-open.service.js';
+import { answerTxHash, recordDecision, updateDecision } from './team-decisions.js';
 
 const { users, teams, actions, packOpens, drones, mods, droneMods, marketplaceListings } = schema;
 
@@ -104,7 +105,8 @@ export async function runTeamPhase({ slot, matchups, deadlineMs }, deps = {}) {
 }
 
 /**
- * One team's turn: finish or replay a recorded action, else decide and send one.
+ * One team's turn: finish or replay a recorded action, else decide and send one. A new decision is
+ * written to `team_decisions` with its reason before it is sent, and its outcome after.
  * @param {FullDeps} d
  * @param {{ slot: number, team: string, row: TeamRow, races: Map<string, { race: FitRace, order: number }>, economy: import('@/lib/teams/constants.js').TeamEconomy }} turn
  * @returns {Promise<TeamResult>}
@@ -116,15 +118,42 @@ async function teamTurn(d, { slot, team, row, races, economy }) {
   if (last && recorded) {
     const thisTick = teamActionId(team, slot, recorded.step, recorded.subject) === last.id;
     if (thisTick || (await unfinished(d.db, last))) {
-      return report(team, recorded, last.id, await send(d, userId, last.id, recorded), true);
+      return sendAndRecord(d, team, userId, last.id, recorded, true);
     }
   }
   // A plan the chain just refused is passed over, so the later steps still get their turn.
   const refused = last?.status === 'failed' ? recorded : null;
-  const plan = decide(await loadState(d, row, races, economy), refused);
+  const state = await loadState(d, row, races, economy);
+  const plan = decide(state, refused);
   if (!plan) return { team, step: null, outcome: 'idle' };
   const actionId = teamActionId(team, slot, plan.step, plan.subject);
-  return report(team, plan, actionId, await send(d, userId, actionId, plan), false);
+  await recordDecision(d.db, { actionId, teamUserId: userId, slot, plan, state });
+  return sendAndRecord(d, team, userId, actionId, plan, false);
+}
+
+/**
+ * Send the plan and store the outcome on its decision row (an error is stored, then thrown).
+ * @param {FullDeps} d
+ * @param {string} team
+ * @param {string} userId
+ * @param {string} actionId
+ * @param {Plan} plan
+ * @param {boolean} replayed
+ * @returns {Promise<TeamResult>}
+ */
+async function sendAndRecord(d, team, userId, actionId, plan, replayed) {
+  let res;
+  try {
+    res = await send(d, userId, actionId, plan);
+  } catch (err) {
+    await updateDecision(d.db, actionId, { status: 'error' });
+    throw err;
+  }
+  const result = report(team, plan, actionId, res, replayed);
+  const status =
+    result.outcome === 'applied' || result.outcome === 'pending' ? result.outcome : 'refused';
+  await updateDecision(d.db, actionId, { status, txHash: answerTxHash(res.body) });
+  return result;
 }
 
 /**
@@ -332,6 +361,7 @@ async function loadState(d, row, races, economy) {
       const raced = races.get(/** @type {string} */ (drone.tokenId));
       return {
         token: /** @type {string} */ (drone.tokenId),
+        name: drone.name,
         level: drone.level,
         stats: STAT_KEYS.map((key) => drone[key]),
         equippedMod: equipped ? (byId.get(equipped.modId)?.token ?? null) : null,

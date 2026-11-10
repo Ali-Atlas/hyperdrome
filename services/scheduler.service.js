@@ -2,10 +2,12 @@
  * One scheduler tick (SPEC.md 3, 6; ENGINEERING.md 5): claim the slot's `cron_ticks` row (a second
  * tick in the same slot exits), then phase 1 (settle the batches of earlier slots), phase 2 (commit
  * this slot's batch) and phase 3 (the AI teams act on the committed matchups, SPEC.md 10). Each
- * phase leaves a batch in a state the next tick can resume from.
+ * phase leaves a batch in a state the next tick can resume from. A completed tick ends with the
+ * economy snapshot (SPEC.md 7), which never fails the tick.
  */
 import { schema } from '@/lib/db';
 import { commitBatch } from './batch.service.js';
+import { writeEconomySnapshot } from './economy-snapshot.js';
 import { resolveDeps, slotFor } from './scheduler-deps.js';
 import { settleDueBatches } from './settle.service.js';
 import { runTeamPhase } from './teams.service.js';
@@ -76,7 +78,7 @@ export async function runTick(options = {}, deps = {}) {
 }
 
 /**
- * Phases 1 to 3 of a claimed tick.
+ * Phases 1 to 3 of a claimed tick, then its economy snapshot (paused ticks included).
  * @param {{ slot: number, commit: boolean, startedAt: number }} tick
  * @param {Deps} deps
  * @param {import('./scheduler-deps.js').FullDeps} full
@@ -85,6 +87,7 @@ export async function runTick(options = {}, deps = {}) {
 async function runPhases({ slot, commit, startedAt }, deps, full) {
   const settle = await settleDueBatches(slot, full);
   if (!commit) {
+    await writeEconomySnapshot(slot, full);
     return { slot, claimed: true, settle, commit: { skipped: /** @type {const} */ ('paused') } };
   }
   const { matchups = [], ...committed } = await commitBatch(slot, full);
@@ -93,6 +96,7 @@ async function runPhases({ slot, commit, startedAt }, deps, full) {
     deps.teamPhase === undefined ? runTeamPhase : deps.teamPhase,
     full
   );
+  await writeEconomySnapshot(slot, full);
   return { slot, claimed: true, settle, commit: committed, ...(teams ? { teams } : {}) };
 }
 
