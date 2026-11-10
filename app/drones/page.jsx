@@ -10,7 +10,6 @@ import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import VoltIcon from '@/components/ui/VoltIcon';
 import { useToast } from '@/components/ui/Toast';
-import { useSession } from '@/hooks/useSession';
 import { useVoltBalance } from '@/hooks/useVoltBalance';
 import { useChainAction } from '@/hooks/useChainAction';
 import { actionError } from '@/lib/client/chain-action';
@@ -20,12 +19,8 @@ import { clearAllPendingToggles, usePendingToggle } from '@/lib/pending-toggle';
 import { useRoundStartTick } from '@/lib/race-round-clock';
 import styles from './page.module.css';
 
-/** NPC vendor price, the contract's (SPEC.md 2.1, 3,500 Volts). The
- *  milestone thresholds only drive the toast effect below; no code in
- *  this build grants milestone drones (DECISIONS.md 2.39, 5.34). */
+/** NPC vendor price, the contract's (SPEC.md 2.1, 3,500 Volts). */
 const DRONE_PRICE = 3500;
-const MILESTONE_FIRST = 1000;
-const MILESTONE_SECOND = 3000;
 
 const TIERS = ['steel', 'orange', 'purple', 'gold'];
 const TIER_LABELS = {
@@ -53,7 +48,6 @@ function winRate(d) {
 }
 
 export default function DronesPage() {
-  const session = useSession();
   // VOLT balance shared with NavShell, marketplace, and the stat
   // editor; updates immediately on `volts:update` events without a
   // page refresh.
@@ -123,39 +117,6 @@ export default function DronesPage() {
       cancelled = true;
     };
   }, [roundStartTick]);
-
-  // Milestone toast: when a free drone shows up between page loads (drone
-  // count went up while totalRaces crossed a threshold), surface it. State
-  // is per-user in localStorage so the same browser doesn't re-fire on
-  // every reload, and a different user on the same browser has its own
-  // baseline.
-  useEffect(() => {
-    if (loading || drones.length === 0) return;
-    const userId = session.user?.id;
-    if (!userId) return;
-    const totalRaces = session.user?.totalRaces ?? 0;
-    const droneCount = drones.length;
-    const key = `hyperdrome:drones:milestone:${userId}`;
-    let prev = null;
-    try {
-      prev = JSON.parse(localStorage.getItem(key) || 'null');
-    } catch {
-      prev = null;
-    }
-    if (prev) {
-      const crossedFirst = prev.totalRaces < MILESTONE_FIRST && totalRaces >= MILESTONE_FIRST;
-      const crossedSecond = prev.totalRaces < MILESTONE_SECOND && totalRaces >= MILESTONE_SECOND;
-      const droneAdded = droneCount > prev.droneCount;
-      if ((crossedFirst || crossedSecond) && droneAdded) {
-        showToast('Milestone reached! New drone added to your fleet.', 'success');
-      }
-    }
-    try {
-      localStorage.setItem(key, JSON.stringify({ totalRaces, droneCount }));
-    } catch {
-      /* localStorage may be disabled - skip silently */
-    }
-  }, [loading, drones, session.user?.id, session.user?.totalRaces, showToast]);
 
   async function handlePurchase() {
     setVendorPending(true);
