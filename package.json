@@ -21,6 +21,7 @@
     "seed:more-drones": "node --env-file=.env.local lib/db/seed-more-drones.js",
     "seed:teams": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/seed-teams.mjs",
     "seed:world": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/seed-world.mjs",
+    "seed:showcase": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/seed-showcase.mjs",
     "smoke": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/smoke-testnet.mjs",
     "verify:race": "node --import ./scripts/register-alias.mjs scripts/verify-race.mjs",
     "attack:demo": "node --env-file=.env.local --import ./scripts/register-alias.mjs scripts/attack-demo.mjs",

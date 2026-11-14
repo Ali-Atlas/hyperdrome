@@ -98,6 +98,10 @@
     "lib/security/**/*.js",
     "services/attack-demo.service.js",
     "services/fixture-filter.js",
-    "scripts/attack-demo.mjs"
+    "scripts/attack-demo.mjs",
+    "lib/showcase/**/*.js",
+    "services/showcase-seed.service.js",
+    "services/showcase-status.js",
+    "scripts/seed-showcase.mjs"
   ]
 }
