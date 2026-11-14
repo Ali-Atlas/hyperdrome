@@ -540,7 +540,6 @@
   outline-offset: 2px;
 }
 
-
 /* Mods carry less body content than drones/skins; let the card collapse to
    content height and the chip fill more of the frame. Top padding clears
    the 20px YOUR LISTING ribbon. */
@@ -682,32 +681,23 @@
 .listingCard.card_common {
   /* Halved from 0.16/0.04: the previous bump read too grey. Subtle tint
      over the elevated bg, just enough to lift commons off the page. */
-  background: linear-gradient(
-      180deg,
-      rgba(158, 158, 158, 0.08) 0%,
-      rgba(158, 158, 158, 0.02) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(158, 158, 158, 0.08) 0%, rgba(158, 158, 158, 0.02) 100%),
     var(--bg-elevated);
   border-color: rgba(158, 158, 158, 0.45);
 }
 
 .listingCard.card_rare {
-  background: linear-gradient(
-      180deg,
-      rgba(74, 158, 255, 0.18) 0%,
-      rgba(74, 158, 255, 0.04) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(74, 158, 255, 0.18) 0%, rgba(74, 158, 255, 0.04) 100%),
     var(--bg-elevated);
   border-color: rgba(74, 158, 255, 0.5);
   animation: rarePulse 3s ease-in-out infinite;
 }
 
 .listingCard.card_epic {
-  background: linear-gradient(
-      180deg,
-      rgba(187, 134, 252, 0.18) 0%,
-      rgba(187, 134, 252, 0.04) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(187, 134, 252, 0.18) 0%, rgba(187, 134, 252, 0.04) 100%),
     var(--bg-elevated);
   border-color: rgba(187, 134, 252, 0.5);
   box-shadow: 0 0 0px rgba(187, 134, 252, 0);
@@ -718,12 +708,8 @@
   /* Base legendary treatment - drone listings whose equipped skin is
      legendary get this and only this. Skin + mod listings get a
      brighter override below via .cardLegendaryShimmer. */
-  background: linear-gradient(
-      180deg,
-      rgba(255, 215, 0, 0.2) 0%,
-      rgba(255, 215, 0, 0.04) 100%
-    ),
-    var(--bg-card);
+  background:
+    linear-gradient(180deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.04) 100%), var(--bg-card);
   border-color: rgba(255, 215, 0, 0.55);
   box-shadow:
     inset 0 0 15px rgba(255, 215, 0, 0.06),
@@ -738,12 +724,8 @@
    legendary cards only (page.jsx: !isDrone && rarity === 'legendary'),
    so this override naturally excludes drone cards. */
 .listingCard.card_legendary.cardLegendaryShimmer {
-  background: linear-gradient(
-      180deg,
-      rgba(255, 215, 0, 0.4) 0%,
-      rgba(255, 215, 0, 0.1) 100%
-    ),
-    var(--bg-card);
+  background:
+    linear-gradient(180deg, rgba(255, 215, 0, 0.4) 0%, rgba(255, 215, 0, 0.1) 100%), var(--bg-card);
   border-color: rgba(255, 215, 0, 0.7);
   box-shadow:
     inset 0 0 18px rgba(255, 215, 0, 0.12),
@@ -756,41 +738,29 @@
    (0,0,1,0), which would otherwise erase the level tint via cross-module
    source-order tiebreak. Hover effects also stripped per Captain. */
 .listingCard.card_level_steel {
-  background: linear-gradient(
-      180deg,
-      rgba(138, 155, 168, 0.18) 0%,
-      rgba(138, 155, 168, 0.04) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(138, 155, 168, 0.18) 0%, rgba(138, 155, 168, 0.04) 100%),
     var(--bg-card);
   border-color: rgba(138, 155, 168, 0.5);
 }
 
 .listingCard.card_level_orange {
-  background: linear-gradient(
-      180deg,
-      rgba(255, 140, 66, 0.18) 0%,
-      rgba(255, 140, 66, 0.04) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(255, 140, 66, 0.18) 0%, rgba(255, 140, 66, 0.04) 100%),
     var(--bg-card);
   border-color: rgba(255, 140, 66, 0.55);
 }
 
 .listingCard.card_level_purple {
-  background: linear-gradient(
-      180deg,
-      rgba(187, 134, 252, 0.18) 0%,
-      rgba(187, 134, 252, 0.04) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(187, 134, 252, 0.18) 0%, rgba(187, 134, 252, 0.04) 100%),
     var(--bg-card);
   border-color: rgba(187, 134, 252, 0.55);
 }
 
 .listingCard.card_level_gold {
-  background: linear-gradient(
-      180deg,
-      rgba(255, 215, 0, 0.18) 0%,
-      rgba(255, 215, 0, 0.04) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(255, 215, 0, 0.18) 0%, rgba(255, 215, 0, 0.04) 100%),
     var(--bg-card);
   border-color: rgba(255, 215, 0, 0.55);
 }
@@ -881,10 +851,20 @@
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 12%, transparent) 0%,
-      color-mix(in srgb, var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 4%, transparent) 100%
+      color-mix(
+          in srgb,
+          var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 12%,
+          transparent
+        )
+        0%,
+      color-mix(
+          in srgb,
+          var(--legendary-glow-2, var(--legendary-glow-1, rgba(255, 255, 255, 0.6))) 4%,
+          transparent
+        )
+        100%
     ),
-    var(--legendary-bg, #0A0A0A);
+    var(--legendary-bg, #0a0a0a);
   border-radius: calc(var(--radius-lg) - 2px);
   z-index: -1;
   pointer-events: none;
@@ -938,7 +918,8 @@
 /* Gold legendaryShimmer used by pack-card sweeps below
    (.pack_gold::after, hero/big legendary card). */
 @keyframes legendaryShimmer {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 16px rgba(255, 215, 0, 0.15);
     border-color: rgba(255, 215, 0, 0.4);
   }
@@ -1156,19 +1137,19 @@
 }
 
 .rarity_common {
-  color: var(--rarity-common, #9E9E9E);
+  color: var(--rarity-common, #9e9e9e);
 }
 
 .rarity_rare {
-  color: var(--rarity-rare, #4A9EFF);
+  color: var(--rarity-rare, #4a9eff);
 }
 
 .rarity_epic {
-  color: var(--rarity-epic, #BB86FC);
+  color: var(--rarity-epic, #bb86fc);
 }
 
 .rarity_legendary {
-  color: var(--rarity-legendary, #FFD700);
+  color: var(--rarity-legendary, #ffd700);
 }
 
 /* 3 mini stat bars */
@@ -1197,7 +1178,7 @@
 .statBarTrack {
   position: relative;
   height: 3px;
-  background: #2A2A2A;
+  background: #2a2a2a;
   border-radius: 2px;
   overflow: hidden;
   min-width: 0;
@@ -1396,119 +1377,6 @@
   color: var(--accent-primary);
 }
 
-/* ---------- Live ticker (top strip) ---------- */
-
-.ticker {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: 10px 18px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-secondary);
-  letter-spacing: 0.03em;
-  flex-wrap: wrap;
-}
-
-.tickerLive {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--accent-primary);
-  font-weight: var(--font-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-size: 10px;
-}
-
-.tickerDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent-primary);
-  box-shadow: 0 0 8px rgba(3, 218, 198, 0.6);
-  animation: tickerPulse 2s ease-in-out infinite;
-}
-
-@keyframes tickerPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: 0.6; transform: scale(0.85); }
-}
-
-.tickerMetric {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.tickerMetric strong {
-  color: var(--text-primary);
-  font-weight: var(--font-bold);
-  margin-right: 6px;
-}
-
-/* At <=564px the ticker splits into two left-aligned rows:
-     Row 1 — `Live · N packs opened today`
-     Row 2 — `MKT_ORBIT pulled Legendary: Mach Zero`
-   The separator hides; tickerPull gets `flex-basis: 100%` so it
-   wraps to its own row. tickerPull also scrolls horizontally if its
-   content (which can include long skin names) is wider than the
-   container. Text shrinks across the row so each line stays compact. */
-@media (max-width: 564px) {
-  .ticker {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    font-size: 9px;
-    gap: 4px var(--space-3);
-    padding: 8px 14px;
-  }
-  .tickerLive {
-    font-size: 8px;
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
-  .tickerMetric {
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
-  .tickerSep {
-    display: none;
-  }
-  .tickerPull {
-    flex-basis: 100%;
-    min-width: 0;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-}
-
-.tickerSep {
-  width: 1px;
-  height: 14px;
-  background: var(--border-subtle);
-  flex-shrink: 0;
-}
-
-.tickerPull {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.tickerUser {
-  color: var(--text-primary);
-  font-weight: var(--font-bold);
-}
-.tickerPullText {
-  color: var(--text-tertiary);
-  text-transform: lowercase;
-}
-.tickerPullRarity {
-  font-weight: var(--font-bold);
-}
-
 /* ---------- Premium + Starter side-by-side row ---------- */
 
 .packsRow {
@@ -1555,23 +1423,12 @@
 
 .pack_purple {
   background:
-    linear-gradient(
-      135deg,
-      rgba(187, 134, 252, 0.06) 0%,
-      transparent 60%
-    ),
-    var(--bg-card);
+    linear-gradient(135deg, rgba(187, 134, 252, 0.06) 0%, transparent 60%), var(--bg-card);
   border-color: rgba(187, 134, 252, 0.4);
 }
 
 .pack_gold {
-  background:
-    linear-gradient(
-      135deg,
-      rgba(255, 215, 0, 0.06) 0%,
-      transparent 60%
-    ),
-    var(--bg-card);
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.06) 0%, transparent 60%), var(--bg-card);
   border: 1px solid rgba(255, 215, 0, 0.55);
   box-shadow: 0 0 26px rgba(255, 215, 0, 0.18);
 }
@@ -1581,12 +1438,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    110deg,
-    transparent 30%,
-    rgba(255, 215, 0, 0.1) 50%,
-    transparent 70%
-  );
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 215, 0, 0.1) 50%, transparent 70%);
   background-size: 260% 100%;
   background-position: 200% 0;
   animation: legendaryShimmer 6s linear infinite;
@@ -1843,11 +1695,7 @@
   height: 80px;
   border-radius: 5px;
   background:
-    linear-gradient(
-      145deg,
-      rgba(255, 255, 255, 0.04) 0%,
-      rgba(0, 0, 0, 0.35) 100%
-    ),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.35) 100%),
     var(--bg-elevated);
   border: 1.5px solid var(--border-subtle);
   flex-shrink: 0;
@@ -1875,7 +1723,9 @@
 
 .sil_common {
   border-color: rgba(158, 158, 158, 0.55);
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.4), 0 0 10px rgba(158, 158, 158, 0.25);
+  box-shadow:
+    inset 0 0 20px rgba(0, 0, 0, 0.4),
+    0 0 10px rgba(158, 158, 158, 0.25);
   background:
     linear-gradient(145deg, rgba(158, 158, 158, 0.08) 0%, rgba(0, 0, 0, 0.4) 100%),
     var(--bg-elevated);
@@ -1883,7 +1733,9 @@
 
 .sil_rare {
   border-color: rgba(74, 158, 255, 0.75);
-  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.45), 0 0 14px rgba(74, 158, 255, 0.45);
+  box-shadow:
+    inset 0 0 22px rgba(0, 0, 0, 0.45),
+    0 0 14px rgba(74, 158, 255, 0.45);
   background:
     linear-gradient(145deg, rgba(74, 158, 255, 0.12) 0%, rgba(0, 0, 0, 0.4) 100%),
     var(--bg-elevated);
@@ -1891,7 +1743,9 @@
 
 .sil_epic {
   border-color: rgba(187, 134, 252, 0.8);
-  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.45), 0 0 16px rgba(187, 134, 252, 0.5);
+  box-shadow:
+    inset 0 0 22px rgba(0, 0, 0, 0.45),
+    0 0 16px rgba(187, 134, 252, 0.5);
   background:
     linear-gradient(145deg, rgba(187, 134, 252, 0.13) 0%, rgba(0, 0, 0, 0.4) 100%),
     var(--bg-elevated);
@@ -1899,10 +1753,11 @@
 
 .sil_legendary {
   border-color: rgba(255, 215, 0, 0.85);
-  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.45), 0 0 18px rgba(255, 215, 0, 0.55);
+  box-shadow:
+    inset 0 0 22px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(255, 215, 0, 0.55);
   background:
-    linear-gradient(145deg, rgba(255, 215, 0, 0.14) 0%, rgba(0, 0, 0, 0.4) 100%),
-    var(--bg-elevated);
+    linear-gradient(145deg, rgba(255, 215, 0, 0.14) 0%, rgba(0, 0, 0, 0.4) 100%), var(--bg-elevated);
 }
 
 /* Gold shimmer sweep inside the legendary silhouette. */
@@ -1910,12 +1765,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    110deg,
-    transparent 30%,
-    rgba(255, 215, 0, 0.3) 50%,
-    transparent 70%
-  );
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 215, 0, 0.3) 50%, transparent 70%);
   background-size: 260% 100%;
   background-position: 200% 0;
   animation: legendaryShimmer 4s linear infinite;
@@ -1927,14 +1777,7 @@
   border: 1.5px solid transparent;
   background:
     linear-gradient(var(--bg-elevated), var(--bg-elevated)) padding-box,
-    conic-gradient(
-      from 0deg,
-      #4A9EFF,
-      #BB86FC,
-      #FFD700,
-      #03DAC6,
-      #4A9EFF
-    ) border-box;
+    conic-gradient(from 0deg, #4a9eff, #bb86fc, #ffd700, #03dac6, #4a9eff) border-box;
   box-shadow:
     inset 0 0 22px rgba(0, 0, 0, 0.45),
     0 0 14px rgba(74, 158, 255, 0.3),
@@ -1947,7 +1790,9 @@
 }
 
 @keyframes rainbowSpin {
-  to { filter: hue-rotate(360deg); }
+  to {
+    filter: hue-rotate(360deg);
+  }
 }
 
 .silMystery {
@@ -2212,7 +2057,8 @@
 }
 
 @keyframes bigCardFloat {
-  0%, 100% {
+  0%,
+  100% {
     transform: rotateY(-14deg) rotateX(6deg) translateY(0);
   }
   50% {
@@ -2363,10 +2209,18 @@
 .oddsSeg {
   min-width: 10px;
 }
-.oddsSeg_common    { background: var(--rarity-common); }
-.oddsSeg_rare      { background: var(--rarity-rare, #4A9EFF); }
-.oddsSeg_epic      { background: var(--rarity-epic); }
-.oddsSeg_legendary { background: var(--rarity-legendary); }
+.oddsSeg_common {
+  background: var(--rarity-common);
+}
+.oddsSeg_rare {
+  background: var(--rarity-rare, #4a9eff);
+}
+.oddsSeg_epic {
+  background: var(--rarity-epic);
+}
+.oddsSeg_legendary {
+  background: var(--rarity-legendary);
+}
 
 /* ---------- "What You Could Pull" section ---------- */
 
@@ -2497,9 +2351,15 @@
   z-index: 0;
 }
 
-.packCard_premium { --pack-shadow: rgba(187, 134, 252, 0.7); }
-.packCard_starter { --pack-shadow: rgba(3, 218, 198, 0.65); }
-.packCard_legendary { --pack-shadow: rgba(255, 215, 0, 0.7); }
+.packCard_premium {
+  --pack-shadow: rgba(187, 134, 252, 0.7);
+}
+.packCard_starter {
+  --pack-shadow: rgba(3, 218, 198, 0.65);
+}
+.packCard_legendary {
+  --pack-shadow: rgba(255, 215, 0, 0.7);
+}
 
 /* Legendary hero: keep the inner image/info split balanced (1fr 1fr); the
    outer heroGrid is what gives the foil its larger absolute footprint
@@ -2519,8 +2379,12 @@
   line-height: 1.1;
 }
 
-.packCardName_premium { color: var(--accent-secondary); }
-.packCardName_starter { color: var(--accent-primary); }
+.packCardName_premium {
+  color: var(--accent-secondary);
+}
+.packCardName_starter {
+  color: var(--accent-primary);
+}
 .packCardName_legendary {
   color: var(--rarity-legendary);
   text-shadow: 0 0 14px rgba(255, 215, 0, 0.3);
@@ -2771,22 +2635,15 @@
 .possibleCard_common {
   border: 1px solid rgba(158, 158, 158, 0.2);
   /* Halved from 0.16/0.04 to match the listing-card common rarity. */
-  background: linear-gradient(
-      180deg,
-      rgba(158, 158, 158, 0.08) 0%,
-      rgba(158, 158, 158, 0.02) 100%
-    ),
+  background:
+    linear-gradient(180deg, rgba(158, 158, 158, 0.08) 0%, rgba(158, 158, 158, 0.02) 100%),
     var(--bg-elevated);
 }
 
 .possibleCard_rare {
   border: 1px solid rgba(74, 158, 255, 0.3);
   background:
-    linear-gradient(
-      180deg,
-      rgba(74, 158, 255, 0.18) 0%,
-      rgba(74, 158, 255, 0.04) 100%
-    ),
+    linear-gradient(180deg, rgba(74, 158, 255, 0.18) 0%, rgba(74, 158, 255, 0.04) 100%),
     var(--bg-elevated);
   animation: rarePulse 3s ease-in-out infinite;
 }
@@ -2794,23 +2651,25 @@
 .possibleCard_epic {
   border: 1px solid rgba(187, 134, 252, 0.3);
   background:
-    linear-gradient(
-      180deg,
-      rgba(187, 134, 252, 0.18) 0%,
-      rgba(187, 134, 252, 0.04) 100%
-    ),
+    linear-gradient(180deg, rgba(187, 134, 252, 0.18) 0%, rgba(187, 134, 252, 0.04) 100%),
     var(--bg-elevated);
   box-shadow: 0 0 0px rgba(187, 134, 252, 0);
   animation: epicPulse 2.5s ease-in-out infinite;
 }
 
 @keyframes rarePulse {
-  0%, 100% { border-color: rgba(74, 158, 255, 0.3); }
-  50%      { border-color: rgba(74, 158, 255, 0.75); }
+  0%,
+  100% {
+    border-color: rgba(74, 158, 255, 0.3);
+  }
+  50% {
+    border-color: rgba(74, 158, 255, 0.75);
+  }
 }
 
 @keyframes epicPulse {
-  0%, 100% {
+  0%,
+  100% {
     border-color: rgba(187, 134, 252, 0.3);
     box-shadow: 0 0 0px rgba(187, 134, 252, 0);
   }
@@ -2829,12 +2688,7 @@
   overflow: hidden;
   border: 1px solid rgba(255, 215, 0, 0.55);
   background:
-    linear-gradient(
-      180deg,
-      rgba(255, 215, 0, 0.2) 0%,
-      rgba(255, 215, 0, 0.04) 100%
-    ),
-    var(--bg-card);
+    linear-gradient(180deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.04) 100%), var(--bg-card);
   box-shadow:
     inset 0 0 15px rgba(255, 215, 0, 0.06),
     0 0 8px rgba(255, 215, 0, 0.08);
@@ -2842,8 +2696,13 @@
 }
 
 @keyframes legendaryBorderPulse {
-  0%, 100% { border-color: rgba(255, 215, 0, 0.4); }
-  50%      { border-color: rgba(255, 215, 0, 0.7); }
+  0%,
+  100% {
+    border-color: rgba(255, 215, 0, 0.4);
+  }
+  50% {
+    border-color: rgba(255, 215, 0, 0.7);
+  }
 }
 
 /* Lift card content above the diagonal sweep layer. Scoped to legendary so
@@ -2879,11 +2738,24 @@
 }
 
 @keyframes legendaryGlisten {
-  0%   { background-position: 100% 100%; opacity: 0.4; }
-  25%  { opacity: 0.8; }
-  50%  { background-position: 0% 0%;     opacity: 1; }
-  75%  { opacity: 0.8; }
-  100% { background-position: 100% 100%; opacity: 0.4; }
+  0% {
+    background-position: 100% 100%;
+    opacity: 0.4;
+  }
+  25% {
+    opacity: 0.8;
+  }
+  50% {
+    background-position: 0% 0%;
+    opacity: 1;
+  }
+  75% {
+    opacity: 0.8;
+  }
+  100% {
+    background-position: 100% 100%;
+    opacity: 0.4;
+  }
 }
 
 /* Big "L" stand-in for legendary preview cards. Legendary skins are unique
@@ -2961,10 +2833,18 @@
 }
 
 /* Rarity text colors - shared with odds text + rate labels. */
-.rarity_common    { color: var(--rarity-common, #9E9E9E); }
-.rarity_rare      { color: var(--rarity-rare, #4A9EFF); }
-.rarity_epic      { color: var(--rarity-epic, #BB86FC); }
-.rarity_legendary { color: var(--rarity-legendary, #FFD700); }
+.rarity_common {
+  color: var(--rarity-common, #9e9e9e);
+}
+.rarity_rare {
+  color: var(--rarity-rare, #4a9eff);
+}
+.rarity_epic {
+  color: var(--rarity-epic, #bb86fc);
+}
+.rarity_legendary {
+  color: var(--rarity-legendary, #ffd700);
+}
 
 /* ---------- Responsive ---------- */
 
@@ -3096,10 +2976,6 @@
   .heroHint {
     text-align: center;
   }
-  .ticker {
-    font-size: 10px;
-    gap: var(--space-3);
-  }
   /* Buy Pack button keeps its desktop 240px width here. No `width: 100%`
      override - flex column stretching is avoided by the explicit width
      itself. Only at <=480px (block further down) does the button go
@@ -3109,7 +2985,6 @@
     justify-content: center;
   }
 }
-
 
 @media (max-width: 900px) {
   .packCard {
@@ -3289,15 +3164,22 @@
 }
 
 @keyframes tapePulse {
-  0%, 100% { opacity: 0.5; transform: scale(0.9); }
-  50%      { opacity: 1;   transform: scale(1.1); }
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 
 .tapeTitle {
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: var(--font-semibold);
-  color: var(--header-bar-text, #F0F0F0);
+  color: var(--header-bar-text, #f0f0f0);
   letter-spacing: 0.02em;
   margin: 0;
   text-transform: uppercase;
@@ -3409,8 +3291,7 @@
 .tapeHeaderRow,
 .tapeRow {
   display: grid;
-  grid-template-columns:
-    52px minmax(0, 1.3fr) 56px minmax(0, 0.9fr) minmax(0, 0.9fr) 60px 80px;
+  grid-template-columns: 52px minmax(0, 1.3fr) 56px minmax(0, 0.9fr) minmax(0, 0.9fr) 60px 80px;
   align-items: center;
   gap: 10px;
   padding: 6px 14px;
@@ -3534,16 +3415,16 @@
 /* Per-rarity tint for the rarity column text. Picks up the same hues
    as the type pill backgrounds so the row reads as colour-coded. */
 .tapeRarity_common {
-  color: #B0B0B0;
+  color: #b0b0b0;
 }
 .tapeRarity_rare {
-  color: #4A9EFF;
+  color: #4a9eff;
 }
 .tapeRarity_epic {
-  color: #BB86FC;
+  color: #bb86fc;
 }
 .tapeRarity_legendary {
-  color: #FFD700;
+  color: #ffd700;
 }
 
 .tapeSeller,
@@ -3672,16 +3553,8 @@
   min-height: 580px;
   max-height: 90vh;
   background:
-    radial-gradient(
-      ellipse at top,
-      rgba(255, 255, 255, 0.04) 0%,
-      transparent 55%
-    ),
-    linear-gradient(
-      180deg,
-      var(--bg-secondary) 0%,
-      var(--bg-primary) 100%
-    ) !important;
+    radial-gradient(ellipse at top, rgba(255, 255, 255, 0.04) 0%, transparent 55%),
+    linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%) !important;
   border: none !important;
   border-radius: var(--radius-xl);
   box-shadow:
@@ -3854,8 +3727,8 @@
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--glow-color, #03DAC6) 22%, transparent) 0%,
-    color-mix(in srgb, var(--glow-color, #03DAC6) 8%, transparent) 35%,
+    color-mix(in srgb, var(--glow-color, #03dac6) 22%, transparent) 0%,
+    color-mix(in srgb, var(--glow-color, #03dac6) 8%, transparent) 35%,
     transparent 70%
   );
   filter: blur(28px);
@@ -3866,7 +3739,8 @@
 }
 
 @keyframes flowPackBreathe {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.55;
     transform: translate(-50%, -50%) scale(0.92);
   }
@@ -3914,26 +3788,48 @@
   /* Pure horizontal translate (Y stays at -50%). Amplitude ramps from
      ±0.5px → ±5px over 1s. No scale, no Y component - the pack stays
      the EXACT same size and only shakes side-to-side. */
-  0%   { transform: translate(calc(-50% + 0px),    -50%); }
-  10%  { transform: translate(calc(-50% - 0.5px),  -50%); }
-  20%  { transform: translate(calc(-50% + 0.8px),  -50%); }
-  30%  { transform: translate(calc(-50% - 1.2px),  -50%); }
-  40%  { transform: translate(calc(-50% + 1.7px),  -50%); }
-  50%  { transform: translate(calc(-50% - 2.3px),  -50%); }
-  60%  { transform: translate(calc(-50% + 3px),    -50%); }
-  70%  { transform: translate(calc(-50% - 3.7px),  -50%); }
-  80%  { transform: translate(calc(-50% + 4.4px),  -50%); }
-  90%  { transform: translate(calc(-50% - 4.8px),  -50%); }
-  100% { transform: translate(calc(-50% + 5px),    -50%); }
+  0% {
+    transform: translate(calc(-50% + 0px), -50%);
+  }
+  10% {
+    transform: translate(calc(-50% - 0.5px), -50%);
+  }
+  20% {
+    transform: translate(calc(-50% + 0.8px), -50%);
+  }
+  30% {
+    transform: translate(calc(-50% - 1.2px), -50%);
+  }
+  40% {
+    transform: translate(calc(-50% + 1.7px), -50%);
+  }
+  50% {
+    transform: translate(calc(-50% - 2.3px), -50%);
+  }
+  60% {
+    transform: translate(calc(-50% + 3px), -50%);
+  }
+  70% {
+    transform: translate(calc(-50% - 3.7px), -50%);
+  }
+  80% {
+    transform: translate(calc(-50% + 4.4px), -50%);
+  }
+  90% {
+    transform: translate(calc(-50% - 4.8px), -50%);
+  }
+  100% {
+    transform: translate(calc(-50% + 5px), -50%);
+  }
 }
 
 @keyframes flowExplode {
-  0%   {
+  0% {
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
     filter: brightness(1.5);
   }
-  25%  {
+  25% {
     transform: translate(-50%, -50%) scale(1.35);
     opacity: 0.85;
     filter: brightness(2.8);
@@ -3961,9 +3857,9 @@
   background: radial-gradient(
     circle,
     rgba(255, 255, 255, 0.95) 0%,
-    color-mix(in srgb, var(--glow-color, #03DAC6) 80%, white) 18%,
-    var(--glow-color, #03DAC6) 38%,
-    color-mix(in srgb, var(--glow-color, #03DAC6) 35%, transparent) 65%,
+    color-mix(in srgb, var(--glow-color, #03dac6) 80%, white) 18%,
+    var(--glow-color, #03dac6) 38%,
+    color-mix(in srgb, var(--glow-color, #03dac6) 35%, transparent) 65%,
     transparent 92%
   );
   filter: blur(8px) brightness(1.8) saturate(1.5);
@@ -3980,19 +3876,47 @@
 @keyframes flowOrbGrow {
   /* Tiny invisible spark → bright neon ball. Growing through the rumble
      so the user feels energy building inside the pack. */
-  0%   { opacity: 0;    transform: translate(-50%, -50%) scale(0.05); filter: blur(4px) brightness(1.5) saturate(1.4); }
-  30%  { opacity: 0.45; transform: translate(-50%, -50%) scale(0.28); filter: blur(6px) brightness(1.7) saturate(1.5); }
-  60%  { opacity: 0.8;  transform: translate(-50%, -50%) scale(0.55); filter: blur(8px) brightness(2)   saturate(1.6); }
-  100% { opacity: 1;    transform: translate(-50%, -50%) scale(1);    filter: blur(10px) brightness(2.4) saturate(1.7); }
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.05);
+    filter: blur(4px) brightness(1.5) saturate(1.4);
+  }
+  30% {
+    opacity: 0.45;
+    transform: translate(-50%, -50%) scale(0.28);
+    filter: blur(6px) brightness(1.7) saturate(1.5);
+  }
+  60% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(0.55);
+    filter: blur(8px) brightness(2) saturate(1.6);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(10px) brightness(2.4) saturate(1.7);
+  }
 }
 
 @keyframes flowOrbExplode {
   /* The orb bursts outward, brightness peaking, then fades as it expands
      past the modal. Combined with .flowBurst + .flowFog this reads as
      "ball of electricity blowing apart into light and mist". */
-  0%   { opacity: 1; transform: translate(-50%, -50%) scale(1);   filter: blur(10px) brightness(2.4) saturate(1.7); }
-  30%  { opacity: 1; transform: translate(-50%, -50%) scale(2.5); filter: blur(20px) brightness(3.1) saturate(1.5); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(4.6); filter: blur(32px) brightness(1) saturate(1); }
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(10px) brightness(2.4) saturate(1.7);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(2.5);
+    filter: blur(20px) brightness(3.1) saturate(1.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(4.6);
+    filter: blur(32px) brightness(1) saturate(1);
+  }
 }
 
 .flowCards {
@@ -4072,9 +3996,9 @@
   background: radial-gradient(
     circle,
     rgba(255, 255, 255, 0.98) 0%,
-    color-mix(in srgb, var(--glow-color, #FFD700) 85%, white) 10%,
-    var(--glow-color, #FFD700) 28%,
-    color-mix(in srgb, var(--glow-color, #FFD700) 30%, transparent) 55%,
+    color-mix(in srgb, var(--glow-color, #ffd700) 85%, white) 10%,
+    var(--glow-color, #ffd700) 28%,
+    color-mix(in srgb, var(--glow-color, #ffd700) 30%, transparent) 55%,
     transparent 82%
   );
   filter: blur(6px);
@@ -4085,11 +4009,31 @@
 }
 
 @keyframes flowBurst {
-  0%   { opacity: 0;   transform: scale(0.3); filter: blur(2px) brightness(2.4); }
-  15%  { opacity: 1;   transform: scale(1.1); filter: blur(2px) brightness(2.8); }
-  35%  { opacity: 1;   transform: scale(1.85); filter: blur(8px) brightness(1.9); }
-  70%  { opacity: 0.45; transform: scale(3.3); filter: blur(14px) brightness(1.2); }
-  100% { opacity: 0;   transform: scale(4.8); filter: blur(20px) brightness(1); }
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+    filter: blur(2px) brightness(2.4);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.1);
+    filter: blur(2px) brightness(2.8);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.85);
+    filter: blur(8px) brightness(1.9);
+  }
+  70% {
+    opacity: 0.45;
+    transform: scale(3.3);
+    filter: blur(14px) brightness(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(4.8);
+    filter: blur(20px) brightness(1);
+  }
 }
 
 /* Shiny white mist that blows outward as the burst peaks. High peak
@@ -4097,14 +4041,13 @@
 .flowFog {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(
-      ellipse 70% 60% at center,
-      rgba(255, 255, 255, 0.6) 0%,
-      rgba(255, 255, 255, 0.28) 22%,
-      rgba(255, 255, 255, 0.08) 45%,
-      transparent 75%
-    );
+  background: radial-gradient(
+    ellipse 70% 60% at center,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.28) 22%,
+    rgba(255, 255, 255, 0.08) 45%,
+    transparent 75%
+  );
   pointer-events: none;
   z-index: 5;
   opacity: 0;
@@ -4112,10 +4055,22 @@
 }
 
 @keyframes flowFog {
-  0%   { opacity: 0;   transform: scale(0.6); }
-  20%  { opacity: 1;   transform: scale(1.1); }
-  60%  { opacity: 0.4; transform: scale(1.55); }
-  100% { opacity: 0;   transform: scale(1.95); }
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  60% {
+    opacity: 0.4;
+    transform: scale(1.55);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.95);
+  }
 }
 
 /* Stage 1 price block. Subtle rule-line top + bottom, "PRICE" label
@@ -4597,7 +4552,6 @@
   gap: 6px;
 }
 
-
 .purchaseCta:hover:not(:disabled) {
   filter: brightness(1.1);
 }
@@ -4688,33 +4642,65 @@
 }
 
 @keyframes purchaseOverlayIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes purchaseModalIn {
-  from { opacity: 0; transform: scale(0.9); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes purchaseFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 @keyframes purchaseGlowPulse {
-  from { opacity: 1; transform: scale(0); }
-  to { opacity: 0; transform: scale(2); }
+  from {
+    opacity: 1;
+    transform: scale(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2);
+  }
 }
 
 @keyframes purchasePulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 @keyframes purchaseFadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Tablet: tighter max-width per spec. */
@@ -5370,9 +5356,15 @@
   opacity: 1;
 }
 
-.chestFrame_teal   { --chest-glow: rgba(3, 218, 198, 1); }
-.chestFrame_purple { --chest-glow: rgba(187, 134, 252, 1); }
-.chestFrame_gold   { --chest-glow: rgba(255, 215, 0, 1); }
+.chestFrame_teal {
+  --chest-glow: rgba(3, 218, 198, 1);
+}
+.chestFrame_purple {
+  --chest-glow: rgba(187, 134, 252, 1);
+}
+.chestFrame_gold {
+  --chest-glow: rgba(255, 215, 0, 1);
+}
 
 /* Best-value tile: bigger and softer gold puddle so option 6 reads
    even more premium than the standard-gold option 5. */
@@ -5910,11 +5902,11 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
-      "topRow      topRow"
-      "filters     search"
-      "viewToggle  viewToggle"
-      "content     content"
-      "salesTape   salesTape";
+      'topRow      topRow'
+      'filters     search'
+      'viewToggle  viewToggle'
+      'content     content'
+      'salesTape   salesTape';
     column-gap: var(--space-3);
     row-gap: var(--space-4);
   }
@@ -5949,8 +5941,8 @@
   .page:has(.bodyPacks) {
     grid-template-columns: 1fr;
     grid-template-areas:
-      "topRow"
-      "content";
+      'topRow'
+      'content';
   }
   .bodyPacks {
     display: block;
@@ -6014,7 +6006,7 @@
   .topRow {
     display: grid;
     grid-template-columns: auto 1fr;
-    grid-template-areas: "tabs btn";
+    grid-template-areas: 'tabs btn';
     gap: var(--space-2);
     align-items: center;
   }
@@ -6310,9 +6302,6 @@
     line-height: 1.4;
   }
   .oddsText {
-    font-size: 9px;
-  }
-  .tickerLive {
     font-size: 9px;
   }
 }

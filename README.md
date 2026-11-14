@@ -247,6 +247,8 @@ Seeded demo state: on 2026-11-14 the operator minted a showcase kit to one accou
 Not in this build:
 
 - Most page copy is the baseline's. The Guide and FAQ were updated to this build's facts (Season 1 dates, skin supply, the wallet). [SPEC.md](SPEC.md) section 11 lists the page work that was deferred.
+- The marketplace's Get Volts tab is carried over from the prototype and its buttons buy nothing. In this build, Volts come from races.
+- The contract's rating formula takes `32 * E` from the loser, where `E` is the winner's expected score, instead of `32 * (1 - E)`. When the favourite wins, the loser loses more than the winner gains, and drones that lose often drift to negative ratings. The fix is a contract upgrade after the hackathon ([HANDOFF.md](HANDOFF.md), known issues).
 - No Pusher event is sent; pages poll ([SPEC.md](SPEC.md) section 9). No email sign-in. No post-race skin drop and no milestone drones ([DECISIONS.md](DECISIONS.md) 2.39, 5.34).
 
 ## 6. What is on chain and what is not

@@ -189,13 +189,6 @@ function pickModPreviewSamples(packId) {
   return samples;
 }
 
-// Live ticker - a hardcoded sample pull. Uses a real seeded username
-// (MKT_ORBIT) so the text looks plausible, not fabricated.
-const LIVE_TICKER = {
-  packsOpenedToday: 2369,
-  lastPull: { username: 'MKT_ORBIT', rarity: 'legendary', name: 'Mach Zero' },
-};
-
 /** Points purchase options for the GET POINTS tab. 3 visual tiers
  *  (teal / purple / gold), 6 packs total. Bonus % scales nonlinearly
  *  to nudge bigger purchases. All buttons stay disabled until token-
@@ -1885,7 +1878,6 @@ function PacksShowcase({ userPoints, openingId, onOpen, onOpenCapsule }) {
           Mods
         </button>
       </div>
-      <LiveTicker />
       {packsView === 'skins' ? (
         <>
           <LegendaryHero {...packProps(legendary)} />
@@ -1903,31 +1895,6 @@ function PacksShowcase({ userPoints, openingId, onOpen, onOpenCapsule }) {
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-/* Thin activity strip at the top - LIVE dot + packs-opened-today + latest
-   legendary pull. Hardcoded for now; wire to real data later. */
-function LiveTicker() {
-  const t = LIVE_TICKER;
-  return (
-    <div className={styles.ticker} role="status" aria-live="polite">
-      <span className={styles.tickerLive}>
-        <span className={styles.tickerDot} aria-hidden="true" />
-        Live
-      </span>
-      <span className={styles.tickerMetric}>
-        <strong>{t.packsOpenedToday.toLocaleString()}</strong> packs opened today
-      </span>
-      <span className={styles.tickerSep} aria-hidden="true" />
-      <span className={styles.tickerPull}>
-        <strong className={styles.tickerUser}>{t.lastPull.username}</strong>
-        <span className={styles.tickerPullText}> pulled </span>
-        <span className={cn(styles.tickerPullRarity, styles[`rarity_${t.lastPull.rarity}`])}>
-          Legendary: {t.lastPull.name}
-        </span>
-      </span>
     </div>
   );
 }
