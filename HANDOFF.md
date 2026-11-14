@@ -2,6 +2,18 @@
 
 One entry per task run, newest first. Each entry: date, task id, what changed (files), what was verified (commands and results), what is open. The MegaETH-era log is in docs/archive/HANDOFF-megaeth.md.
 
+## 2026-11-14 T30 Marketplace ticker removed, two README disclosures
+
+- What it is: the user's pre-submission fix, after `main` was frozen and tagged and before the form was sent.
+- Changed:
+  - `app/marketplace/page.jsx`: the `LiveTicker` component, its `LIVE_TICKER` constant and its use on the Packs tab are removed. It showed fixed values under a "Live" label (2,369 packs opened today, MKT_ORBIT pulled Mach Zero). Nothing else on the page changes; the packs sit where the strip was.
+  - `app/marketplace/page.module.css`: the ticker's rules are removed (the block, its keyframes and two media-query overrides). The file was baseline and unformatted, so touching it brought it into the format ratchet: the rest of its diff is Prettier whitespace, applied by the pre-commit hook.
+  - `README.md` section 5, "Not in this build": one line on the Get Volts tab (carried over from the prototype, its buttons buy nothing, Volts come from races) and one line on the rating formula (below).
+- Known issues:
+  - Ratings are not zero-sum, the cause of the negative ratings noted under T29. `elo_deltas` in `contracts/hyperdrome/src/math.rs` takes `32 * E` from the loser, `E` being the winner's expected score, where the loser should lose `32 * (1 - E)`, the winner's gain. SPEC 2.3 (the ELO row) states the same formula, so the contract matches SPEC and both are wrong. When the favourite wins, the loser loses more than the winner gains. The fix is a contract upgrade with a SPEC change, after the hackathon; nothing in the contract or SPEC was changed here.
+- Verified: `npm run lint`, `typecheck` exit 0; `npm test` on a fresh migrated Postgres, 47 files passed, 1 skipped, 347 tests passed, 1 skipped (the counts README section 2 quotes); `npm run format:check` failed once on the stylesheet, then passed after formatting; `npm run build` exit 0 on the final tree. No cargo run (no contract change). Browser, headless Firefox against `next build` and `next start`, signed in with Play Demo: the marketplace's Drones, Mods, Skins, Packs (Skins and Mods views) and Volts tabs at 1440 and 390, no horizontal overflow in any, and no ticker text. The sign-in created one demo account on Neon dev.
+- Open: the `hackathon-submission` tag moves to the merge commit of this PR (the user's instruction).
+
 ## 2026-11-14 T29 Showcase seed (PR #61)
 
 - What it is: the user's brief before the submission freeze. The hosted demo had one human account and no skin above common minted. `scripts/seed-showcase.mjs` mints a showcase kit to the operator's account and seeds marketplace listings and racing drones from 4 pilot accounts, through the existing bootstrap and action paths. No contract change.
