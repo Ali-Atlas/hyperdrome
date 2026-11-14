@@ -242,6 +242,8 @@ Crates, as declared in [contracts/hyperdrome/Cargo.toml](contracts/hyperdrome/Ca
 
 Tools: Rust 1.93.0, cargo-near 0.22.0, near-cli-rs 0.30.1 (deploys and owner calls from the command line), Node 24, gitleaks 8.30.1. Services: Vercel (hosting), Neon (Postgres), dRPC and FastNear (RPC), NearBlocks (explorer links), Google (OAuth), cron-job.org (one job calls the scheduler route every minute, and each 3-minute slot is raced once; a second job checks the health route every 5 minutes).
 
+Seeded demo state: on 2026-11-14 the operator minted a showcase kit to one account and seeded marketplace listings from 4 pilot accounts, each of which also races one drone, with [scripts/seed-showcase.mjs](scripts/seed-showcase.mjs) ([SPEC.md](SPEC.md) section 6; the transactions are in [HANDOFF.md](HANDOFF.md)).
+
 Not in this build:
 
 - Most page copy is the baseline's. The Guide and FAQ were updated to this build's facts (Season 1 dates, skin supply, the wallet). [SPEC.md](SPEC.md) section 11 lists the page work that was deferred.
