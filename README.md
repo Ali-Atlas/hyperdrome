@@ -49,7 +49,7 @@ initdb -D tmp/pg -U ci --auth=trust
 pg_ctl -D tmp/pg -o "-p 54329 -c unix_socket_directories=''" -l tmp/pg.log -w start
 createdb -h 127.0.0.1 -p 54329 -U ci ci
 DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm run db:migrate
-DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm test   # 45 files passed, 1 skipped; 336 tests passed, 1 skipped
+DATABASE_URL=postgresql://ci@127.0.0.1:54329/ci npm test   # 47 files passed, 1 skipped; 347 tests passed, 1 skipped
 pg_ctl -D tmp/pg stop
 ```
 
@@ -241,6 +241,8 @@ Crates, as declared in [contracts/hyperdrome/Cargo.toml](contracts/hyperdrome/Ca
 | testresult              | 0.4.1 (0.4.2) | Test error type (dev)                           |
 
 Tools: Rust 1.93.0, cargo-near 0.22.0, near-cli-rs 0.30.1 (deploys and owner calls from the command line), Node 24, gitleaks 8.30.1. Services: Vercel (hosting), Neon (Postgres), dRPC and FastNear (RPC), NearBlocks (explorer links), Google (OAuth), cron-job.org (one job calls the scheduler route every minute, and each 3-minute slot is raced once; a second job checks the health route every 5 minutes).
+
+Seeded demo state: on 2026-11-14 the operator minted a showcase kit to one account and seeded marketplace listings from 4 pilot accounts, each of which also races one drone, with [scripts/seed-showcase.mjs](scripts/seed-showcase.mjs) ([SPEC.md](SPEC.md) section 6; the transactions are in [HANDOFF.md](HANDOFF.md)).
 
 Not in this build:
 
